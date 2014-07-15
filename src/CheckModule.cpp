@@ -1,0 +1,355 @@
+/* Copyright (C) 2014 Carl Leonardsson
+ *
+ * This file is part of Nidhugg.
+ *
+ * Nidhugg is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Nidhugg is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see
+ * <http://www.gnu.org/licenses/>.
+ */
+
+#include "CheckModule.h"
+
+#ifdef LLVM_INCLUDE_IR
+#include <llvm/IR/LLVMContext.h>
+#else
+#include <llvm/LLVMContext.h>
+#endif
+#include <llvm/Support/Debug.h>
+#include <llvm/Support/raw_ostream.h>
+
+#include <set>
+
+void CheckModule::check_functions(const llvm::Module *M){
+  check_pthread_create(M);
+  check_pthread_join(M);
+  check_pthread_self(M);
+  check_pthread_exit(M);
+  check_pthread_mutex_init(M);
+  check_pthread_mutex_lock(M);
+  check_pthread_mutex_unlock(M);
+  check_pthread_mutex_destroy(M);
+  check_malloc(M);
+  check_nondet_int(M);
+  check_assume(M);
+  std::set<std::string> supported =
+    {"pthread_create",
+     "pthread_join",
+     "pthread_self",
+     "pthread_exit",
+     "pthread_mutex_init",
+     "pthread_mutex_lock",
+     "pthread_mutex_unlock",
+     "pthread_mutex_destroy"};
+  for(auto it = M->getFunctionList().begin(); it != M->getFunctionList().end(); ++it){
+    if(it->getName().startswith("pthread_") &&
+       supported.count(it->getName()) == 0){
+      throw CheckModuleError(("Unsupported pthread function: "+it->getName()).str());
+    }
+  }
+};
+
+void CheckModule::check_pthread_create(const llvm::Module *M){
+  std::string _err;
+  llvm::raw_string_ostream err(_err);
+  llvm::Function *pthread_create = M->getFunction("pthread_create");
+  if(pthread_create){
+    if(!pthread_create->getReturnType()->isIntegerTy()){
+      err << "pthread_create returns non-integer type: "
+          << *pthread_create->getReturnType();
+      throw CheckModuleError(err.str());
+    }
+    if(pthread_create->getArgumentList().size() != 4){
+      err << "pthread_create takes wrong number of arguments ("
+          << pthread_create->getArgumentList().size() << ")";
+      throw CheckModuleError(err.str());
+    }
+    if(!pthread_create->arg_begin()->getType()->isPointerTy()){
+      err << "First argument of pthread_create is non-pointer type: "
+          << *pthread_create->arg_begin()->getType();
+      throw CheckModuleError(err.str());
+    }
+    llvm::Type *ty0e = static_cast<llvm::PointerType*>(pthread_create->arg_begin()->getType())->getElementType();
+    if(!ty0e->isIntegerTy()){
+      err << "First argument of pthread_create is pointer to non-integer type: "
+          << *ty0e;
+      throw CheckModuleError(err.str());
+    }
+    llvm::Type *vpty = llvm::Type::getInt8PtrTy(llvm::getGlobalContext());
+    llvm::Type *fty = llvm::FunctionType::get(vpty,{vpty},false)->getPointerTo();
+    llvm::Type *arg2_ty, *arg3_ty;
+    {
+      auto it = pthread_create->arg_begin();
+      arg2_ty = (++++it)->getType();
+      arg3_ty = (++it)->getType();
+    }
+    if(arg2_ty != fty){
+      err << "Third argument of pthread_create has wrong type: " << *arg2_ty
+          << ", should be " << *fty;
+      throw CheckModuleError(err.str());
+    }
+    if(arg3_ty != vpty){
+      err << "Fourth argument of pthread_create has wrong type: " << *arg3_ty
+          << ", should be " << *vpty;
+      throw CheckModuleError(err.str());
+    }
+  };
+};
+
+void CheckModule::check_pthread_join(const llvm::Module *M){
+  std::string _err;
+  llvm::raw_string_ostream err(_err);
+  llvm::Function *pthread_join = M->getFunction("pthread_join");
+  if(pthread_join){
+    if(!pthread_join->getReturnType()->isIntegerTy()){
+      err << "pthread_join returns non-integer type: "
+          << *pthread_join->getReturnType();
+      throw CheckModuleError(err.str());
+    }
+    if(pthread_join->getArgumentList().size() != 2){
+      err << "pthread_join takes wrong number of arguments ("
+          << pthread_join->getArgumentList().size() << ")";
+      throw CheckModuleError(err.str());
+    }
+    llvm::Type *arg0_ty, *arg1_ty;
+    {
+      auto it = pthread_join->arg_begin();
+      arg0_ty = it->getType();
+      arg1_ty = (++it)->getType();
+    }
+    if(!arg0_ty->isIntegerTy()){
+      err << "First argument of pthread_join is non-integer type: " << *arg0_ty;
+      throw CheckModuleError(err.str());
+    }
+    llvm::Type *arg1_ty_expected =
+      llvm::Type::getInt8PtrTy(llvm::getGlobalContext())->getPointerTo();
+    if(arg1_ty != arg1_ty_expected){
+      err << "Second argument of pthread_join has wrong type: "
+          << *arg1_ty << ", should be " << *arg1_ty_expected;
+      throw CheckModuleError(err.str());
+    }
+  }
+};
+
+void CheckModule::check_pthread_self(const llvm::Module *M){
+  std::string _err;
+  llvm::raw_string_ostream err(_err);
+  llvm::Function *pthread_self = M->getFunction("pthread_self");
+  if(pthread_self){
+    if(!pthread_self->getReturnType()->isIntegerTy()){
+      err << "pthread_self returns non-integer type: "
+          << *pthread_self->getReturnType();
+      throw CheckModuleError(err.str());
+    }
+    if(pthread_self->getArgumentList().size()){
+      err << "pthread_self takes arguments. Should not take any.";
+      throw CheckModuleError(err.str());
+    }
+  }
+};
+
+
+void CheckModule::check_pthread_exit(const llvm::Module *M){
+  std::string _err;
+  llvm::raw_string_ostream err(_err);
+  llvm::Function *pthread_exit = M->getFunction("pthread_exit");
+  if(pthread_exit){
+    if(!pthread_exit->getReturnType()->isVoidTy()){
+      err << "pthread_exit returns non-void type: "
+          << *pthread_exit->getReturnType();
+      throw CheckModuleError(err.str());
+    }
+    if(pthread_exit->getArgumentList().size() != 1){
+      err << "pthread_exit takes wrong number of arguments ("
+          << pthread_exit->getArgumentList().size() << ")";
+      throw CheckModuleError(err.str());
+    }
+    llvm::Type *ty = pthread_exit->arg_begin()->getType(),
+      *ty_expected = llvm::Type::getInt8PtrTy(llvm::getGlobalContext());
+    if(ty != ty_expected){
+      err << "Argument of pthread_exit has wrong type: "
+          << *ty << ", should be " << *ty_expected;
+      throw CheckModuleError(err.str());
+    }
+  }
+};
+
+void CheckModule::check_pthread_mutex_init(const llvm::Module *M){
+  std::string _err;
+  llvm::raw_string_ostream err(_err);
+  llvm::Function *F = M->getFunction("pthread_mutex_init");
+  if(F){
+    if(!F->getReturnType()->isIntegerTy()){
+      err << "pthread_mutex_init returns non-integer type: "
+          << *F->getReturnType();
+      throw CheckModuleError(err.str());
+    }
+    if(F->getArgumentList().size() != 2){
+      err << "pthread_mutex_init takes wrong number of arguments ("
+          << F->getArgumentList().size() << ")";
+      throw CheckModuleError(err.str());
+    }
+    llvm::Type *arg0ty, *arg1ty;
+    {
+      auto it = F->arg_begin();
+      arg0ty = it->getType();
+      arg1ty = (++it)->getType();
+    }
+    if(!arg0ty->isPointerTy()){
+      err << "First argument of pthread_mutex_init has non-pointer type: "
+          << *arg0ty;
+      throw CheckModuleError(err.str());
+    }
+    if(!arg1ty->isPointerTy()){
+      err << "Second argument of pthread_mutex_init has non-pointer type: "
+          << *arg1ty;
+      throw CheckModuleError(err.str());
+    }
+  }
+};
+
+void CheckModule::check_pthread_mutex_lock(const llvm::Module *M){
+  std::string _err;
+  llvm::raw_string_ostream err(_err);
+  llvm::Function *F = M->getFunction("pthread_mutex_lock");
+  if(F){
+    if(!F->getReturnType()->isIntegerTy()){
+      err << "pthread_mutex_lock returns non-integer type: "
+          << *F->getReturnType();
+      throw CheckModuleError(err.str());
+    }
+    if(F->getArgumentList().size() != 1){
+      err << "pthread_mutex_lock takes wrong number of arguments ("
+          << F->getArgumentList().size() << ")";
+      throw CheckModuleError(err.str());
+    }
+    llvm::Type *arg0ty = F->arg_begin()->getType();
+    if(!arg0ty->isPointerTy()){
+      err << "First argument of pthread_mutex_lock has non-pointer type: "
+          << *arg0ty;
+      throw CheckModuleError(err.str());
+    }
+  }
+};
+
+void CheckModule::check_pthread_mutex_unlock(const llvm::Module *M){
+  std::string _err;
+  llvm::raw_string_ostream err(_err);
+  llvm::Function *F = M->getFunction("pthread_mutex_unlock");
+  if(F){
+    if(!F->getReturnType()->isIntegerTy()){
+      err << "pthread_mutex_unlock returns non-integer type: "
+          << *F->getReturnType();
+      throw CheckModuleError(err.str());
+    }
+    if(F->getArgumentList().size() != 1){
+      err << "pthread_mutex_unlock takes wrong number of arguments ("
+          << F->getArgumentList().size() << ")";
+      throw CheckModuleError(err.str());
+    }
+    llvm::Type *arg0ty = F->arg_begin()->getType();
+    if(!arg0ty->isPointerTy()){
+      err << "First argument of pthread_mutex_unlock has non-pointer type: "
+          << *arg0ty;
+      throw CheckModuleError(err.str());
+    }
+  }
+};
+
+void CheckModule::check_pthread_mutex_destroy(const llvm::Module *M){
+  std::string _err;
+  llvm::raw_string_ostream err(_err);
+  llvm::Function *F = M->getFunction("pthread_mutex_destroy");
+  if(F){
+    if(!F->getReturnType()->isIntegerTy()){
+      err << "pthread_mutex_destroy returns non-integer type: "
+          << *F->getReturnType();
+      throw CheckModuleError(err.str());
+    }
+    if(F->getArgumentList().size() != 1){
+      err << "pthread_mutex_destroy takes wrong number of arguments ("
+          << F->getArgumentList().size() << ")";
+      throw CheckModuleError(err.str());
+    }
+    llvm::Type *arg0ty = F->arg_begin()->getType();
+    if(!arg0ty->isPointerTy()){
+      err << "First argument of pthread_mutex_destroy has non-pointer type: "
+          << *arg0ty;
+      throw CheckModuleError(err.str());
+    }
+  }
+};
+
+void CheckModule::check_malloc(const llvm::Module *M){
+  std::string _err;
+  llvm::raw_string_ostream err(_err);
+  llvm::Function *F = M->getFunction("malloc");
+  if(F){
+    if(!F->getReturnType()->isPointerTy()){
+      err << "malloc returns non-pointer type: "
+          << *F->getReturnType();
+      throw CheckModuleError(err.str());
+    }
+  }
+};
+
+namespace CheckModule {
+
+  static void check_nondet_int(const llvm::Module *M, const std::string &name){
+    std::string _err;
+    llvm::raw_string_ostream err(_err);
+    llvm::Function *F = M->getFunction(name);
+    if(F){
+      if(!F->getReturnType()->isIntegerTy()){
+        err << name << " returns non-integer type: "
+            << *F->getReturnType();
+        throw CheckModuleError(err.str());
+      }
+    }
+  };
+
+  static void check_assume(const llvm::Module *M, const std::string &name){
+    std::string _err;
+    llvm::raw_string_ostream err(_err);
+    llvm::Function *F = M->getFunction(name);
+    if(F){
+      if(!F->getReturnType()->isVoidTy()){
+        err << name << " has non-void return type: "
+            << *F->getReturnType();
+        throw CheckModuleError(err.str());
+      }
+      if(F->getArgumentList().size() != 1){
+        err << name << " takes wrong number of arguments ("
+            << F->getArgumentList().size() << ")";
+        throw CheckModuleError(err.str());
+      }
+      if(!F->arg_begin()->getType()->isIntegerTy()){
+        err << "First argument of " << name << " has non-integer type: "
+            << *F->arg_begin()->getType();
+        throw CheckModuleError(err.str());
+      }
+    }
+  };
+
+};
+
+void CheckModule::check_nondet_int(const llvm::Module *M){
+  check_nondet_int(M,"nondet_int");
+  check_nondet_int(M,"__VERIFIER_nondet_int");
+  check_nondet_int(M,"nondet_uint");
+  check_nondet_int(M,"__VERIFIER_nondet_uint");
+};
+
+void CheckModule::check_assume(const llvm::Module *M){
+  check_assume(M,"assume");
+  check_assume(M,"__VERIFIER_assume");
+};

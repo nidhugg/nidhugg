@@ -1,6 +1,9 @@
 *~
 *.o
+*.log
+*.trs
 src/nidhugg
+src/unittest
 Makefile
 Makefile.in
 aclocal.m4
@@ -20,3 +23,4 @@ src/.deps
 src/Makefile
 src/Makefile.in
 stamp-*
+test-driver
