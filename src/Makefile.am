@@ -4,6 +4,7 @@ libnidhugg_a_SOURCES = \
   Configuration.cpp \
   CPid.cpp \
   Debug.cpp \
+  Trace.cpp \
   VClock.cpp
 libnidhugg_a_CXXFLAGS = -fno-rtti
 
