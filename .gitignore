@@ -4,9 +4,11 @@
 *.trs
 src/nidhugg
 src/unittest
+src/libnidhugg.a
 Makefile
 Makefile.in
 aclocal.m4
+ar-lib
 autom4te.cache
 compile
 config.guess

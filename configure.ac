@@ -8,6 +8,8 @@ AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 AC_PROG_CXX
 AC_PROG_CC
+AC_PROG_RANLIB
+AM_PROG_AR
 
 AC_LANG([C++])
 
@@ -41,83 +43,96 @@ AC_ARG_ENABLE([asserts],
 if test "x$BOOST_UNIT_TEST_FRAMEWORK_LIB" != "x"; then
   AC_CHECK_HEADER([boost/test/unit_test.hpp],[],[AC_MSG_FAILURE([Could not find header boost/test/unit_test.hpp.])],[AC_INCLUDES_DEFAULT])
 fi
-AC_CHECK_HEADER([algorithm],[],[AC_MSG_FAILURE([Could not find header algorithm.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([cassert],[],[AC_MSG_FAILURE([Could not find header cassert.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([cctype],[],[AC_MSG_FAILURE([Could not find header cctype.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([cmath],[],[AC_MSG_FAILURE([Could not find header cmath.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([csetjmp],[],[AC_MSG_FAILURE([Could not find header csetjmp.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([csignal],[],[AC_MSG_FAILURE([Could not find header csignal.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([cstdio],[],[AC_MSG_FAILURE([Could not find header cstdio.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([cstring],[],[AC_MSG_FAILURE([Could not find header cstring.])],[AC_INCLUDES_DEFAULT])
+AC_CHECK_HEADERS([ \
+  stdlib.h \
+  sys/types.h \
+  sys/stat.h \
+  inttypes.h \
+  stdint.h \
+  algorithm \
+  cassert \
+  cctype \
+  cmath \
+  csetjmp \
+  csignal \
+  cstdio \
+  cstring \
+  fstream \
+  functional \
+  initializer_list \
+  iostream \
+  locale \
+  map \
+  ostream \
+  random \
+  set \
+  sstream \
+  stdexcept \
+  string \
+  vector \
+  llvm/ADT/APInt.h \
+  llvm/ADT/SmallString.h \
+  llvm/ADT/Statistic.h \
+  llvm/Analysis/LoopPass.h \
+  llvm/CodeGen/IntrinsicLowering.h \
+  llvm/DebugInfo.h \
+  llvm/ExecutionEngine/ExecutionEngine.h \
+  llvm/ExecutionEngine/GenericValue.h \
+  llvm/InstVisitor.h \
+  llvm/Pass.h \
+  llvm/Support/CallSite.h \
+  llvm/Support/CommandLine.h \
+  llvm/Support/DataTypes.h \
+  llvm/Support/Debug.h \
+  llvm/Support/Dwarf.h \
+  llvm/Support/DynamicLibrary.h \
+  llvm/Support/ErrorHandling.h \
+  llvm/Support/GetElementPtrTypeIterator.h \
+  llvm/Support/Host.h \
+  llvm/Support/ManagedStatic.h \
+  llvm/Support/MathExtras.h \
+  llvm/Support/MemoryBuffer.h \
+  llvm/Support/Mutex.h \
+  llvm/Support/raw_ostream.h \
+  llvm/Support/SourceMgr.h \
+  llvm/Transforms/Utils/BasicBlockUtils.h \
+  llvm/Transforms/Utils/Cloning.h
+],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
+
+if test "x$LLVM_INCLUDE_IR" = "xyes"; then
+  AC_CHECK_HEADERS([ \
+    llvm/IR/Constants.h \
+    llvm/IR/DataLayout.h \
+    llvm/IR/DerivedTypes.h \
+    llvm/IR/Function.h \
+    llvm/IR/InlineAsm.h \
+    llvm/IR/Instructions.h \
+    llvm/IR/LLVMContext.h \
+    llvm/IR/Metadata.h \
+    llvm/IR/Module.h \
+    llvm/IRReader/IRReader.h \
+    llvm/IR/Type.h
+],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
+else
+  AC_CHECK_HEADERS([ \
+    llvm/Constants.h \
+    llvm/DataLayout.h \
+    llvm/DerivedTypes.h \
+    llvm/Function.h \
+    llvm/InlineAsm.h \
+    llvm/Instructions.h \
+    llvm/LLVMContext.h \
+    llvm/Metadata.h \
+    llvm/Module.h \
+    llvm/IRReader/IRReader.h \
+    llvm/Type.h
+],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
+fi
+
 AC_CHECK_HEADERS([ffi/ffi.h],[],[
   AC_CHECK_HEADERS([ffi.h],[],[AC_MSG_FAILURE([Could not find header ffi.h.])],[AC_INCLUDES_DEFAULT])
 ],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([fstream],[],[AC_MSG_FAILURE([Could not find header fstream.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([functional],[],[AC_MSG_FAILURE([Could not find header functional.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([initializer_list],[],[AC_MSG_FAILURE([Could not find header initializer_list.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([iostream],[],[AC_MSG_FAILURE([Could not find header iostream.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/ADT/APInt.h],[],[AC_MSG_FAILURE([Could not find header llvm/ADT/APInt.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/ADT/SmallString.h],[],[AC_MSG_FAILURE([Could not find header llvm/ADT/SmallString.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/ADT/Statistic.h],[],[AC_MSG_FAILURE([Could not find header llvm/ADT/Statistic.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Analysis/LoopPass.h],[],[AC_MSG_FAILURE([Could not find header llvm/Analysis/LoopPass.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/CodeGen/IntrinsicLowering.h],[],[AC_MSG_FAILURE([Could not find header llvm/CodeGen/IntrinsicLowering.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Config/config.h],[],[AC_MSG_FAILURE([Could not find header llvm/Config/config.h])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/DebugInfo.h],[],[AC_MSG_FAILURE([Could not find header llvm/DebugInfo.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/ExecutionEngine/ExecutionEngine.h],[],[AC_MSG_FAILURE([Could not find header llvm/ExecutionEngine/ExecutionEngine.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/ExecutionEngine/GenericValue.h],[],[AC_MSG_FAILURE([Could not find header llvm/ExecutionEngine/GenericValue.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/InstVisitor.h],[],[AC_MSG_FAILURE([Could not find header llvm/InstVisitor.h.])],[AC_INCLUDES_DEFAULT])
-if test "x$LLVM_INCLUDE_IR" = "xyes"; then
-  AC_CHECK_HEADER([llvm/IR/Constants.h],[],[AC_MSG_FAILURE([Could not find header llvm/IR/Constants.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/IR/DataLayout.h],[],[AC_MSG_FAILURE([Could not find header llvm/IR/DataLayout.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/IR/DerivedTypes.h],[],[AC_MSG_FAILURE([Could not find header llvm/IR/DerivedTypes.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/IR/Function.h],[],[AC_MSG_FAILURE([Could not find header llvm/IR/Function.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/IR/InlineAsm.h],[],[AC_MSG_FAILURE([Could not find header llvm/IR/InlineAsm.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/IR/Instructions.h],[],[AC_MSG_FAILURE([Could not find header llvm/IR/Instructions.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/IR/LLVMContext.h],[],[AC_MSG_FAILURE([Could not find header llvm/IR/LLVMContext.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/IR/Metadata.h],[],[AC_MSG_FAILURE([Could not find header llvm/IR/Metadata.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/IR/Module.h],[],[AC_MSG_FAILURE([Could not find header llvm/IR/Module.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/IRReader/IRReader.h],[],[AC_MSG_FAILURE([Could not find header llvm/IRReader/IRReader.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/IR/Type.h],[],[AC_MSG_FAILURE([Could not find header llvm/IR/Type.h.])],[AC_INCLUDES_DEFAULT])
-else
-  AC_CHECK_HEADER([llvm/Constants.h],[],[AC_MSG_FAILURE([Could not find header llvm/Constants.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/DataLayout.h],[],[AC_MSG_FAILURE([Could not find header llvm/DataLayout.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/DerivedTypes.h],[],[AC_MSG_FAILURE([Could not find header llvm/DerivedTypes.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/Function.h],[],[AC_MSG_FAILURE([Could not find header llvm/Function.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/InlineAsm.h],[],[AC_MSG_FAILURE([Could not find header llvm/InlineAsm.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/Instructions.h],[],[AC_MSG_FAILURE([Could not find header llvm/Instructions.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/LLVMContext.h],[],[AC_MSG_FAILURE([Could not find header llvm/LLVMContext.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/Metadata.h],[],[AC_MSG_FAILURE([Could not find header llvm/Metadata.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/Module.h],[],[AC_MSG_FAILURE([Could not find header llvm/Module.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/IRReader/IRReader.h],[],[AC_MSG_FAILURE([Could not find header llvm/IRReader/IRReader.h.])],[AC_INCLUDES_DEFAULT])
-  AC_CHECK_HEADER([llvm/Type.h],[],[AC_MSG_FAILURE([Could not find header llvm/Type.h.])],[AC_INCLUDES_DEFAULT])
-fi
-AC_CHECK_HEADER([llvm/Pass.h],[],[AC_MSG_FAILURE([Could not find header llvm/Pass.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Support/CallSite.h],[],[AC_MSG_FAILURE([Could not find header llvm/Support/CallSite.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Support/CommandLine.h],[],[AC_MSG_FAILURE([Could not find header llvm/Support/CommandLine.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Support/DataTypes.h],[],[AC_MSG_FAILURE([Could not find header llvm/Support/DataTypes.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Support/Debug.h],[],[AC_MSG_FAILURE([Could not find header llvm/Support/Debug.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Support/Dwarf.h],[],[AC_MSG_FAILURE([Could not find header llvm/Support/Dwarf.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Support/DynamicLibrary.h],[],[AC_MSG_FAILURE([Could not find header llvm/Support/DynamicLibrary.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Support/ErrorHandling.h],[],[AC_MSG_FAILURE([Could not find header llvm/Support/ErrorHandling.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Support/GetElementPtrTypeIterator.h],[],[AC_MSG_FAILURE([Could not find header llvm/Support/GetElementPtrTypeIterator.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Support/Host.h],[],[AC_MSG_FAILURE([Could not find header llvm/Support/Host.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Support/ManagedStatic.h],[],[AC_MSG_FAILURE([Could not find header llvm/Support/ManagedStatic.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Support/MathExtras.h],[],[AC_MSG_FAILURE([Could not find header llvm/Support/MathExtras.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Support/MemoryBuffer.h],[],[AC_MSG_FAILURE([Could not find header llvm/Support/MemoryBuffer.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Support/Mutex.h],[],[AC_MSG_FAILURE([Could not find header llvm/Support/Mutex.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Support/raw_ostream.h],[],[AC_MSG_FAILURE([Could not find header llvm/Support/raw_ostream.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Support/SourceMgr.h],[],[AC_MSG_FAILURE([Could not find header llvm/Support/SourceMgr.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Transforms/Utils/BasicBlockUtils.h],[],[AC_MSG_FAILURE([Could not find header llvm/Transforms/Utils/BasicBlockUtils.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([llvm/Transforms/Utils/Cloning.h],[],[AC_MSG_FAILURE([Could not find header llvm/Transforms/Utils/Cloning.h.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([locale],[],[AC_MSG_FAILURE([Could not find header locale.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([map],[],[AC_MSG_FAILURE([Could not find header map.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([ostream],[],[AC_MSG_FAILURE([Could not find header ostream.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([random],[],[AC_MSG_FAILURE([Could not find header random.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([set],[],[AC_MSG_FAILURE([Could not find header set.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([sstream],[],[AC_MSG_FAILURE([Could not find header sstream.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([stdexcept],[],[AC_MSG_FAILURE([Could not find header stdexcept.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([string],[],[AC_MSG_FAILURE([Could not find header string.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADER([vector],[],[AC_MSG_FAILURE([Could not find header vector.])],[AC_INCLUDES_DEFAULT])
+
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_CHECK_HEADER_STDBOOL

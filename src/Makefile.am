@@ -1,24 +1,24 @@
+noinst_LIBRARIES = libnidhugg.a
+libnidhugg_a_SOURCES = \
+  CheckModule.cpp \
+  Configuration.cpp \
+  CPid.cpp \
+  Debug.cpp \
+  VClock.cpp
+libnidhugg_a_CXXFLAGS = -fno-rtti
+
 bin_PROGRAMS = nidhugg
+nidhugg_SOURCES = main.cpp
+nidhugg_LDADD = libnidhugg.a
+nidhugg_CXXFLAGS = -fno-rtti
+
 TESTS = unittest
 check_PROGRAMS = unittest
-nidhugg_SOURCES = \
-  CheckModule.cpp \
-  CPid.cpp \
-  Debug.cpp \
-  VClock.cpp \
-  main.cpp
-
 unittest_SOURCES = \
-  CheckModule.cpp \
-  CPid.cpp \
-  Debug.cpp \
-  CPid_test.cpp \
-  VClock.cpp \
   VClock_CPid_test.cpp \
   VClock_int_test.cpp \
   unittest.cpp
-
-unittest_LDADD=@BOOST_UNIT_TEST_FRAMEWORK_LIB@
+unittest_LDADD=@BOOST_UNIT_TEST_FRAMEWORK_LIB@ libnidhugg.a
 
 .PHONY: test valtest
 BOOSTTESTFLAGS=--report_level=short --log_level=warning
