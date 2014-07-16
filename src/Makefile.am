@@ -17,6 +17,7 @@ nidhugg_CXXFLAGS = -fno-rtti
 TESTS = unittest
 check_PROGRAMS = unittest
 unittest_SOURCES = \
+  CPid_test.cpp \
   VClock_CPid_test.cpp \
   VClock_int_test.cpp \
   unittest.cpp
@@ -25,7 +26,7 @@ unittest_LDADD=@BOOST_UNIT_TEST_FRAMEWORK_LIB@ libnidhugg.a
 .PHONY: test valtest
 BOOSTTESTFLAGS=--report_level=short --log_level=warning
 test: unittest
-	./unittest $(BOOSTTESTFLAGS)
+	./unittest $(BOOSTTESTFLAGS) --run_test="$(UTEST)"
 
 valtest: unittest
-	valgrind --leak-check=full ./unittest $(BOOSTTESTFLAGS) --show_progress
+	valgrind --leak-check=full ./unittest $(BOOSTTESTFLAGS) --show_progress --run_test="$(UTEST)"
