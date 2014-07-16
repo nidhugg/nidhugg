@@ -73,6 +73,7 @@ public:
       "__assert_fail"
     };
     check_robustness = false;
+    debug_collect_all_traces = false;
   };
   /* Read the switches given to the program by the user. Assign
    * configuration options accordingly.
@@ -112,6 +113,14 @@ public:
   VecSet<std::string> extfun_no_full_memory_conflict;
   /* Should we check for robustness as a correctness criterion? */
   bool check_robustness;
+  /* If set, all explored traces will be stored by DPORDriver until
+   * the end of the analysis.
+   *
+   * WARNING: This quickly grows out of hand. Should be used only
+   * for modules known to have few traces. Automated testing is the
+   * intended usage.
+   */
+  bool debug_collect_all_traces;
 
   /* The set of all commandline switches that are associated with
    * setting configuration options. This set has nothing to do with
