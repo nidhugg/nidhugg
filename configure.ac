@@ -3,6 +3,7 @@ m4_include([m4/ax_cxx_compile_stdcxx_11.m4])
 m4_include([m4/ax_boost_base.m4])
 m4_include([m4/ax_boost_unit_test_framework.m4])
 m4_include([m4/ax_llvm.m4])
+m4_include([m4/ax_git_commit.m4])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 # AC_CONFIG_SRCDIR([TSOTraceBuilder.cpp])
 
@@ -15,6 +16,8 @@ AC_LANG([C++])
 
 # Checks for C++11
 AX_CXX_COMPILE_STDCXX_11()
+
+AX_GIT_COMMIT
 
 # Checks for libraries
 AX_BOOST_BASE([1.49])

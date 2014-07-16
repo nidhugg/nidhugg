@@ -7,6 +7,7 @@
 # - If ACTION-IF-FOUND is undefined:
 #   - Defines HAVE_LLVM.
 #   - Defines LLVM_VERSION.
+#   - Defines LLVM_BUILDMODE
 #   - Defines LLVM_INCLUDE_IR iff the LLVM include directory has an "IR" subdirectory.
 #   - Sets shell variable LLVM_INCLUDE_IR to 'yes' or 'no' correspondingly.
 #   - Defines LLVM_NDEBUG iff the LLVM library was compiled with NDEBUG.
@@ -78,6 +79,7 @@ return 0;]])],
     AC_MSG_RESULT([$LLVMVERSION ($LLVMBUILDMODE)])
     ifelse([$1],,[AC_DEFINE([HAVE_LLVM],[1],[Define if there is a working LLVM library.])
                   AC_DEFINE_UNQUOTED([LLVM_VERSION],["$LLVMVERSION"],[Version of the LLVM library.])
+                  AC_DEFINE_UNQUOTED([LLVM_BUILDMODE],["$LLVMBUILDMODE"],[Build mode of the LLVM library.])
                   LLVM_INCLUDE_IR='no'
                   if test "x$ax_llvm_include_ir" = "xyes"; then
                     AC_DEFINE([LLVM_INCLUDE_IR],[1],[Define if the LLVM include directory has an "IR" subdirectory.])
