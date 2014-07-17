@@ -1,12 +1,17 @@
 noinst_LIBRARIES = libnidhugg.a
 libnidhugg_a_SOURCES = \
-  CheckModule.cpp \
-  Configuration.cpp \
-  CPid.cpp \
-  Debug.cpp \
-  DPORDriver.cpp \
-  Trace.cpp \
-  VClock.cpp
+  CheckModule.cpp CheckModule.h \
+  Configuration.cpp Configuration.h \
+  CPid.cpp CPid.h \
+  Debug.cpp Debug.h \
+  DPORDriver.cpp DPORDriver.h \
+  Execution.cpp \
+  ExternalFunctions.cpp \
+  IID.h IID.tcc \
+  Interpreter.cpp Interpreter.h \
+  Trace.cpp Trace.h \
+  VClock.cpp VClock.h VClock.tcc \
+  vecset.h vecset.tcc
 libnidhugg_a_CXXFLAGS = -fno-rtti
 
 bin_PROGRAMS = nidhugg

@@ -159,6 +159,19 @@ License
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
    General Public License for more details.
 
+LLVM License
+============
+
+   Part of the code in the files listed below originate in the LLVM
+   Compiler Framework (http://llvm.org, version 3.4.1). Those parts
+   are licensed under the University of Illinois/NCSA Open Source
+   License as well as under GPLv3. See LLVMLICENSE.TXT.
+
+   src/Interpreter.h
+   src/Interpreter.cpp
+   src/Execution.cpp
+   src/ExternalFunctions.cpp
+
 Contact / Bug Report
 ********************
 
