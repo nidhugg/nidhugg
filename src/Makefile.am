@@ -9,7 +9,9 @@ libnidhugg_a_SOURCES = \
   ExternalFunctions.cpp \
   IID.h IID.tcc \
   Interpreter.cpp Interpreter.h \
+  MRef.h \
   Trace.cpp Trace.h \
+  TraceBuilder.cpp TraceBuilder.h \
   VClock.cpp VClock.h VClock.tcc \
   vecset.h vecset.tcc
 libnidhugg_a_CXXFLAGS = -fno-rtti
