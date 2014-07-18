@@ -40,15 +40,14 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#include "Interpreter.h"
-#include "llvm/Config/config.h"     // Detect libffi
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/DynamicLibrary.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/Mutex.h"
+#include <Interpreter.h>
+#include <llvm/IR/DataLayout.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Support/DynamicLibrary.h>
+#include <llvm/Support/ErrorHandling.h>
+#include <llvm/Support/ManagedStatic.h>
+#include <llvm/Support/Mutex.h>
 #include <cmath>
 #include <csignal>
 #include <cstdio>

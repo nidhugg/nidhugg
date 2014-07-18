@@ -32,27 +32,34 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#define DEBUG_TYPE "interpreter"
 #include "Interpreter.h"
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/IntrinsicLowering.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/GetElementPtrTypeIterator.h"
-#include "llvm/Support/MathExtras.h"
+#include "Debug.h"
+#include "SigSegvHandler.h"
+
+#include <llvm/ADT/APInt.h>
+#include <llvm/ADT/SmallString.h>
+#include <llvm/ADT/Statistic.h>
+#include <llvm/CodeGen/IntrinsicLowering.h>
+#ifdef LLVM_INCLUDE_IR
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/InlineAsm.h>
+#include <llvm/IR/Instructions.h>
+#else
+#include <llvm/Constants.h>
+#include <llvm/DerivedTypes.h>
+#include <llvm/InlineAsm.h>
+#include <llvm/Instructions.h>
+#endif
+#include <llvm/Support/CommandLine.h>
+#include <llvm/Support/Debug.h>
+#include <llvm/Support/ErrorHandling.h>
+#include <llvm/Support/GetElementPtrTypeIterator.h>
+#include <llvm/Support/Host.h>
+#include <llvm/Support/MathExtras.h>
 #include <algorithm>
 #include <cmath>
 using namespace llvm;
-
-STATISTIC(NumDynamicInsts, "Number of dynamic instructions executed");
-
-static cl::opt<bool> PrintVolatile("interpreter-print-volatile", cl::Hidden,
-          cl::desc("make the interpreter print every volatile load and store"));
 
 //===----------------------------------------------------------------------===//
 //                     Various Helper Functions
@@ -154,8 +161,8 @@ static void executeFRemInst(GenericValue &Dest, GenericValue Src1,
                             (void*)(intptr_t)Src2.PointerVal); \
       break;
 
-static GenericValue executeICMP_EQ(GenericValue Src1, GenericValue Src2,
-                                   Type *Ty) {
+GenericValue Interpreter::executeICMP_EQ(GenericValue Src1, GenericValue Src2,
+                                         Type *Ty) {
   GenericValue Dest;
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(eq,Ty);
@@ -295,7 +302,7 @@ static GenericValue executeICMP_SGE(GenericValue Src1, GenericValue Src2,
 }
 
 void Interpreter::visitICmpInst(ICmpInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   Type *Ty    = I.getOperand(0)->getType();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
@@ -627,7 +634,7 @@ static GenericValue executeFCMP_BOOL(GenericValue Src1, GenericValue Src2,
 }
 
 void Interpreter::visitFCmpInst(FCmpInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   Type *Ty    = I.getOperand(0)->getType();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
@@ -661,8 +668,8 @@ void Interpreter::visitFCmpInst(FCmpInst &I) {
   SetValue(&I, R, SF);
 }
 
-static GenericValue executeCmpInst(unsigned predicate, GenericValue Src1,
-                                   GenericValue Src2, Type *Ty) {
+GenericValue Interpreter::executeCmpInst(unsigned predicate, GenericValue Src1,
+                                         GenericValue Src2, Type *Ty) {
   GenericValue Result;
   switch (predicate) {
   case ICmpInst::ICMP_EQ:    return executeICMP_EQ(Src1, Src2, Ty);
@@ -698,7 +705,7 @@ static GenericValue executeCmpInst(unsigned predicate, GenericValue Src1,
 }
 
 void Interpreter::visitBinaryOperator(BinaryOperator &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   Type *Ty    = I.getOperand(0)->getType();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
@@ -823,7 +830,7 @@ static GenericValue executeSelectInst(GenericValue Src1, GenericValue Src2,
 }
 
 void Interpreter::visitSelectInst(SelectInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   const Type * Ty = I.getOperand(0)->getType();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
@@ -840,7 +847,7 @@ void Interpreter::exitCalled(GenericValue GV) {
   // runAtExitHandlers() assumes there are no stack frames, but
   // if exit() was called, then it had a stack frame. Blow away
   // the stack before interpreting atexit handlers.
-  ECStack.clear();
+  ECStack()->clear();
   runAtExitHandlers();
   exit(GV.IntVal.zextOrTrunc(32).getZExtValue());
 }
@@ -856,18 +863,19 @@ void Interpreter::exitCalled(GenericValue GV) {
 void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
                                                  GenericValue Result) {
   // Pop the current stack frame.
-  ECStack.pop_back();
+  ECStack()->pop_back();
 
-  if (ECStack.empty()) {  // Finished main.  Put result into exit code...
+  if (ECStack()->empty()) {  // Finished main.  Put result into exit code...
     if (RetTy && !RetTy->isVoidTy()) {          // Nonvoid return type?
       ExitValue = Result;   // Capture the exit value of the program
     } else {
       memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
     }
+    terminate(RetTy,Result);
   } else {
     // If we have a previous stack frame, and we have a previous call,
     // fill in the return value...
-    ExecutionContext &CallingSF = ECStack.back();
+    ExecutionContext &CallingSF = ECStack()->back();
     if (Instruction *I = CallingSF.Caller.getInstruction()) {
       // Save result...
       if (!CallingSF.Caller.getType()->isVoidTy())
@@ -879,8 +887,23 @@ void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
   }
 }
 
+void Interpreter::returnValueToCaller(Type *RetTy,
+                                      GenericValue Result) {
+  assert(!ECStack()->empty());
+  // fill in the return value...
+  ExecutionContext &CallingSF = ECStack()->back();
+  if (Instruction *I = CallingSF.Caller.getInstruction()) {
+    // Save result...
+    if (!CallingSF.Caller.getType()->isVoidTy())
+      SetValue(I, Result, CallingSF);
+    if (InvokeInst *II = dyn_cast<InvokeInst> (I))
+      SwitchToNewBasicBlock (II->getNormalDest (), CallingSF);
+    CallingSF.Caller = CallSite();          // We returned from the call...
+  }
+}
+
 void Interpreter::visitReturnInst(ReturnInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   Type *RetTy = Type::getVoidTy(I.getContext());
   GenericValue Result;
 
@@ -898,7 +921,7 @@ void Interpreter::visitUnreachableInst(UnreachableInst &I) {
 }
 
 void Interpreter::visitBranchInst(BranchInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   BasicBlock *Dest;
 
   Dest = I.getSuccessor(0);          // Uncond branches have a fixed dest...
@@ -911,7 +934,7 @@ void Interpreter::visitBranchInst(BranchInst &I) {
 }
 
 void Interpreter::visitSwitchInst(SwitchInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   Value* Cond = I.getCondition();
   Type *ElTy = Cond->getType();
   GenericValue CondVal = getOperandValue(Cond, SF);
@@ -930,7 +953,7 @@ void Interpreter::visitSwitchInst(SwitchInst &I) {
 }
 
 void Interpreter::visitIndirectBrInst(IndirectBrInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   void *Dest = GVTOP(getOperandValue(I.getAddress(), SF));
   SwitchToNewBasicBlock((BasicBlock*)Dest, SF);
 }
@@ -979,7 +1002,7 @@ void Interpreter::SwitchToNewBasicBlock(BasicBlock *Dest, ExecutionContext &SF){
 //===----------------------------------------------------------------------===//
 
 void Interpreter::visitAllocaInst(AllocaInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
 
   Type *Ty = I.getType()->getElementType();  // Type to be allocated
 
@@ -995,16 +1018,12 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   // Allocate enough memory to hold the type...
   void *Memory = malloc(MemToAlloc);
 
-  DEBUG(dbgs() << "Allocated Type: " << *Ty << " (" << TypeSize << " bytes) x "
-               << NumElements << " (Total: " << MemToAlloc << ") at "
-               << uintptr_t(Memory) << '\n');
-
   GenericValue Result = PTOGV(Memory);
   assert(Result.PointerVal != 0 && "Null pointer returned by malloc!");
   SetValue(&I, Result, SF);
 
   if (I.getOpcode() == Instruction::Alloca)
-    ECStack.back().Allocas.add(Memory);
+    ECStack()->back().Allocas.add(Memory);
 }
 
 // getElementOffset - The workhorse for getelementptr.
@@ -1045,53 +1064,349 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
 
   GenericValue Result;
   Result.PointerVal = ((char*)getOperandValue(Ptr, SF).PointerVal) + Total;
-  DEBUG(dbgs() << "GEP Index " << Total << " bytes.\n");
   return Result;
 }
 
 void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   SetValue(&I, executeGEPOperation(I.getPointerOperand(),
                                    gep_type_begin(I), gep_type_end(I), SF), SF);
 }
 
+bool Interpreter::CheckedMemCpy(uint8_t *dst, const uint8_t *src, unsigned n){
+  if(SigSegvHandler::setenv()){
+    TB.segmentation_fault_error();
+    abort();
+    return false;
+  }else{
+    while(n){
+      --n;
+      dst[n] = src[n];
+    }
+  }
+  SigSegvHandler::unsetenv();
+  return true;
+};
+
+bool Interpreter::CheckedMemSet(uint8_t *s, int c, size_t n){
+  if(SigSegvHandler::setenv()){
+    TB.segmentation_fault_error();
+    abort();
+    return false;
+  }else{
+    while(n){
+      --n;
+      s[n] = (uint8_t)c;
+    }
+  }
+  SigSegvHandler::unsetenv();
+  return true;
+};
+
+template<typename T> bool Interpreter::CheckedAssign(T &tgt, const T *src){
+  if(SigSegvHandler::setenv()){
+    TB.segmentation_fault_error();
+    abort();
+    return false;
+  }else{
+    tgt = *src;
+  }
+  SigSegvHandler::unsetenv();
+  return true;
+};
+
+template<typename T> bool Interpreter::CheckedStore(T *tgt, const T &src){
+  if(SigSegvHandler::setenv()){
+    TB.segmentation_fault_error();
+    abort();
+    return false;
+  }else{
+    *tgt = src;
+  }
+  SigSegvHandler::unsetenv();
+  return true;
+};
+
+bool Interpreter::CheckedStoreIntToMemory(const APInt &IntVal, uint8_t *Dst,
+                                          unsigned StoreBytes) {
+  assert((IntVal.getBitWidth()+7)/8 >= StoreBytes && "Integer too small!");
+  const uint8_t *Src = (const uint8_t *)IntVal.getRawData();
+
+  if (sys::IsLittleEndianHost) {
+    // Little-endian host - the source is ordered from LSB to MSB.  Order the
+    // destination from LSB to MSB: Do a straight copy.
+    return CheckedMemCpy(Dst, Src, StoreBytes);
+  }else{
+    // Big-endian host - the source is an array of 64 bit words ordered from
+    // LSW to MSW.  Each word is ordered from MSB to LSB.  Order the destination
+    // from MSB to LSB: Reverse the word order, but not the bytes in a word.
+    while (StoreBytes > sizeof(uint64_t)) {
+      StoreBytes -= sizeof(uint64_t);
+      // May not be aligned so use memcpy.
+      if(!CheckedMemCpy(Dst + StoreBytes, Src, sizeof(uint64_t))) return false;
+      Src += sizeof(uint64_t);
+    }
+
+    return CheckedMemCpy(Dst, Src + sizeof(uint64_t) - StoreBytes, StoreBytes);
+  }
+};
+
+bool Interpreter::CheckedLoadIntFromMemory(APInt &IntVal, uint8_t *Src, unsigned LoadBytes) {
+  assert((IntVal.getBitWidth()+7)/8 >= LoadBytes && "Integer too small!");
+  uint8_t *Dst = reinterpret_cast<uint8_t *>(const_cast<uint64_t *>(IntVal.getRawData()));
+
+  if (sys::IsLittleEndianHost){
+    // Little-endian host - the destination must be ordered from LSB to MSB.
+    // The source is ordered from LSB to MSB: Do a straight copy.
+    return CheckedMemCpy(Dst, Src, LoadBytes);
+  }else{
+    // Big-endian - the destination is an array of 64 bit words ordered from
+    // LSW to MSW.  Each word must be ordered from MSB to LSB.  The source is
+    // ordered from MSB to LSB: Reverse the word order, but not the bytes in
+    // a word.
+    while (LoadBytes > sizeof(uint64_t)) {
+      LoadBytes -= sizeof(uint64_t);
+      // May not be aligned so use memcpy.
+      if(!CheckedMemCpy(Dst, Src + LoadBytes, sizeof(uint64_t))) return false;
+      Dst += sizeof(uint64_t);
+    }
+
+    return CheckedMemCpy(Dst + sizeof(uint64_t) - LoadBytes, Src, LoadBytes);
+  }
+};
+
+bool Interpreter::CheckedLoadValueFromMemory(GenericValue &Result,
+                                             GenericValue *Ptr, Type *Ty){
+  const unsigned LoadBytes = getDataLayout()->getTypeStoreSize(Ty);
+
+  switch (Ty->getTypeID()) {
+  case Type::IntegerTyID:
+    // An APInt with all words initially zero.
+    Result.IntVal = APInt(cast<IntegerType>(Ty)->getBitWidth(), 0);
+    return CheckedLoadIntFromMemory(Result.IntVal, (uint8_t*)Ptr, LoadBytes);
+  case Type::FloatTyID:
+    return CheckedAssign(Result.FloatVal,(float*)Ptr);
+  case Type::DoubleTyID:
+    return CheckedAssign(Result.DoubleVal,(double*)Ptr);
+  case Type::PointerTyID:
+    return CheckedAssign(Result.PointerVal,(PointerTy*)Ptr);
+  case Type::X86_FP80TyID: {
+    // This is endian dependent, but it will only work on x86 anyway.
+    // FIXME: Will not trap if loading a signaling NaN.
+    uint64_t y[2];
+    if(!CheckedMemCpy((uint8_t*)y, (uint8_t*)Ptr, 10)) return false;
+    Result.IntVal = APInt(80, y);
+    break;
+  }
+  case Type::VectorTyID: {
+    const VectorType *VT = cast<VectorType>(Ty);
+    const Type *ElemT = VT->getElementType();
+    const unsigned numElems = VT->getNumElements();
+    bool b = true;
+    if (ElemT->isFloatTy()) {
+      Result.AggregateVal.resize(numElems);
+      for (unsigned i = 0; b && i < numElems; ++i)
+        b = CheckedAssign(Result.AggregateVal[i].FloatVal,(float*)Ptr+i);
+    }
+    if (ElemT->isDoubleTy()) {
+      Result.AggregateVal.resize(numElems);
+      for (unsigned i = 0; b && i < numElems; ++i)
+        b = CheckedAssign(Result.AggregateVal[i].DoubleVal,(double*)Ptr+i);
+    }
+    if (ElemT->isIntegerTy()) {
+      GenericValue intZero;
+      const unsigned elemBitWidth = cast<IntegerType>(ElemT)->getBitWidth();
+      intZero.IntVal = APInt(elemBitWidth, 0);
+      Result.AggregateVal.resize(numElems, intZero);
+      for (unsigned i = 0; b && i < numElems; ++i)
+        b = CheckedLoadIntFromMemory(Result.AggregateVal[i].IntVal,
+                                     (uint8_t*)Ptr+((elemBitWidth+7)/8)*i, (elemBitWidth+7)/8);
+    }
+    return b;
+  }
+  default:
+    SmallString<256> Msg;
+    raw_svector_ostream OS(Msg);
+    OS << "Cannot load value of type " << *Ty << "!";
+    report_fatal_error(OS.str());
+  }
+  return true;
+};
+
+bool Interpreter::CheckedStoreValueToMemory(const GenericValue &Val,
+                                            GenericValue *Ptr, Type *Ty){
+  const unsigned StoreBytes = getDataLayout()->getTypeStoreSize(Ty);
+
+  switch (Ty->getTypeID()) {
+  default:
+    dbgs() << "Cannot store value of type " << *Ty << "!\n";
+    break;
+  case Type::IntegerTyID:
+    if(!CheckedStoreIntToMemory(Val.IntVal, (uint8_t*)Ptr, StoreBytes)) return false;
+    break;
+  case Type::FloatTyID:
+    if(!CheckedStore((float*)Ptr,Val.FloatVal)) return false;
+    break;
+  case Type::DoubleTyID:
+    if(!CheckedStore((double*)Ptr,Val.DoubleVal)) return false;
+    break;
+  case Type::X86_FP80TyID:
+    if(!CheckedMemCpy((uint8_t*)Ptr, (uint8_t*)Val.IntVal.getRawData(), 10)) return false;
+    break;
+  case Type::PointerTyID:
+    // Ensure 64 bit target pointers are fully initialized on 32 bit hosts.
+    if (StoreBytes != sizeof(PointerTy)){
+      if(!CheckedMemSet((uint8_t*)&(Ptr->PointerVal), 0, StoreBytes)) return false;
+    }
+
+    if(!CheckedStore((PointerTy*)Ptr,Val.PointerVal)) return false;
+    break;
+  case Type::VectorTyID:
+    for (unsigned i = 0; i < Val.AggregateVal.size(); ++i) {
+      if (cast<VectorType>(Ty)->getElementType()->isDoubleTy()){
+        if(!CheckedStore(((double*)Ptr)+i,Val.AggregateVal[i].DoubleVal)) return false;
+      }
+      if (cast<VectorType>(Ty)->getElementType()->isFloatTy()){
+        if(!CheckedStore(((float*)Ptr)+i,Val.AggregateVal[i].FloatVal)) return false;
+      }
+      if (cast<VectorType>(Ty)->getElementType()->isIntegerTy()) {
+        unsigned numOfBytes =(Val.AggregateVal[i].IntVal.getBitWidth()+7)/8;
+        if(!CheckedStoreIntToMemory(Val.AggregateVal[i].IntVal,
+                                    (uint8_t*)Ptr + numOfBytes*i, numOfBytes)) return false;
+      }
+    }
+    break;
+  }
+
+  if (sys::IsLittleEndianHost != getDataLayout()->isLittleEndian())
+    // Host and target are different endian - reverse the stored bytes.
+    std::reverse((uint8_t*)Ptr, StoreBytes + (uint8_t*)Ptr);
+
+  return true;
+};
+
 void Interpreter::visitLoadInst(LoadInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   GenericValue SRC = getOperandValue(I.getPointerOperand(), SF);
   GenericValue *Ptr = (GenericValue*)GVTOP(SRC);
   GenericValue Result;
-  LoadValueFromMemory(Result, Ptr, I.getType());
+
+  TB.load(GetMRef(Ptr,I.getType()));
+
+  Debug::warn("visitLoadInst:DryRunMem")
+    << "WARNING: Interpreter::visitLoadInst: DryRunMem not supported.";
+  if(DryRun && DryRunMem.size()){
+    throw std::logic_error("visitLoadInst: DryRunMem: Not implemented.");
+  }
+
+  if(!CheckedLoadValueFromMemory(Result, Ptr, I.getType())) return;
   SetValue(&I, Result, SF);
-  if (I.isVolatile() && PrintVolatile)
-    dbgs() << "Volatile load " << I;
 }
 
 void Interpreter::visitStoreInst(StoreInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   GenericValue Val = getOperandValue(I.getOperand(0), SF);
-  GenericValue SRC = getOperandValue(I.getPointerOperand(), SF);
-  StoreValueToMemory(Val, (GenericValue *)GVTOP(SRC),
-                     I.getOperand(0)->getType());
-  if (I.isVolatile() && PrintVolatile)
-    dbgs() << "Volatile store: " << I;
+  GenericValue *Ptr = (GenericValue *)GVTOP(getOperandValue(I.getPointerOperand(), SF));
+
+  TB.atomic_store(GetMRef(Ptr,I.getOperand(0)->getType()));
+
+  if(DryRun){
+    DryRunMem.push_back(GetMBlock(Ptr, I.getOperand(0)->getType(), Val));
+    return;
+  }
+
+  CheckedStoreValueToMemory(Val, Ptr, I.getOperand(0)->getType());
 }
+
+void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
+  ExecutionContext &SF = ECStack()->back();
+  GenericValue CmpVal = getOperandValue(I.getCompareOperand(),SF);
+  GenericValue NewVal = getOperandValue(I.getNewValOperand(),SF);
+  GenericValue SRC = getOperandValue(I.getPointerOperand(), SF);
+  GenericValue *Ptr = (GenericValue*)GVTOP(SRC);
+  GenericValue Result;
+
+  TB.atomic_store(GetMRef(Ptr,I.getType()));
+
+  Debug::warn("visitAtomicCmpXchgInst:DryRunMem")
+    << "WARNING: Interpreter::visitAtomicCmpXchgInst: DryRunMem not supported.";
+  if(DryRun && DryRunMem.size()){
+    throw std::logic_error("visitAtomicCmpXchgInst: DryRunMem: Not implemented.");
+  }
+
+  if(!CheckedLoadValueFromMemory(Result, Ptr, I.getType())) return;
+  SetValue(&I, Result, SF);
+  GenericValue CmpRes = executeICMP_EQ(Result,CmpVal,I.getType());
+  if(CmpRes.IntVal.getBoolValue()){
+    if(DryRun){
+      DryRunMem.push_back(GetMBlock(Ptr,I.getType(),NewVal));
+      return;
+    }
+    CheckedStoreValueToMemory(NewVal,Ptr,I.getType());
+  }
+};
+
+void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
+  ExecutionContext &SF = ECStack()->back();
+  GenericValue *Ptr = (GenericValue*)GVTOP(getOperandValue(I.getPointerOperand(), SF));
+  GenericValue Val = getOperandValue(I.getValOperand(), SF);
+  GenericValue OldVal, NewVal;
+
+  TB.atomic_store(GetMRef(Ptr,I.getType()));
+
+  /* Load old value at *Ptr */
+  Debug::warn("visitAtomicRMWInst:DryRunMem")
+    << "WARNING: Interpreter::visitAtomicRMWInst: DryRunMem not supported.";
+  if(DryRun && DryRunMem.size()){
+    throw std::logic_error("visitAtomicRMWInst: DryRunMem: Not implemented.");
+  }
+
+  if(!CheckedLoadValueFromMemory(OldVal, Ptr, I.getType())) return;
+  SetValue(&I, OldVal, SF);
+
+  /* Compute NewVal */
+  Debug::warn("visitAtomicRMWInst:Ops")
+    << "WARNING: Interpreter::visitAtomicRMWInst: Partial operation support.";
+  switch(I.getOperation()){
+  case llvm::AtomicRMWInst::Xchg:
+    NewVal = Val;
+    break;
+  default:
+    throw std::logic_error("Unsupported operation in RMW instruction.");
+  }
+
+  /* Store NewVal */
+  if(DryRun){
+    DryRunMem.push_back(GetMBlock(Ptr,I.getType(),NewVal));
+    return;
+  }
+  CheckedStoreValueToMemory(NewVal,Ptr,I.getType());
+};
 
 //===----------------------------------------------------------------------===//
 //                 Miscellaneous Instruction Implementations
 //===----------------------------------------------------------------------===//
 
 void Interpreter::visitCallSite(CallSite CS) {
-  ExecutionContext &SF = ECStack.back();
+  {
+    std::string asmstr;
+    if(isInlineAsm(CS,&asmstr)){
+      visitInlineAsm(CS,asmstr);
+      return;
+    }
+  }
+
+  ExecutionContext &SF = ECStack()->back();
 
   // Check to see if this is an intrinsic function call...
   Function *F = CS.getCalledFunction();
-  if (F && F->isDeclaration())
+  if (F && F->isDeclaration()){
     switch (F->getIntrinsicID()) {
     case Intrinsic::not_intrinsic:
       break;
     case Intrinsic::vastart: { // va_start
       GenericValue ArgIndex;
-      ArgIndex.UIntPairVal.first = ECStack.size() - 1;
+      ArgIndex.UIntPairVal.first = ECStack()->size() - 1;
       ArgIndex.UIntPairVal.second = 0;
       SetValue(CS.getInstruction(), ArgIndex, SF);
       return;
@@ -1102,26 +1417,62 @@ void Interpreter::visitCallSite(CallSite CS) {
       SetValue(CS.getInstruction(), getOperandValue(*CS.arg_begin(), SF), SF);
       return;
     default:
-      // If it is an unknown intrinsic function, use the intrinsic lowering
-      // class to transform it into hopefully tasty LLVM code.
-      //
-      BasicBlock::iterator me(CS.getInstruction());
-      BasicBlock *Parent = CS.getInstruction()->getParent();
-      bool atBegin(Parent->begin() == me);
-      if (!atBegin)
-        --me;
-      IL->LowerIntrinsicCall(cast<CallInst>(CS.getInstruction()));
+      {
+        if(F->getName().str() == "llvm.dbg.value"){
+          /* Ignore this intrinsic function */
+          return;
+        }
 
-      // Restore the CurInst pointer to the first instruction newly inserted, if
-      // any.
-      if (atBegin) {
-        SF.CurInst = Parent->begin();
-      } else {
-        SF.CurInst = me;
-        ++SF.CurInst;
+        /* Other processes with program counter inside the same basic
+         * block as this one may be invalidated when the intrinsic
+         * function is lowered. Store their pcs as integers during
+         * rewriting.
+         */
+        std::map<int,int> pcs;
+        for(unsigned i = 0; i < Threads.size(); ++i){
+          if(int(i) != CurrentThread &&
+             !Threads[i].ECStack.empty() &&
+             Threads[i].ECStack.back().CurBB == SF.CurBB){
+            int c = 0;
+            while(Threads[i].ECStack.back().CurInst != Threads[i].ECStack.back().CurBB->begin()){
+              --Threads[i].ECStack.back().CurInst;
+              ++c;
+            }
+            pcs[i] = c;
+          }
+        }
+
+        // If it is an unknown intrinsic function, use the intrinsic lowering
+        // class to transform it into hopefully tasty LLVM code.
+        //
+        BasicBlock::iterator me(CS.getInstruction());
+        BasicBlock *Parent = CS.getInstruction()->getParent();
+        bool atBegin(Parent->begin() == me);
+        if (!atBegin)
+          --me;
+        IL->LowerIntrinsicCall(cast<CallInst>(CS.getInstruction()));
+
+        // Restore the CurInst pointer to the first instruction newly inserted, if
+        // any.
+        if (atBegin) {
+          SF.CurInst = Parent->begin();
+        } else {
+          SF.CurInst = me;
+          ++SF.CurInst;
+        }
+
+        /* Restore the CurInst pointer for other processes in the same
+         * basic block. */
+        for(auto it = pcs.begin(); it != pcs.end(); ++it){
+          int p = it->first;
+          int c = it->second;
+          Threads[p].ECStack.back().CurInst = Threads[p].ECStack.back().CurBB->begin();
+          while(c--) ++Threads[p].ECStack.back().CurInst;
+        }
+        return;
       }
-      return;
     }
+  }
 
 
   SF.Caller = CS;
@@ -1154,7 +1505,7 @@ static unsigned getShiftAmount(uint64_t orgShiftAmount,
 
 
 void Interpreter::visitShl(BinaryOperator &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
   GenericValue Dest;
@@ -1181,7 +1532,7 @@ void Interpreter::visitShl(BinaryOperator &I) {
 }
 
 void Interpreter::visitLShr(BinaryOperator &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
   GenericValue Dest;
@@ -1208,7 +1559,7 @@ void Interpreter::visitLShr(BinaryOperator &I) {
 }
 
 void Interpreter::visitAShr(BinaryOperator &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
   GenericValue Dest;
@@ -1672,62 +2023,62 @@ GenericValue Interpreter::executeBitCastInst(Value *SrcVal, Type *DstTy,
 }
 
 void Interpreter::visitTruncInst(TruncInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   SetValue(&I, executeTruncInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitSExtInst(SExtInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   SetValue(&I, executeSExtInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitZExtInst(ZExtInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   SetValue(&I, executeZExtInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitFPTruncInst(FPTruncInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   SetValue(&I, executeFPTruncInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitFPExtInst(FPExtInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   SetValue(&I, executeFPExtInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitUIToFPInst(UIToFPInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   SetValue(&I, executeUIToFPInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitSIToFPInst(SIToFPInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   SetValue(&I, executeSIToFPInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitFPToUIInst(FPToUIInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   SetValue(&I, executeFPToUIInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitFPToSIInst(FPToSIInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   SetValue(&I, executeFPToSIInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitPtrToIntInst(PtrToIntInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   SetValue(&I, executePtrToIntInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitIntToPtrInst(IntToPtrInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   SetValue(&I, executeIntToPtrInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitBitCastInst(BitCastInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   SetValue(&I, executeBitCastInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
@@ -1735,13 +2086,13 @@ void Interpreter::visitBitCastInst(BitCastInst &I) {
    case Type::TY##TyID: Dest.TY##Val = Src.TY##Val; break
 
 void Interpreter::visitVAArgInst(VAArgInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
 
   // Get the incoming valist parameter.  LLI treats the valist as a
   // (ec-stack-depth var-arg-index) pair.
   GenericValue VAList = getOperandValue(I.getOperand(0), SF);
   GenericValue Dest;
-  GenericValue Src = ECStack[VAList.UIntPairVal.first]
+  GenericValue Src = (*ECStack())[VAList.UIntPairVal.first]
                       .VarArgs[VAList.UIntPairVal.second];
   Type *Ty = I.getType();
   switch (Ty->getTypeID()) {
@@ -1764,7 +2115,7 @@ void Interpreter::visitVAArgInst(VAArgInst &I) {
 }
 
 void Interpreter::visitExtractElementInst(ExtractElementInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
   GenericValue Dest;
@@ -1797,7 +2148,7 @@ void Interpreter::visitExtractElementInst(ExtractElementInst &I) {
 }
 
 void Interpreter::visitInsertElementInst(InsertElementInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   Type *Ty = I.getType();
 
   if(!(Ty->isVectorTy()) )
@@ -1832,7 +2183,7 @@ void Interpreter::visitInsertElementInst(InsertElementInst &I) {
 }
 
 void Interpreter::visitShuffleVectorInst(ShuffleVectorInst &I){
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
 
   Type *Ty = I.getType();
   if(!(Ty->isVectorTy()))
@@ -1902,7 +2253,7 @@ void Interpreter::visitShuffleVectorInst(ShuffleVectorInst &I){
 }
 
 void Interpreter::visitExtractValueInst(ExtractValueInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   Value *Agg = I.getAggregateOperand();
   GenericValue Dest;
   GenericValue Src = getOperandValue(Agg, SF);
@@ -1945,7 +2296,7 @@ void Interpreter::visitExtractValueInst(ExtractValueInst &I) {
 
 void Interpreter::visitInsertValueInst(InsertValueInst &I) {
 
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = ECStack()->back();
   Value *Agg = I.getAggregateOperand();
 
   GenericValue Src1 = getOperandValue(Agg, SF);
@@ -2089,21 +2440,367 @@ GenericValue Interpreter::getOperandValue(Value *V, ExecutionContext &SF) {
 //                        Dispatch and Execution Code
 //===----------------------------------------------------------------------===//
 
+void Interpreter::callPthreadCreate(Function *F,
+                                    const std::vector<GenericValue> &ArgVals) {
+  // Memory fence
+  TB.fence();
+
+  TB.spawn();
+
+  // Return 0 (success)
+  GenericValue Result;
+  Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0);
+  returnValueToCaller(F->getReturnType(),Result);
+
+  // Save thread ID to the location pointed to by the first argument
+  {
+    int new_tid = Threads.size();
+    GenericValue *Ptr = (GenericValue*)GVTOP(ArgVals[0]);
+    if(Ptr){
+      GenericValue TIDVal;
+      Type *ity = static_cast<PointerType*>(F->arg_begin()->getType())->getElementType();
+      TIDVal.IntVal = APInt(ity->getIntegerBitWidth(),new_tid);
+      CheckedStoreValueToMemory(TIDVal,Ptr,ity);
+    }else{
+      /* Allow null pointers in first argument. For convenience. */
+    }
+  }
+
+  // Add a new stack for the new thread
+  int caller_thread = CurrentThread;
+  CurrentThread = newThread(CPS.spawn(Threads[CurrentThread].cpid));
+
+  // Build stack frame for the call
+  Function *F_inner = (Function*)GVTOP(ArgVals[2]);
+  std::vector<GenericValue> ArgVals_inner;
+  if(F_inner->getArgumentList().size() == 1 &&
+     F_inner->arg_begin()->getType() == Type::getInt8PtrTy(getGlobalContext())){
+    ArgVals_inner.push_back(ArgVals[3]);
+  }else if(F_inner->getArgumentList().size()){
+    std::string _err;
+    llvm::raw_string_ostream err(_err);
+    err << "Unsupported: function passed as argument to pthread_create has type: "
+        << *F_inner->getType();
+    throw std::logic_error(err.str().c_str());
+  }
+  callFunction(F_inner,ArgVals_inner);
+
+  // Return to caller
+  CurrentThread = caller_thread;
+};
+
+void Interpreter::callPthreadJoin(Function *F,
+                                  const std::vector<GenericValue> &ArgVals) {
+  int tid = ArgVals[0].IntVal.getLimitedValue(std::numeric_limits<int>::max());
+
+  if(tid < 0 || int(Threads.size()) <= tid || tid == CurrentThread){
+    std::stringstream ss;
+    ss << "Invalid thread ID in pthread_join: " << tid;
+    if(tid == CurrentThread) ss << " (same as ID of calling thread)";
+    TB.pthreads_error(ss.str());
+    abort();
+    return;
+  }
+
+  assert(Threads[tid].ECStack.empty());
+
+  TB.fence();
+  TB.join(tid);
+
+  // Forward return value
+  GenericValue *rvPtr = (GenericValue*)GVTOP(ArgVals[1]);
+  if(rvPtr){
+    Type *ty = Type::getInt8PtrTy(getGlobalContext())->getPointerTo();
+    if(!CheckedStoreValueToMemory(Threads[tid].RetVal,rvPtr,ty)) return;
+  }
+
+  // Return 0 (success)
+  GenericValue Result;
+  Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0);
+  returnValueToCaller(F->getReturnType(),Result);
+};
+
+void Interpreter::callPthreadSelf(Function *F,
+                                  const std::vector<GenericValue> &ArgVals){
+  GenericValue Result;
+  Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),CurrentThread);
+  returnValueToCaller(F->getReturnType(),Result);
+};
+
+void Interpreter::callPthreadExit(Function *F,
+                                  const std::vector<GenericValue> &ArgVals){
+  TB.fence();
+  while(ECStack()->size() > 1) ECStack()->pop_back();
+  popStackAndReturnValueToCaller(Type::getInt8PtrTy(getGlobalContext()),ArgVals[0]);
+};
+
+void Interpreter::callPthreadMutexInit(Function *F,
+                                       const std::vector<GenericValue> &ArgVals){
+  GenericValue *lck = (GenericValue*)GVTOP(ArgVals[0]);
+  GenericValue *attr = (GenericValue*)GVTOP(ArgVals[1]);
+
+  if(attr){
+    Debug::warn("pthreadmutexinitattr")
+      << "WARNING: Unsupported: Non-null attributes given in pthread_mutex_init. (Ignoring argument.)";
+  }
+
+  if(!lck){
+    TB.pthreads_error("pthread_mutex_init called with null pointer as first argument.");
+    abort();
+    return;
+  }
+
+  if(PthreadMutexes.count(lck)){
+    TB.pthreads_error("pthread_mutex_init called with already initialized mutex.");
+    abort();
+    return;
+  }
+
+  TB.fence();
+  TB.mutex_init({lck,1});
+
+  GenericValue Result;
+  /* pthread_mutex_init always returns 0 */
+  Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0);
+  returnValueToCaller(F->getReturnType(),Result);
+
+  if(DryRun) return;
+  PthreadMutexes[lck] = PthreadMutex();
+};
+
+void Interpreter::callPthreadMutexLock(Function *F,
+                                       const std::vector<GenericValue> &ArgVals){
+  GenericValue *lck = (GenericValue*)GVTOP(ArgVals[0]);
+
+  if(!lck){
+    TB.pthreads_error("pthread_mutex_lock called with null pointer as first argument.");
+    abort();
+    return;
+  }
+
+  if(PthreadMutexes.count(lck) == 0){
+    TB.pthreads_error("pthread_mutex_lock called with uninitialized mutex.");
+    abort();
+    return;
+  }
+
+  assert(PthreadMutexes[lck].isUnlocked());
+
+  TB.fence();
+  TB.mutex_lock({lck,1});
+
+  GenericValue Result;
+  Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0); // Success
+  returnValueToCaller(F->getReturnType(),Result);
+
+  if(DryRun) return;
+  PthreadMutexes[lck].lock(CurrentThread);
+};
+
+void Interpreter::callPthreadMutexUnlock(Function *F,
+                                         const std::vector<GenericValue> &ArgVals){
+  GenericValue *lck = (GenericValue*)GVTOP(ArgVals[0]);
+
+  if(!lck){
+    TB.pthreads_error("pthread_mutex_unlock called with null pointer as first argument.");
+    abort();
+    return;
+  }
+
+  if(PthreadMutexes.count(lck) == 0){
+    TB.pthreads_error("pthread_mutex_unlock called with uninitialized mutex.");
+    abort();
+    return;
+  }
+
+  if(PthreadMutexes[lck].owner != CurrentThread){
+    TB.pthreads_error("pthread_mutex_unlock called with mutex not locked by the same process.");
+    abort();
+    return;
+  }
+
+  TB.fence();
+  TB.mutex_unlock({lck,1});
+
+  GenericValue Result;
+  Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0); // Success
+  returnValueToCaller(F->getReturnType(),Result);
+
+  if(DryRun) return;
+
+  PthreadMutexes[lck].unlock();
+  for(int p : PthreadMutexes[lck].waiting){
+    TB.mark_available(p);
+  }
+  PthreadMutexes[lck].waiting.clear();
+};
+
+void Interpreter::callPthreadMutexDestroy(Function *F,
+                                          const std::vector<GenericValue> &ArgVals){
+  GenericValue *lck = (GenericValue*)GVTOP(ArgVals[0]);
+
+  if(!lck){
+    TB.pthreads_error("pthread_mutex_destroy called with null pointer as first argument.");
+    abort();
+    return;
+  }
+
+  if(PthreadMutexes.count(lck) == 0){
+    TB.pthreads_error("pthread_mutex_destroy called with uninitialized mutex.");
+    abort();
+    return;
+  }
+
+  if(PthreadMutexes[lck].isLocked()){
+    TB.pthreads_error("pthread_mutex_destroy called with locked mutex.");
+    abort();
+    return;
+  }
+
+  TB.fence();
+  TB.mutex_destroy({lck,1});
+
+  GenericValue Result;
+  Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0); // Success
+  returnValueToCaller(F->getReturnType(),Result);
+
+  if(DryRun) return;
+  PthreadMutexes.erase(lck);
+};
+
+void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals){
+  std::uniform_int_distribution<int> distr(std::numeric_limits<int>::min(),
+                                           std::numeric_limits<int>::max());
+  GenericValue Result;
+  Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),
+                        distr(Threads[CurrentThread].RandEng),true);
+  returnValueToCaller(F->getReturnType(),Result);
+};
+
+void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVals){
+  bool cond = ArgVals[0].IntVal.getBoolValue();
+  if(!cond){
+    if(DryRun){
+      /* Do not clear the stack. */
+      while(0 <= AtomicFunctionCall && AtomicFunctionCall < int(ECStack()->size())){
+        /* We are inside an atomic function call. Remove the top part
+         * of the stack corresponding to that call.
+         */
+        popStackAndReturnValueToCaller(Type::getVoidTy(getGlobalContext()), GenericValue());
+      }
+      return;
+    }
+    ECStack()->clear();
+    /* Do not call terminate. We don't want to explicitly terminate
+     * since that would allow other processes to join with this
+     * process.
+     */
+  }
+};
+
+void Interpreter::callMalloc(Function *F,
+                             const std::vector<GenericValue> &ArgVals){
+  if(conf.malloc_may_fail && CurrentAlt == 0){
+    TB.register_alternatives(2);
+    GenericValue Result;
+    Result.PointerVal = 0; // Return null
+    returnValueToCaller(F->getReturnType(),Result);
+  }else{// else call as usual
+    GenericValue Result;
+    assert(ArgVals[0].IntVal.getBitWidth() <= 64);
+    uint64_t sz = ArgVals[0].IntVal.getLimitedValue();
+    Result.PointerVal = malloc(sz);
+    returnValueToCaller(F->getReturnType(),Result);
+  }
+};
+
+void Interpreter::callAssertFail(Function *F,
+                                 const std::vector<GenericValue> &ArgVals){
+  std::string err;
+  if(ArgVals.size()){
+    err = (char*)GVTOP(ArgVals[0]);
+  }else{
+    err = "unknown";
+  }
+  TB.assertion_error(err);
+  abort();
+};
+
 //===----------------------------------------------------------------------===//
 // callFunction - Execute the specified function...
 //
 void Interpreter::callFunction(Function *F,
                                const std::vector<GenericValue> &ArgVals) {
-  assert((ECStack.empty() || ECStack.back().Caller.getInstruction() == 0 ||
-          ECStack.back().Caller.arg_size() == ArgVals.size()) &&
+  if(F->getName().str() == "pthread_create"){
+    callPthreadCreate(F,ArgVals);
+    return;
+  }else if(F->getName().str() == "pthread_join"){
+    callPthreadJoin(F,ArgVals);
+    return;
+  }else if(F->getName().str() == "pthread_self"){
+    callPthreadSelf(F,ArgVals);
+    return;
+  }else if(F->getName().str() == "pthread_exit"){
+    callPthreadExit(F,ArgVals);
+    return;
+  }else if(F->getName().str() == "pthread_mutex_init"){
+    callPthreadMutexInit(F,ArgVals);
+    return;
+  }else if(F->getName().str() == "pthread_mutex_lock"){
+    callPthreadMutexLock(F,ArgVals);
+    return;
+  }else if(F->getName().str() == "pthread_mutex_unlock"){
+    callPthreadMutexUnlock(F,ArgVals);
+    return;
+  }else if(F->getName().str() == "pthread_mutex_destroy"){
+    callPthreadMutexDestroy(F,ArgVals);
+    return;
+  }else if(F->getName().str() == "malloc"){
+    callMalloc(F,ArgVals);
+    return;
+  }else if(F->getName().str() == "__VERIFIER_nondet_int" ||
+           F->getName().str() == "__VERIFIER_nondet_uint"){
+    callNondetInt(F,ArgVals);
+    return;
+  }else if(F->getName().str() == "__VERIFIER_assume"){
+    callAssume(F,ArgVals);
+    return;
+  }else if(F->getName().str() == "__assert_fail"){
+    callAssertFail(F,ArgVals);
+    return;
+  }
+
+  assert((ECStack()->empty() || ECStack()->back().Caller.getInstruction() == 0 ||
+          ECStack()->back().Caller.arg_size() == ArgVals.size()) &&
          "Incorrect number of arguments passed into function call!");
+
+  if(F->getName().str().find("__VERIFIER_atomic_") == 0){
+    TB.fence();
+    if(AtomicFunctionCall < 0){
+      AtomicFunctionCall = ECStack()->size();
+    } // else we are already inside an atomic function call
+  }
+
   // Make a new stack frame... and fill it in.
-  ECStack.push_back(ExecutionContext());
-  ExecutionContext &StackFrame = ECStack.back();
+  ECStack()->push_back(ExecutionContext(this));
+  ExecutionContext &StackFrame = ECStack()->back();
   StackFrame.CurFunction = F;
 
   // Special handling for external functions.
   if (F->isDeclaration()) {
+    // Memory fence
+    if(!conf.extfun_no_fence.count(F->getName().str())){
+      TB.fence();
+    }
+    if(!conf.extfun_no_full_memory_conflict.count(F->getName().str())){
+      TB.full_memory_conflict();
+    }
+
+    if(DryRun){
+      ECStack()->pop_back();
+      return;
+    }
+
     GenericValue Result = callExternalFunction (F, ArgVals);
     // Simulate a 'ret' instruction of the appropriate type.
     popStackAndReturnValueToCaller (F->getReturnType (), Result);
@@ -2129,39 +2826,206 @@ void Interpreter::callFunction(Function *F,
   StackFrame.VarArgs.assign(ArgVals.begin()+i, ArgVals.end());
 }
 
+/* Strip away whitespace from the beginning and end of s. */
+static void stripws(std::string &s){
+  int first = 0, len;
+  while(first < int(s.size()) && std::isspace(s[first])) ++first;
+  len = s.size() - first;
+  while(0 < len && std::isspace(s[first+len-1])) --len;
+  s = s.substr(first,len);
+}
+
+bool Interpreter::isInlineAsm(CallSite &CS, std::string *asmstr){
+  if(CS.isCall()){
+    llvm::CallInst *CI = cast<llvm::CallInst>(CS.getInstruction());
+    if(CI){
+      if(CI->isInlineAsm()){
+        llvm::InlineAsm *IA = dyn_cast<llvm::InlineAsm>(CI->getArgOperand(0));
+        assert(IA);
+        *asmstr = IA->getAsmString();
+        stripws(*asmstr);
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
+bool Interpreter::isUnknownIntrinsic(Instruction &I){
+  if(isa<CallInst>(I)){
+    CallSite CS(static_cast<CallInst*>(&I));
+    Function *F = CS.getCalledFunction();
+    if(F && F->isDeclaration() &&
+       F->getIntrinsicID() != Intrinsic::not_intrinsic &&
+       F->getIntrinsicID() != Intrinsic::vastart &&
+       F->getIntrinsicID() != Intrinsic::vaend &&
+       F->getIntrinsicID() != Intrinsic::vacopy){
+      return true;
+    }
+  }
+  return false;
+};
+
+bool Interpreter::isPthreadJoin(Instruction &I, int *tid){
+  if(!isa<CallInst>(I)) return false;
+  CallSite CS(static_cast<CallInst*>(&I));
+  Function *F = CS.getCalledFunction();
+  if(!F || F->getName() != "pthread_join") return false;
+  llvm::GenericValue gv_tid =
+    getOperandValue(*CS.arg_begin(), ECStack()->back());
+  *tid = gv_tid.IntVal.getLimitedValue(std::numeric_limits<int>::max());
+  return true;
+};
+
+bool Interpreter::isPthreadMutexLock(Instruction &I, GenericValue **ptr){
+  if(!isa<CallInst>(I)) return false;
+  CallSite CS(static_cast<CallInst*>(&I));
+  Function *F = CS.getCalledFunction();
+  if(!F || F->getName() != "pthread_mutex_lock") return false;
+  *ptr = (GenericValue*)GVTOP(getOperandValue(*CS.arg_begin(),ECStack()->back()));
+  return true;
+};
+
+bool Interpreter::mayConflict(Instruction &I){
+  if(isa<LoadInst>(I)) return true;
+  if(isa<StoreInst>(I)) return true;
+  if(isa<AtomicCmpXchgInst>(I)) return true;
+  if(isa<AtomicRMWInst>(I)) return true;
+  if(isa<CallInst>(I)){
+    CallSite CS(static_cast<CallInst*>(&I));
+    Function *F = CS.getCalledFunction();
+    if(F){
+      if(F->getName() == "pthread_mutex_init") return true;
+      if(F->getName() == "pthread_mutex_lock") return true;
+      if(F->getName() == "pthread_mutex_unlock") return true;
+      if(F->getName() == "pthread_mutex_destroy") return true;
+      if(F->getName().str().find("__VERIFIER_atomic_") == 0) return true;
+      if(F->isDeclaration() &&
+         F->getIntrinsicID() == Intrinsic::not_intrinsic &&
+         conf.extfun_no_full_memory_conflict.count(F->getName().str()) == 0){
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
+bool Interpreter::checkRefuse(Instruction &I){
+  {
+    int tid;
+    if(isPthreadJoin(I,&tid)){
+      if(0 <= tid && tid < int(Threads.size()) && tid != CurrentThread){
+        if(Threads[tid].ECStack.size()){
+          /* The awaited thread is still executing. */
+          TB.refuse_schedule();
+          Threads[tid].AwaitingJoin.push_back(CurrentThread);
+          return true;
+        }
+      }else{
+        // Erroneous thread id
+        // Allow execution (will produce an error trace)
+      }
+    }
+  }
+  {
+    GenericValue *ptr;
+    if(isPthreadMutexLock(I,&ptr)){
+      if(PthreadMutexes.count(ptr) &&
+         PthreadMutexes[ptr].isLocked()){
+        TB.mutex_lock_fail({ptr,1});
+        TB.refuse_schedule();
+        PthreadMutexes[ptr].waiting.insert(CurrentThread);
+        return true;
+      }else{
+        // Either unlocked mutex, or uninitialized mutex.
+        // In both cases let callPthreadMutex handle it.
+      }
+    }
+  }
+  return false;
+};
+
+void Interpreter::terminate(Type *RetTy, GenericValue Result){
+  if(CurrentThread != 0){
+    assert(RetTy == Type::getInt8PtrTy(getGlobalContext()));
+    Threads[CurrentThread].RetVal = Result;
+  }
+};
+
+void Interpreter::clearAllStacks(){
+  for(unsigned i = 0; i < Threads.size(); ++i){
+    Threads[i].ECStack.clear();
+  }
+};
+
+void Interpreter::abort(){
+  for(unsigned i = 0; i < Threads.size(); ++i){
+    TB.mark_unavailable(i);
+  }
+  clearAllStacks();
+};
 
 void Interpreter::run() {
-  while (!ECStack.empty()) {
+  int aux;
+  bool rerun = false;
+  while(rerun || TB.schedule(&CurrentThread,&aux,&CurrentAlt,&DryRun)){
+    rerun = false;
+    if(0 <= aux){ // Run some auxiliary thread
+      runAux(CurrentThread,aux);
+      continue;
+    }
+
     // Interpret a single instruction & increment the "PC".
-    ExecutionContext &SF = ECStack.back();  // Current stack frame
-    Instruction &I = *SF.CurInst++;         // Increment before execute
+    ExecutionContext &SF = ECStack()->back();  // Current stack frame
+    Instruction &I = *SF.CurInst++;            // Increment before execute
 
-    // Track the number of dynamic instructions executed.
-    ++NumDynamicInsts;
+    if(checkRefuse(I) ||
+       (DryRun && !mayConflict(I))){
+      /* Revert without executing the next instruction. */
+      --SF.CurInst;
+      continue;
+    }
 
-    DEBUG(dbgs() << "About to interpret: " << I);
-    visit(I);   // Dispatch to one of the visit* methods...
-#if 0
-    // This is not safe, as visiting the instruction could lower it and free I.
-DEBUG(
-    if (!isa<CallInst>(I) && !isa<InvokeInst>(I) &&
-        I.getType() != Type::VoidTy) {
-      dbgs() << "  --> ";
-      const GenericValue &Val = SF.Values[&I];
-      switch (I.getType()->getTypeID()) {
-      default: llvm_unreachable("Invalid GenericValue Type");
-      case Type::VoidTyID:    dbgs() << "void"; break;
-      case Type::FloatTyID:   dbgs() << "float " << Val.FloatVal; break;
-      case Type::DoubleTyID:  dbgs() << "double " << Val.DoubleVal; break;
-      case Type::PointerTyID: dbgs() << "void* " << intptr_t(Val.PointerVal);
-        break;
-      case Type::IntegerTyID:
-        dbgs() << "i" << Val.IntVal.getBitWidth() << " "
-               << Val.IntVal.toStringUnsigned(10)
-               << " (0x" << Val.IntVal.toStringUnsigned(16) << ")\n";
-        break;
+    if(isUnknownIntrinsic(I)){
+      /* This instruction is intrinsic. It will be removed from the IR
+       * and replaced by some new sequence of instructions. Executing
+       * the intrinsic itself does not count as executing an
+       * instruction. The flag rerun indicates that the same process
+       * should be scheduled once more, so that a real instruction may
+       * be executed.
+       */
+      rerun = true;
+    }
+
+    TB.metadata(I.getMetadata("dbg"));
+
+    assert(DryRunMem.empty());
+
+    /* Execute */
+    visit(I);
+
+    /* Atomic function? */
+    if(0 <= AtomicFunctionCall){
+      /* We have entered an atomic function.
+       * Keep executing until we exit it.
+       */
+      while(AtomicFunctionCall < int(ECStack()->size())){
+        ExecutionContext &SF = ECStack()->back();  // Current stack frame
+        Instruction &I = *SF.CurInst++;         // Increment before execute
+        visit(I);
       }
-    });
-#endif
+      AtomicFunctionCall = -1;
+    }
+
+    if(ECStack()->empty()){ // The thread has terminated
+      TB.mark_unavailable(CurrentThread);
+    }
+
+    if(DryRun && !rerun){ // Did dry run. Now back up.
+      --ECStack()->back().CurInst;
+      DryRunMem.clear();
+    }
   }
+  CurrentThread = 0;
+  clearAllStacks();
 }

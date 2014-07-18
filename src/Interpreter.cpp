@@ -42,33 +42,29 @@
 #include <cstring>
 using namespace llvm;
 
-namespace {
-
-static struct RegisterInterp {
-  RegisterInterp() { Interpreter::Register(); }
-} InterpRegistrator;
-
-}
-
-extern "C" void LLVMLinkInInterpreter() { }
-
 /// create - Create a new interpreter object.  This can never fail.
 ///
-ExecutionEngine *Interpreter::create(Module *M, std::string* ErrStr) {
+ExecutionEngine *Interpreter::create(Module *M, TraceBuilder &TB,
+                                     const Configuration &C, std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
   if (M->MaterializeAllPermanently(ErrStr))
     // We got an error, just return 0
     return 0;
 
-  return new Interpreter(M);
+  return new Interpreter(M,TB,C);
 }
 
 //===----------------------------------------------------------------------===//
 // Interpreter ctor - Initialize stuff
 //
-Interpreter::Interpreter(Module *M)
-  : ExecutionEngine(M), TD(M) {
+Interpreter::Interpreter(Module *M, TraceBuilder &TB,
+                         const Configuration &C)
+  : ExecutionEngine(M), TD(M), TB(TB), conf(C) {
 
+  Threads.push_back(Thread());
+  Threads.back().cpid = CPid();
+  CurrentThread = 0;
+  AtomicFunctionCall = -1;
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
   setDataLayout(&TD);
   // Initialize the "backend"
@@ -81,6 +77,12 @@ Interpreter::Interpreter(Module *M)
 
 Interpreter::~Interpreter() {
   delete IL;
+  /* Remove module from ExecutionEngine's list of modules. This is to
+   * avoid the ExecutionEngine's destructor deleting the module before
+   * we are done with it.
+   */
+  assert(Modules.size() == 1);
+  Modules.clear();
 }
 
 void Interpreter::runAtExitHandlers () {
@@ -117,4 +119,11 @@ Interpreter::runFunction(Function *F,
   run();
 
   return ExitValue;
+}
+
+AllocaHolder::~AllocaHolder() {
+  for (unsigned i = 0; i < Allocations.size(); ++i){
+    ITP->dealloc(Allocations[i]);
+    free(Allocations[i].ref);
+  }
 }

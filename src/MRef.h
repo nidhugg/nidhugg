@@ -48,5 +48,32 @@ public:
   ConstMRef(const MRef &R) : ref(R.ref), size(R.size) { assert(0 < size); };
 };
 
+/* An MBlock object is an MRef ref together with a chunk of memory,
+ * block, associated with the memory location described by ref. The
+ * chunk in block is assumed to be a local version of the memory
+ * location described by ref, such as an entry in a cache or a store
+ * buffer.
+ */
+class MBlock{
+private:
+  MRef ref;
+  /* Block points to at least ref.size bytes of memory. */
+  void *block;
+  /* Pointer counter for block and itself. */
+  int *ptr_counter;
+public:
+  /* Create an MBlock with reference ref, and a fresh block of memory
+   * of alloc_size bytes.
+   *
+   * Pre: ref.size <= alloc_size
+   */
+  MBlock(const MRef &ref, int alloc_size);
+  MBlock(const MBlock &B);
+  MBlock &operator=(const MBlock &B);
+  ~MBlock();
+  const MRef &get_ref() const { return ref; };
+  void *get_block() const { return block; };
+};
+
 #endif
 

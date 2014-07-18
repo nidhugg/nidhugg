@@ -48,11 +48,8 @@ public:
     extfun_no_fence = {
       "pthread_self",
       "malloc",
-      "nondet_int",
       "__VERIFIER_nondet_int",
-      "nondet_uint",
       "__VERIFIER_nondet_uint",
-      "assume",
       "__VERIFIER_assume",
       "printf",
       "puts"
@@ -67,9 +64,9 @@ public:
       "pthread_mutex_unlock",
       "pthread_mutex_destroy",
       "malloc",
-      "nondet_int", "__VERIFIER_nondet_int",
-      "nondet_uint", "__VERIFIER_nondet_uint",
-      "assume", "__VERIFIER_assume",
+      "__VERIFIER_nondet_int",
+      "__VERIFIER_nondet_uint",
+      "__VERIFIER_assume",
       "__assert_fail"
     };
     check_robustness = false;

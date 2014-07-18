@@ -343,13 +343,10 @@ namespace CheckModule {
 };
 
 void CheckModule::check_nondet_int(const llvm::Module *M){
-  check_nondet_int(M,"nondet_int");
   check_nondet_int(M,"__VERIFIER_nondet_int");
-  check_nondet_int(M,"nondet_uint");
   check_nondet_int(M,"__VERIFIER_nondet_uint");
 };
 
 void CheckModule::check_assume(const llvm::Module *M){
-  check_assume(M,"assume");
   check_assume(M,"__VERIFIER_assume");
 };

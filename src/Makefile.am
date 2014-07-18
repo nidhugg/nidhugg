@@ -10,6 +10,7 @@ libnidhugg_a_SOURCES = \
   IID.h IID.tcc \
   Interpreter.cpp Interpreter.h \
   MRef.h \
+  SigSegvHandler.cpp SigSegvHandler.h \
   Trace.cpp Trace.h \
   TraceBuilder.cpp TraceBuilder.h \
   VClock.cpp VClock.h VClock.tcc \
