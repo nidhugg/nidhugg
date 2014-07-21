@@ -5,11 +5,12 @@ libnidhugg_a_SOURCES = \
   CPid.cpp CPid.h \
   Debug.cpp Debug.h \
   DPORDriver.cpp DPORDriver.h \
+  DummyTB.cpp DummyTB.h \
   Execution.cpp \
   ExternalFunctions.cpp \
   IID.h IID.tcc \
   Interpreter.cpp Interpreter.h \
-  MRef.h \
+  MRef.cpp MRef.h \
   SigSegvHandler.cpp SigSegvHandler.h \
   Trace.cpp Trace.h \
   TraceBuilder.cpp TraceBuilder.h \
@@ -26,6 +27,8 @@ TESTS = unittest
 check_PROGRAMS = unittest
 unittest_SOURCES = \
   CPid_test.cpp \
+  DryRun_test.cpp \
+  RMW_test.cpp \
   VClock_CPid_test.cpp \
   VClock_int_test.cpp \
   unittest.cpp

@@ -21,6 +21,9 @@
 
 #include "CheckModule.h"
 #include "Debug.h"
+#include "DummyTB.h"
+#include "Interpreter.h"
+#include "SigSegvHandler.h"
 
 #include <fstream>
 #include <stdexcept>
@@ -97,9 +100,87 @@ void DPORDriver::reparse(){
   }
 };
 
+Trace DPORDriver::run_once(TraceBuilder &TB) const{
+  std::string ErrorMsg;
+  llvm::ExecutionEngine *EE = llvm::Interpreter::create(mod,TB,conf,&ErrorMsg);
+
+  if (!EE) {
+    if (!ErrorMsg.empty()){
+      throw std::logic_error("Error creating EE: " + ErrorMsg);
+    }else{
+      throw std::logic_error("Unknown error creating EE!");
+    }
+  }
+
+  llvm::Function *EntryFn = mod->getFunction("main");
+  if(!EntryFn){
+    throw std::logic_error("No main function found in module.");
+  }
+
+  // Reset errno to zero on entry to main.
+  errno = 0;
+
+  // Run static constructors.
+  EE->runStaticConstructorsDestructors(false);
+
+  // Trigger compilation separately so code regions that need to be
+  // invalidated will be known.
+  (void)EE->getPointerToFunction(EntryFn);
+
+  // Empty environment
+  char *act_envp = 0;
+  char **envp = &act_envp;
+
+  // Run main.
+  EE->runFunctionAsMain(EntryFn, {"prog"}, envp);
+
+  // Run static destructors.
+  EE->runStaticConstructorsDestructors(true);
+
+  if(conf.check_robustness){
+    static_cast<llvm::Interpreter*>(EE)->checkForCycles();
+  }
+
+  Trace t({},{},{});
+  if(TB.has_error() || conf.debug_collect_all_traces){
+    t = static_cast<llvm::Interpreter*>(EE)->getTrace();
+  }// else avoid computing trace
+
+  delete EE;
+  return t;
+};
+
 DPORDriver::Result DPORDriver::run(){
-  Debug::warn("DPORDriver::run")
-    << "WARNING: DPORDriver::run: Not implemented.\n";
   Result res;
+
+  TraceBuilder *TB = new DummyTB(conf);
+
+  SigSegvHandler::setup_signal_handler();
+
+  int computation_count = 0;
+  do{
+    if((computation_count+1) % 1000 == 0){
+      reparse();
+    }
+    Trace t = run_once(*TB);
+    if(conf.debug_collect_all_traces){
+      res.all_traces.push_back(t);
+    }
+    if(TB->sleepset_is_empty()){
+      ++res.trace_count;
+    }else{
+      ++res.sleepset_blocked_trace_count;
+    }
+    ++computation_count;
+    if(t.has_errors() && !res.has_errors()){
+      res.error_trace = t;
+    }
+    if(t.has_errors() && !conf.explore_all_traces) break;
+  }while(TB->reset());
+
+  SigSegvHandler::reset_signal_handler();
+
+  delete TB;
+
   return res;
 };

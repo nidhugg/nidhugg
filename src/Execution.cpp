@@ -45,11 +45,13 @@
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/InlineAsm.h>
 #include <llvm/IR/Instructions.h>
+#include <llvm/IR/LLVMContext.h>
 #else
 #include <llvm/Constants.h>
 #include <llvm/DerivedTypes.h>
 #include <llvm/InlineAsm.h>
 #include <llvm/Instructions.h>
+#include <llvm/LLVMContext.h>
 #endif
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Debug.h>
@@ -1022,8 +1024,9 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   assert(Result.PointerVal != 0 && "Null pointer returned by malloc!");
   SetValue(&I, Result, SF);
 
-  if (I.getOpcode() == Instruction::Alloca)
-    ECStack()->back().Allocas.add(Memory);
+  if (I.getOpcode() == Instruction::Alloca){
+    ECStack()->back().Allocas.add({Memory,int(MemToAlloc)});
+  }
 }
 
 // getElementOffset - The workhorse for getelementptr.
@@ -1072,6 +1075,33 @@ void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
   SetValue(&I, executeGEPOperation(I.getPointerOperand(),
                                    gep_type_begin(I), gep_type_end(I), SF), SF);
 }
+
+void Interpreter::DryRunLoadValueFromMemory(GenericValue &Val,
+                                            GenericValue *Src, Type *Ty){
+  int sz = getDataLayout()->getTypeStoreSize(Ty);
+  char buf[sz];
+
+  // Copy value from memory to buf
+  for(int i = 0; i < sz; ++i){
+    buf[i] = ((char*)Src)[i];
+  }
+
+  // Overwrite with values from DryRunMem
+  for(auto it = DryRunMem.begin(); it != DryRunMem.end(); ++it){
+    char *it_a = (char*)it->get_ref().ref;
+    char *buf_a = (char*)Src;
+    char *a = std::max(it_a,buf_a);
+    char *b = std::min(&it_a[it->get_ref().size],&buf_a[sz]);
+    int osz = b-a; // Size of overlap
+    int buf_off = a-buf_a;
+    int it_off = a-it_a;
+    for(int i = 0; i < osz; ++i){
+      buf[i+buf_off] = ((char*)it->get_block())[i+it_off];
+    }
+  }
+
+  LoadValueFromMemory(Val,(GenericValue*)&buf[0],Ty);
+};
 
 bool Interpreter::CheckedMemCpy(uint8_t *dst, const uint8_t *src, unsigned n){
   if(SigSegvHandler::setenv()){
@@ -1293,10 +1323,10 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 
   TB.load(GetMRef(Ptr,I.getType()));
 
-  Debug::warn("visitLoadInst:DryRunMem")
-    << "WARNING: Interpreter::visitLoadInst: DryRunMem not supported.";
   if(DryRun && DryRunMem.size()){
-    throw std::logic_error("visitLoadInst: DryRunMem: Not implemented.");
+    DryRunLoadValueFromMemory(Result, Ptr, I.getType());
+    SetValue(&I, Result, SF);
+    return;
   }
 
   if(!CheckedLoadValueFromMemory(Result, Ptr, I.getType())) return;
@@ -1328,13 +1358,11 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
 
   TB.atomic_store(GetMRef(Ptr,I.getType()));
 
-  Debug::warn("visitAtomicCmpXchgInst:DryRunMem")
-    << "WARNING: Interpreter::visitAtomicCmpXchgInst: DryRunMem not supported.";
   if(DryRun && DryRunMem.size()){
-    throw std::logic_error("visitAtomicCmpXchgInst: DryRunMem: Not implemented.");
+    DryRunLoadValueFromMemory(Result, Ptr, I.getType());
+  }else{
+    if(!CheckedLoadValueFromMemory(Result, Ptr, I.getType())) return;
   }
-
-  if(!CheckedLoadValueFromMemory(Result, Ptr, I.getType())) return;
   SetValue(&I, Result, SF);
   GenericValue CmpRes = executeICMP_EQ(Result,CmpVal,I.getType());
   if(CmpRes.IntVal.getBoolValue()){
@@ -1352,25 +1380,43 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
   GenericValue Val = getOperandValue(I.getValOperand(), SF);
   GenericValue OldVal, NewVal;
 
+  assert(I.getType()->isIntegerTy());
+
   TB.atomic_store(GetMRef(Ptr,I.getType()));
 
   /* Load old value at *Ptr */
-  Debug::warn("visitAtomicRMWInst:DryRunMem")
-    << "WARNING: Interpreter::visitAtomicRMWInst: DryRunMem not supported.";
   if(DryRun && DryRunMem.size()){
-    throw std::logic_error("visitAtomicRMWInst: DryRunMem: Not implemented.");
+    DryRunLoadValueFromMemory(OldVal, Ptr, I.getType());
+  }else{
+    if(!CheckedLoadValueFromMemory(OldVal, Ptr, I.getType())) return;
   }
 
-  if(!CheckedLoadValueFromMemory(OldVal, Ptr, I.getType())) return;
   SetValue(&I, OldVal, SF);
 
   /* Compute NewVal */
-  Debug::warn("visitAtomicRMWInst:Ops")
-    << "WARNING: Interpreter::visitAtomicRMWInst: Partial operation support.";
   switch(I.getOperation()){
   case llvm::AtomicRMWInst::Xchg:
-    NewVal = Val;
-    break;
+    NewVal = Val; break;
+  case llvm::AtomicRMWInst::Add:
+    NewVal.IntVal = OldVal.IntVal + Val.IntVal; break;
+  case llvm::AtomicRMWInst::Sub:
+    NewVal.IntVal = OldVal.IntVal - Val.IntVal; break;
+  case llvm::AtomicRMWInst::And:
+    NewVal.IntVal = OldVal.IntVal & Val.IntVal; break;
+  case llvm::AtomicRMWInst::Nand:
+    NewVal.IntVal = ~(OldVal.IntVal & Val.IntVal); break;
+  case llvm::AtomicRMWInst::Or:
+    NewVal.IntVal = OldVal.IntVal | Val.IntVal; break;
+  case llvm::AtomicRMWInst::Xor:
+    NewVal.IntVal = OldVal.IntVal ^ Val.IntVal; break;
+  case llvm::AtomicRMWInst::Max:
+    NewVal.IntVal = APIntOps::smax(OldVal.IntVal,Val.IntVal); break;
+  case llvm::AtomicRMWInst::Min:
+    NewVal.IntVal = APIntOps::smin(OldVal.IntVal,Val.IntVal); break;
+  case llvm::AtomicRMWInst::UMax:
+    NewVal.IntVal = APIntOps::umax(OldVal.IntVal,Val.IntVal); break;
+  case llvm::AtomicRMWInst::UMin:
+    NewVal.IntVal = APIntOps::umin(OldVal.IntVal,Val.IntVal); break;
   default:
     throw std::logic_error("Unsupported operation in RMW instruction.");
   }
@@ -1381,6 +1427,13 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
     return;
   }
   CheckedStoreValueToMemory(NewVal,Ptr,I.getType());
+};
+
+void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmstr){
+  if(asmstr == "mfence"){ // Do nothing
+  }else{
+    throw std::logic_error("Unsupported inline assembly: " + asmstr);
+  }
 };
 
 //===----------------------------------------------------------------------===//
@@ -2022,6 +2075,11 @@ GenericValue Interpreter::executeBitCastInst(Value *SrcVal, Type *DstTy,
   return Dest;
 }
 
+GenericValue Interpreter::executeCastOperation(Instruction::CastOps opcode, Value *SrcVal,
+                                               Type *Ty, ExecutionContext &SF){
+  throw std::logic_error("Interpreter::executeCastOperation: Not implemented.");
+};
+
 void Interpreter::visitTruncInst(TruncInst &I) {
   ExecutionContext &SF = ECStack()->back();
   SetValue(&I, executeTruncInst(I.getOperand(0), I.getType(), SF), SF);
@@ -2541,7 +2599,7 @@ void Interpreter::callPthreadMutexInit(Function *F,
 
   if(attr){
     Debug::warn("pthreadmutexinitattr")
-      << "WARNING: Unsupported: Non-null attributes given in pthread_mutex_init. (Ignoring argument.)";
+      << "WARNING: Unsupported: Non-null attributes given in pthread_mutex_init. (Ignoring argument.)\n";
   }
 
   if(!lck){

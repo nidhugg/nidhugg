@@ -24,6 +24,7 @@
 
 #include "Configuration.h"
 #include "Trace.h"
+#include "TraceBuilder.h"
 
 #ifdef LLVM_INCLUDE_IR
 #include <llvm/IR/Module.h>
@@ -95,6 +96,7 @@ private:
   std::string src;
 
   DPORDriver(const Configuration &conf = Configuration::default_conf);
+  Trace run_once(TraceBuilder &TB) const;
   void reparse();
   /* Opens and reads the file filename. Stores the entire content in
    * tgt. Throws an exception on failure.

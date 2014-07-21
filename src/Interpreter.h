@@ -71,7 +71,6 @@ class AllocaHolder {
 public:
   AllocaHolder(Interpreter *I) : RefCnt(0), ITP(I) {}
   void add(const MRef &mem) { Allocations.push_back(mem); }
-  void add(void *){ llvm_unreachable("AllocaHolder::add(void*)"); };
   /* For each block b in Allocations, free it and call
    * ITP->dealloc(b).
    */
@@ -97,7 +96,6 @@ public:
   ~AllocaHolderHandle() { if (--H->RefCnt == 0) delete H; }
 
   void add(const MRef &mem) { H->add(mem); }
-  void add(void *){ llvm_unreachable("AllocaHolderHandle::add(void*)"); };
 };
 
 typedef std::vector<GenericValue> ValuePlaneTy;
@@ -455,6 +453,14 @@ protected:  // Helper functions
     StoreValueToMemory(Val,static_cast<GenericValue*>(B.get_block()),Ty);
     return B;
   };
+
+  /* Same as ExecutionEngine::LoadValueFromMemory, but if any of the
+   * bytes that should be loaded occur in a memory block in DryRunMem,
+   * then load the latest such bytes instead of the corresponding
+   * bytes in memory.
+   */
+  virtual void DryRunLoadValueFromMemory(GenericValue &Val,
+                                         GenericValue *Src, Type *Ty);
 
   /* Same as ExecutionEngine::StoreValueToMemory, but check for
    * segmentation faults, and generate errors as appropriate.
