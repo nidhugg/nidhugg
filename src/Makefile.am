@@ -5,7 +5,6 @@ libnidhugg_a_SOURCES = \
   CPid.cpp CPid.h \
   Debug.cpp Debug.h \
   DPORDriver.cpp DPORDriver.h \
-  DummyTB.cpp DummyTB.h \
   Execution.cpp \
   ExternalFunctions.cpp \
   IID.h IID.tcc \
@@ -14,6 +13,8 @@ libnidhugg_a_SOURCES = \
   SigSegvHandler.cpp SigSegvHandler.h \
   Trace.cpp Trace.h \
   TraceBuilder.cpp TraceBuilder.h \
+  TSOInterpreter.cpp TSOInterpreter.h \
+  TSOTraceBuilder.cpp TSOTraceBuilder.h \
   VClock.cpp VClock.h VClock.tcc \
   vecset.h vecset.tcc
 libnidhugg_a_CXXFLAGS = -fno-rtti
@@ -27,8 +28,12 @@ TESTS = unittest
 check_PROGRAMS = unittest
 unittest_SOURCES = \
   CPid_test.cpp \
+  DPORDriver_test.cpp DPORDriver_test.h \
   DryRun_test.cpp \
   RMW_test.cpp \
+  Robustness_test.cpp \
+  SC_test.cpp \
+  TSO_test.cpp \
   VClock_CPid_test.cpp \
   VClock_int_test.cpp \
   unittest.cpp

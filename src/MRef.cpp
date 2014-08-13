@@ -19,6 +19,7 @@
 
 #include "MRef.h"
 
+#include <cstdint>
 #include <cstdlib>
 
 MBlock::MBlock(const MRef &r, int alloc_size) : ref(r) {
@@ -53,4 +54,40 @@ MBlock::~MBlock(){
     free(block);
     delete ptr_counter;
   }
+};
+
+bool MRef::subsetof(const MRef &mr) const{
+  return mr.ref <= ref && (uint8_t*)ref+size <= (uint8_t*)mr.ref+mr.size;
+};
+
+bool MRef::subsetof(const ConstMRef &mr) const{
+  return mr.ref <= ref && (uint8_t*)ref+size <= (uint8_t*)mr.ref+mr.size;
+};
+
+bool MRef::overlaps(const MRef &mr) const{
+  uint8_t *a = (uint8_t*)ref, *b = (uint8_t*)mr.ref;
+  return a < b+mr.size && b < a+size;
+};
+
+bool MRef::overlaps(const ConstMRef &mr) const{
+  uint8_t *a = (uint8_t*)ref, *b = (uint8_t*)mr.ref;
+  return a < b+mr.size && b < a+size;
+};
+
+bool ConstMRef::subsetof(const MRef &mr) const{
+  return mr.ref <= ref && (uint8_t*)ref+size <= (uint8_t*)mr.ref+mr.size;
+};
+
+bool ConstMRef::subsetof(const ConstMRef &mr) const{
+  return mr.ref <= ref && (uint8_t*)ref+size <= (uint8_t*)mr.ref+mr.size;
+};
+
+bool ConstMRef::overlaps(const MRef &mr) const{
+  uint8_t *a = (uint8_t*)ref, *b = (uint8_t*)mr.ref;
+  return a < b+mr.size && b < a+size;
+};
+
+bool ConstMRef::overlaps(const ConstMRef &mr) const{
+  uint8_t *a = (uint8_t*)ref, *b = (uint8_t*)mr.ref;
+  return a < b+mr.size && b < a+size;
 };

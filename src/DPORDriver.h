@@ -43,12 +43,12 @@ public:
    * the LLVM assembly or bitcode file filename.
    */
   static DPORDriver *parseIRFile(const std::string &filename,
-                                 const Configuration &conf = Configuration::default_conf);
+                                 const Configuration &conf);
   /* Create and return a new DPORDriver with a module as defined by
    * the LLVM assembly given in llvm_asm.
    */
   static DPORDriver *parseIR(const std::string &llvm_asm,
-                             const Configuration &conf = Configuration::default_conf);
+                             const Configuration &conf);
   virtual ~DPORDriver();
   DPORDriver(const DPORDriver&) = delete;
   DPORDriver &operator=(const DPORDriver&) = delete;
@@ -95,7 +95,7 @@ private:
    */
   std::string src;
 
-  DPORDriver(const Configuration &conf = Configuration::default_conf);
+  DPORDriver(const Configuration &conf);
   Trace run_once(TraceBuilder &TB) const;
   void reparse();
   /* Opens and reads the file filename. Stores the entire content in

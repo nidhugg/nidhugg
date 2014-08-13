@@ -22,7 +22,10 @@
 #ifndef __MREF_H__
 #define __MREF_H__
 
-#include <assert.h>
+#include <cassert>
+#include <iterator>
+
+class ConstMRef;
 
 /* An MRef object identifies a continuous non-empty sequence of bytes
  * in memory.
@@ -34,6 +37,73 @@ public:
   /* The number of bytes in the sequence. */
   int size;
   MRef(void *r, int sz) : ref(r), size(sz) { assert(0 < size); };
+  /* Returns true iff all bytes in this MRef are also in mr. */
+  bool subsetof(const MRef &mr) const;
+  bool subsetof(const ConstMRef &mr) const;
+  /* Returns true iff some bytes are both in this MRef and in mr. */
+  bool overlaps(const MRef &mr) const;
+  bool overlaps(const ConstMRef &mr) const;
+  /* Returns true iff the byte pointed to by bptr is in this
+   * sequence.
+   */
+  bool includes(void const *bptr) const {
+    return ref <= bptr &&
+      bptr < (void const*)((uint8_t const*)ref + size);
+  };
+  bool operator==(const MRef &ml) const { return ref == ml.ref && size == ml.size; };
+  bool operator!=(const MRef &ml) const { return ref != ml.ref || size != ml.size; };
+  bool operator<(const MRef &ml) const { return ref < ml.ref || (ref == ml.ref && size < ml.size); };
+  bool operator<=(const MRef &ml) const { return ref <= ml.ref && (ref != ml.ref || size <= ml.size); };
+  bool operator>(const MRef &ml) const { return ref > ml.ref || (ref == ml.ref && size > ml.size); };
+  bool operator>=(const MRef &ml) const { return ref >=ml.ref && (ref != ml.ref || size >= ml.size); };
+
+  class const_iterator{
+  public:
+    typedef std::bidirectional_iterator_tag iterator_category;
+    typedef void const * value_type;
+    typedef void const *& reference;
+    typedef void const ** pointer;
+    typedef unsigned difference_type;
+
+    bool operator<(const const_iterator &it) const { return ptr < it.ptr; };
+    bool operator>(const const_iterator &it) const { return ptr > it.ptr; };
+    bool operator==(const const_iterator &it) const { return ptr == it.ptr; };
+    bool operator!=(const const_iterator &it) const { return ptr != it.ptr; };
+    bool operator<=(const const_iterator &it) const { return ptr <= it.ptr; };
+    bool operator>=(const const_iterator &it) const { return ptr >= it.ptr; };
+    const_iterator operator++(int) {
+      const_iterator it = *this;
+      ++ptr;
+      return it;
+    };
+    const_iterator &operator++() {
+      ++ptr;
+      return *this;
+    };
+    const_iterator operator--(int) {
+      const_iterator it = *this;
+      --ptr;
+      return it;
+    };
+    const_iterator &operator--() {
+      --ptr;
+      return *this;
+    };
+    void const *operator*() const{ return ptr; };
+  private:
+    const_iterator(void const *ref, int sz, int i) {
+      assert(0 <= sz);
+      assert(0 <= i);
+      assert(i <= sz);
+      ptr = (uint8_t const *)ref + i;
+    };
+    friend class MRef;
+    friend class ConstMRef;
+    uint8_t const *ptr;
+  };
+
+  const_iterator begin() const { return const_iterator(ref,size,0); };
+  const_iterator end() const { return const_iterator(ref,size,size); };
 };
 
 /* A ConstMRef object is as an MRef object, but refers to const
@@ -46,6 +116,28 @@ public:
   int size;
   ConstMRef(const void *r, int sz) : ref(r), size(sz) { assert(0 < size); };
   ConstMRef(const MRef &R) : ref(R.ref), size(R.size) { assert(0 < size); };
+  /* Returns true iff all bytes in this ConstMRef are also in mr. */
+  bool subsetof(const MRef &mr) const;
+  bool subsetof(const ConstMRef &mr) const;
+  /* Returns true iff some bytes are both in this ConstMRef and in mr. */
+  bool overlaps(const MRef &mr) const;
+  bool overlaps(const ConstMRef &mr) const;
+  /* Returns true iff the byte pointed to by bptr is in this
+   * sequence.
+   */
+  bool includes(void const *bptr) const {
+    return ref <= bptr &&
+      bptr < (void const*)((uint8_t const*)ref + size);
+  };
+  bool operator==(const ConstMRef &ml) const { return ref == ml.ref && size == ml.size; };
+  bool operator!=(const ConstMRef &ml) const { return ref != ml.ref || size != ml.size; };
+  bool operator<(const ConstMRef &ml) const { return ref < ml.ref || (ref == ml.ref && size < ml.size); };
+  bool operator<=(const ConstMRef &ml) const { return ref <= ml.ref && (ref != ml.ref || size <= ml.size); };
+  bool operator>(const ConstMRef &ml) const { return ref > ml.ref || (ref == ml.ref && size > ml.size); };
+  bool operator>=(const ConstMRef &ml) const { return ref >=ml.ref && (ref != ml.ref || size >= ml.size); };
+
+  MRef::const_iterator begin() const { return MRef::const_iterator(ref,size,0); };
+  MRef::const_iterator end() const { return MRef::const_iterator(ref,size,size); };
 };
 
 /* An MBlock object is an MRef ref together with a chunk of memory,

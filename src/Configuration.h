@@ -71,6 +71,7 @@ public:
     };
     check_robustness = false;
     debug_collect_all_traces = false;
+    debug_print_on_reset = false;
   };
   /* Read the switches given to the program by the user. Assign
    * configuration options accordingly.
@@ -118,6 +119,10 @@ public:
    * intended usage.
    */
   bool debug_collect_all_traces;
+  /* If set, the trace builder is instructed to debug print its state
+   * at each reset.
+   */
+  bool debug_print_on_reset;
 
   /* The set of all commandline switches that are associated with
    * setting configuration options. This set has nothing to do with

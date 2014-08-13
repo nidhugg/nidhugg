@@ -3008,6 +3008,9 @@ void Interpreter::terminate(Type *RetTy, GenericValue Result){
     assert(RetTy == Type::getInt8PtrTy(getGlobalContext()));
     Threads[CurrentThread].RetVal = Result;
   }
+  for(int p : Threads[CurrentThread].AwaitingJoin){
+    TB.mark_available(p);
+  }
 };
 
 void Interpreter::clearAllStacks(){
@@ -3037,13 +3040,6 @@ void Interpreter::run() {
     ExecutionContext &SF = ECStack()->back();  // Current stack frame
     Instruction &I = *SF.CurInst++;            // Increment before execute
 
-    if(checkRefuse(I) ||
-       (DryRun && !mayConflict(I))){
-      /* Revert without executing the next instruction. */
-      --SF.CurInst;
-      continue;
-    }
-
     if(isUnknownIntrinsic(I)){
       /* This instruction is intrinsic. It will be removed from the IR
        * and replaced by some new sequence of instructions. Executing
@@ -3053,6 +3049,11 @@ void Interpreter::run() {
        * be executed.
        */
       rerun = true;
+    }else if(checkRefuse(I) ||
+             (DryRun && !mayConflict(I))){
+      /* Revert without executing the next instruction. */
+      --SF.CurInst;
+      continue;
     }
 
     TB.metadata(I.getMetadata("dbg"));

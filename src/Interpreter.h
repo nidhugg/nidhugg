@@ -118,6 +118,7 @@ struct ExecutionContext {
 // Interpreter - This class represents the entirety of the interpreter.
 //
 class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
+protected:
   GenericValue ExitValue;          // The return value of the called function
   DataLayout TD;
   IntrinsicLowering *IL;

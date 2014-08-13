@@ -21,9 +21,10 @@
 
 #include "CheckModule.h"
 #include "Debug.h"
-#include "DummyTB.h"
 #include "Interpreter.h"
 #include "SigSegvHandler.h"
+#include "TSOInterpreter.h"
+#include "TSOTraceBuilder.h"
 
 #include <fstream>
 #include <stdexcept>
@@ -102,7 +103,17 @@ void DPORDriver::reparse(){
 
 Trace DPORDriver::run_once(TraceBuilder &TB) const{
   std::string ErrorMsg;
-  llvm::ExecutionEngine *EE = llvm::Interpreter::create(mod,TB,conf,&ErrorMsg);
+  llvm::ExecutionEngine *EE = 0;
+  switch(conf.memory_model){
+  case Configuration::SC:
+    EE = llvm::Interpreter::create(mod,TB,conf,&ErrorMsg);
+    break;
+  case Configuration::TSO:
+    EE = TSOInterpreter::create(mod,static_cast<TSOTraceBuilder&>(TB),conf,&ErrorMsg);
+    break;
+  default:
+    throw std::logic_error("DPORDriver: Unsupported memory model.");
+  }
 
   if (!EE) {
     if (!ErrorMsg.empty()){
@@ -153,7 +164,18 @@ Trace DPORDriver::run_once(TraceBuilder &TB) const{
 DPORDriver::Result DPORDriver::run(){
   Result res;
 
-  TraceBuilder *TB = new DummyTB(conf);
+  TraceBuilder *TB = 0;
+
+  switch(conf.memory_model){
+  case Configuration::SC:
+    TB = new TSOTraceBuilder(conf);
+    break;
+  case Configuration::TSO:
+    TB = new TSOTraceBuilder(conf);
+    break;
+  default:
+    throw std::logic_error("DPORDriver: Unsupported memory model.");
+  }
 
   SigSegvHandler::setup_signal_handler();
 
