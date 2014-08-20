@@ -46,6 +46,13 @@ namespace DPORDriver_test {
     return conf;
   };
 
+  const Configuration &get_pso_conf(){
+    static Configuration conf;
+    conf.memory_model = Configuration::PSO;
+    conf.debug_collect_all_traces = true;
+    return conf;
+  };
+
   std::string trace_spec_to_string(const trace_spec &v){
     std::stringstream ss;
     ss << "{";

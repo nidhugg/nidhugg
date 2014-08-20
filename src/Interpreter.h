@@ -445,6 +445,9 @@ protected:  // Helper functions
   MRef GetMRef(void *Ptr, Type *Ty){
     return {Ptr,int(getDataLayout()->getTypeStoreSize(Ty))};
   };
+  ConstMRef GetConstMRef(void const *Ptr, Type *Ty){
+    return {Ptr,int(getDataLayout()->getTypeStoreSize(Ty))};
+  };
   /* Get an MBlock associated with the location Ptr, and holding the
    * value Val of type Ty. The size of the memory location will be
    * that of Ty.

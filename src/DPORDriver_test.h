@@ -34,11 +34,12 @@
  */
 namespace DPORDriver_test {
 
-  /* A configuration with memory_model == TSO (resp. SC), and
+  /* A configuration with memory_model == TSO (resp. SC, PSO), and
    * debug_collect_all_traces == true.
    */
   const Configuration &get_tso_conf();
   const Configuration &get_sc_conf();
+  const Configuration &get_pso_conf();
 
   /* An IIDOrder object {a,b} should be interpreted as a predicate
    * over traces, with the meaning "a precedes b in time".

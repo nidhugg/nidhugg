@@ -22,6 +22,8 @@
 #include "CheckModule.h"
 #include "Debug.h"
 #include "Interpreter.h"
+#include "PSOInterpreter.h"
+#include "PSOTraceBuilder.h"
 #include "SigSegvHandler.h"
 #include "TSOInterpreter.h"
 #include "TSOTraceBuilder.h"
@@ -111,6 +113,9 @@ Trace DPORDriver::run_once(TraceBuilder &TB) const{
   case Configuration::TSO:
     EE = TSOInterpreter::create(mod,static_cast<TSOTraceBuilder&>(TB),conf,&ErrorMsg);
     break;
+  case Configuration::PSO:
+    EE = PSOInterpreter::create(mod,static_cast<PSOTraceBuilder&>(TB),conf,&ErrorMsg);
+    break;
   default:
     throw std::logic_error("DPORDriver: Unsupported memory model.");
   }
@@ -172,6 +177,9 @@ DPORDriver::Result DPORDriver::run(){
     break;
   case Configuration::TSO:
     TB = new TSOTraceBuilder(conf);
+    break;
+  case Configuration::PSO:
+    TB = new PSOTraceBuilder(conf);
     break;
   default:
     throw std::logic_error("DPORDriver: Unsupported memory model.");

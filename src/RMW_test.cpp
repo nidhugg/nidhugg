@@ -30,8 +30,8 @@ BOOST_AUTO_TEST_SUITE(RMW_test)
 /* Iterate through these memory models for all tests. */
 static VecSet<Configuration::MemoryModel> MMs = {
   Configuration::SC,
-  Configuration::TSO/*,
-  Configuration::PSO*/
+  Configuration::TSO,
+  Configuration::PSO
 };
 
 BOOST_AUTO_TEST_CASE(RMW_xchg){

@@ -10,6 +10,8 @@ libnidhugg_a_SOURCES = \
   IID.h IID.tcc \
   Interpreter.cpp Interpreter.h \
   MRef.cpp MRef.h \
+  PSOInterpreter.cpp PSOInterpreter.h \
+  PSOTraceBuilder.cpp PSOTraceBuilder.h \
   SigSegvHandler.cpp SigSegvHandler.h \
   Trace.cpp Trace.h \
   TraceBuilder.cpp TraceBuilder.h \
@@ -30,6 +32,8 @@ unittest_SOURCES = \
   CPid_test.cpp \
   DPORDriver_test.cpp DPORDriver_test.h \
   DryRun_test.cpp \
+  PSO_test.cpp \
+  PSO_test2.cpp \
   RMW_test.cpp \
   Robustness_test.cpp \
   SC_test.cpp \

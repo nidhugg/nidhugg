@@ -18,24 +18,23 @@
  */
 
 #include "Debug.h"
-#include "TSOTraceBuilder.h"
+#include "PSOTraceBuilder.h"
 
 #include <sstream>
 
-TSOTraceBuilder::TSOTraceBuilder(const Configuration &conf) : TraceBuilder(conf) {
-  threads.push_back(Thread(CPid(),{}));
-  threads.push_back(Thread(CPS.new_aux(CPid()),{}));
-  threads[1].available = false; // Store buffer is empty.
+PSOTraceBuilder::PSOTraceBuilder(const Configuration &conf) : TraceBuilder(conf) {
+  threads.push_back(Thread(0,CPid(),{},-1));
+  proc_to_ipid.push_back(0);
   prefix_idx = -1;
   dryrun = false;
   replay = false;
   last_full_memory_conflict = -1;
 };
 
-TSOTraceBuilder::~TSOTraceBuilder(){
+PSOTraceBuilder::~PSOTraceBuilder(){
 };
 
-bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
+bool PSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   *dryrun = false;
   *alt = 0;
   this->dryrun = false;
@@ -46,8 +45,9 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
        curnode().iid.get_index() + curnode().size - 1){
       /* Continue executing the current Event */
       IPid pid = curnode().iid.get_pid();
-      *proc = pid/2;
-      *aux = pid % 2 - 1;
+      *proc = threads[pid].proc;
+      if(threads[pid].cpid.is_auxiliary()) *aux = threads[pid].cpid.get_aux_index();
+      else *aux = -1;
       *alt = 0;
       assert(threads[pid].available);
       ++threads[pid].clock[pid];
@@ -62,8 +62,9 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers];
       ++dry_sleepers;
       threads[pid].sleeping = true;
-      *proc = pid/2;
-      *aux = pid % 2 - 1;
+      *proc = threads[pid].proc;
+      if(threads[pid].cpid.is_auxiliary()) *aux = threads[pid].cpid.get_aux_index();
+      else *aux = -1;
       *alt = 0;
       *dryrun = true;
       this->dryrun = true;
@@ -73,8 +74,9 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       dry_sleepers = 0;
       ++prefix_idx;
       IPid pid = curnode().iid.get_pid();
-      *proc = pid/2;
-      *aux = pid % 2 - 1;
+      *proc = threads[pid].proc;
+      if(threads[pid].cpid.is_auxiliary()) *aux = threads[pid].cpid.get_aux_index();
+      else *aux = -1;
       *alt = curnode().alt;
       assert(threads[pid].available);
       ++threads[pid].clock[pid];
@@ -108,35 +110,61 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
    * threads.
    */
   const unsigned sz = threads.size();
+  unsigned p_real = sz, p_aux;
+  for(p_aux = 0; p_aux < sz; ++p_aux){
+    if(threads[p_aux].available && !threads[p_aux].sleeping &&
+       (conf.max_search_depth < 0 || threads[p_aux].clock[p_aux] < conf.max_search_depth)){
+      /* The thread is available. */
+      if(threads[p_aux].cpid.is_auxiliary() && is_aux_at_head(p_aux)){
+        break;
+      }else{
+        if(p_real == sz) p_real = p_aux;
+      }
+    }
+  }
+
   unsigned p;
-  for(p = 1; p < sz; p += 2){ // Loop through auxiliary threads
-    if(threads[p].available && !threads[p].sleeping &&
-       (conf.max_search_depth < 0 || threads[p].clock[p] < conf.max_search_depth)){
-      ++threads[p].clock[p];
-      prefix.push_back(Event(IID<IPid>(IPid(p),threads[p].clock[p]),
-                             threads[p].clock));
-      *proc = p/2;
-      *aux = 0;
-      return true;
-    }
+  if(p_aux < sz){ // Schedule auxiliary
+    p = p_aux;
+    *aux = threads[p].cpid.get_aux_index();
+  }else if(p_real < sz){ // Schedule real
+    p = p_real;
+    *aux = -1;
+  }else{ // No threads available
+    return false;
   }
 
-  for(p = 0; p < sz; p += 2){ // Loop through real threads
-    if(threads[p].available && !threads[p].sleeping &&
-       (conf.max_search_depth < 0 || threads[p].clock[p] < conf.max_search_depth)){
-      ++threads[p].clock[p];
-      prefix.push_back(Event(IID<IPid>(IPid(p),threads[p].clock[p]),
-                             threads[p].clock));
-      *proc = p/2;
-      *aux = -1;
-      return true;
-    }
-  }
-
-  return false; // No available threads
+  ++threads[p].clock[p];
+  prefix.push_back(Event(IID<IPid>(IPid(p),threads[p].clock[p]),
+                         threads[p].clock));
+  *proc = threads[p].proc;
+  return true;
 };
 
-void TSOTraceBuilder::refuse_schedule(){
+bool PSOTraceBuilder::is_aux_at_head(IPid pid) const{
+  assert(threads[pid].cpid.is_auxiliary());
+  IPid parent_pid = threads[pid].parent;
+  int aux = threads[pid].cpid.get_aux_index();
+  void const *b0 = threads[parent_pid].aux_to_byte[aux];
+  auto it = threads[parent_pid].store_buffers.find(b0);
+  if(it == threads[parent_pid].store_buffers.end()){
+    return false;
+  }
+  assert(it->second.size());
+  const ConstMRef &ml = it->second.front().ml;
+  for(void const *b : ml){
+    if(b == b0) continue;
+    assert(threads[parent_pid].store_buffers.count(b));
+    assert(threads[parent_pid].store_buffers.at(b).size());
+    if(threads[parent_pid].store_buffers.at(b).front().ml.ref != b0){
+      return false;
+    }
+    assert(threads[parent_pid].store_buffers.at(b).front().ml == ml);
+  }
+  return true;
+};
+
+void PSOTraceBuilder::refuse_schedule(){
   assert(prefix_idx == int(prefix.size())-1);
   assert(prefix.back().size == 1);
   assert(!prefix.back().may_conflict);
@@ -147,31 +175,31 @@ void TSOTraceBuilder::refuse_schedule(){
   prefix.pop_back();
   --prefix_idx;
   --threads[last_pid].clock[last_pid];
-  mark_unavailable(last_pid/2,last_pid % 2 - 1);
+  threads[last_pid].available = false;
 };
 
-void TSOTraceBuilder::mark_available(int proc, int aux){
+void PSOTraceBuilder::mark_available(int proc, int aux){
   threads[ipid(proc,aux)].available = true;
 };
 
-void TSOTraceBuilder::mark_unavailable(int proc, int aux){
+void PSOTraceBuilder::mark_unavailable(int proc, int aux){
   threads[ipid(proc,aux)].available = false;
 };
 
-void TSOTraceBuilder::metadata(const llvm::MDNode *md){
+void PSOTraceBuilder::metadata(const llvm::MDNode *md){
   if(curnode().md == 0){
     curnode().md = md;
   }
 };
 
-bool TSOTraceBuilder::sleepset_is_empty() const{
+bool PSOTraceBuilder::sleepset_is_empty() const{
   for(unsigned i = 0; i < threads.size(); ++i){
     if(threads[i].sleeping) return false;
   }
   return true;
 };
 
-bool TSOTraceBuilder::check_for_cycles(){
+bool PSOTraceBuilder::check_for_cycles(){
   IID<IPid> i_iid;
   if(!has_cycle(&i_iid)) return false;
 
@@ -185,7 +213,7 @@ bool TSOTraceBuilder::check_for_cycles(){
   return true;
 };
 
-Trace TSOTraceBuilder::get_trace() const{
+Trace PSOTraceBuilder::get_trace() const{
   std::vector<IID<CPid> > cmp;
   std::vector<const llvm::MDNode*> cmp_md;
   std::vector<Error*> errs;
@@ -199,9 +227,9 @@ Trace TSOTraceBuilder::get_trace() const{
   return Trace(cmp,cmp_md,errs);
 };
 
-bool TSOTraceBuilder::reset(){
+bool PSOTraceBuilder::reset(){
   if(conf.debug_print_on_reset){
-    llvm::dbgs() << " === TSOTraceBuilder reset ===\n";
+    llvm::dbgs() << " === PSOTraceBuilder reset ===\n";
     debug_print();
     llvm::dbgs() << " =============================\n";
   }
@@ -247,9 +275,9 @@ bool TSOTraceBuilder::reset(){
 
   CPS = CPidSystem();
   threads.clear();
-  threads.push_back(Thread(CPid(),{}));
-  threads.push_back(Thread(CPS.new_aux(CPid()),{}));
-  threads[1].available = false; // Store buffer is empty.
+  threads.push_back(Thread(0,CPid(),{},-1));
+  proc_to_ipid.clear();
+  proc_to_ipid.push_back(0);
   mutexes.clear();
   mem.clear();
   last_full_memory_conflict = -1;
@@ -266,7 +294,7 @@ static std::string rpad(std::string s, int n){
   return s;
 };
 
-std::string TSOTraceBuilder::iid_string(const Event &evt) const{
+std::string PSOTraceBuilder::iid_string(const Event &evt) const{
   std::stringstream ss;
   ss << "(" << threads[evt.iid.get_pid()].cpid << "," << evt.iid.get_index();
   if(evt.size > 1){
@@ -279,8 +307,8 @@ std::string TSOTraceBuilder::iid_string(const Event &evt) const{
   return ss.str();
 };
 
-void TSOTraceBuilder::debug_print() const {
-  llvm::dbgs() << "TSOTraceBuilder (debug print):\n";
+void PSOTraceBuilder::debug_print() const {
+  llvm::dbgs() << "PSOTraceBuilder (debug print):\n";
   int iid_offs = 0;
   int clock_offs = 0;
   VecSet<IPid> sleep_set;
@@ -318,22 +346,40 @@ void TSOTraceBuilder::debug_print() const {
   }
 };
 
-void TSOTraceBuilder::spawn(){
+void PSOTraceBuilder::spawn(){
   IPid parent_ipid = curnode().iid.get_pid();
   CPid child_cpid = CPS.spawn(threads[parent_ipid].cpid);
-  threads.push_back(Thread(child_cpid,threads[parent_ipid].clock));
-  threads.push_back(Thread(CPS.new_aux(child_cpid),threads[parent_ipid].clock));
-  threads.back().available = false; // Empty store buffer
+  int proc = 0;
+  for(unsigned i = 0; i < threads.size(); ++i){
+    proc = std::max(proc,threads[i].proc+1);
+  }
+  proc_to_ipid.push_back(threads.size());
+  threads.push_back(Thread(proc,child_cpid,threads[parent_ipid].clock,parent_ipid));
 };
 
-void TSOTraceBuilder::store(const ConstMRef &ml){
+void PSOTraceBuilder::store(const ConstMRef &ml){
   if(dryrun) return;
   IPid ipid = curnode().iid.get_pid();
-  threads[ipid].store_buffer.push_back(PendingStore(ml,threads[ipid].clock,curnode().md));
-  threads[ipid+1].available = true;
+  for(void const *b : ml){
+    threads[ipid].store_buffers[b].push_back(PendingStoreByte(ml,threads[ipid].clock,curnode().md));
+  }
+  IPid upd_ipid;
+  auto it = threads[ipid].byte_to_aux.find(ml.ref);
+  if(it == threads[ipid].byte_to_aux.end()){
+    /* Create new auxiliary thread */
+    int aux_idx = int(threads[ipid].aux_to_byte.size());
+    upd_ipid = int(threads.size());
+    threads.push_back(Thread(threads[ipid].proc,CPS.new_aux(threads[ipid].cpid),threads[ipid].clock,ipid));
+    threads[ipid].byte_to_aux[ml.ref] = aux_idx;
+    threads[ipid].aux_to_byte.push_back(ml.ref);
+    threads[ipid].aux_to_ipid.push_back(upd_ipid);
+  }else{
+    upd_ipid = threads[ipid].aux_to_ipid[it->second];
+  }
+  threads[upd_ipid].available = true;
 };
 
-void TSOTraceBuilder::atomic_store(const ConstMRef &ml){
+void PSOTraceBuilder::atomic_store(const ConstMRef &ml){
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.size()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
@@ -346,21 +392,25 @@ void TSOTraceBuilder::atomic_store(const ConstMRef &ml){
   }
   IPid ipid = curnode().iid.get_pid();
   curnode().may_conflict = true;
-  bool is_update = ipid % 2;
+  bool is_update = threads[ipid].cpid.is_auxiliary();
 
   IPid uipid = ipid; // ID of the thread changing the memory
-  IPid tipid = is_update ? ipid-1 : ipid; // ID of the (real) thread that issued the store
+  IPid tipid = is_update ? threads[ipid].parent : ipid; // ID of the (real) thread that issued the store
 
   if(is_update){ // Add the clock of the store instruction
-    assert(threads[tipid].store_buffer.size());
-    const PendingStore &pst = threads[tipid].store_buffer.front();
+    assert(threads[tipid].store_buffers.count(ml.ref));
+    assert(threads[tipid].store_buffers[ml.ref].size());
+    assert(threads[tipid].store_buffers[ml.ref].front().ml == ml);
+    const PendingStoreByte &pst = threads[tipid].store_buffers[ml.ref].front();
     curnode().clock += pst.clock;
     threads[uipid].clock += pst.clock;
     curnode().origin_iid = IID<IPid>(tipid,pst.clock[tipid]);
-  }else{ // Add the clock of the auxiliary thread (because of fence semantics)
-    assert(threads[tipid].store_buffer.empty());
-    threads[tipid].clock += threads[tipid+1].clock;
-    curnode().clock += threads[tipid+1].clock;
+  }else{ // Add the clock of auxiliary threads (because of fencing semantics)
+    assert(threads[tipid].all_buffers_empty());
+    for(IPid p : threads[tipid].aux_to_ipid){
+      threads[tipid].clock += threads[p].clock;
+      curnode().clock += threads[p].clock;
+    }
   }
 
   VecSet<int> seen_accesses;
@@ -369,9 +419,18 @@ void TSOTraceBuilder::atomic_store(const ConstMRef &ml){
   for(void const *b : ml){
     ByteInfo &bi = mem[b];
     int lu = bi.last_update;
-    IPid lu_tipid = 2*(prefix[lu].iid.get_pid() / 2);
-    if(0 <= lu && lu_tipid != tipid){
-      seen_accesses.insert(bi.last_update);
+    if(0 <= lu){
+      IPid lu_tipid = prefix[lu].iid.get_pid();
+      assert(0 <= lu_tipid && lu_tipid < int(threads.size()));
+      if(threads[lu_tipid].cpid.is_auxiliary()){
+        lu_tipid = threads[lu_tipid].parent;
+      }
+      if(lu_tipid != tipid){
+        seen_accesses.insert(bi.last_update);
+      }else{
+        curnode().clock += prefix[lu].clock;
+        threads[uipid].clock += prefix[lu].clock;
+      }
     }
     for(int i : bi.last_read){
       if(0 <= i && prefix[i].iid.get_pid() != tipid) seen_accesses.insert(i);
@@ -383,28 +442,33 @@ void TSOTraceBuilder::atomic_store(const ConstMRef &ml){
   see_events(seen_accesses);
 
   /* Register in memory */
+  int last_rowe = is_update ? threads[tipid].store_buffers[ml.ref].front().last_rowe : -1;
   for(void const *b : ml){
     ByteInfo &bi = mem[b];
     bi.last_update = prefix_idx;
     bi.last_update_ml = ml;
-    if(is_update && threads[tipid].store_buffer.front().last_rowe >= 0){
-      bi.last_read[tipid/2] = threads[tipid].store_buffer.front().last_rowe;
+    if(0 <= last_rowe){
+      bi.last_read[threads[tipid].proc] = last_rowe;
     }
     wakeup(Access::W,b);
   }
 
   if(is_update){ /* Remove pending store from buffer */
-    for(unsigned i = 0; i < threads[tipid].store_buffer.size()-1; ++i){
-      threads[tipid].store_buffer[i] = threads[tipid].store_buffer[i+1];
-    }
-    threads[tipid].store_buffer.pop_back();
-    if(threads[tipid].store_buffer.empty()){
-      threads[uipid].available = false;
+    for(void const *b : ml){
+      std::vector<PendingStoreByte> &sb = threads[tipid].store_buffers[b];
+      for(unsigned i = 0; i < sb.size() - 1; ++i){
+        sb[i] = sb[i+1];
+      }
+      sb.pop_back();
+      if(sb.empty()){
+        threads[tipid].store_buffers.erase(b);
+        threads[uipid].available = false;
+      }
     }
   }
 };
 
-void TSOTraceBuilder::load(const ConstMRef &ml){
+void PSOTraceBuilder::load(const ConstMRef &ml){
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.size()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
@@ -419,10 +483,13 @@ void TSOTraceBuilder::load(const ConstMRef &ml){
   IPid ipid = curnode().iid.get_pid();
 
   /* Check if this is a ROWE */
-  for(int i = int(threads[ipid].store_buffer.size())-1; 0 <= i; --i){
-    if(threads[ipid].store_buffer[i].ml.ref == ml.ref){
-      /* ROWE */
-      threads[ipid].store_buffer[i].last_rowe = prefix_idx;
+  {
+    auto it = threads[ipid].store_buffers.find(ml.ref);
+    if(it != threads[ipid].store_buffers.end()){
+      std::vector<PendingStoreByte> &sb = it->second;
+      assert(sb.size());
+      assert(sb.back().ml == ml);
+      sb.back().last_rowe = prefix_idx;
       return;
     }
   }
@@ -435,8 +502,11 @@ void TSOTraceBuilder::load(const ConstMRef &ml){
   for(void const *b : ml){
     int lu = mem[b].last_update;
     const ConstMRef &lu_ml = mem[b].last_update_ml;
-    IPid lu_tipid = 2*(prefix[lu].iid.get_pid() / 2);
     if(0 <= lu){
+      IPid lu_tipid = prefix[lu].iid.get_pid();
+      if(threads[lu_tipid].cpid.is_auxiliary()){
+        lu_tipid = threads[lu_tipid].parent;
+      }
       if(lu_tipid != ipid){
         seen_accesses.insert(lu);
       }else if(ml != lu_ml){
@@ -453,12 +523,12 @@ void TSOTraceBuilder::load(const ConstMRef &ml){
 
   /* Register load in memory */
   for(void const *b : ml){
-    mem[b].last_read[ipid/2] = prefix_idx;
+    mem[b].last_read[threads[ipid].proc] = prefix_idx;
     wakeup(Access::R,b);
   }
 };
 
-void TSOTraceBuilder::full_memory_conflict(){
+void PSOTraceBuilder::full_memory_conflict(){
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.size()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
@@ -490,25 +560,31 @@ void TSOTraceBuilder::full_memory_conflict(){
   mem.clear();
 };
 
-void TSOTraceBuilder::fence(){
+void PSOTraceBuilder::fence(){
   if(dryrun) return;
   IPid ipid = curnode().iid.get_pid();
-  assert(ipid % 2 == 0);
-  assert(threads[ipid].store_buffer.empty());
-  curnode().clock += threads[ipid+1].clock;
-  threads[ipid].clock += threads[ipid+1].clock;
+  assert(!threads[ipid].cpid.is_auxiliary());
+  assert(threads[ipid].all_buffers_empty());
+  for(IPid p : threads[ipid].aux_to_ipid){
+    curnode().clock += threads[p].clock;
+    threads[ipid].clock += threads[p].clock;
+  }
 };
 
-void TSOTraceBuilder::join(int tgt_proc){
+void PSOTraceBuilder::join(int tgt_proc){
   if(dryrun) return;
+  assert(0 <= tgt_proc && tgt_proc < int(proc_to_ipid.size()));
   IPid ipid = curnode().iid.get_pid();
-  curnode().clock += threads[tgt_proc*2].clock;
-  threads[ipid].clock += threads[tgt_proc*2].clock;
-  curnode().clock += threads[tgt_proc*2+1].clock;
-  threads[ipid].clock += threads[tgt_proc*2+1].clock;
+  IPid tgt_ipid = proc_to_ipid[tgt_proc];
+  curnode().clock += threads[tgt_ipid].clock;
+  threads[ipid].clock += threads[tgt_ipid].clock;
+  for(IPid p : threads[tgt_ipid].aux_to_ipid){
+    curnode().clock += threads[p].clock;
+    threads[ipid].clock += threads[p].clock;
+  }
 };
 
-void TSOTraceBuilder::mutex_lock(const ConstMRef &ml){
+void PSOTraceBuilder::mutex_lock(const ConstMRef &ml){
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.size()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
@@ -540,7 +616,7 @@ void TSOTraceBuilder::mutex_lock(const ConstMRef &ml){
   mutex.last_lock = mutex.last_access = prefix_idx;
 };
 
-void TSOTraceBuilder::mutex_lock_fail(const ConstMRef &ml){
+void PSOTraceBuilder::mutex_lock_fail(const ConstMRef &ml){
   assert(!dryrun);
   assert(mutexes.count(ml.ref));
   Mutex &mutex = mutexes[ml.ref];
@@ -555,7 +631,7 @@ void TSOTraceBuilder::mutex_lock_fail(const ConstMRef &ml){
   }
 };
 
-void TSOTraceBuilder::mutex_unlock(const ConstMRef &ml){
+void PSOTraceBuilder::mutex_unlock(const ConstMRef &ml){
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.size()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
@@ -577,7 +653,7 @@ void TSOTraceBuilder::mutex_unlock(const ConstMRef &ml){
   mutex.last_access = prefix_idx;
 };
 
-void TSOTraceBuilder::mutex_init(const ConstMRef &ml){
+void PSOTraceBuilder::mutex_init(const ConstMRef &ml){
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.size()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
@@ -592,7 +668,7 @@ void TSOTraceBuilder::mutex_init(const ConstMRef &ml){
   see_events({last_full_memory_conflict});
 };
 
-void TSOTraceBuilder::mutex_destroy(const ConstMRef &ml){
+void PSOTraceBuilder::mutex_destroy(const ConstMRef &ml){
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.size()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
@@ -611,42 +687,46 @@ void TSOTraceBuilder::mutex_destroy(const ConstMRef &ml){
   mutexes.erase(ml.ref);
 };
 
-void TSOTraceBuilder::register_alternatives(int alt_count){
+void PSOTraceBuilder::register_alternatives(int alt_count){
   curnode().may_conflict = true;
   for(int i = curnode().alt+1; i < alt_count; ++i){
     curnode().branch.insert(Branch({curnode().iid.get_pid(),i}));
   }
 };
 
-void TSOTraceBuilder::dealloc(const ConstMRef &ml){
+void PSOTraceBuilder::dealloc(const ConstMRef &ml){
+  Debug::warn("PSOTB::dealloc")
+    << "WARNING: PSOTraceBuilder::dealloc: Should become deprecated.\n";
+  // Remove this method entirely when new memory management has been implemented
   for(void const *b : ml){
     mem.erase(b);
     for(unsigned p = 0; p < threads.size(); ++p){
+      threads[p].byte_to_aux.erase(b);
       threads[p].sleep_accesses_w.erase(b);
       threads[p].sleep_accesses_r.erase(b);
     }
   }
 };
 
-void TSOTraceBuilder::assertion_error(std::string cond){
+void PSOTraceBuilder::assertion_error(std::string cond){
   IPid pid = curnode().iid.get_pid();
   int idx = curnode().iid.get_index();
   errors.push_back(new AssertionError(IID<CPid>(threads[pid].cpid,idx),cond));
 };
 
-void TSOTraceBuilder::pthreads_error(std::string msg){
+void PSOTraceBuilder::pthreads_error(std::string msg){
   IPid pid = curnode().iid.get_pid();
   int idx = curnode().iid.get_index();
   errors.push_back(new PthreadsError(IID<CPid>(threads[pid].cpid,idx),msg));
 };
 
-void TSOTraceBuilder::segmentation_fault_error(){
+void PSOTraceBuilder::segmentation_fault_error(){
   IPid pid = curnode().iid.get_pid();
   int idx = curnode().iid.get_index();
   errors.push_back(new SegmentationFaultError(IID<CPid>(threads[pid].cpid,idx)));
 };
 
-VecSet<TSOTraceBuilder::IPid> TSOTraceBuilder::sleep_set_at(int i){
+VecSet<PSOTraceBuilder::IPid> PSOTraceBuilder::sleep_set_at(int i){
   VecSet<IPid> sleep;
   for(int j = 0; j < i; ++j){
     sleep.insert(prefix[j].sleep);
@@ -658,7 +738,7 @@ VecSet<TSOTraceBuilder::IPid> TSOTraceBuilder::sleep_set_at(int i){
   return sleep;
 };
 
-void TSOTraceBuilder::see_events(const VecSet<int> &seen_accesses){
+void PSOTraceBuilder::see_events(const VecSet<int> &seen_accesses){
   /* Register new branches */
   std::vector<int> branch;
   for(int i : seen_accesses){
@@ -686,7 +766,7 @@ void TSOTraceBuilder::see_events(const VecSet<int> &seen_accesses){
   }
 };
 
-void TSOTraceBuilder::add_branch(int i, int j){
+void PSOTraceBuilder::add_branch(int i, int j){
   assert(0 <= i);
   assert(i < j);
   assert(j <= prefix_idx);
@@ -740,17 +820,11 @@ void TSOTraceBuilder::add_branch(int i, int j){
   prefix[i].branch.insert(cand);
 };
 
-bool TSOTraceBuilder::has_pending_store(IPid pid, void const *ml) const {
-  const std::vector<PendingStore> &sb = threads[pid].store_buffer;
-  for(unsigned i = 0; i < sb.size(); ++i){
-    if(sb[i].ml.includes(ml)){
-      return true;
-    }
-  }
-  return false;
+bool PSOTraceBuilder::has_pending_store(IPid pid, void const *ml) const {
+  return threads[pid].store_buffers.count(ml);
 };
 
-void TSOTraceBuilder::wakeup(Access::Type type, void const *ml){
+void PSOTraceBuilder::wakeup(Access::Type type, void const *ml){
   IPid pid = curnode().iid.get_pid();
   std::vector<IPid> wakeup; // Wakeup these
   switch(type){
@@ -775,7 +849,7 @@ void TSOTraceBuilder::wakeup(Access::Type type, void const *ml){
     {
       for(unsigned p = 0; p < threads.size(); ++p){
         if(threads[p].sleep_full_memory_conflict ||
-           (int(p) != pid+1 &&
+           (threads[p].proc != threads[pid].proc &&
             threads[p].sleep_accesses_w.count(ml))){
           wakeup.push_back(p);
         }
@@ -786,7 +860,7 @@ void TSOTraceBuilder::wakeup(Access::Type type, void const *ml){
     {
       for(unsigned p = 0; p < threads.size(); ++p){
         if(threads[p].sleep_full_memory_conflict ||
-           (int(p) + 1 != pid &&
+           (threads[p].proc != threads[pid].proc &&
             (threads[p].sleep_accesses_w.count(ml) ||
              (threads[p].sleep_accesses_r.count(ml) &&
               !has_pending_store(p,ml))))){
@@ -796,7 +870,7 @@ void TSOTraceBuilder::wakeup(Access::Type type, void const *ml){
       break;
     }
   default:
-    throw std::logic_error("TSOTraceBuilder::wakeup: Unknown type of memory access.");
+    throw std::logic_error("PSOTraceBuilder::wakeup: Unknown type of memory access.");
   }
 
   for(IPid p : wakeup){
@@ -809,8 +883,8 @@ void TSOTraceBuilder::wakeup(Access::Type type, void const *ml){
   }
 };
 
-bool TSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
-  int proc_count = threads.size();
+bool PSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
+  int real_thread_count = proc_to_ipid.size();
   int pfx_size = prefix.size();
 
   /* Identify all store events */
@@ -819,66 +893,77 @@ bool TSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
     int store;
     /* The index in prefix of the corresponding update event. */
     int update;
+    bool operator<(const stupd_t &su) const{
+      return store < su.store;
+    };
   };
-  /* stores[proc] is all store events of process proc, ordered by
+  /* stores[proc] is all store events of thread proc, ordered by
    * store index.
    */
-  std::vector<std::vector<stupd_t> > stores(proc_count);
+  std::vector<std::vector<stupd_t> > stores(real_thread_count);
   for(int i = 0; i < pfx_size; ++i){
-    if(prefix[i].iid.get_pid() % 2){ // Update
-      assert(prefix[i].origin_iid.get_pid() == prefix[i].iid.get_pid()-1);
-      stores[prefix[i].iid.get_pid() / 2].push_back({prefix[i].origin_iid.get_index(),i});
+    if(threads[prefix[i].iid.get_pid()].cpid.is_auxiliary()){ // Update
+      assert(threads[prefix[i].origin_iid.get_pid()].cpid ==
+             threads[prefix[i].iid.get_pid()].cpid.parent());
+      int proc = threads[prefix[i].iid.get_pid()].proc;
+      stores[proc].push_back({prefix[i].origin_iid.get_index(),i});
     }
+  }
+  for(int i = 0; i < real_thread_count; ++i){
+    std::sort(stores[i].begin(),stores[i].end());
   }
 
   /* Attempt to replay computation under SC */
-  struct proc_t {
-    proc_t()
+  struct thread_t {
+    thread_t()
       : pc(0), pfx_index(0), store_index(0), blocked(false), block_clock() {};
     int pc; // Current program counter
     int pfx_index; // Index into prefix
     int store_index; // Index into stores
-    bool blocked; // Is the process currently blocked?
+    bool blocked; // Is the thread currently blocked?
     VClock<IPid> block_clock; // If blocked, what are we waiting for?
   };
-  std::vector<proc_t> procs(proc_count);
+  std::vector<thread_t> threads(real_thread_count);
 
-  int proc = 0; // The next scheduled process
-  /* alive keeps track of whether any process has been successfully
+  int thread = 0; // The next scheduled thread
+  /* alive keeps track of whether any thread has been successfully
    * scheduled lately
    */
   bool alive = false;
   while(true){
+    IPid thread_ipid = proc_to_ipid[thread];
+
     // Advance pfx_index to the right Event in prefix
-    while(procs[proc].pfx_index < pfx_size &&
-          prefix[procs[proc].pfx_index].iid.get_pid() != proc*2){
-      ++procs[proc].pfx_index;
+    while(threads[thread].pfx_index < pfx_size &&
+          prefix[threads[thread].pfx_index].iid.get_pid() != thread_ipid){
+      ++threads[thread].pfx_index;
     }
-    if(pfx_size <= procs[proc].pfx_index){
-      // This process is finished
-      proc = (proc+1)%proc_count;
-      if(proc == 0){
+    if(pfx_size <= threads[thread].pfx_index){
+      // This thread is finished
+      thread = (thread+1)%real_thread_count;
+      if(thread == 0){
         if(!alive) break;
         alive = false;
       }
       continue;
     }
 
-    int next_pc = procs[proc].pc+1;
-    const Event &evt = prefix[procs[proc].pfx_index];
+    int next_pc = threads[thread].pc+1;
+    const Event &evt = prefix[threads[thread].pfx_index];
 
-    if(!procs[proc].blocked){
-      assert(evt.iid.get_pid() == 2*proc);
+    if(!threads[thread].blocked){
+      assert(evt.iid.get_pid() == thread_ipid);
       assert(evt.iid.get_index() <= next_pc);
       assert(next_pc < evt.iid.get_index() + evt.size);
-      procs[proc].block_clock = evt.clock;
-      assert(procs[proc].block_clock[proc*2] <= next_pc);
-      procs[proc].block_clock[proc*2] = next_pc;
-      if(procs[proc].store_index < int(stores[proc].size()) &&
-         stores[proc][procs[proc].store_index].store == next_pc){
+      threads[thread].block_clock = evt.clock;
+      assert(threads[thread].block_clock[thread_ipid] <= next_pc);
+      threads[thread].block_clock[thread_ipid] = next_pc;
+      if(threads[thread].store_index < int(stores[thread].size()) &&
+         stores[thread][threads[thread].store_index].store == next_pc){
         // This is a store. Also consider the update's clock.
-        procs[proc].block_clock += prefix[stores[proc][procs[proc].store_index].update].clock;
-        ++procs[proc].store_index;
+        threads[thread].block_clock +=
+          prefix[stores[thread][threads[thread].store_index].update].clock;
+        ++threads[thread].store_index;
       }
     }
 
@@ -886,55 +971,55 @@ bool TSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
     // Is there some process we have to wait for?
     {
       int i;
-      procs[proc].blocked = false;
-      for(i = 0; i < proc_count; ++i){
-        if(i != proc && procs[i].pc < procs[proc].block_clock[i*2]){
-          procs[proc].blocked = true;
+      threads[thread].blocked = false;
+      for(i = 0; i < real_thread_count; ++i){
+        if(i != thread && threads[i].pc < threads[thread].block_clock[proc_to_ipid[i]]){
+          threads[thread].blocked = true;
           break;
         }
       }
     }
 
     // Are we still blocked?
-    if(procs[proc].blocked){
-      proc = (proc+1)%proc_count; // Try another process
-      if(proc == 0){
+    if(threads[thread].blocked){
+      thread = (thread+1)%real_thread_count; // Try another thread
+      if(thread == 0){
         if(!alive) break;
         alive = false;
       }
     }else{
       alive = true;
-      procs[proc].pc = next_pc;
-      assert(next_pc == procs[proc].block_clock[proc*2]);
+      threads[thread].pc = next_pc;
+      assert(next_pc == threads[thread].block_clock[thread_ipid]);
 
       // Advance pc to next interesting event
       next_pc = evt.iid.get_index() + evt.size - 1;
-      if(procs[proc].store_index < int(stores[proc].size()) &&
-         stores[proc][procs[proc].store_index].store-1 < next_pc){
-        next_pc = stores[proc][procs[proc].store_index].store-1;
+      if(threads[thread].store_index < int(stores[thread].size()) &&
+         stores[thread][threads[thread].store_index].store-1 < next_pc){
+        next_pc = stores[thread][threads[thread].store_index].store-1;
       }
-      assert(procs[proc].pc <= next_pc);
-      procs[proc].pc = next_pc;
+      assert(threads[thread].pc <= next_pc);
+      threads[thread].pc = next_pc;
 
       if(next_pc + 1 == evt.iid.get_index() + evt.size){
         // We are done with this Event
-        ++procs[proc].pfx_index;
+        ++threads[thread].pfx_index;
       }
     }
   }
 
-  // Did all processes finish, or are some still blocked?
+  // Did all threads finish, or are some still blocked?
   {
     int upd_idx = -1; // Index of the latest update involved in a cycle
     bool has_cycle = false;
-    for(int i = 0; i < proc_count; ++i){
-      if(procs[i].blocked){
+    for(int i = 0; i < real_thread_count; ++i){
+      if(threads[i].blocked){
         // There is a cycle
         has_cycle = true;
-        int next_pc = procs[i].pc+1;
-        if(0 < procs[i].store_index && stores[i][procs[i].store_index-1].store == next_pc){
-          if(stores[i][procs[i].store_index-1].update > upd_idx){
-            upd_idx = stores[i][procs[i].store_index-1].update;
+        int next_pc = threads[i].pc+1;
+        if(0 < threads[i].store_index && stores[i][threads[i].store_index-1].store == next_pc){
+          if(stores[i][threads[i].store_index-1].update > upd_idx){
+            upd_idx = stores[i][threads[i].store_index-1].update;
             *loc = prefix[upd_idx].iid;
           }
         }

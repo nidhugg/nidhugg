@@ -32,7 +32,7 @@
 BOOST_AUTO_TEST_SUITE(DryRun_test)
 
 static VecSet<Configuration::MemoryModel> MMs =
-{Configuration::SC, Configuration::TSO/*, Configuration::PSO*/};
+{Configuration::SC, Configuration::TSO, Configuration::PSO};
 
 static void check(Configuration::MemoryModel MM, const std::string &prog){
   Configuration conf;
