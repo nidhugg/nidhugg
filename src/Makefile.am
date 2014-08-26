@@ -13,8 +13,10 @@ libnidhugg_a_SOURCES = \
   PSOInterpreter.cpp PSOInterpreter.h \
   PSOTraceBuilder.cpp PSOTraceBuilder.h \
   SigSegvHandler.cpp SigSegvHandler.h \
+  SpinAssumePass.cpp SpinAssumePass.h \
   Trace.cpp Trace.h \
   TraceBuilder.cpp TraceBuilder.h \
+  Transform.cpp Transform.h \
   TSOInterpreter.cpp TSOInterpreter.h \
   TSOTraceBuilder.cpp TSOTraceBuilder.h \
   VClock.cpp VClock.h VClock.tcc \

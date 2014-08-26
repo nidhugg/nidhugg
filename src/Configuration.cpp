@@ -34,7 +34,7 @@ cl_max_search_depth("max-search-depth",
                  llvm::cl::desc("Bound the length of the analysed computations (# instructions/events per process)"));
 
 static llvm::cl::opt<Configuration::MemoryModel>
-cl_memory_model(llvm::cl::NotHidden, llvm::cl::Required,
+cl_memory_model(llvm::cl::NotHidden, llvm::cl::init(Configuration::MM_UNDEF),
              llvm::cl::desc("Select memory model"),
              llvm::cl::values(clEnumValN(Configuration::SC,"sc","Sequential Consistency"),
                               clEnumValN(Configuration::PSO,"pso","Partial Store Order"),
@@ -44,13 +44,19 @@ cl_memory_model(llvm::cl::NotHidden, llvm::cl::Required,
 static llvm::cl::opt<bool> cl_check_robustness("robustness",llvm::cl::NotHidden,
                                               llvm::cl::desc("Check for robustness as a correctness criterion."));
 
+static llvm::cl::OptionCategory cl_transformation_cat("Module Transformation Passes");
+
+static llvm::cl::opt<bool> cl_transform_spin_assume("spin-assume",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
+                                                    llvm::cl::desc("Enable the spin assume pass in module transformation."));
+
 const std::set<std::string> &Configuration::commandline_opts(){
   static std::set<std::string> opts = {
     "dpor-explore-all",
     "malloc-may-fail",
     "max-search-depth",
     "sc","tso","pso",
-    "robustness"
+    "robustness",
+    "spin-assume"
   };
   return opts;
 };
@@ -63,4 +69,5 @@ void Configuration::assign_by_commandline(){
   max_search_depth = cl_max_search_depth;
   memory_model = cl_memory_model;
   check_robustness = cl_check_robustness;
+  transform_spin_assume = cl_transform_spin_assume;
 };

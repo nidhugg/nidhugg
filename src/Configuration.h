@@ -35,6 +35,7 @@
 class Configuration{
 public:
   enum MemoryModel{
+    MM_UNDEF, // No memory model was specified
     SC,
     PSO,
     TSO
@@ -44,7 +45,7 @@ public:
     explore_all_traces = false;
     malloc_may_fail = false;
     max_search_depth = -1;
-    memory_model = TSO;
+    memory_model = MM_UNDEF;
     extfun_no_fence = {
       "pthread_self",
       "malloc",
@@ -72,6 +73,7 @@ public:
     check_robustness = false;
     debug_collect_all_traces = false;
     debug_print_on_reset = false;
+    transform_spin_assume = false;
   };
   /* Read the switches given to the program by the user. Assign
    * configuration options accordingly.
@@ -123,6 +125,8 @@ public:
    * at each reset.
    */
   bool debug_print_on_reset;
+  /* In module transformation, enable the SpinAssume pass. */
+  bool transform_spin_assume;
 
   /* The set of all commandline switches that are associated with
    * setting configuration options. This set has nothing to do with

@@ -116,6 +116,9 @@ Trace DPORDriver::run_once(TraceBuilder &TB) const{
   case Configuration::PSO:
     EE = PSOInterpreter::create(mod,static_cast<PSOTraceBuilder&>(TB),conf,&ErrorMsg);
     break;
+  case Configuration::MM_UNDEF:
+    throw std::logic_error("DPORDriver: No memory model is specified.");
+    break;
   default:
     throw std::logic_error("DPORDriver: Unsupported memory model.");
   }
@@ -180,6 +183,9 @@ DPORDriver::Result DPORDriver::run(){
     break;
   case Configuration::PSO:
     TB = new PSOTraceBuilder(conf);
+    break;
+  case Configuration::MM_UNDEF:
+    throw std::logic_error("DPORDriver: No memory model is specified.");
     break;
   default:
     throw std::logic_error("DPORDriver: Unsupported memory model.");

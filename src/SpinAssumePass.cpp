@@ -1,0 +1,201 @@
+/* Copyright (C) 2014 Carl Leonardsson
+ *
+ * This file is part of Nidhugg.
+ *
+ * Nidhugg is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Nidhugg is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see
+ * <http://www.gnu.org/licenses/>.
+ */
+
+#include <llvm/Pass.h>
+#include <llvm/Analysis/LoopPass.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Support/CallSite.h>
+#include <llvm/Transforms/Utils/BasicBlockUtils.h>
+
+#include "CheckModule.h"
+#include "SpinAssumePass.h"
+#include "vecset.h"
+
+/* The DeclareAssumePass checks that __VERIFIER_assume is correctly
+ * declared in the module. If they are incorrectly declared, an
+ * error is raised. If they are not declared, then their (correct)
+ * declaration is added to the module.
+ *
+ * This pass is a prerequisite for SpinAssumePass.
+ */
+class DeclareAssumePass : public llvm::ModulePass {
+public:
+  static char ID;
+  DeclareAssumePass() : llvm::ModulePass(ID) {};
+  virtual bool runOnModule(llvm::Module &M);
+};
+
+void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
+  AU.addRequired<llvm::DominatorTree>();
+  AU.addRequired<DeclareAssumePass>();
+  AU.addPreserved<DeclareAssumePass>();
+};
+
+bool DeclareAssumePass::runOnModule(llvm::Module &M){
+  bool modified_M = false;
+  CheckModule::check_assume(&M);
+  llvm::Function *F_assume = M.getFunction("__VERIFIER_assume");
+  if(!F_assume){
+    llvm::FunctionType *assumeTy;
+    {
+      llvm::Type *voidTy = llvm::Type::getVoidTy(llvm::getGlobalContext());
+      llvm::Type *i1Ty = llvm::Type::getInt1Ty(llvm::getGlobalContext());
+      assumeTy = llvm::FunctionType::get(voidTy,{i1Ty},false);
+    }
+    llvm::AttributeSet assumeAttrs =
+      llvm::AttributeSet::get(llvm::getGlobalContext(),llvm::AttributeSet::FunctionIndex,
+                              std::vector<llvm::Attribute::AttrKind>({llvm::Attribute::NoUnwind}));
+    F_assume = llvm::dyn_cast<llvm::Function>(M.getOrInsertFunction("__VERIFIER_assume",assumeTy,assumeAttrs));
+    assert(F_assume);
+    modified_M = true;
+  }
+  return modified_M;
+};
+
+bool SpinAssumePass::is_assume(llvm::Instruction &I) const {
+  llvm::CallInst *C = llvm::dyn_cast<llvm::CallInst>(&I);
+  if(!C) return false;
+  llvm::CallSite CS(C);
+  llvm::Function *F = CS.getCalledFunction();
+  return F && F->getName().str() == "__VERIFIER_assume";
+};
+
+bool SpinAssumePass::is_spin(const llvm::Loop *l) const{
+  for(auto B_it = l->block_begin(); B_it != l->block_end(); ++B_it){
+    for(auto it = (*B_it)->begin(); it != (*B_it)->end(); ++it){
+      if(it->mayHaveSideEffects() &&
+         !llvm::isa<llvm::LoadInst>(*it) &&
+         !is_assume(*it)){
+        return false;
+      }
+      if(llvm::isa<llvm::AllocaInst>(*it)){
+        return false;
+      }
+      if(llvm::isa<llvm::PHINode>(*it)){
+        return false;
+      }
+    }
+  }
+  return true;
+};
+
+void SpinAssumePass::remove_disconnected(llvm::Loop *l){
+  // Traverse l and all its ancestor loops
+  while(l){
+    bool done = false;
+    // Iterate until no more basic blocks can be removed
+    while(!done){
+      done = true;
+      VecSet<llvm::BasicBlock*> has_predecessor;
+      // Search for basic blocks without in-loop successors
+      // Simultaneously collect blocks with in-loop predecessors
+      for(auto it = l->block_begin(); done && it != l->block_end(); ++it){
+        llvm::TerminatorInst *T = (*it)->getTerminator();
+        bool has_loop_successor = false;
+        for(unsigned i = 0; i < T->getNumSuccessors(); ++i){
+          if(l->contains(T->getSuccessor(i))){
+            has_loop_successor = true;
+            has_predecessor.insert(T->getSuccessor(i));
+          }
+        }
+        if(!has_loop_successor){
+          done = false;
+          l->removeBlockFromLoop(*it);
+        }
+      }
+      // Search for basic blocks without in-loop predecessors
+      for(auto it = l->block_begin(); done && it != l->block_end(); ++it){
+        if(has_predecessor.count(*it) == 0){
+          done = false;
+          l->removeBlockFromLoop(*it);
+        }
+      }
+    }
+    l = l->getParentLoop();
+  }
+};
+
+bool SpinAssumePass::assumify_loop(llvm::Loop *l,llvm::LPPassManager &LPM){
+  llvm::BasicBlock *EB = l->getExitingBlock();
+  if(!EB) return false; // Too complicated loop
+  llvm::BranchInst *BI;
+  {
+    llvm::TerminatorInst *EI = EB->getTerminator();
+    assert(EI);
+    BI = llvm::dyn_cast<llvm::BranchInst>(EI);
+  }
+  if(!BI) return false; // Unsupported loop
+  if(!BI->isConditional()) return false; // Unsupported loop
+  assert(BI->getNumSuccessors() == 2);
+  llvm::BasicBlock *B_exit = l->getExitBlock();
+  assert(B_exit);
+  bool exit_on_val; // Exit on true condition, or false
+  if(BI->getSuccessor(0) == B_exit){
+    assert(l->contains(BI->getSuccessor(1)));
+    exit_on_val = true;
+  }else{
+    assert(BI->getSuccessor(1) == B_exit);
+    assert(l->contains(BI->getSuccessor(0)));
+    exit_on_val = false;
+  }
+  llvm::Value *cond = BI->getCondition();
+  llvm::MDNode *MD = BI->getMetadata("dbg");
+  EB->getInstList().pop_back();
+  if(!exit_on_val){
+    // Negate the branch condition
+    llvm::BinaryOperator *binop = llvm::BinaryOperator::CreateNot(cond,"notcond",EB);
+    binop->setMetadata("dbg",MD);
+    cond = binop;
+  }
+  F_assume = EB->getParent()->getParent()->getFunction("__VERIFIER_assume");
+  {
+    llvm::Type *arg_ty = F_assume->arg_begin()->getType();
+    assert(arg_ty->isIntegerTy());
+    if(arg_ty->getIntegerBitWidth() != 1){
+      llvm::ZExtInst *I = new llvm::ZExtInst(cond,arg_ty,"",EB);
+      I->setMetadata("dbg",MD);
+      cond = I;
+    }
+  }
+  llvm::Instruction *I = llvm::CallInst::Create(F_assume,{cond},"",EB);
+  I->setMetadata("dbg",MD);
+  I = llvm::BranchInst::Create(B_exit,EB);
+  I->setMetadata("dbg",MD);
+  remove_disconnected(l);
+  return true;
+};
+
+bool SpinAssumePass::runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM){
+  bool modified = false;
+  if(is_spin(L)){
+    if(assumify_loop(L,LPM)){
+      LPM.deleteLoopFromQueue(L);
+      modified = true;
+    }
+  }
+  return modified;
+};
+
+char SpinAssumePass::ID = 0;
+static llvm::RegisterPass<SpinAssumePass> X("spin-assume","Replace spin loops with __VERIFIER_assumes.");
+
+char DeclareAssumePass::ID = 0;
+static llvm::RegisterPass<DeclareAssumePass> Y("declare-assume","Declare __VERIFIER_assume function in module.");

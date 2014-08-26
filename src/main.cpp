@@ -21,6 +21,7 @@
 
 #include "Configuration.h"
 #include "DPORDriver.h"
+#include "Transform.h"
 
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/ManagedStatic.h>
@@ -66,26 +67,34 @@ int main(int argc, char *argv[]){
   input_file(llvm::cl::desc("<input bitcode or assembly>"),
              llvm::cl::Positional,
              llvm::cl::init("-"));
+  llvm::cl::opt<std::string>
+    cl_transform("transform",llvm::cl::init(""),
+                 llvm::cl::desc("Transform the input module and store it (as LLVM assembly) to OUTFILE."),
+                 llvm::cl::NotHidden,llvm::cl::value_desc("OUTFILE"));
   llvm::cl::ParseCommandLineOptions(argc, argv);
 
-  /* Use DPORDriver to explore the given module */
   try{
     Configuration conf;
     conf.assign_by_commandline();
-    DPORDriver *driver =
-      DPORDriver::parseIRFile(input_file,conf);
 
-    DPORDriver::Result res = driver->run();
-    std::cout << "Trace count: " << res.trace_count
-              << " (also " << res.sleepset_blocked_trace_count
-              << " sleepset blocked)\n";
-    if(res.has_errors()){
-      std::cout << "\n Error detected:\n"
-                << res.error_trace.computation_to_string(2);
+    if(cl_transform != ""){
+      Transform::transform(input_file,cl_transform,conf);
+    }else{
+      /* Use DPORDriver to explore the given module */
+      DPORDriver *driver =
+        DPORDriver::parseIRFile(input_file,conf);
+
+      DPORDriver::Result res = driver->run();
+      std::cout << "Trace count: " << res.trace_count
+                << " (also " << res.sleepset_blocked_trace_count
+                << " sleepset blocked)\n";
+      if(res.has_errors()){
+        std::cout << "\n Error detected:\n"
+                  << res.error_trace.computation_to_string(2);
+      }
+
+      delete driver;
     }
-
-    delete driver;
-
     llvm::llvm_shutdown();
   }catch(std::exception *exc){
     std::cerr << "Error: " << exc->what() << "\n";
