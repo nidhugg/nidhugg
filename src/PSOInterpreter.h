@@ -83,7 +83,7 @@ protected:
      * auxiliary thread indices and the first byte in the memory
      * locations for which that auxiliary thread is responsible.
      */
-    std::vector<void const*> aux_to_byte;
+    std::vector<void*> aux_to_byte;
     std::map<void const*,int> byte_to_aux;
     /* Each pending store s is split into PendingStoreBytes (see
      * above) and ordered into store buffers. For each byte b in

@@ -21,6 +21,7 @@
 #include "TSOTraceBuilder.h"
 
 #include <sstream>
+#include <stdexcept>
 
 TSOTraceBuilder::TSOTraceBuilder(const Configuration &conf) : TraceBuilder(conf) {
   threads.push_back(Thread(CPid(),{}));
@@ -369,9 +370,12 @@ void TSOTraceBuilder::atomic_store(const ConstMRef &ml){
   for(void const *b : ml){
     ByteInfo &bi = mem[b];
     int lu = bi.last_update;
-    IPid lu_tipid = 2*(prefix[lu].iid.get_pid() / 2);
-    if(0 <= lu && lu_tipid != tipid){
-      seen_accesses.insert(bi.last_update);
+    assert(lu < int(prefix.size()));
+    if(0 <= lu){
+      IPid lu_tipid = 2*(prefix[lu].iid.get_pid() / 2);
+      if(lu_tipid != tipid){
+        seen_accesses.insert(bi.last_update);
+      }
     }
     for(int i : bi.last_read){
       if(0 <= i && prefix[i].iid.get_pid() != tipid) seen_accesses.insert(i);
@@ -435,8 +439,8 @@ void TSOTraceBuilder::load(const ConstMRef &ml){
   for(void const *b : ml){
     int lu = mem[b].last_update;
     const ConstMRef &lu_ml = mem[b].last_update_ml;
-    IPid lu_tipid = 2*(prefix[lu].iid.get_pid() / 2);
     if(0 <= lu){
+      IPid lu_tipid = 2*(prefix[lu].iid.get_pid() / 2);
       if(lu_tipid != ipid){
         seen_accesses.insert(lu);
       }else if(ml != lu_ml){
@@ -566,11 +570,10 @@ void TSOTraceBuilder::mutex_unlock(const ConstMRef &ml){
   fence();
   assert(mutexes.count(ml.ref));
   Mutex &mutex = mutexes[ml.ref];
-  IPid ipid = curnode().iid.get_pid();
   curnode().may_conflict = true;
   wakeup(Access::W,ml.ref);
   assert(0 <= mutex.last_access);
-  assert(prefix[mutex.last_access].clock.leq(threads[ipid].clock));
+  assert(prefix[mutex.last_access].clock.leq(threads[curnode().iid.get_pid()].clock));
 
   see_events({last_full_memory_conflict});
 

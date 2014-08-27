@@ -72,7 +72,7 @@ void PSOInterpreter::runAux(int proc, int aux){
 
   assert(0 <= aux && aux < int(pso_threads[proc].aux_to_byte.size()));
 
-  void const *b0 = pso_threads[proc].aux_to_byte[aux];
+  void *b0 = pso_threads[proc].aux_to_byte[aux];
 
   assert(pso_threads[proc].store_buffers.count(b0));
   assert(pso_threads[proc].store_buffers[b0].size());
@@ -92,7 +92,7 @@ void PSOInterpreter::runAux(int proc, int aux){
     std::vector<PendingStoreByte> &sb = pso_threads[proc].store_buffers[b];
     assert(sb.size());
     assert(sb.front().ml == ml);
-    blk[unsigned((uint8_t*)b-(uint8_t*)b0)] = sb.front().val;
+    blk[unsigned((uint8_t const *)b-(uint8_t const *)b0)] = sb.front().val;
     for(unsigned i = 0; i < sb.size()-1; ++i){
       sb[i] = sb[i+1];
     }
@@ -279,7 +279,7 @@ void PSOInterpreter::visitLoadInst(llvm::LoadInst &I){
     uint8_t blk[ml.size];
     for(void const *b : ml){
       assert(pso_threads[CurrentThread].store_buffers[b].back().ml == ml);
-      blk[unsigned((uint8_t*)b-(uint8_t*)ml.ref)] = pso_threads[CurrentThread].store_buffers[b].back().val;
+      blk[unsigned((uint8_t const *)b-(uint8_t const *)ml.ref)] = pso_threads[CurrentThread].store_buffers[b].back().val;
     }
     CheckedLoadValueFromMemory(Result,(llvm::GenericValue*)blk,I.getType());
     SetValue(&I, Result, SF);
@@ -312,7 +312,7 @@ void PSOInterpreter::visitStoreInst(llvm::StoreInst &I){
     /* Store to buffer */
     if(thr.byte_to_aux.count((void const*)Ptr) == 0){
       thr.byte_to_aux[(void const*)Ptr] = int(thr.aux_to_byte.size());
-      thr.aux_to_byte.push_back((void const*)Ptr);
+      thr.aux_to_byte.push_back((void*)Ptr);
     }
 
     MBlock mb = GetMBlock(Ptr, I.getOperand(0)->getType(), Val);
@@ -322,7 +322,7 @@ void PSOInterpreter::visitStoreInst(llvm::StoreInst &I){
       return;
     }
     for(void const *b : mb.get_ref()){
-      unsigned i = (uint8_t*)b - (uint8_t*)mb.get_ref().ref;
+      unsigned i = (uint8_t const *)b - (uint8_t const *)mb.get_ref().ref;
       thr.store_buffers[b].push_back(PendingStoreByte(mb.get_ref(),((uint8_t*)mb.get_block())[i]));
     }
   }

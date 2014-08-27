@@ -15,7 +15,8 @@ AM_PROG_AR
 AC_LANG([C++])
 
 # Checks for C++11
-AX_CXX_COMPILE_STDCXX_11()
+# noext to avoid sending -std=gnu++11 to clang++ (Causes problems for clang++-3.3.)
+AX_CXX_COMPILE_STDCXX_11([noext])
 
 AX_GIT_COMMIT
 

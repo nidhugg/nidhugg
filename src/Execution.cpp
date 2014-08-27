@@ -1281,7 +1281,7 @@ bool Interpreter::CheckedStoreValueToMemory(const GenericValue &Val,
     if(!CheckedStore((double*)Ptr,Val.DoubleVal)) return false;
     break;
   case Type::X86_FP80TyID:
-    if(!CheckedMemCpy((uint8_t*)Ptr, (uint8_t*)Val.IntVal.getRawData(), 10)) return false;
+    if(!CheckedMemCpy((uint8_t*)Ptr, (uint8_t const *)Val.IntVal.getRawData(), 10)) return false;
     break;
   case Type::PointerTyID:
     // Ensure 64 bit target pointers are fully initialized on 32 bit hosts.

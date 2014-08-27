@@ -21,6 +21,7 @@
 #include "PSOTraceBuilder.h"
 
 #include <sstream>
+#include <stdexcept>
 
 PSOTraceBuilder::PSOTraceBuilder(const Configuration &conf) : TraceBuilder(conf) {
   threads.push_back(Thread(0,CPid(),{},-1));
@@ -642,11 +643,10 @@ void PSOTraceBuilder::mutex_unlock(const ConstMRef &ml){
   fence();
   assert(mutexes.count(ml.ref));
   Mutex &mutex = mutexes[ml.ref];
-  IPid ipid = curnode().iid.get_pid();
   curnode().may_conflict = true;
   wakeup(Access::W,ml.ref);
   assert(0 <= mutex.last_access);
-  assert(prefix[mutex.last_access].clock.leq(threads[ipid].clock));
+  assert(prefix[mutex.last_access].clock.leq(threads[curnode().iid.get_pid()].clock));
 
   see_events({last_full_memory_conflict});
 

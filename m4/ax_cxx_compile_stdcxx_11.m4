@@ -47,7 +47,10 @@ m4_define([_AX_CXX_COMPILE_STDCXX_11_testbody], [[
     virtual void f() {}
     };
     struct Child : public Base {
-    virtual void f() override {}
+    // The override keyword is not supported in g++-4.6.
+    // In order to support g++-4.6, the test for override is here removed:
+    // virtual void f() override {}
+    virtual void f() {}
     };
 
     typedef check<check<bool>> right_angle_brackets;

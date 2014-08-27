@@ -61,7 +61,7 @@ bool MRef::subsetof(const MRef &mr) const{
 };
 
 bool MRef::subsetof(const ConstMRef &mr) const{
-  return mr.ref <= ref && (uint8_t*)ref+size <= (uint8_t*)mr.ref+mr.size;
+  return mr.ref <= ref && (uint8_t*)ref+size <= (uint8_t const *)mr.ref+mr.size;
 };
 
 bool MRef::overlaps(const MRef &mr) const{
@@ -70,24 +70,24 @@ bool MRef::overlaps(const MRef &mr) const{
 };
 
 bool MRef::overlaps(const ConstMRef &mr) const{
-  uint8_t *a = (uint8_t*)ref, *b = (uint8_t*)mr.ref;
+  uint8_t const *a = (uint8_t const *)ref, *b = (uint8_t const *)mr.ref;
   return a < b+mr.size && b < a+size;
 };
 
 bool ConstMRef::subsetof(const MRef &mr) const{
-  return mr.ref <= ref && (uint8_t*)ref+size <= (uint8_t*)mr.ref+mr.size;
+  return mr.ref <= ref && (uint8_t const *)ref+size <= (uint8_t*)mr.ref+mr.size;
 };
 
 bool ConstMRef::subsetof(const ConstMRef &mr) const{
-  return mr.ref <= ref && (uint8_t*)ref+size <= (uint8_t*)mr.ref+mr.size;
+  return mr.ref <= ref && (uint8_t const *)ref+size <= (uint8_t const *)mr.ref+mr.size;
 };
 
 bool ConstMRef::overlaps(const MRef &mr) const{
-  uint8_t *a = (uint8_t*)ref, *b = (uint8_t*)mr.ref;
+  uint8_t const *a = (uint8_t const *)ref, *b = (uint8_t const *)mr.ref;
   return a < b+mr.size && b < a+size;
 };
 
 bool ConstMRef::overlaps(const ConstMRef &mr) const{
-  uint8_t *a = (uint8_t*)ref, *b = (uint8_t*)mr.ref;
+  uint8_t const *a = (uint8_t const *)ref, *b = (uint8_t const *)mr.ref;
   return a < b+mr.size && b < a+size;
 };
