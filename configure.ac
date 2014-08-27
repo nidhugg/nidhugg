@@ -4,6 +4,7 @@ m4_include([m4/ax_boost_base.m4])
 m4_include([m4/ax_boost_unit_test_framework.m4])
 m4_include([m4/ax_llvm.m4])
 m4_include([m4/ax_git_commit.m4])
+m4_include([m4/ax_clang.m4])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 # AC_CONFIG_SRCDIR([TSOTraceBuilder.cpp])
 
@@ -29,6 +30,22 @@ AC_CHECK_LIB([dl], [dlopen],[],[AC_MSG_FAILURE([Could not find library libdl.])]
 AC_CHECK_LIB([ffi], [ffi_call],[
                     AC_DEFINE([HAVE_FFI_CALL],[1],[Define if libffi is available on this platform.])
                     ],[AC_MSG_FAILURE([Could not find library libffi.])])
+BUILDNIDHUGGC='yes'
+AC_ARG_ENABLE([nidhuggc],[AS_HELP_STRING([--disable-nidhuggc],[Don't build the script nidhuggc.])],
+              [if test "x$enableval" = "xno"; then
+                 BUILDNIDHUGGC='no'
+               elif test "x$enableval" != "xyes"; then
+                 AC_MSG_WARN([Unknown value given to --enable-nidhuggc. Defaulting to enabling building of nidhuggc.])
+               fi],
+              [])
+if test "x$BUILDNIDHUGGC" = "xyes"; then
+  AX_CLANG(,[
+    AC_MSG_WARN([The script nidhuggc cannot be built without clang/clang++.])
+    AC_MSG_WARN([Consider indicating the binaries clang/clang++ with switches --with-clang/--with-clangxx,])
+    AC_MSG_WARN([or disable nidhuggc with the switch --disable-nidhuggc.])
+    AC_MSG_FAILURE([Failed to detect clang/clang++.])
+  ])
+fi
 
 # Enable assert? Compile with NDEBUG?
 AC_ARG_ENABLE([asserts],
@@ -153,8 +170,21 @@ AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
 AC_TYPE_UINT8_T
 
-# Checks for python3
-AM_PATH_PYTHON([3.0],[],[AC_MSG_FAILURE("Python 3 is required.")])
+if test "x$BUILDNIDHUGGC" = "xyes"; then
+  # Checks for python3
+  AM_PATH_PYTHON([3.0],[],[
+    AC_MSG_WARN([Python 3 is required for the script nidhuggc.])
+    AC_MSG_WARN([Consider indicating the python interpreter with PYTHON=path,])
+    AC_MSG_WARN([or disable building of nidhuggc with --disable-nidhuggc.])
+    AC_MSG_FAILURE([Python 3 is required.])
+  ])
+  AC_SUBST(PYTHON)
+  NIDHUGGCBIN='nidhuggc'
+else
+  NIDHUGGCBIN=''
+fi
+
+AC_SUBST(NIDHUGGCBIN)
 
 # Checks for library functions.
 AC_FUNC_MALLOC

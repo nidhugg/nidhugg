@@ -1,3 +1,5 @@
+AUTOMAKE_OPTIONS = -Wno-override ## Make autotools quit complaining about explicit rule for nidhuggc.
+
 noinst_LIBRARIES = libnidhugg.a
 libnidhugg_a_SOURCES = \
   CheckModule.cpp CheckModule.h \
@@ -23,10 +25,12 @@ libnidhugg_a_SOURCES = \
   vecset.h vecset.tcc
 libnidhugg_a_CXXFLAGS = -fno-rtti
 
-bin_PROGRAMS = nidhugg
+EXTRA_PROGRAMS = nidhuggc
+bin_PROGRAMS = nidhugg @NIDHUGGCBIN@
 nidhugg_SOURCES = main.cpp
 nidhugg_LDADD = libnidhugg.a
 nidhugg_CXXFLAGS = -fno-rtti
+nidhuggc_SOURCES = nidhuggc.py
 
 TESTS = unittest
 check_PROGRAMS = unittest
@@ -52,3 +56,12 @@ test: unittest
 
 valtest: unittest
 	valgrind --leak-check=full ./unittest $(BOOSTTESTFLAGS) --show_progress --run_test="$(UTEST)"
+
+nidhuggc$(EXEEXT): $(srcdir)/nidhuggc.py
+	cat nidhuggc.py \
+	| sed 's|%%PYTHON%%|@PYTHON@|g' \
+	| sed 's|%%CLANG%%|@CLANG@|g' \
+	| sed 's|%%CLANGXX%%|@CLANGXX@|g' \
+	| sed 's|%%NIDHUGGPATH%%|$(bindir)/nidhugg|g' \
+	> nidhuggc
+	chmod a+x nidhuggc

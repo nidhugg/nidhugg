@@ -3,6 +3,7 @@
 *.log
 *.trs
 src/nidhugg
+src/nidhuggc
 src/unittest
 src/libnidhugg.a
 Makefile
