@@ -177,6 +177,10 @@ public:
    * mutex at ml.
    */
   virtual void mutex_lock_fail(const ConstMRef &ml) = 0;
+  /* Perform a pthread_mutex_trylock (successful or failing) to the
+   * pthread mutex at ml.
+   */
+  virtual void mutex_trylock(const ConstMRef &ml) = 0;
   /* Perform a pthread_mutex_unlock to the pthread mutex at ml. */
   virtual void mutex_unlock(const ConstMRef &ml) = 0;
   /* Initialize a pthread mutex at ml. */

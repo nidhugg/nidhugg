@@ -199,6 +199,7 @@ bool TSOInterpreter::mayConflict(llvm::Instruction &I){
     if(F){
       if(F->getName() == "pthread_mutex_init") return true;
       if(F->getName() == "pthread_mutex_lock") return true;
+      if(F->getName() == "pthread_mutex_trylock") return true;
       if(F->getName() == "pthread_mutex_unlock") return true;
       if(F->getName() == "pthread_mutex_destroy") return true;
       if(F->getName().str().find("__VERIFIER_atomic_") == 0) return true;

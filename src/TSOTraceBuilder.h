@@ -49,6 +49,7 @@ public:
   virtual void join(int tgt_proc);
   virtual void mutex_lock(const ConstMRef &ml);
   virtual void mutex_lock_fail(const ConstMRef &ml);
+  virtual void mutex_trylock(const ConstMRef &ml);
   virtual void mutex_unlock(const ConstMRef &ml);
   virtual void mutex_init(const ConstMRef &ml);
   virtual void mutex_destroy(const ConstMRef &ml);

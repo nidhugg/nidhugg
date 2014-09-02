@@ -548,6 +548,7 @@ protected:  // Helper functions
   virtual void callPthreadExit(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callPthreadMutexInit(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callPthreadMutexLock(Function *F, const std::vector<GenericValue> &ArgVals);
+  virtual void callPthreadMutexTryLock(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callPthreadMutexUnlock(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callPthreadMutexDestroy(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals);

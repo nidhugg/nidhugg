@@ -44,6 +44,7 @@ unittest_SOURCES = \
   Robustness_test.cpp \
   SC_test.cpp \
   TSO_test.cpp \
+  TSO_test2.cpp \
   VClock_CPid_test.cpp \
   VClock_int_test.cpp \
   unittest.cpp

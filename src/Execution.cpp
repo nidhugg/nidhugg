@@ -2655,6 +2655,38 @@ void Interpreter::callPthreadMutexLock(Function *F,
   PthreadMutexes[lck].lock(CurrentThread);
 };
 
+void Interpreter::callPthreadMutexTryLock(Function *F,
+                                       const std::vector<GenericValue> &ArgVals){
+  GenericValue *lck = (GenericValue*)GVTOP(ArgVals[0]);
+
+  if(!lck){
+    TB.pthreads_error("pthread_mutex_trylock called with null pointer as first argument.");
+    abort();
+    return;
+  }
+
+  if(PthreadMutexes.count(lck) == 0){
+    TB.pthreads_error("pthread_mutex_trylock called with uninitialized mutex.");
+    abort();
+    return;
+  }
+
+  GenericValue Result;
+  TB.fence();
+
+  TB.mutex_trylock({lck,1});
+  if(PthreadMutexes[lck].isUnlocked()){
+    Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0); // Success
+    returnValueToCaller(F->getReturnType(),Result);
+
+    if(DryRun) return;
+    PthreadMutexes[lck].lock(CurrentThread);
+  }else{
+    Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),EBUSY); // Failure
+    returnValueToCaller(F->getReturnType(),Result);
+  }
+};
+
 void Interpreter::callPthreadMutexUnlock(Function *F,
                                          const std::vector<GenericValue> &ArgVals){
   GenericValue *lck = (GenericValue*)GVTOP(ArgVals[0]);
@@ -2807,6 +2839,9 @@ void Interpreter::callFunction(Function *F,
   }else if(F->getName().str() == "pthread_mutex_lock"){
     callPthreadMutexLock(F,ArgVals);
     return;
+  }else if(F->getName().str() == "pthread_mutex_trylock"){
+    callPthreadMutexTryLock(F,ArgVals);
+    return;
   }else if(F->getName().str() == "pthread_mutex_unlock"){
     callPthreadMutexUnlock(F,ArgVals);
     return;
@@ -2955,6 +2990,7 @@ bool Interpreter::mayConflict(Instruction &I){
     if(F){
       if(F->getName() == "pthread_mutex_init") return true;
       if(F->getName() == "pthread_mutex_lock") return true;
+      if(F->getName() == "pthread_mutex_trylock") return true;
       if(F->getName() == "pthread_mutex_unlock") return true;
       if(F->getName() == "pthread_mutex_destroy") return true;
       if(F->getName().str().find("__VERIFIER_atomic_") == 0) return true;

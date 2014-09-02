@@ -65,6 +65,7 @@ namespace CheckModule {
   void check_pthread_exit(const llvm::Module *M);
   void check_pthread_mutex_init(const llvm::Module *M);
   void check_pthread_mutex_lock(const llvm::Module *M);
+  void check_pthread_mutex_trylock(const llvm::Module *M);
   void check_pthread_mutex_unlock(const llvm::Module *M);
   void check_pthread_mutex_destroy(const llvm::Module *M);
   void check_malloc(const llvm::Module *M);

@@ -36,6 +36,7 @@ void CheckModule::check_functions(const llvm::Module *M){
   check_pthread_exit(M);
   check_pthread_mutex_init(M);
   check_pthread_mutex_lock(M);
+  check_pthread_mutex_trylock(M);
   check_pthread_mutex_unlock(M);
   check_pthread_mutex_destroy(M);
   check_malloc(M);
@@ -48,6 +49,7 @@ void CheckModule::check_functions(const llvm::Module *M){
      "pthread_exit",
      "pthread_mutex_init",
      "pthread_mutex_lock",
+     "pthread_mutex_trylock",
      "pthread_mutex_unlock",
      "pthread_mutex_destroy"};
   for(auto it = M->getFunctionList().begin(); it != M->getFunctionList().end(); ++it){
@@ -235,6 +237,30 @@ void CheckModule::check_pthread_mutex_lock(const llvm::Module *M){
     llvm::Type *arg0ty = F->arg_begin()->getType();
     if(!arg0ty->isPointerTy()){
       err << "First argument of pthread_mutex_lock has non-pointer type: "
+          << *arg0ty;
+      throw CheckModuleError(err.str());
+    }
+  }
+};
+
+void CheckModule::check_pthread_mutex_trylock(const llvm::Module *M){
+  std::string _err;
+  llvm::raw_string_ostream err(_err);
+  llvm::Function *F = M->getFunction("pthread_mutex_trylock");
+  if(F){
+    if(!F->getReturnType()->isIntegerTy()){
+      err << "pthread_mutex_trylock returns non-integer type: "
+          << *F->getReturnType();
+      throw CheckModuleError(err.str());
+    }
+    if(F->getArgumentList().size() != 1){
+      err << "pthread_mutex_trylock takes wrong number of arguments ("
+          << F->getArgumentList().size() << ")";
+      throw CheckModuleError(err.str());
+    }
+    llvm::Type *arg0ty = F->arg_begin()->getType();
+    if(!arg0ty->isPointerTy()){
+      err << "First argument of pthread_mutex_trylock has non-pointer type: "
           << *arg0ty;
       throw CheckModuleError(err.str());
     }

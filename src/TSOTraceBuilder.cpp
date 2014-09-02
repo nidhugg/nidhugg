@@ -559,6 +559,27 @@ void TSOTraceBuilder::mutex_lock_fail(const ConstMRef &ml){
   }
 };
 
+void TSOTraceBuilder::mutex_trylock(const ConstMRef &ml){
+  if(dryrun){
+    assert(prefix_idx+1 < int(prefix.size()));
+    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
+    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
+    threads[pid].sleep_accesses_w.insert(ml.ref);
+    return;
+  }
+  fence();
+  assert(mutexes.count(ml.ref));
+  curnode().may_conflict = true;
+  wakeup(Access::W,ml.ref);
+  Mutex &mutex = mutexes[ml.ref];
+  see_events({mutex.last_access,last_full_memory_conflict});
+
+  mutex.last_access = prefix_idx;
+  if(mutex.last_lock < 0){ // Mutex is free
+    mutex.last_lock = prefix_idx;
+  }
+};
+
 void TSOTraceBuilder::mutex_unlock(const ConstMRef &ml){
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.size()));
@@ -573,9 +594,8 @@ void TSOTraceBuilder::mutex_unlock(const ConstMRef &ml){
   curnode().may_conflict = true;
   wakeup(Access::W,ml.ref);
   assert(0 <= mutex.last_access);
-  assert(prefix[mutex.last_access].clock.leq(threads[curnode().iid.get_pid()].clock));
 
-  see_events({last_full_memory_conflict});
+  see_events({mutex.last_access,last_full_memory_conflict});
 
   mutex.last_access = prefix_idx;
 };
