@@ -1,0 +1,26 @@
+\documentclass[a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+
+\title{Nidhugg -- Manual\\\large{Version %%NIDHUGGVERSION%%}}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+Nidhugg is a bug-finding tool which targets bugs caused by concurrency
+and relaxed memory consistency in concurrent programs. It works on the
+level of LLVM internal representation, which means that it can be used
+for programs written in languages such as C or C++.
+
+Currently Nidhugg supports the SC, TSO and PSO memory models. Target
+programs should use pthreads for concurrency, and each thread should
+be deterministic when run in isolation.
+
+\pagebreak
+
+\tableofcontents
+
+\end{document}
