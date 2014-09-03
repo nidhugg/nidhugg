@@ -53,6 +53,11 @@ public:
   virtual void mutex_unlock(const ConstMRef &ml);
   virtual void mutex_init(const ConstMRef &ml);
   virtual void mutex_destroy(const ConstMRef &ml);
+  virtual bool cond_init(const ConstMRef &ml);
+  virtual bool cond_signal(const ConstMRef &ml);
+  virtual bool cond_broadcast(const ConstMRef &ml);
+  virtual bool cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex_ml);
+  virtual int cond_destroy(const ConstMRef &ml);
   virtual void register_alternatives(int alt_count);
   virtual void dealloc(const ConstMRef &ml);
   virtual void assertion_error(std::string cond);
@@ -262,6 +267,30 @@ protected:
    * pthread_mutex_t object.
    */
   std::map<void const*,Mutex> mutexes;
+
+  /* A CondVar represents a pthread_cond_t object. */
+  class CondVar{
+  public:
+    CondVar() : last_signal(-1) {};
+    CondVar(int init_idx) : last_signal(init_idx) {};
+    /* Index in prefix of the latest call to either of
+     * pthread_cond_init, pthread_cond_signal, or
+     * pthread_cond_broadcast for this condition variable.
+     *
+     * -1 if there has been no such call.
+     */
+    int last_signal;
+    /* For each thread which is currently waiting for this condition
+     * variable, waiters contains the index into prefix of the event
+     * where the thread called pthread_cond_wait and started waiting.
+     */
+    std::vector<int> waiters;
+  };
+  /* A map containing all pthread condition variable objects in the
+   * current execution. The key is the position in memory of the
+   * actual pthread_cond_t object.
+   */
+  std::map<void const*,CondVar> cond_vars;
 
   /* A Branch object is a pair of an IPid p and an alternative index
    * (see Event::alt below) i. It will be tagged on an event in the

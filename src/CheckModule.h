@@ -68,6 +68,11 @@ namespace CheckModule {
   void check_pthread_mutex_trylock(const llvm::Module *M);
   void check_pthread_mutex_unlock(const llvm::Module *M);
   void check_pthread_mutex_destroy(const llvm::Module *M);
+  void check_pthread_cond_init(const llvm::Module *M);
+  void check_pthread_cond_signal(const llvm::Module *M);
+  void check_pthread_cond_broadcast(const llvm::Module *M);
+  void check_pthread_cond_wait(const llvm::Module *M);
+  void check_pthread_cond_destroy(const llvm::Module *M);
   void check_malloc(const llvm::Module *M);
   void check_nondet_int(const llvm::Module *M); // __VERIFIER_nondet_int, __VERIFIER_nondet_uint
   void check_assume(const llvm::Module *M); // __VERIFIER_assume

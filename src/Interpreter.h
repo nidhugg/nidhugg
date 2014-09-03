@@ -136,7 +136,7 @@ protected:
   /* A Thread object keeps track of each running thread. */
   class Thread{
   public:
-    Thread() : RandEng(42) {};
+    Thread() : RandEng(42), pending_mutex_lock(0) {};
     /* The complex thread identifier of this thread. */
     CPid cpid;
     /* The runtime stack of executing code. The top of the stack is the
@@ -157,6 +157,16 @@ protected:
      * will be the same (per thread) in every execution.
      */
     std::minstd_rand RandEng;
+    /* If it is the case that the next instruction should lock a mutex
+     * lock (in particular this happens immediately after a
+     * pthread_cond_wait) then pending_mutex_lock is a pointer to that
+     * pthread mutex object. The next instruction will then act as a
+     * pthread_mutex_lock(pending_mutex_lock) in addition to its
+     * normal semantics.
+     *
+     * pending_mutex_lock == 0 otherwise.
+     */
+    void *pending_mutex_lock;
   };
   /* All threads that are or have been running during this execution
    * have an entry in Threads, in the order in which they were
@@ -524,15 +534,6 @@ protected:  // Helper functions
    * mutex lock or the termination of another thread).
    */
   virtual bool checkRefuse(Instruction &I);
-  /* I should be the next instruction that has been
-   * scheduled. CurrentProc and ECStack shoauld be properly setup to
-   * execute I.
-   *
-   * If I is an instruction that may conflict with other instructions
-   * (e.g. a memory access or a mutex lock), then true is
-   * returned. Otherwise false is returned.
-   */
-  virtual bool mayConflict(Instruction &I);
 
   /* === External Functions with Special Support ===
    *
@@ -548,9 +549,15 @@ protected:  // Helper functions
   virtual void callPthreadExit(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callPthreadMutexInit(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callPthreadMutexLock(Function *F, const std::vector<GenericValue> &ArgVals);
+  virtual void callPthreadMutexLock(void *lck);
   virtual void callPthreadMutexTryLock(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callPthreadMutexUnlock(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callPthreadMutexDestroy(Function *F, const std::vector<GenericValue> &ArgVals);
+  virtual void callPthreadCondInit(Function *F, const std::vector<GenericValue> &ArgVals);
+  virtual void callPthreadCondSignal(Function *F, const std::vector<GenericValue> &ArgVals);
+  virtual void callPthreadCondBroadcast(Function *F, const std::vector<GenericValue> &ArgVals);
+  virtual void callPthreadCondWait(Function *F, const std::vector<GenericValue> &ArgVals);
+  virtual void callPthreadCondDestroy(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callAssume(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callMalloc(Function *F, const std::vector<GenericValue> &ArgVals);

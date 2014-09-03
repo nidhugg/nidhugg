@@ -39,6 +39,11 @@ void CheckModule::check_functions(const llvm::Module *M){
   check_pthread_mutex_trylock(M);
   check_pthread_mutex_unlock(M);
   check_pthread_mutex_destroy(M);
+  check_pthread_cond_init(M);
+  check_pthread_cond_signal(M);
+  check_pthread_cond_broadcast(M);
+  check_pthread_cond_wait(M);
+  check_pthread_cond_destroy(M);
   check_malloc(M);
   check_nondet_int(M);
   check_assume(M);
@@ -51,7 +56,12 @@ void CheckModule::check_functions(const llvm::Module *M){
      "pthread_mutex_lock",
      "pthread_mutex_trylock",
      "pthread_mutex_unlock",
-     "pthread_mutex_destroy"};
+     "pthread_mutex_destroy",
+     "pthread_cond_init",
+     "pthread_cond_signal",
+     "pthread_cond_broadcast",
+     "pthread_cond_wait",
+     "pthread_cond_destroy"};
   for(auto it = M->getFunctionList().begin(); it != M->getFunctionList().end(); ++it){
     if(it->getName().startswith("pthread_") &&
        supported.count(it->getName()) == 0){
@@ -376,3 +386,144 @@ void CheckModule::check_nondet_int(const llvm::Module *M){
 void CheckModule::check_assume(const llvm::Module *M){
   check_assume(M,"__VERIFIER_assume");
 };
+
+void CheckModule::check_pthread_cond_init(const llvm::Module *M){
+  std::string _err;
+  llvm::raw_string_ostream err(_err);
+  llvm::Function *F = M->getFunction("pthread_cond_init");
+  if(F){
+    if(!F->getReturnType()->isIntegerTy()){
+      err << "pthread_cond_init returns non-integer type: "
+          << *F->getReturnType();
+      throw CheckModuleError(err.str());
+    }
+    if(F->getArgumentList().size() != 2){
+      err << "pthread_cond_init takes wrong number of arguments ("
+          << F->getArgumentList().size() << ")";
+      throw CheckModuleError(err.str());
+    }
+    llvm::Type *arg0ty, *arg1ty;
+    {
+      auto it = F->arg_begin();
+      arg0ty = it->getType();
+      arg1ty = (++it)->getType();
+    }
+    if(!arg0ty->isPointerTy()){
+      err << "First argument of pthread_cond_init has non-pointer type: "
+          << *arg0ty;
+      throw CheckModuleError(err.str());
+    }
+    if(!arg1ty->isPointerTy()){
+      err << "Second argument of pthread_cond_init has non-pointer type: "
+          << *arg1ty;
+      throw CheckModuleError(err.str());
+    }
+  }
+};
+
+void CheckModule::check_pthread_cond_signal(const llvm::Module *M){
+  std::string _err;
+  llvm::raw_string_ostream err(_err);
+  llvm::Function *F = M->getFunction("pthread_cond_signal");
+  if(F){
+    if(!F->getReturnType()->isIntegerTy()){
+      err << "pthread_cond_signal returns non-integer type: "
+          << *F->getReturnType();
+      throw CheckModuleError(err.str());
+    }
+    if(F->getArgumentList().size() != 1){
+      err << "pthread_cond_signal takes wrong number of arguments ("
+          << F->getArgumentList().size() << ")";
+      throw CheckModuleError(err.str());
+    }
+    llvm::Type *arg0ty = F->arg_begin()->getType();
+    if(!arg0ty->isPointerTy()){
+      err << "First argument of pthread_cond_signal has non-pointer type: "
+          << *arg0ty;
+      throw CheckModuleError(err.str());
+    }
+  }
+};
+
+void CheckModule::check_pthread_cond_broadcast(const llvm::Module *M){
+  std::string _err;
+  llvm::raw_string_ostream err(_err);
+  llvm::Function *F = M->getFunction("pthread_cond_broadcast");
+  if(F){
+    if(!F->getReturnType()->isIntegerTy()){
+      err << "pthread_cond_broadcast returns non-integer type: "
+          << *F->getReturnType();
+      throw CheckModuleError(err.str());
+    }
+    if(F->getArgumentList().size() != 1){
+      err << "pthread_cond_broadcast takes wrong number of arguments ("
+          << F->getArgumentList().size() << ")";
+      throw CheckModuleError(err.str());
+    }
+    llvm::Type *arg0ty = F->arg_begin()->getType();
+    if(!arg0ty->isPointerTy()){
+      err << "First argument of pthread_cond_broadcast has non-pointer type: "
+          << *arg0ty;
+      throw CheckModuleError(err.str());
+    }
+  }
+};
+
+void CheckModule::check_pthread_cond_wait(const llvm::Module *M){
+  std::string _err;
+  llvm::raw_string_ostream err(_err);
+  llvm::Function *F = M->getFunction("pthread_cond_wait");
+  if(F){
+    if(!F->getReturnType()->isIntegerTy()){
+      err << "pthread_cond_wait returns non-integer type: "
+          << *F->getReturnType();
+      throw CheckModuleError(err.str());
+    }
+    if(F->getArgumentList().size() != 2){
+      err << "pthread_cond_wait takes wrong number of arguments ("
+          << F->getArgumentList().size() << ")";
+      throw CheckModuleError(err.str());
+    }
+    llvm::Type *arg0ty, *arg1ty;
+    {
+      auto it = F->arg_begin();
+      arg0ty = it->getType();
+      arg1ty = (++it)->getType();
+    }
+    if(!arg0ty->isPointerTy()){
+      err << "First argument of pthread_cond_wait has non-pointer type: "
+          << *arg0ty;
+      throw CheckModuleError(err.str());
+    }
+    if(!arg1ty->isPointerTy()){
+      err << "Second argument of pthread_cond_wait has non-pointer type: "
+          << *arg1ty;
+      throw CheckModuleError(err.str());
+    }
+  }
+};
+
+void CheckModule::check_pthread_cond_destroy(const llvm::Module *M){
+  std::string _err;
+  llvm::raw_string_ostream err(_err);
+  llvm::Function *F = M->getFunction("pthread_cond_destroy");
+  if(F){
+    if(!F->getReturnType()->isIntegerTy()){
+      err << "pthread_cond_destroy returns non-integer type: "
+          << *F->getReturnType();
+      throw CheckModuleError(err.str());
+    }
+    if(F->getArgumentList().size() != 1){
+      err << "pthread_cond_destroy takes wrong number of arguments ("
+          << F->getArgumentList().size() << ")";
+      throw CheckModuleError(err.str());
+    }
+    llvm::Type *arg0ty = F->arg_begin()->getType();
+    if(!arg0ty->isPointerTy()){
+      err << "First argument of pthread_cond_destroy has non-pointer type: "
+          << *arg0ty;
+      throw CheckModuleError(err.str());
+    }
+  }
+};
+

@@ -49,7 +49,6 @@ protected:
   virtual int newThread(const CPid &cpid);
   virtual bool isFence(llvm::Instruction &I);
   virtual bool checkRefuse(llvm::Instruction &I);
-  virtual bool mayConflict(llvm::Instruction &I);
   virtual void terminate(llvm::Type *RetTy, llvm::GenericValue Result);
 
   /* Additional information for a thread, supplementing the

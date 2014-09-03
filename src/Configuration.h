@@ -74,6 +74,7 @@ public:
     check_robustness = false;
     debug_collect_all_traces = false;
     debug_print_on_reset = false;
+    debug_print_on_error = false;
     transform_spin_assume = false;
   };
   /* Read the switches given to the program by the user. Assign
@@ -126,6 +127,10 @@ public:
    * at each reset.
    */
   bool debug_print_on_reset;
+  /* If set, the trace builder is instructed to debug print its state
+   * when an error is reported.
+   */
+  bool debug_print_on_error;
   /* In module transformation, enable the SpinAssume pass. */
   bool transform_spin_assume;
 

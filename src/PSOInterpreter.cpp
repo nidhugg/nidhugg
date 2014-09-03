@@ -231,34 +231,6 @@ bool PSOInterpreter::checkRefuse(llvm::Instruction &I){
   return Interpreter::checkRefuse(I);
 };
 
-bool PSOInterpreter::mayConflict(llvm::Instruction &I){
-  if(llvm::isa<llvm::LoadInst>(I)) return true;
-  if(llvm::isa<llvm::StoreInst>(I)){
-    return static_cast<llvm::StoreInst&>(I).getOrdering() ==
-      llvm::SequentiallyConsistent;
-  }
-  if(llvm::isa<llvm::AtomicCmpXchgInst>(I)) return true;
-  if(llvm::isa<llvm::AtomicRMWInst>(I)) return true;
-  if(llvm::isa<llvm::CallInst>(I)){
-    llvm::CallSite CS(static_cast<llvm::CallInst*>(&I));
-    llvm::Function *F = CS.getCalledFunction();
-    if(F){
-      if(F->getName() == "pthread_mutex_init") return true;
-      if(F->getName() == "pthread_mutex_lock") return true;
-      if(F->getName() == "pthread_mutex_trylock") return true;
-      if(F->getName() == "pthread_mutex_unlock") return true;
-      if(F->getName() == "pthread_mutex_destroy") return true;
-      if(F->getName().str().find("__VERIFIER_atomic_") == 0) return true;
-      if(F->isDeclaration() &&
-         F->getIntrinsicID() == llvm::Intrinsic::not_intrinsic &&
-         conf.extfun_no_full_memory_conflict.count(F->getName().str()) == 0){
-        return true;
-      }
-    }
-  }
-  return false;
-};
-
 void PSOInterpreter::visitLoadInst(llvm::LoadInst &I){
   llvm::ExecutionContext &SF = ECStack()->back();
   llvm::GenericValue SRC = getOperandValue(I.getPointerOperand(), SF);

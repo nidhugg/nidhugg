@@ -2629,7 +2629,16 @@ void Interpreter::callPthreadMutexInit(Function *F,
 void Interpreter::callPthreadMutexLock(Function *F,
                                        const std::vector<GenericValue> &ArgVals){
   GenericValue *lck = (GenericValue*)GVTOP(ArgVals[0]);
+  callPthreadMutexLock(lck);
 
+  if(ECStack()->size()){ // Abort did not occur in callPthreadMutexLock above
+    GenericValue Result;
+    Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0); // Success
+    returnValueToCaller(F->getReturnType(),Result);
+  }
+};
+
+void Interpreter::callPthreadMutexLock(void *lck){
   if(!lck){
     TB.pthreads_error("pthread_mutex_lock called with null pointer as first argument.");
     abort();
@@ -2646,10 +2655,6 @@ void Interpreter::callPthreadMutexLock(Function *F,
 
   TB.fence();
   TB.mutex_lock({lck,1});
-
-  GenericValue Result;
-  Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0); // Success
-  returnValueToCaller(F->getReturnType(),Result);
 
   if(DryRun) return;
   PthreadMutexes[lck].lock(CurrentThread);
@@ -2758,6 +2763,142 @@ void Interpreter::callPthreadMutexDestroy(Function *F,
   PthreadMutexes.erase(lck);
 };
 
+void Interpreter::callPthreadCondInit(Function *F,
+                                      const std::vector<GenericValue> &ArgVals){
+  GenericValue *cnd = (GenericValue*)GVTOP(ArgVals[0]);
+  GenericValue *attr = (GenericValue*)GVTOP(ArgVals[1]);
+
+  if(attr){
+    Debug::warn("pthreadcondinitattr")
+      << "WARNING: Unsupported: Non-null attributes given in pthread_cond_init. (Ignoring argument.)\n";
+  }
+
+  if(!cnd){
+    TB.pthreads_error("pthread_cond_init called with null pointer as first argument.");
+    abort();
+    return;
+  }
+
+  TB.fence();
+  if(!TB.cond_init({cnd,1})){
+    abort();
+    return;
+  }
+
+  GenericValue Result;
+  /* pthread_cond_init always returns 0 */
+  Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0);
+  returnValueToCaller(F->getReturnType(),Result);
+};
+
+void Interpreter::callPthreadCondSignal(Function *F,
+                                        const std::vector<GenericValue> &ArgVals){
+  GenericValue *cnd = (GenericValue*)GVTOP(ArgVals[0]);
+
+  if(!cnd){
+    TB.pthreads_error("pthread_cond_signal called with null pointer as first argument.");
+    abort();
+    return;
+  }
+
+  TB.fence();
+  if(!TB.cond_signal({cnd,1})){
+    abort();
+    return;
+  }
+
+  GenericValue Result;
+  /* pthread_cond_wait always returns 0 */
+  Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0);
+  returnValueToCaller(F->getReturnType(),Result);
+};
+
+void Interpreter::callPthreadCondBroadcast(Function *F,
+                                           const std::vector<GenericValue> &ArgVals){
+  GenericValue *cnd = (GenericValue*)GVTOP(ArgVals[0]);
+
+  if(!cnd){
+    TB.pthreads_error("pthread_cond_broadcast called with null pointer as first argument.");
+    abort();
+    return;
+  }
+
+  TB.fence();
+  if(!TB.cond_broadcast({cnd,1})){
+    abort();
+    return;
+  }
+
+  GenericValue Result;
+  /* pthread_cond_wait always returns 0 */
+  Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0);
+  returnValueToCaller(F->getReturnType(),Result);
+};
+
+void Interpreter::callPthreadCondWait(Function *F,
+                                      const std::vector<GenericValue> &ArgVals){
+  GenericValue *cnd = (GenericValue*)GVTOP(ArgVals[0]);
+  GenericValue *lck = (GenericValue*)GVTOP(ArgVals[1]);
+
+  if(!cnd){
+    TB.pthreads_error("pthread_cond_wait called with null pointer as first argument.");
+    abort();
+    return;
+  }
+
+  if(!lck){
+    TB.pthreads_error("pthread_cond_wait called with null pointer as second argument.");
+    abort();
+    return;
+  }
+
+  TB.fence();
+  if(!TB.cond_wait({cnd,1},{lck,1})){
+    abort();
+    return;
+  }
+
+  GenericValue Result;
+  /* pthread_cond_wait always returns 0 */
+  Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0);
+  returnValueToCaller(F->getReturnType(),Result);
+
+  if(DryRun) return;
+
+  assert(PthreadMutexes.count(lck));
+  assert(PthreadMutexes[lck].owner == CurrentThread);
+  PthreadMutexes[lck].unlock();
+  for(int p : PthreadMutexes[lck].waiting){
+    TB.mark_available(p);
+  }
+  PthreadMutexes[lck].waiting.clear();
+
+  Threads[CurrentThread].pending_mutex_lock = lck;
+};
+
+void Interpreter::callPthreadCondDestroy(Function *F,
+                                         const std::vector<GenericValue> &ArgVals){
+  GenericValue *cnd = (GenericValue*)GVTOP(ArgVals[0]);
+
+  if(!cnd){
+    TB.pthreads_error("pthread_cond_destroy called with null pointer as first argument.");
+    abort();
+    return;
+  }
+
+  TB.fence();
+  int rv = TB.cond_destroy({cnd,1});
+
+  if(rv == 0 || rv == EBUSY){
+    GenericValue Result;
+    Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),rv); // Success or EBUSY
+    returnValueToCaller(F->getReturnType(),Result);
+  }else{
+    // Pthreads error
+    abort();
+  }
+};
+
 void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals){
   std::uniform_int_distribution<int> distr(std::numeric_limits<int>::min(),
                                            std::numeric_limits<int>::max());
@@ -2847,6 +2988,21 @@ void Interpreter::callFunction(Function *F,
     return;
   }else if(F->getName().str() == "pthread_mutex_destroy"){
     callPthreadMutexDestroy(F,ArgVals);
+    return;
+  }else if(F->getName().str() == "pthread_cond_init"){
+    callPthreadCondInit(F,ArgVals);
+    return;
+  }else if(F->getName().str() == "pthread_cond_signal"){
+    callPthreadCondSignal(F,ArgVals);
+    return;
+  }else if(F->getName().str() == "pthread_cond_broadcast"){
+    callPthreadCondBroadcast(F,ArgVals);
+    return;
+  }else if(F->getName().str() == "pthread_cond_wait"){
+    callPthreadCondWait(F,ArgVals);
+    return;
+  }else if(F->getName().str() == "pthread_cond_destroy"){
+    callPthreadCondDestroy(F,ArgVals);
     return;
   }else if(F->getName().str() == "malloc"){
     callMalloc(F,ArgVals);
@@ -2971,37 +3127,16 @@ bool Interpreter::isPthreadJoin(Instruction &I, int *tid){
 };
 
 bool Interpreter::isPthreadMutexLock(Instruction &I, GenericValue **ptr){
+  if(Threads[CurrentThread].pending_mutex_lock){
+    *ptr = (llvm::GenericValue*)Threads[CurrentThread].pending_mutex_lock;
+    return true;
+  }
   if(!isa<CallInst>(I)) return false;
   CallSite CS(static_cast<CallInst*>(&I));
   Function *F = CS.getCalledFunction();
   if(!F || F->getName() != "pthread_mutex_lock") return false;
   *ptr = (GenericValue*)GVTOP(getOperandValue(*CS.arg_begin(),ECStack()->back()));
   return true;
-};
-
-bool Interpreter::mayConflict(Instruction &I){
-  if(isa<LoadInst>(I)) return true;
-  if(isa<StoreInst>(I)) return true;
-  if(isa<AtomicCmpXchgInst>(I)) return true;
-  if(isa<AtomicRMWInst>(I)) return true;
-  if(isa<CallInst>(I)){
-    CallSite CS(static_cast<CallInst*>(&I));
-    Function *F = CS.getCalledFunction();
-    if(F){
-      if(F->getName() == "pthread_mutex_init") return true;
-      if(F->getName() == "pthread_mutex_lock") return true;
-      if(F->getName() == "pthread_mutex_trylock") return true;
-      if(F->getName() == "pthread_mutex_unlock") return true;
-      if(F->getName() == "pthread_mutex_destroy") return true;
-      if(F->getName().str().find("__VERIFIER_atomic_") == 0) return true;
-      if(F->isDeclaration() &&
-         F->getIntrinsicID() == Intrinsic::not_intrinsic &&
-         conf.extfun_no_full_memory_conflict.count(F->getName().str()) == 0){
-        return true;
-      }
-    }
-  }
-  return false;
 };
 
 bool Interpreter::checkRefuse(Instruction &I){
@@ -3085,16 +3220,26 @@ void Interpreter::run() {
        * be executed.
        */
       rerun = true;
-    }else if(checkRefuse(I) ||
-             (DryRun && !mayConflict(I))){
+    }else if(checkRefuse(I)){
       /* Revert without executing the next instruction. */
       --SF.CurInst;
       continue;
     }
 
+    if(Threads[CurrentThread].pending_mutex_lock){
+      callPthreadMutexLock(Threads[CurrentThread].pending_mutex_lock);
+      if(!DryRun) Threads[CurrentThread].pending_mutex_lock = 0;
+    }
+
     TB.metadata(I.getMetadata("dbg"));
 
     assert(DryRunMem.empty());
+
+    if(DryRun && I.isTerminator()){
+      /* Revert without executing the next instruction. */
+      --SF.CurInst;
+      continue;
+    }
 
     /* Execute */
     visit(I);

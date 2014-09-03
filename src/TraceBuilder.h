@@ -187,6 +187,39 @@ public:
   virtual void mutex_init(const ConstMRef &ml) = 0;
   /* Destroy a pthread mutex at ml. */
   virtual void mutex_destroy(const ConstMRef &ml) = 0;
+  /* Initialize a pthread condition variable at ml.
+   *
+   * Returns true on success, false if a pthreads_error has been
+   * generated.
+   */
+  virtual bool cond_init(const ConstMRef &ml) = 0;
+  /* Signal on the condition variable at ml.
+   *
+   * Returns true on success, false if a pthreads_error has been
+   * generated.
+   */
+  virtual bool cond_signal(const ConstMRef &ml) = 0;
+  /* Broadcast on the condition variable at ml.
+   *
+   * Returns true on success, false if a pthreads_error has been
+   * generated.
+   */
+  virtual bool cond_broadcast(const ConstMRef &ml) = 0;
+  /* Wait for a condition variable at cond_ml.
+   *
+   * The mutex at mutex_ml is used as the mutex for pthread_cond_wait.
+   *
+   * Returns true on success, false if a pthreads_error has been
+   * generated.
+   */
+  virtual bool cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex_ml) = 0;
+  /* Destroy a pthread condition variable at ml.
+   *
+   * Returns 0 on success, EBUSY if some thread was waiting for the
+   * condition variable, another value if a pthreads_error has been
+   * generated.
+   */
+  virtual int cond_destroy(const ConstMRef &ml) = 0;
   /* Notify TraceBuilder that the current event may
    * nondeterministically execute in several alternative ways. The
    * number of ways is given in alt_count.

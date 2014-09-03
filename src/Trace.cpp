@@ -98,10 +98,19 @@ std::string Trace::computation_to_string(int _ind) const{
   }
 
   /* Identify error locations */
-  std::map<IID<CPid>,Error*> error_locs;
+  std::map<int,Error*> error_locs;
   {
     for(unsigned i = 0; i < errors.size(); ++i){
-      error_locs[errors[i]->get_location()] = errors[i];
+      //error_locs[errors[i]->get_location()] = errors[i];
+      int loc = -1;
+      for(unsigned j = 0; j < computation.size(); ++j){
+        if(computation[j].get_pid() == errors[i]->get_location().get_pid()){
+          if(errors[i]->get_location().get_index() < computation[j].get_index()) break;
+          loc = j;
+        }
+      }
+      assert(0 <= loc);
+      error_locs[loc] = errors[i];
     }
   }
 
@@ -119,7 +128,7 @@ std::string Trace::computation_to_string(int _ind) const{
       }
       s += "\n";
     }
-    if(error_locs.count(computation[i])){
+    if(error_locs.count(i)){
       // Indentation
       {
         int sz = iid_str.size();
@@ -128,7 +137,7 @@ std::string Trace::computation_to_string(int _ind) const{
         }
       }
       // Error
-      std::string errstr = error_locs[computation[i]]->to_string();
+      std::string errstr = error_locs[i]->to_string();
       if(errstr.find("\n") == std::string::npos){
         s += " Error: " + errstr;
       }else{

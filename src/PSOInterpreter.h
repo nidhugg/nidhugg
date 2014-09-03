@@ -56,7 +56,6 @@ protected:
   virtual int newThread(const CPid &cpid);
   virtual bool isFence(llvm::Instruction &I);
   virtual bool checkRefuse(llvm::Instruction &I);
-  virtual bool mayConflict(llvm::Instruction &I);
   virtual void terminate(llvm::Type *RetTy, llvm::GenericValue Result);
 
   /* A PendingStoreByte represents one byte in a pending entry in a

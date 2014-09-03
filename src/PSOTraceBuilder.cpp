@@ -225,7 +225,9 @@ Trace PSOTraceBuilder::get_trace() const{
   for(unsigned i = 0; i < errors.size(); ++i){
     errs.push_back(errors[i]->clone());
   }
-  return Trace(cmp,cmp_md,errs);
+  Trace t(cmp,cmp_md,errs);
+  t.set_sleep_set_blocked(!sleepset_is_empty());
+  return t;
 };
 
 bool PSOTraceBuilder::reset(){
@@ -280,6 +282,7 @@ bool PSOTraceBuilder::reset(){
   proc_to_ipid.clear();
   proc_to_ipid.push_back(0);
   mutexes.clear();
+  cond_vars.clear();
   mem.clear();
   last_full_memory_conflict = -1;
   prefix_idx = -1;
@@ -343,6 +346,13 @@ void PSOTraceBuilder::debug_print() const {
     llvm::dbgs() << "\n";
     for(IPid p : prefix[i].wakeup){
       sleep_set.erase(p);
+    }
+  }
+  if(errors.size()){
+    llvm::dbgs() << "Errors:\n";
+    for(unsigned i = 0; i < errors.size(); ++i){
+      llvm::dbgs() << "  Error #" << i+1 << ": "
+                   << errors[i]->to_string() << "\n";
     }
   }
 };
@@ -707,6 +717,185 @@ void PSOTraceBuilder::mutex_destroy(const ConstMRef &ml){
   mutexes.erase(ml.ref);
 };
 
+bool PSOTraceBuilder::cond_init(const ConstMRef &ml){
+  if(dryrun){
+    assert(prefix_idx+1 < int(prefix.size()));
+    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
+    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
+    threads[pid].sleep_accesses_w.insert(ml.ref);
+    return true;
+  }
+  fence();
+  if(cond_vars.count(ml.ref)){
+    pthreads_error("Condition variable initiated twice.");
+    return false;
+  }
+  curnode().may_conflict = true;
+  cond_vars[ml.ref] = CondVar(prefix_idx);
+  see_events({last_full_memory_conflict});
+  return true;
+};
+
+bool PSOTraceBuilder::cond_signal(const ConstMRef &ml){
+  if(dryrun){
+    assert(prefix_idx+1 < int(prefix.size()));
+    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
+    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
+    threads[pid].sleep_accesses_w.insert(ml.ref);
+    return true;
+  }
+  fence();
+  curnode().may_conflict = true;
+  wakeup(Access::W,ml.ref);
+
+  auto it = cond_vars.find(ml.ref);
+  if(it == cond_vars.end()){
+    pthreads_error("cond_signal called with uninitialized condition variable.");
+    return false;
+  }
+  CondVar &cond_var = it->second;
+  VecSet<int> seen_events = {last_full_memory_conflict};
+  if(curnode().alt < cond_var.waiters.size()-1){
+    assert(curnode().alt == 0);
+    register_alternatives(cond_var.waiters.size());
+  }
+  assert(0 <= curnode().alt);
+  assert(cond_var.waiters.empty() || curnode().alt < int(cond_var.waiters.size()));
+  if(cond_var.waiters.size()){
+    /* Wake up the alt:th waiter. */
+    int i = cond_var.waiters[curnode().alt];
+    assert(0 <= i && i < prefix_idx);
+    IPid ipid = prefix[i].iid.get_pid();
+    assert(!threads[ipid].available);
+    threads[ipid].available = true;
+    /* The next instruction by the thread ipid should be ordered after
+     * this signal.
+     */
+    threads[ipid].clock += curnode().clock;
+    seen_events.insert(i);
+
+    /* Remove waiter from cond_var.waiters */
+    for(int j = curnode().alt; j < int(cond_var.waiters.size())-1; ++j){
+      cond_var.waiters[j] = cond_var.waiters[j+1];
+    }
+    cond_var.waiters.pop_back();
+  }
+  cond_var.last_signal = prefix_idx;
+
+  see_events(seen_events);
+
+  return true;
+};
+
+bool PSOTraceBuilder::cond_broadcast(const ConstMRef &ml){
+  if(dryrun){
+    assert(prefix_idx+1 < int(prefix.size()));
+    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
+    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
+    threads[pid].sleep_accesses_w.insert(ml.ref);
+    return true;
+  }
+  fence();
+  curnode().may_conflict = true;
+  wakeup(Access::W,ml.ref);
+
+  auto it = cond_vars.find(ml.ref);
+  if(it == cond_vars.end()){
+    pthreads_error("cond_broadcast called with uninitialized condition variable.");
+    return false;
+  }
+  CondVar &cond_var = it->second;
+  VecSet<int> seen_events = {last_full_memory_conflict};
+  for(int i : cond_var.waiters){
+    assert(0 <= i && i < prefix_idx);
+    IPid ipid = prefix[i].iid.get_pid();
+    assert(!threads[ipid].available);
+    threads[ipid].available = true;
+    /* The next instruction by the thread ipid should be ordered after
+     * this broadcast.
+     */
+    threads[ipid].clock += curnode().clock;
+    seen_events.insert(i);
+  }
+  cond_var.waiters.clear();
+  cond_var.last_signal = prefix_idx;
+
+  see_events(seen_events);
+
+  return true;
+};
+
+bool PSOTraceBuilder::cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex_ml){
+  {
+    auto it = mutexes.find(mutex_ml.ref);
+    if(!dryrun && it == mutexes.end()){
+      pthreads_error("cond_wait called with uninitialized mutex object.");
+      return false;
+    }
+    Mutex &mtx = it->second;
+    if(!dryrun && (mtx.last_lock < 0 || prefix[mtx.last_lock].iid.get_pid() != curnode().iid.get_pid())){
+      pthreads_error("cond_wait called with mutex which is not locked by the same thread.");
+      return false;
+    }
+  }
+
+  mutex_unlock(mutex_ml);
+  if(dryrun){
+    assert(prefix_idx+1 < int(prefix.size()));
+    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
+    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
+    threads[pid].sleep_accesses_r.insert(cond_ml.ref);
+    return true;
+  }
+  fence();
+  curnode().may_conflict = true;
+  wakeup(Access::R,cond_ml.ref);
+
+  IPid pid = curnode().iid.get_pid();
+
+  auto it = cond_vars.find(cond_ml.ref);
+  if(it == cond_vars.end()){
+    pthreads_error("cond_wait called with uninitialized condition variable.");
+    return false;
+  }
+  it->second.waiters.push_back(prefix_idx);
+  threads[pid].available = false;
+
+  see_events({last_full_memory_conflict,it->second.last_signal});
+
+  return true;
+};
+
+int PSOTraceBuilder::cond_destroy(const ConstMRef &ml){
+  if(dryrun){
+    assert(prefix_idx+1 < int(prefix.size()));
+    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
+    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
+    threads[pid].sleep_accesses_w.insert(ml.ref);
+    return 0;
+  }
+  fence();
+
+  int err = (EBUSY == 1) ? 2 : 1; // Chose an error value different from EBUSY
+
+  curnode().may_conflict = true;
+  wakeup(Access::W,ml.ref);
+
+  auto it = cond_vars.find(ml.ref);
+  if(it == cond_vars.end()){
+    pthreads_error("cond_destroy called on uninitialized condition variable.");
+    return err;
+  }
+  CondVar &cond_var = it->second;
+  VecSet<int> seen_events = {cond_var.last_signal,last_full_memory_conflict};
+  for(int i : cond_var.waiters) seen_events.insert(i);
+  see_events(seen_events);
+
+  int rv = cond_var.waiters.size() ? EBUSY : 0;
+  cond_vars.erase(ml.ref);
+  return rv;
+};
+
 void PSOTraceBuilder::register_alternatives(int alt_count){
   curnode().may_conflict = true;
   for(int i = curnode().alt+1; i < alt_count; ++i){
@@ -732,18 +921,21 @@ void PSOTraceBuilder::assertion_error(std::string cond){
   IPid pid = curnode().iid.get_pid();
   int idx = curnode().iid.get_index();
   errors.push_back(new AssertionError(IID<CPid>(threads[pid].cpid,idx),cond));
+  if(conf.debug_print_on_error) debug_print();
 };
 
 void PSOTraceBuilder::pthreads_error(std::string msg){
   IPid pid = curnode().iid.get_pid();
   int idx = curnode().iid.get_index();
   errors.push_back(new PthreadsError(IID<CPid>(threads[pid].cpid,idx),msg));
+  if(conf.debug_print_on_error) debug_print();
 };
 
 void PSOTraceBuilder::segmentation_fault_error(){
   IPid pid = curnode().iid.get_pid();
   int idx = curnode().iid.get_index();
   errors.push_back(new SegmentationFaultError(IID<CPid>(threads[pid].cpid,idx)));
+  if(conf.debug_print_on_error) debug_print();
 };
 
 VecSet<PSOTraceBuilder::IPid> PSOTraceBuilder::sleep_set_at(int i){
