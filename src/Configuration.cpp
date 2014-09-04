@@ -55,6 +55,13 @@ cl_transform_loop_unroll("unroll",
                          llvm::cl::cat(cl_transformation_cat),
                          llvm::cl::desc("Bound executions by allowing loops to iterate at most N times."));
 
+static llvm::cl::opt<bool> cl_print_progress("print-progress",llvm::cl::NotHidden,
+                                             llvm::cl::desc("Continually print analysis progress to stdout."));
+
+static llvm::cl::opt<bool> cl_print_progress_estimate("print-progress-estimate",llvm::cl::NotHidden,
+                                                      llvm::cl::desc("Continually print analysis progress and trace "
+                                                                     "number estimate to stdout."));
+
 const std::set<std::string> &Configuration::commandline_opts(){
   static std::set<std::string> opts = {
     "dpor-explore-all",
@@ -63,7 +70,9 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "sc","tso","pso",
     "robustness",
     "spin-assume",
-    "unroll"
+    "unroll",
+    "print-progress",
+    "print-progress-estimate"
   };
   return opts;
 };
@@ -78,4 +87,6 @@ void Configuration::assign_by_commandline(){
   check_robustness = cl_check_robustness;
   transform_spin_assume = cl_transform_spin_assume;
   transform_loop_unroll = cl_transform_loop_unroll;
+  print_progress = cl_print_progress || cl_print_progress_estimate;
+  print_progress_estimate = cl_print_progress_estimate;
 };

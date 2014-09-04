@@ -761,7 +761,7 @@ bool PSOTraceBuilder::cond_signal(const ConstMRef &ml){
   }
   CondVar &cond_var = it->second;
   VecSet<int> seen_events = {last_full_memory_conflict};
-  if(curnode().alt < cond_var.waiters.size()-1){
+  if(curnode().alt < int(cond_var.waiters.size())-1){
     assert(curnode().alt == 0);
     register_alternatives(cond_var.waiters.size());
   }

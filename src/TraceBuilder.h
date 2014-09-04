@@ -254,6 +254,10 @@ public:
    * rather than the current.
    */
   virtual void memory_error(std::string msg, const IID<CPid> &loc = IID<CPid>());
+  /* Estimate the total number of traces for this program based on the
+   * traces that have been seen.
+   */
+  virtual int estimate_trace_count() const { return 1; };
 protected:
   const Configuration &conf;
   std::vector<Error*> errors;

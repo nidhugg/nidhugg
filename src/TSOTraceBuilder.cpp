@@ -242,6 +242,8 @@ bool TSOTraceBuilder::reset(){
     if(br.pid != prefix[i].iid.get_pid()){
       evt.sleep.insert(prefix[i].iid.get_pid());
     }
+    evt.sleep_branch_trace_count =
+      prefix[i].sleep_branch_trace_count + estimate_trace_count(i+1);
 
     prefix[i] = evt;
 
@@ -688,7 +690,7 @@ bool TSOTraceBuilder::cond_signal(const ConstMRef &ml){
   }
   CondVar &cond_var = it->second;
   VecSet<int> seen_events = {last_full_memory_conflict};
-  if(curnode().alt < cond_var.waiters.size()-1){
+  if(curnode().alt < int(cond_var.waiters.size())-1){
     assert(curnode().alt == 0);
     register_alternatives(cond_var.waiters.size());
   }
@@ -1133,4 +1135,21 @@ bool TSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
     assert(!has_cycle || 0 <= upd_idx);
     return has_cycle;
   }
+};
+
+int TSOTraceBuilder::estimate_trace_count() const{
+  return estimate_trace_count(0);
+};
+
+int TSOTraceBuilder::estimate_trace_count(int idx) const{
+  if(idx > int(prefix.size())) return 0;
+  if(idx == int(prefix.size())) return 1;
+
+  int count = 1;
+  for(int i = int(prefix.size())-1; idx <= i; --i){
+    count += prefix[i].sleep_branch_trace_count;
+    count += prefix[i].branch.size()*(count / (1 + prefix[i].sleep.size()));
+  }
+
+  return count;
 };

@@ -77,6 +77,8 @@ public:
     debug_print_on_error = false;
     transform_spin_assume = false;
     transform_loop_unroll = -1;
+    print_progress = false;
+    print_progress_estimate = false;
   };
   /* Read the switches given to the program by the user. Assign
    * configuration options accordingly.
@@ -139,6 +141,13 @@ public:
    * transform_loop_unroll.
    */
   int transform_loop_unroll;
+  /* If set, DPORDriver will continually print its progress to stdout. */
+  bool print_progress;
+  /* If set and print_progress is set, DPORDriver will together with
+   * the progress, also print its estimate of the total number of
+   * traces.
+   */
+  bool print_progress_estimate;
 
   /* The set of all commandline switches that are associated with
    * setting configuration options. This set has nothing to do with

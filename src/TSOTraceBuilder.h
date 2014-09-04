@@ -60,6 +60,7 @@ public:
   virtual bool cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex_ml);
   virtual int cond_destroy(const ConstMRef &ml);
   virtual void register_alternatives(int alt_count);
+  virtual int estimate_trace_count() const;
 protected:
   /* An identifier for a thread. An index into this->threads.
    *
@@ -280,7 +281,8 @@ protected:
   public:
     Event(const IID<IPid> &iid,
           const VClock<IPid> &clk)
-      : iid(iid), origin_iid(iid), size(1), alt(0), md(0), clock(clk), may_conflict(false) {};
+      : iid(iid), origin_iid(iid), size(1), alt(0), md(0), clock(clk),
+        may_conflict(false), sleep_branch_trace_count(0) {};
     /* The identifier for the first event in this event sequence. */
     IID<IPid> iid;
     /* The IID of the program instruction which is the origin of this
@@ -319,6 +321,13 @@ protected:
      * event sequence.
      */
     VecSet<IPid> wakeup;
+    /* For each previous IID that has been explored at this position
+     * with the exact same prefix, some number of traces (both sleep
+     * set blocked and otherwise) have been
+     * explored. sleep_branch_trace_count is the total number of such
+     * explored traces.
+     */
+    int sleep_branch_trace_count;
   };
 
   /* The fixed prefix of events in the current execution. This may be
@@ -387,6 +396,10 @@ protected:
   bool has_pending_store(IPid pid, void const *ml) const;
   /* Helper for check_for_cycles. */
   bool has_cycle(IID<IPid> *loc) const;
+  /* Estimate the total number of traces that have the same prefix as
+   * the current one, up to the first idx events.
+   */
+  int estimate_trace_count(int idx) const;
 };
 
 #endif

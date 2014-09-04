@@ -105,7 +105,7 @@ static void CheckedFree(void *ptr, std::function<void()> &on_error){
     on_error();
   }else{
 #ifdef HAVE_VALGRIND_VALGRIND_H
-    int vg_error_count = VALGRIND_COUNT_ERRORS;
+    auto vg_error_count = VALGRIND_COUNT_ERRORS;
     free(ptr);
     if(vg_error_count < VALGRIND_COUNT_ERRORS){
       on_error();

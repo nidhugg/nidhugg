@@ -194,8 +194,26 @@ DPORDriver::Result DPORDriver::run(){
 
   SigSegvHandler::setup_signal_handler();
 
+  char esc = 27;
+  if(conf.print_progress){
+    llvm::dbgs() << esc << "[s"; // Save terminal cursor position
+  }
+
   int computation_count = 0;
+  int estimate = 1;
   do{
+    if(conf.print_progress && (computation_count+1) % 100 == 0){
+      llvm::dbgs() << esc << "[u" // Restore cursor position
+                   << esc << "[s" // Save cursor position
+                   << esc << "[K" // Erase the line
+                   << "Computation #" << computation_count+1;
+      if(conf.print_progress_estimate){
+        llvm::dbgs() << " ("
+                     << int(100.0*float(computation_count+1)/float(estimate))
+                     << "% of total estimate: "
+                     << estimate << ")";
+      }
+    }
     if((computation_count+1) % 1000 == 0){
       reparse();
     }
@@ -213,7 +231,14 @@ DPORDriver::Result DPORDriver::run(){
       res.error_trace = t;
     }
     if(t.has_errors() && !conf.explore_all_traces) break;
+    if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
+      estimate = TB->estimate_trace_count();
+    }
   }while(TB->reset());
+
+  if(conf.print_progress){
+    llvm::dbgs() << "\n";
+  }
 
   SigSegvHandler::reset_signal_handler();
 
