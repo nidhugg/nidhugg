@@ -265,6 +265,12 @@ bool TSOTraceBuilder::reset(){
   return true;
 };
 
+IID<CPid> TSOTraceBuilder::get_iid() const{
+  IPid pid = curnode().iid.get_pid();
+  int idx = curnode().iid.get_index();
+  return IID<CPid>(threads[pid].cpid,idx);
+};
+
 static std::string rpad(std::string s, int n){
   while(int(s.size()) < n) s += " ";
   return s;
@@ -828,37 +834,6 @@ void TSOTraceBuilder::register_alternatives(int alt_count){
   for(int i = curnode().alt+1; i < alt_count; ++i){
     curnode().branch.insert(Branch({curnode().iid.get_pid(),i}));
   }
-};
-
-void TSOTraceBuilder::dealloc(const ConstMRef &ml){
-  for(void const *b : ml){
-    mem.erase(b);
-    for(unsigned p = 0; p < threads.size(); ++p){
-      threads[p].sleep_accesses_w.erase(b);
-      threads[p].sleep_accesses_r.erase(b);
-    }
-  }
-};
-
-void TSOTraceBuilder::assertion_error(std::string cond){
-  IPid pid = curnode().iid.get_pid();
-  int idx = curnode().iid.get_index();
-  errors.push_back(new AssertionError(IID<CPid>(threads[pid].cpid,idx),cond));
-  if(conf.debug_print_on_error) debug_print();
-};
-
-void TSOTraceBuilder::pthreads_error(std::string msg){
-  IPid pid = curnode().iid.get_pid();
-  int idx = curnode().iid.get_index();
-  errors.push_back(new PthreadsError(IID<CPid>(threads[pid].cpid,idx),msg));
-  if(conf.debug_print_on_error) debug_print();
-};
-
-void TSOTraceBuilder::segmentation_fault_error(){
-  IPid pid = curnode().iid.get_pid();
-  int idx = curnode().iid.get_index();
-  errors.push_back(new SegmentationFaultError(IID<CPid>(threads[pid].cpid,idx)));
-  if(conf.debug_print_on_error) debug_print();
 };
 
 VecSet<TSOTraceBuilder::IPid> TSOTraceBuilder::sleep_set_at(int i){

@@ -44,7 +44,6 @@ public:
   virtual void visitAtomicCmpXchgInst(llvm::AtomicCmpXchgInst &I);
   virtual void visitAtomicRMWInst(llvm::AtomicRMWInst &I);
   virtual void visitInlineAsm(llvm::CallSite &CS, const std::string &asmstr);
-  virtual void dealloc(const MRef &ml);
 protected:
   /* The auxiliary threads under PSO are numbered 0, 1, ... . Each
    * auxiliary thread correspond to the store buffer for memory

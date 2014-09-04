@@ -60,46 +60,6 @@ class IntrinsicLowering;
 template<typename T> class generic_gep_type_iterator;
 class ConstantExpr;
 typedef generic_gep_type_iterator<User::const_op_iterator> gep_type_iterator;
-class Interpreter;
-
-// AllocaHolder - Object to track all of the blocks of memory allocated by
-// alloca.  When the function returns, this object is popped off the execution
-// stack, which causes the dtor to be run, which frees all the alloca'd memory.
-//
-class AllocaHolder {
-  friend class AllocaHolderHandle;
-  std::vector<MRef> Allocations;
-  unsigned RefCnt;
-  Interpreter *ITP;
-public:
-  AllocaHolder(Interpreter *I) : RefCnt(0), ITP(I) {}
-  void add(const MRef &mem) { Allocations.push_back(mem); }
-  /* For each block b in Allocations, free it and call
-   * ITP->dealloc(b).
-   */
-  ~AllocaHolder();
-};
-
-// AllocaHolderHandle gives AllocaHolder value semantics so we can stick it into
-// a vector...
-//
-class AllocaHolderHandle {
-  AllocaHolder *H;
-public:
-  AllocaHolderHandle(Interpreter *I) : H(new AllocaHolder(I)) { H->RefCnt++; }
-  AllocaHolderHandle(const AllocaHolderHandle &AH) : H(AH.H) { H->RefCnt++; }
-  AllocaHolderHandle &operator=(const AllocaHolderHandle &AH){
-    if(&AH != this){
-      AH.H->RefCnt++;
-      if (--H->RefCnt == 0) delete H;
-      H = AH.H;
-    }
-    return *this;
-  };
-  ~AllocaHolderHandle() { if (--H->RefCnt == 0) delete H; }
-
-  void add(const MRef &mem) { H->add(mem); }
-};
 
 typedef std::vector<GenericValue> ValuePlaneTy;
 
@@ -107,7 +67,6 @@ typedef std::vector<GenericValue> ValuePlaneTy;
 // executing.
 //
 struct ExecutionContext {
-  ExecutionContext(Interpreter *I) : Allocas(I) {};
   Function             *CurFunction;// The currently executing function
   BasicBlock           *CurBB;      // The currently executing BB
   BasicBlock::iterator  CurInst;    // The next instruction to execute
@@ -115,7 +74,6 @@ struct ExecutionContext {
   std::vector<GenericValue>  VarArgs; // Values passed through an ellipsis
   CallSite             Caller;     // Holds the call that called subframes.
                                    // NULL if main func or debugger invoked fn
-  AllocaHolderHandle    Allocas;    // Track memory allocated by alloca
 };
 
 // Interpreter - This class represents the entirety of the interpreter.
@@ -244,6 +202,25 @@ protected:
    */
   std::vector<ExecutionContext> *ECStack() { return &Threads[CurrentThread].ECStack; };
 
+  /* Memory that has been allocated, and that should be freed at the
+   * end of the execution.
+   *
+   * Locations in AllocatedMemHeap are allocated by the analyzed
+   * program using malloc. Those in AllocatedMemStack are on the stack
+   * of the allocated program.
+   */
+  std::set<void*> AllocatedMemHeap;
+  std::set<void*> AllocatedMemStack;
+  /* Memory that has been explicitly freed by a call to free.
+   *
+   * The key is the freed memory. The value is the iid of the event
+   * where free was called.
+   *
+   * Notice that the call to free has been intercepted, and the memory
+   * is not actually freed until destruction of this Interpreter.
+   */
+  std::map<void*,IID<CPid> > FreedMem;
+
   // AtExitHandlers - List of functions to call when the program exits,
   // registered with the atexit() library function.
   std::vector<Function*> AtExitHandlers;
@@ -370,10 +347,6 @@ public:
   virtual GenericValue *getFirstVarArg () {
     return &(ECStack()->back().VarArgs[0]);
   }
-
-  virtual void dealloc(const MRef &ml){
-    TB.dealloc(ml);
-  };
 protected:  // Helper functions
   virtual GenericValue executeGEPOperation(Value *Ptr, gep_type_iterator I,
                                            gep_type_iterator E, ExecutionContext &SF);
@@ -561,6 +534,7 @@ protected:  // Helper functions
   virtual void callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callAssume(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callMalloc(Function *F, const std::vector<GenericValue> &ArgVals);
+  virtual void callFree(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
 };
 

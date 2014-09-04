@@ -27,3 +27,39 @@ TraceBuilder::~TraceBuilder(){
     delete errors[i];
   }
 };
+
+void TraceBuilder::assertion_error(std::string cond, const IID<CPid> &loc){
+  if(loc.is_null()){
+    errors.push_back(new AssertionError(get_iid(),cond));
+  }else{
+    errors.push_back(new AssertionError(loc,cond));
+  }
+  if(conf.debug_print_on_error) debug_print();
+};
+
+void TraceBuilder::pthreads_error(std::string msg, const IID<CPid> &loc){
+  if(loc.is_null()){
+    errors.push_back(new PthreadsError(get_iid(),msg));
+  }else{
+    errors.push_back(new PthreadsError(loc,msg));
+  }
+  if(conf.debug_print_on_error) debug_print();
+};
+
+void TraceBuilder::segmentation_fault_error(const IID<CPid> &loc){
+  if(loc.is_null()){
+    errors.push_back(new SegmentationFaultError(get_iid()));
+  }else{
+    errors.push_back(new SegmentationFaultError(loc));
+  }
+  if(conf.debug_print_on_error) debug_print();
+};
+
+void TraceBuilder::memory_error(std::string msg, const IID<CPid> &loc){
+  if(loc.is_null()){
+    errors.push_back(new MemoryError(get_iid(),msg));
+  }else{
+    errors.push_back(new MemoryError(loc,msg));
+  }
+  if(conf.debug_print_on_error) debug_print();
+};

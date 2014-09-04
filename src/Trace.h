@@ -110,6 +110,17 @@ public:
   virtual std::string to_string() const;
 };
 
+/* An error related to memory management. */
+class MemoryError : public Error{
+public:
+  MemoryError(const IID<CPid> &loc, std::string msg)
+    : Error(loc), msg(msg) {};
+  virtual Error *clone() const;
+  virtual std::string to_string() const;
+private:
+  std::string msg;
+};
+
 /* A Trace describes one execution of the program. Mainly it is a
  * sequence of events (IIDs).
  */

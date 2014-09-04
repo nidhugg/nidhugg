@@ -37,6 +37,7 @@ public:
   virtual bool check_for_cycles();
   virtual Trace get_trace() const;
   virtual bool reset();
+  virtual IID<CPid> get_iid() const;
 
   virtual void debug_print() const ;
 
@@ -59,10 +60,6 @@ public:
   virtual bool cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex_ml);
   virtual int cond_destroy(const ConstMRef &ml);
   virtual void register_alternatives(int alt_count);
-  virtual void dealloc(const ConstMRef &ml);
-  virtual void assertion_error(std::string cond);
-  virtual void pthreads_error(std::string msg);
-  virtual void segmentation_fault_error();
 protected:
   /* An identifier for a thread. An index into this->threads.
    *
@@ -397,6 +394,12 @@ protected:
   };
 
   Event &curnode() {
+    assert(0 <= prefix_idx);
+    assert(prefix_idx < int(prefix.size()));
+    return prefix[prefix_idx];
+  };
+
+  const Event &curnode() const {
     assert(0 <= prefix_idx);
     assert(prefix_idx < int(prefix.size()));
     return prefix[prefix_idx];

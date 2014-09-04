@@ -54,19 +54,6 @@ llvm::ExecutionEngine *PSOInterpreter::create(llvm::Module *M, PSOTraceBuilder &
   return new PSOInterpreter(M,TB,conf);
 };
 
-void PSOInterpreter::dealloc(const MRef &ml){
-  Debug::warn("PSOTB::dealloc")
-    << "WARNING: PSOInterpreter::dealloc: Should become deprecated.\n";
-  // Remove this method entirely when new memory management has been implemented
-  for(unsigned p = 0; p < pso_threads.size(); ++p){
-    for(void const *b : ml){
-      pso_threads[p].byte_to_aux.erase(b);
-      assert(pso_threads[p].store_buffers.count(b) == 0);
-    }
-  }
-  TB.dealloc(ml);
-};
-
 void PSOInterpreter::runAux(int proc, int aux){
   /* Perform an update from store buffer to memory. */
 

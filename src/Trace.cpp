@@ -181,6 +181,14 @@ std::string RobustnessError::to_string() const{
   return "The trace contains a happens-before cycle.";
 };
 
+Error *MemoryError::clone() const{
+  return new MemoryError(loc,msg);
+};
+
+std::string MemoryError::to_string() const{
+  return "Memory error at "+loc.to_string()+": ("+msg+")";
+};
+
 bool Trace::get_location(const llvm::MDNode *m,
                          int *lineno,
                          std::string *fname,

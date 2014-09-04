@@ -20,6 +20,9 @@
 #include <config.h>
 #ifdef HAVE_BOOST_UNIT_TEST_FRAMEWORK
 
+#ifdef HAVE_VALGRIND_VALGRIND_H
+#include <valgrind/valgrind.h>
+#endif
 #include "DPORDriver.h"
 #include "DPORDriver_test.h"
 
@@ -1881,6 +1884,123 @@ declare void @__assert_fail()
   delete driver;
 
   BOOST_CHECK(res.has_errors());
+}
+
+BOOST_AUTO_TEST_CASE(Free_null_1){
+  Configuration conf = DPORDriver_test::get_tso_conf();
+  DPORDriver *driver =
+    DPORDriver::parseIR(R"(
+define i32 @main(){
+  call void @free(i8* null)
+  ret i32 0
+}
+
+declare i8* @malloc(i32) nounwind
+declare void @free(i8*) nounwind
+declare void @__assert_fail() noreturn nounwind
+)",conf);
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  /* free(NULL) is a no-op. */
+  BOOST_CHECK(!res.has_errors());
+}
+
+BOOST_AUTO_TEST_CASE(Double_free_1){
+  Configuration conf = DPORDriver_test::get_tso_conf();
+  DPORDriver *driver =
+    DPORDriver::parseIR(R"(
+define i32 @main(){
+  %p = call i8* @malloc(i32 10)
+  call void @free(i8* %p)
+  call void @free(i8* %p)
+  ret i32 0
+}
+
+declare i8* @malloc(i32) nounwind
+declare void @free(i8*) nounwind
+declare void @__assert_fail() noreturn nounwind
+)",conf);
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  BOOST_CHECK(res.has_errors());
+}
+
+BOOST_AUTO_TEST_CASE(Free_stack_1){
+  Configuration conf = DPORDriver_test::get_tso_conf();
+  DPORDriver *driver =
+    DPORDriver::parseIR(R"(
+define i32 @main(){
+  %p = alloca i8
+  call void @free(i8* %p)
+  ret i32 0
+}
+
+declare i8* @malloc(i32) nounwind
+declare void @free(i8*) nounwind
+declare void @__assert_fail() noreturn nounwind
+)",conf);
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  BOOST_CHECK(res.has_errors());
+}
+
+BOOST_AUTO_TEST_CASE(Free_global_1){
+#ifdef HAVE_VALGRIND_VALGRIND_H
+  /* This test will work under valgrind, but will produce a spurious
+   * valgrind error. The error should not be suppressed, since it is
+   * used to detect the erroneous call to free. To avoid spam when
+   * running the test suite under valgrind, this test is then
+   * disabled.
+   */
+  if(!(RUNNING_ON_VALGRIND)){
+#endif
+    Configuration conf = DPORDriver_test::get_tso_conf();
+    DPORDriver *driver =
+      DPORDriver::parseIR(R"(
+@x = global i8 0
+
+define i32 @main(){
+  call void @free(i8* @x)
+  ret i32 0
+}
+
+declare i8* @malloc(i32) nounwind
+declare void @free(i8*) nounwind
+declare void @__assert_fail() noreturn nounwind
+)",conf);
+    DPORDriver::Result res = driver->run();
+    delete driver;
+
+    BOOST_CHECK(res.has_errors());
+#ifdef HAVE_VALGRIND_VALGRIND_H
+  }
+#endif
+}
+
+BOOST_AUTO_TEST_CASE(Memory_leak_1){
+  /* Allocate memory without freeing it.
+   *
+   * The memory should be freed by the Interpreter after the end of
+   * the execution. If not, it will be detected when running the unit
+   * tests under valgrind.
+   */
+  Configuration conf = DPORDriver_test::get_tso_conf();
+  DPORDriver *driver =
+    DPORDriver::parseIR(R"(
+define i32 @main(){
+  call i8* @malloc(i32 10)
+  ret i32 0
+}
+
+declare i8* @malloc(i32) nounwind
+declare void @free(i8*) nounwind
+declare void @__assert_fail() noreturn nounwind
+)",conf);
+  DPORDriver::Result res = driver->run();
+  delete driver;
 }
 
 BOOST_AUTO_TEST_SUITE_END()

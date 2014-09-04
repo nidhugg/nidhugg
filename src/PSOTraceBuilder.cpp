@@ -293,6 +293,12 @@ bool PSOTraceBuilder::reset(){
   return true;
 };
 
+IID<CPid> PSOTraceBuilder::get_iid() const{
+  IPid pid = curnode().iid.get_pid();
+  int idx = curnode().iid.get_index();
+  return IID<CPid>(threads[pid].cpid,idx);
+};
+
 static std::string rpad(std::string s, int n){
   while(int(s.size()) < n) s += " ";
   return s;
@@ -901,41 +907,6 @@ void PSOTraceBuilder::register_alternatives(int alt_count){
   for(int i = curnode().alt+1; i < alt_count; ++i){
     curnode().branch.insert(Branch({curnode().iid.get_pid(),i}));
   }
-};
-
-void PSOTraceBuilder::dealloc(const ConstMRef &ml){
-  Debug::warn("PSOTB::dealloc")
-    << "WARNING: PSOTraceBuilder::dealloc: Should become deprecated.\n";
-  // Remove this method entirely when new memory management has been implemented
-  for(void const *b : ml){
-    mem.erase(b);
-    for(unsigned p = 0; p < threads.size(); ++p){
-      threads[p].byte_to_aux.erase(b);
-      threads[p].sleep_accesses_w.erase(b);
-      threads[p].sleep_accesses_r.erase(b);
-    }
-  }
-};
-
-void PSOTraceBuilder::assertion_error(std::string cond){
-  IPid pid = curnode().iid.get_pid();
-  int idx = curnode().iid.get_index();
-  errors.push_back(new AssertionError(IID<CPid>(threads[pid].cpid,idx),cond));
-  if(conf.debug_print_on_error) debug_print();
-};
-
-void PSOTraceBuilder::pthreads_error(std::string msg){
-  IPid pid = curnode().iid.get_pid();
-  int idx = curnode().iid.get_index();
-  errors.push_back(new PthreadsError(IID<CPid>(threads[pid].cpid,idx),msg));
-  if(conf.debug_print_on_error) debug_print();
-};
-
-void PSOTraceBuilder::segmentation_fault_error(){
-  IPid pid = curnode().iid.get_pid();
-  int idx = curnode().iid.get_index();
-  errors.push_back(new SegmentationFaultError(IID<CPid>(threads[pid].cpid,idx)));
-  if(conf.debug_print_on_error) debug_print();
 };
 
 VecSet<PSOTraceBuilder::IPid> PSOTraceBuilder::sleep_set_at(int i){

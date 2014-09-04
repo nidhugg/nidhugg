@@ -1025,7 +1025,7 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   SetValue(&I, Result, SF);
 
   if (I.getOpcode() == Instruction::Alloca){
-    ECStack()->back().Allocas.add({Memory,int(MemToAlloc)});
+    AllocatedMemStack.insert(Memory);
   }
 }
 
@@ -2941,7 +2941,32 @@ void Interpreter::callMalloc(Function *F,
     assert(ArgVals[0].IntVal.getBitWidth() <= 64);
     uint64_t sz = ArgVals[0].IntVal.getLimitedValue();
     Result.PointerVal = malloc(sz);
+    AllocatedMemHeap.insert(Result.PointerVal);
     returnValueToCaller(F->getReturnType(),Result);
+  }
+};
+
+void Interpreter::callFree(Function *F,
+                           const std::vector<GenericValue> &ArgVals){
+  void *ptr = (void*)GVTOP(ArgVals[0]);
+
+  if(!ptr){
+    /* When the argument is NULL, free does nothing. */
+    return;
+  }
+
+  if(AllocatedMemStack.count(ptr)){
+    TB.memory_error("Attempt to free block which is on the stack.");
+    abort();
+    return;
+  }
+
+  auto pr = FreedMem.insert({ptr,TB.get_iid()});
+
+  if(!pr.second){ // Double free
+    TB.segmentation_fault_error();
+    abort();
+    return;
   }
 };
 
@@ -3007,6 +3032,9 @@ void Interpreter::callFunction(Function *F,
   }else if(F->getName().str() == "malloc"){
     callMalloc(F,ArgVals);
     return;
+  }else if(F->getName().str() == "free"){
+    callFree(F,ArgVals);
+    return;
   }else if(F->getName().str() == "__VERIFIER_nondet_int" ||
            F->getName().str() == "__VERIFIER_nondet_uint"){
     callNondetInt(F,ArgVals);
@@ -3031,7 +3059,7 @@ void Interpreter::callFunction(Function *F,
   }
 
   // Make a new stack frame... and fill it in.
-  ECStack()->push_back(ExecutionContext(this));
+  ECStack()->push_back(ExecutionContext());
   ExecutionContext &StackFrame = ECStack()->back();
   StackFrame.CurFunction = F;
 
@@ -3049,6 +3077,11 @@ void Interpreter::callFunction(Function *F,
       ECStack()->pop_back();
       return;
     }
+
+    Debug::warn("unknown external:"+F->getName().str())
+      << "WARNING: Calling unknown external function "
+      << F->getName().str()
+      << " as blackbox.\n";
 
     GenericValue Result = callExternalFunction (F, ArgVals);
     // Simulate a 'ret' instruction of the appropriate type.

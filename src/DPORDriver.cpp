@@ -160,12 +160,13 @@ Trace DPORDriver::run_once(TraceBuilder &TB) const{
     static_cast<llvm::Interpreter*>(EE)->checkForCycles();
   }
 
+  delete EE;
+
   Trace t({},{},{});
   if(TB.has_error() || conf.debug_collect_all_traces){
-    t = static_cast<llvm::Interpreter*>(EE)->getTrace();
+    t = TB.get_trace();
   }// else avoid computing trace
 
-  delete EE;
   return t;
 };
 

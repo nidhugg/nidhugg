@@ -130,6 +130,8 @@ public:
    * returns true.
    */
   virtual bool reset() = 0;
+  /* Return the IID of the currently scheduled event. */
+  virtual IID<CPid> get_iid() const = 0;
 
   virtual void debug_print() const {};
 
@@ -225,20 +227,33 @@ public:
    * number of ways is given in alt_count.
    */
   virtual void register_alternatives(int alt_count) = 0;
-  /* Deallocate the memory at ml. This should happen e.g. for stack
-   * variables when they go out of scope.
+  /* Notify the TraceBuilder that an assertion has failed.
+   *
+   * If loc is given, the error is associated with that location
+   * rather than the current.
    */
-  virtual void dealloc(const ConstMRef &ml) = 0;
-  /* Notify the TraceBuilder that an assertion has failed. */
-  virtual void assertion_error(std::string cond) = 0;
+  virtual void assertion_error(std::string cond, const IID<CPid> &loc = IID<CPid>());
   /* Notify the TraceBuilder that an erroneous usage of the pthreads
    * library was detected.
+   *
+   * If loc is given, the error is associated with that location
+   * rather than the current.
    */
-  virtual void pthreads_error(std::string msg) = 0;
+  virtual void pthreads_error(std::string msg, const IID<CPid> &loc = IID<CPid>());
   /* Notify the TraceBuilder that a segmentation fault occurred in the
    * explored execution.
+   *
+   * If loc is given, the error is associated with that location
+   * rather than the current.
    */
-  virtual void segmentation_fault_error() = 0;
+  virtual void segmentation_fault_error(const IID<CPid> &loc = IID<CPid>());
+  /* Notify the TraceBuilder some memory error, described by msg, has
+   * occurred.
+   *
+   * If loc is given, the error is associated with that location
+   * rather than the current.
+   */
+  virtual void memory_error(std::string msg, const IID<CPid> &loc = IID<CPid>());
 protected:
   const Configuration &conf;
   std::vector<Error*> errors;
