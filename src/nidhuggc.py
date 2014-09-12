@@ -23,7 +23,8 @@ nidhuggcparams = [
     {'name':'--clang','help':'Specify the path to clang.','param':'PATH'},
     {'name':'--clangxx','help':'Specify the path to clang++.','param':'PATH'},
     {'name':'--nidhugg','help':'Specify the path to the nidhugg binary.','param':'PATH'},
-    {'name':'--spin-assume','help':'Use spin-assume transformation on module before calling nidhugg.','param':False}
+    {'name':'--spin-assume','help':'Use spin-assume transformation on module before calling nidhugg.','param':False},
+    {'name':'--unroll','help':'Use unroll transformation on module before calling nidhugg.','param':'N'}
 ]
 
 nidhuggcparamaliases = {
@@ -37,7 +38,8 @@ nidhuggcparamaliases = {
     '-clang':'--clang',
     '-clangxx':'--clangxx',
     '-nidhugg':'--nidhugg',
-    '-spin-assume':'--spin-assume'
+    '-spin-assume':'--spin-assume',
+    '-unroll':'--unroll'
 }
 
 # The name (absolute path) of the temporary directory where all
@@ -222,6 +224,8 @@ def main():
                 NIDHUGG=argarg
             elif argname == '--spin-assume':
                 transformargs.append(argname)
+            elif argname == '--unroll':
+                transformargs.append('--unroll={0}'.format(argarg))
         if '--version' in nidhuggcargs:
             # Wait with printing version until all arguments have been parsed.
             # Because the nidhugg binary may be specified after --version.

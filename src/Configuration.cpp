@@ -30,24 +30,30 @@ static llvm::cl::opt<bool> cl_malloc_may_fail("malloc-may-fail",llvm::cl::NotHid
 
 static llvm::cl::opt<int>
 cl_max_search_depth("max-search-depth",
-                 llvm::cl::NotHidden,llvm::cl::init(-1),
-                 llvm::cl::desc("Bound the length of the analysed computations (# instructions/events per process)"));
+                    llvm::cl::NotHidden,llvm::cl::init(-1),
+                    llvm::cl::desc("Bound the length of the analysed computations (# instructions/events per process)"));
 
 static llvm::cl::opt<Configuration::MemoryModel>
 cl_memory_model(llvm::cl::NotHidden, llvm::cl::init(Configuration::MM_UNDEF),
-             llvm::cl::desc("Select memory model"),
-             llvm::cl::values(clEnumValN(Configuration::SC,"sc","Sequential Consistency"),
-                              clEnumValN(Configuration::PSO,"pso","Partial Store Order"),
-                              clEnumValN(Configuration::TSO,"tso","Total Store Order"),
-                              clEnumValEnd));
+                llvm::cl::desc("Select memory model"),
+                llvm::cl::values(clEnumValN(Configuration::SC,"sc","Sequential Consistency"),
+                                 clEnumValN(Configuration::PSO,"pso","Partial Store Order"),
+                                 clEnumValN(Configuration::TSO,"tso","Total Store Order"),
+                                 clEnumValEnd));
 
 static llvm::cl::opt<bool> cl_check_robustness("robustness",llvm::cl::NotHidden,
-                                              llvm::cl::desc("Check for robustness as a correctness criterion."));
+                                               llvm::cl::desc("Check for robustness as a correctness criterion."));
 
 static llvm::cl::OptionCategory cl_transformation_cat("Module Transformation Passes");
 
 static llvm::cl::opt<bool> cl_transform_spin_assume("spin-assume",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
                                                     llvm::cl::desc("Enable the spin assume pass in module transformation."));
+
+static llvm::cl::opt<int>
+cl_transform_loop_unroll("unroll",
+                         llvm::cl::NotHidden,llvm::cl::init(-1),llvm::cl::value_desc("N"),
+                         llvm::cl::cat(cl_transformation_cat),
+                         llvm::cl::desc("Bound executions by allowing loops to iterate at most N times."));
 
 const std::set<std::string> &Configuration::commandline_opts(){
   static std::set<std::string> opts = {
@@ -56,7 +62,8 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "max-search-depth",
     "sc","tso","pso",
     "robustness",
-    "spin-assume"
+    "spin-assume",
+    "unroll"
   };
   return opts;
 };
@@ -70,4 +77,5 @@ void Configuration::assign_by_commandline(){
   memory_model = cl_memory_model;
   check_robustness = cl_check_robustness;
   transform_spin_assume = cl_transform_spin_assume;
+  transform_loop_unroll = cl_transform_loop_unroll;
 };

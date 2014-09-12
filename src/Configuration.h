@@ -76,6 +76,7 @@ public:
     debug_print_on_reset = false;
     debug_print_on_error = false;
     transform_spin_assume = false;
+    transform_loop_unroll = -1;
   };
   /* Read the switches given to the program by the user. Assign
    * configuration options accordingly.
@@ -133,6 +134,11 @@ public:
   bool debug_print_on_error;
   /* In module transformation, enable the SpinAssume pass. */
   bool transform_spin_assume;
+  /* If transform_loop_unroll is non-negative, in module
+   * transformation, enable loop unrolling with depth
+   * transform_loop_unroll.
+   */
+  int transform_loop_unroll;
 
   /* The set of all commandline switches that are associated with
    * setting configuration options. This set has nothing to do with

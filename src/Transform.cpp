@@ -17,6 +17,7 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#include "LoopUnrollPass.h"
 #include "SpinAssumePass.h"
 #include "Transform.h"
 
@@ -48,6 +49,19 @@ namespace Transform {
     return mod;
   };
 
+  llvm::Module *read_module_src(const std::string &src){
+    llvm::Module *mod;
+    llvm::SMDiagnostic err;
+    llvm::MemoryBuffer *buf =
+      llvm::MemoryBuffer::getMemBuffer(src,"",false);
+    mod = llvm::ParseIR(buf,err,llvm::getGlobalContext());
+    if(!mod){
+      err.print("",llvm::errs());
+      throw std::logic_error("Failed to parse assembly.");
+    }
+    return mod;
+  };
+
   void write_module(llvm::Module *mod, std::string outfile){
     llvm::PassManager PM;
     std::string errs;
@@ -58,6 +72,21 @@ namespace Transform {
     }
     PM.add(llvm::createPrintModulePass(os,true));
     PM.run(*mod);
+  };
+
+  std::string write_module_str(llvm::Module *mod){
+    std::string s;
+    llvm::PassManager PM;
+    llvm::raw_ostream *os = new llvm::raw_string_ostream(s);
+    PM.add(llvm::createPrintModulePass(os,true));
+    PM.run(*mod);
+    return s;
+  };
+
+  std::string transform(const std::string &src, const Configuration &conf){
+    llvm::Module *mod = read_module_src(src);
+    transform(*mod,conf);
+    return write_module_str(mod);
   };
 
   void transform(std::string infile, std::string outfile, const Configuration &conf){
@@ -85,6 +114,9 @@ namespace Transform {
     llvm::PassManager PM;
     if(conf.transform_spin_assume){
       PM.add(new SpinAssumePass());
+    }
+    if(0 <= conf.transform_loop_unroll){
+      PM.add(new LoopUnrollPass(conf.transform_loop_unroll));
     }
     return PM.run(mod);
   };

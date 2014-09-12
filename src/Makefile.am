@@ -11,6 +11,7 @@ libnidhugg_a_SOURCES = \
   ExternalFunctions.cpp \
   IID.h IID.tcc \
   Interpreter.cpp Interpreter.h \
+  LoopUnrollPass.cpp LoopUnrollPass.h \
   MRef.cpp MRef.h \
   PSOInterpreter.cpp PSOInterpreter.h \
   PSOTraceBuilder.cpp PSOTraceBuilder.h \
@@ -45,6 +46,7 @@ unittest_SOURCES = \
   SC_test.cpp \
   TSO_test.cpp \
   TSO_test2.cpp \
+  Unroll_test.cpp \
   VClock_CPid_test.cpp \
   VClock_int_test.cpp \
   unittest.cpp

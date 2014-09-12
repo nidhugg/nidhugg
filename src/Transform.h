@@ -34,8 +34,17 @@ namespace Transform {
    * Transformations:
    * - SpinAssume (enabled by conf.transform_spin_assume)
    *   Replace each spin loop with a single call to __VERIFIER_assume.
+   * - LoopUnroll (enabled by conf.transform_loop_unroll)
+   *   Unroll each loop such that its body can execute at most a given
+   *   number of times.
    */
   void transform(std::string infile, std::string outfile, const Configuration &conf);
+
+  /* Transform the LLVM assembly or byte code in src according to
+   * conf. Return the transformed code as LLVM assembly. (See above
+   * for documentation about transformations.)
+   */
+  std::string transform(const std::string &src, const Configuration &conf);
 
   /* Transform mod according to conf. (See above for documentation
    * about transformations.)
