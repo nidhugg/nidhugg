@@ -24,7 +24,16 @@
 
 #include <sstream>
 
+#if defined(HAVE_LLVM_IR_CONSTANTS_H)
+#include <llvm/IR/Constants.h>
+#elif defined(HAVE_LLVM_CONSTANTS_H)
+#include <llvm/Constants.h>
+#endif
+#if defined(HAVE_LLVM_IR_INSTRUCTIONS_H)
 #include <llvm/IR/Instructions.h>
+#elif defined(HAVE_LLVM_INSTRUCTIONS_H)
+#include <llvm/Instructions.h>
+#endif
 #include <llvm/Transforms/Utils/Cloning.h>
 
 void LoopUnrollPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
@@ -52,9 +61,9 @@ bool LoopUnrollPass::runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM){
   llvm::BasicBlock *Diverge = make_diverge_block(L);
 
   /* Each vector in bodies is the blocks of one version of the loop
-   * body. bodies[0] is L->getBlocksVector().
+   * body. bodies[0] is L->getBlocks().
    */
-  std::vector<std::vector<llvm::BasicBlock*> > bodies(1,L->getBlocksVector());
+  std::vector<std::vector<llvm::BasicBlock*> > bodies(1,L->getBlocks());
   std::vector<llvm::ValueToValueMapTy> VMaps(unroll_depth);
   /* Maps BasicBlocks in bodies[0] to their indices in that vector. */
   std::map<llvm::BasicBlock const *,int> loop_block_idx;

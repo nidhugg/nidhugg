@@ -25,16 +25,17 @@
 #include "PSOInterpreter.h"
 #include "PSOTraceBuilder.h"
 #include "SigSegvHandler.h"
+#include "StrModule.h"
 #include "TSOInterpreter.h"
 #include "TSOTraceBuilder.h"
 
 #include <fstream>
 #include <stdexcept>
 
-#ifdef LLVM_INCLUDE_IR
+#if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
-#else
-#include <llvm/IR/LLVMContext.h>
+#elif defined(HAVE_LLVM_LLVMCONTEXT_H)
+#include <llvm/LLVMContext.h>
 #endif
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Support/DynamicLibrary.h>
@@ -86,15 +87,8 @@ void DPORDriver::read_file(const std::string &filename, std::string &tgt){
 
 void DPORDriver::reparse(){
   delete mod;
-  llvm::SMDiagnostic err;
-  llvm::MemoryBuffer *buf =
-    llvm::MemoryBuffer::getMemBuffer(src,"",false);
-  mod = llvm::ParseIR(buf,err,llvm::getGlobalContext());
-  if(!mod){
-    err.print("",llvm::errs());
-    throw std::logic_error("Failed to parse assembly.");
-  }
-  if(mod->getDataLayout().empty()){
+  mod = StrModule::read_module_src(src);
+  if(mod->LLVM_MODULE_GET_DATA_LAYOUT_STRING().empty()){
     if(llvm::sys::IsLittleEndianHost){
       mod->setDataLayout("e");
     }else{

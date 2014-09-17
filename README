@@ -15,7 +15,7 @@ Nidhugg can be compiled and installed on UNIX-like systems.
 Requirements
 ============
 
-   1. A C++ compiler supporting C++11. For example g++ version 4.6 or
+   1. A C++ compiler supporting C++11. For example g++ version 4.7 or
       higher, or clang++ version 3.1 or higher. (For compiling the
       tool Nidhugg.)
 

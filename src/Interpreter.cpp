@@ -43,10 +43,18 @@
 #include <valgrind/valgrind.h>
 #endif
 
-#include "Interpreter.h"
-#include "llvm/CodeGen/IntrinsicLowering.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Module.h"
+#include <Interpreter.h>
+#include <llvm/CodeGen/IntrinsicLowering.h>
+#if defined(HAVE_LLVM_IR_DERIVEDTYPES_H)
+#include <llvm/IR/DerivedTypes.h>
+#elif defined(HAVE_LLVM_DERIVEDTYPES_H)
+#include <llvm/DerivedTypes.h>
+#endif
+#if defined(HAVE_LLVM_IR_MODULE_H)
+#include <llvm/IR/Module.h>
+#elif defined(HAVE_LLVM_MODULE_H)
+#include <llvm/Module.h>
+#endif
 #include <cstring>
 using namespace llvm;
 
@@ -55,9 +63,18 @@ using namespace llvm;
 ExecutionEngine *Interpreter::create(Module *M, TraceBuilder &TB,
                                      const Configuration &C, std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
-  if (M->MaterializeAllPermanently(ErrStr))
+#ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
+  if(std::error_code EC = M->materializeAllPermanently()){
+    // We got an error, just return 0
+    if(ErrStr) *ErrStr = EC.message();
+    return 0;
+  }
+#else
+  if (M->MaterializeAllPermanently(ErrStr)){
     // We got an error, just return 0
     return 0;
+  }
+#endif
 
   return new Interpreter(M,TB,C);
 }
@@ -67,7 +84,12 @@ ExecutionEngine *Interpreter::create(Module *M, TraceBuilder &TB,
 //
 Interpreter::Interpreter(Module *M, TraceBuilder &TB,
                          const Configuration &C)
-  : ExecutionEngine(M), TD(M), TB(TB), conf(C) {
+#ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
+  : ExecutionEngine(std::unique_ptr<Module>(M)),
+#else
+  : ExecutionEngine(M),
+#endif
+    TD(M), TB(TB), conf(C) {
 
   Threads.push_back(Thread());
   Threads.back().cpid = CPid();
@@ -126,6 +148,12 @@ Interpreter::~Interpreter() {
    * we are done with it.
    */
   assert(Modules.size() == 1);
+#ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
+  /* First release all modules. */
+  for(auto it = Modules.begin(); it != Modules.end(); ++it){
+    it->release();
+  }
+#endif
   Modules.clear();
   std::function<void()> on_error0 =
     [](){

@@ -150,7 +150,9 @@ declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare i32 @pthread_join(i64,i8**) nounwind
 
+!llvm.module.flags = !{!1}
 !0 = metadata !{i32 0}
+!1 = metadata !{i32 2, metadata !"Debug Info Version", i32 1}
 )",conf);
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -940,7 +942,9 @@ declare void @llvm.dbg.value(metadata, i64, metadata) #1
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
 
+!llvm.module.flags = !{!2}
 !1 = metadata !{i32 0}
+!2 = metadata !{i32 2, metadata !"Debug Info Version", i32 1}
 )",conf);
 
   DPORDriver::Result res = driver->run();

@@ -33,9 +33,9 @@
 #include <string>
 #include <vector>
 
-#ifdef LLVM_INCLUDE_IR
+#if defined(HAVE_LLVM_IR_METADATA_H)
 #include <llvm/IR/Metadata.h>
-#else
+#elif defined(HAVE_LLVM_METADATA_H)
 #include <llvm/Metadata.h>
 #endif
 

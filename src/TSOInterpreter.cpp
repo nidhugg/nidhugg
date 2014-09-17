@@ -36,9 +36,18 @@ TSOInterpreter::~TSOInterpreter(){
 llvm::ExecutionEngine *TSOInterpreter::create(llvm::Module *M, TSOTraceBuilder &TB,
                                               const Configuration &conf,
                                               std::string *ErrorStr){
-  if (M->MaterializeAllPermanently(ErrorStr)){
+#ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
+  if(std::error_code EC = M->materializeAllPermanently()){
+    // We got an error, just return 0
+    if(ErrorStr) *ErrorStr = EC.message();
     return 0;
   }
+#else
+  if (M->MaterializeAllPermanently(ErrorStr)){
+    // We got an error, just return 0
+    return 0;
+  }
+#endif
 
   return new TSOInterpreter(M,TB,conf);
 };
@@ -109,7 +118,13 @@ bool TSOInterpreter::isFence(llvm::Instruction &I){
   }else if(llvm::isa<llvm::FenceInst>(I)){
     return static_cast<llvm::FenceInst&>(I).getOrdering() == llvm::SequentiallyConsistent;
   }else if(llvm::isa<llvm::AtomicCmpXchgInst>(I)){
+#ifdef LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING
+    llvm::AtomicOrdering succ = static_cast<llvm::AtomicCmpXchgInst&>(I).getSuccessOrdering();
+    llvm::AtomicOrdering fail = static_cast<llvm::AtomicCmpXchgInst&>(I).getFailureOrdering();
+    if(succ != llvm::SequentiallyConsistent || fail != llvm::SequentiallyConsistent){
+#else
     if(static_cast<llvm::AtomicCmpXchgInst&>(I).getOrdering() != llvm::SequentiallyConsistent){
+#endif
       Debug::warn("TSOInterpreter::isFence::cmpxchg") << "WARNING: Non-sequentially consistent CMPXCHG instruction interpreted as sequentially consistent.\n";
     }
     return true;

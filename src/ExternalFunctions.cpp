@@ -41,9 +41,21 @@
  */
 
 #include <Interpreter.h>
+#if defined(HAVE_LLVM_IR_DATALAYOUT_H)
 #include <llvm/IR/DataLayout.h>
+#elif defined(HAVE_LLVM_DATALAYOUT_H)
+#include <llvm/DataLayout.h>
+#endif
+#if defined(HAVE_LLVM_IR_DERIVEDTYPES_H)
 #include <llvm/IR/DerivedTypes.h>
+#elif defined(HAVE_LLVM_DERIVEDTYPES_H)
+#include <llvm/DerivedTypes.h>
+#endif
+#if defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
+#elif defined(HAVE_LLVM_MODULE_H)
+#include <llvm/Module.h>
+#endif
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/ManagedStatic.h>
@@ -268,14 +280,14 @@ GenericValue Interpreter::callExternalFunction(Function *F,
                                      const std::vector<GenericValue> &ArgVals) {
   TheInterpreter = this;
 
-  FunctionsLock->acquire();
+  FunctionsLock->LLVM_SYS_MUTEX_LOCK_FN();
 
   // Do a lookup to see if the function is in our cache... this should just be a
   // deferred annotation!
   std::map<const Function *, ExFunc>::iterator FI = ExportedFunctions->find(F);
   if (ExFunc Fn = (FI == ExportedFunctions->end()) ? lookupFunction(F)
                                                    : FI->second) {
-    FunctionsLock->release();
+    FunctionsLock->LLVM_SYS_MUTEX_UNLOCK_FN();
     return Fn(F->getFunctionType(), ArgVals);
   }
 
@@ -293,7 +305,7 @@ GenericValue Interpreter::callExternalFunction(Function *F,
     RawFn = RF->second;
   }
 
-  FunctionsLock->release();
+  FunctionsLock->LLVM_SYS_MUTEX_UNLOCK_FN();
 
   GenericValue Result;
   if (RawFn != 0 && ffiInvoke(RawFn, F, ArgVals, getDataLayout(), Result))

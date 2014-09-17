@@ -26,9 +26,9 @@
 #include "Trace.h"
 #include "TraceBuilder.h"
 
-#ifdef LLVM_INCLUDE_IR
+#if defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
-#else
+#elif defined(HAVE_LLVM_MODULE_H)
 #include <llvm/Module.h>
 #endif
 

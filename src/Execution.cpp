@@ -40,23 +40,39 @@
 #include <llvm/ADT/SmallString.h>
 #include <llvm/ADT/Statistic.h>
 #include <llvm/CodeGen/IntrinsicLowering.h>
-#ifdef LLVM_INCLUDE_IR
+#if defined(HAVE_LLVM_IR_CONSTANTS_H)
 #include <llvm/IR/Constants.h>
-#include <llvm/IR/DerivedTypes.h>
-#include <llvm/IR/InlineAsm.h>
-#include <llvm/IR/Instructions.h>
-#include <llvm/IR/LLVMContext.h>
-#else
+#elif defined(HAVE_LLVM_CONSTANTS_H)
 #include <llvm/Constants.h>
+#endif
+#if defined(HAVE_LLVM_IR_DERIVEDTYPES_H)
+#include <llvm/IR/DerivedTypes.h>
+#elif defined(HAVE_LLVM_DERIVEDTYPES_H)
 #include <llvm/DerivedTypes.h>
+#endif
+#if defined(HAVE_LLVM_IR_INLINEASM_H)
+#include <llvm/IR/InlineAsm.h>
+#elif defined(HAVE_LLVM_INLINEASM_H)
 #include <llvm/InlineAsm.h>
+#endif
+#if defined(HAVE_LLVM_IR_INSTRUCTIONS_H)
+#include <llvm/IR/Instructions.h>
+#elif defined(HAVE_LLVM_INSTRUCTIONS_H)
 #include <llvm/Instructions.h>
+#endif
+#if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
+#include <llvm/IR/LLVMContext.h>
+#elif defined(HAVE_LLVM_LLVMCONTEXT_H)
 #include <llvm/LLVMContext.h>
 #endif
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/ErrorHandling.h>
+#if defined(HAVE_LLVM_SUPPORT_GETELEMENTPTRTYPEITERATOR_H)
 #include <llvm/Support/GetElementPtrTypeIterator.h>
+#elif defined(HAVE_LLVM_IR_GETELEMENTPTRTYPEITERATOR_H)
+#include <llvm/IR/GetElementPtrTypeIterator.h>
+#endif
 #include <llvm/Support/Host.h>
 #include <llvm/Support/MathExtras.h>
 #include <algorithm>
@@ -1354,23 +1370,44 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
   GenericValue NewVal = getOperandValue(I.getNewValOperand(),SF);
   GenericValue SRC = getOperandValue(I.getPointerOperand(), SF);
   GenericValue *Ptr = (GenericValue*)GVTOP(SRC);
+  Type *Ty = I.getCompareOperand()->getType();
   GenericValue Result;
 
-  TB.atomic_store(GetMRef(Ptr,I.getType()));
+  TB.atomic_store(GetMRef(Ptr,Ty));
 
+#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
+  // Return a tuple (oldval,success)
+  Result.AggregateVal.resize(2);
   if(DryRun && DryRunMem.size()){
-    DryRunLoadValueFromMemory(Result, Ptr, I.getType());
+    DryRunLoadValueFromMemory(Result.AggregateVal[0], Ptr, Ty);
   }else{
-    if(!CheckedLoadValueFromMemory(Result, Ptr, I.getType())) return;
+    if(!CheckedLoadValueFromMemory(Result.AggregateVal[0], Ptr, Ty)) return;
   }
-  SetValue(&I, Result, SF);
-  GenericValue CmpRes = executeICMP_EQ(Result,CmpVal,I.getType());
+  GenericValue CmpRes = executeICMP_EQ(Result.AggregateVal[0],CmpVal,Ty);
+#else
+  // Return only the old value oldval
+  if(DryRun && DryRunMem.size()){
+    DryRunLoadValueFromMemory(Result, Ptr, Ty);
+  }else{
+    if(!CheckedLoadValueFromMemory(Result, Ptr, Ty)) return;
+  }
+  GenericValue CmpRes = executeICMP_EQ(Result,CmpVal,Ty);
+#endif
   if(CmpRes.IntVal.getBoolValue()){
+#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
+    Result.AggregateVal[1].IntVal = 1;
+#endif
+    SetValue(&I, Result, SF);
     if(DryRun){
-      DryRunMem.push_back(GetMBlock(Ptr,I.getType(),NewVal));
+      DryRunMem.push_back(GetMBlock(Ptr,Ty,NewVal));
       return;
     }
-    CheckedStoreValueToMemory(NewVal,Ptr,I.getType());
+    CheckedStoreValueToMemory(NewVal,Ptr,Ty);
+  }else{
+#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
+    Result.AggregateVal[1].IntVal = 0;
+#endif
+    SetValue(&I,Result,SF);
   }
 };
 

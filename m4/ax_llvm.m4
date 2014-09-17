@@ -8,8 +8,6 @@
 #   - Defines HAVE_LLVM.
 #   - Defines LLVM_VERSION.
 #   - Defines LLVM_BUILDMODE
-#   - Defines LLVM_INCLUDE_IR iff the LLVM include directory has an "IR" subdirectory.
-#   - Sets shell variable LLVM_INCLUDE_IR to 'yes' or 'no' correspondingly.
 #   - Defines LLVM_NDEBUG iff the LLVM library was compiled with NDEBUG.
 #   - Sets shell variable LLVM_NDEBUG to 'yes' or 'no' correspondingly.
 #
@@ -41,7 +39,6 @@ AC_DEFUN([AX_LLVM],
   fi
 
   if test "x$ax_llvm_ok" = "xyes"; then
-    AC_MSG_CHECKING([for LLVM])
 
     LLVMVERSION=`$LLVMCONFIG --version`
     LLVMBUILDMODE=`$LLVMCONFIG --build-mode`
@@ -52,25 +49,22 @@ AC_DEFUN([AX_LLVM],
     fi
 
     CXXFLAGS="$CXXFLAGS `$LLVMCONFIG --cxxflags`"
-    LDFLAGS="$LDFLAGS `$LLVMCONFIG --ldflags`"
-    LIBS="$LIBS `$LLVMCONFIG --libs`"
-
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <llvm/IR/Module.h>
-#include <llvm/IR/LLVMContext.h>
-]],[[llvm::Module M("test",llvm::getGlobalContext());
-return 0;]])],
-                   [ax_llvm_include_ir='yes'],
-                   [ax_llvm_include_ir='no'])
-
-    if test "x$ax_llvm_include_ir" = "xno"; then
-
-      AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <llvm/Module.h>
-#include <llvm/LLVMContext.h>
-]],[[llvm::Module M("test",llvm::getGlobalContext());
-return 0;]])],
-                     [],
-                     [ax_llvm_ok='no'])
+    LLVMLDFLAGS=`$LLVMCONFIG --ldflags`
+    LLVMLIBS=`$LLVMCONFIG --libs`
+    SYSLIBS=`$LLVMCONFIG --system-libs 2>/dev/null`
+    if test "x$?" = "x0"; then
+      LLVMLDFLAGS="$LLVMLDFLAGS $SYSLIBS"
     fi
+    for lib in $LLVMLDFLAGS; do
+      if test "x`echo $lib | grep '^-l'`" != "x"; then
+        lname=`echo "$lib" | sed s/^-l//`
+        AC_CHECK_LIB([$lname],[main],[],[AC_MSG_FAILURE([Failed to find library $lib, required by LLVM.])])
+      fi
+    done
+    LDFLAGS="$LDFLAGS $LLVMLDFLAGS"
+    LIBS="$LIBS $LLVMLIBS"
+
+    AC_MSG_CHECKING([for LLVM])
 
   fi
 
@@ -80,11 +74,6 @@ return 0;]])],
     ifelse([$1],,[AC_DEFINE([HAVE_LLVM],[1],[Define if there is a working LLVM library.])
                   AC_DEFINE_UNQUOTED([LLVM_VERSION],["$LLVMVERSION"],[Version of the LLVM library.])
                   AC_DEFINE_UNQUOTED([LLVM_BUILDMODE],["$LLVMBUILDMODE"],[Build mode of the LLVM library.])
-                  LLVM_INCLUDE_IR='no'
-                  if test "x$ax_llvm_include_ir" = "xyes"; then
-                    AC_DEFINE([LLVM_INCLUDE_IR],[1],[Define if the LLVM include directory has an "IR" subdirectory.])
-                    LLVM_INCLUDE_IR='yes'
-                  fi
                   if test "x$LLVM_NDEBUG" = "xyes"; then
                     AC_DEFINE([LLVM_NDEBUG],[1],[Define if LLVM was compiled with NDEBUG.])
                   fi

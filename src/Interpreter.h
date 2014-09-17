@@ -44,10 +44,28 @@
 
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+#if defined(HAVE_LLVM_IR_DATALAYOUT_H)
 #include <llvm/IR/DataLayout.h>
+#elif defined(HAVE_LLVM_DATALAYOUT_H)
+#include <llvm/DataLayout.h>
+#endif
+#if defined(HAVE_LLVM_IR_FUNCTION_H)
 #include <llvm/IR/Function.h>
+#elif defined(HAVE_LLVM_FUNCTION_H)
+#include <llvm/Function.h>
+#endif
+#if defined(HAVE_LLVM_INSTVISITOR_H)
 #include <llvm/InstVisitor.h>
+#elif defined(HAVE_LLVM_IR_INSTVISITOR_H)
+#include <llvm/IR/InstVisitor.h>
+#elif defined(HAVE_LLVM_SUPPORT_INSTVISITOR_H)
+#include <llvm/Support/InstVisitor.h>
+#endif
+#if defined(HAVE_LLVM_SUPPORT_CALLSITE_H)
 #include <llvm/Support/CallSite.h>
+#elif defined(HAVE_LLVM_IR_CALLSITE_H)
+#include <llvm/IR/CallSite.h>
+#endif
 #include <llvm/Support/DataTypes.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>
@@ -241,11 +259,17 @@ public:
   virtual GenericValue runFunction(Function *F,
                                    const std::vector<GenericValue> &ArgValues);
 
-  virtual void *getPointerToNamedFunction(const std::string &Name,
-                                          bool AbortOnFailure = true) {
+  void *getPointerToNamedFunction(const std::string &Name,
+                                  bool AbortOnFailure = true) {
     // FIXME: not implemented.
     return 0;
-  }
+  };
+
+  void *getPointerToNamedFunction(llvm::StringRef Name,
+                                  bool AbortOnFailure = true) {
+    // FIXME: not implemented.
+    return 0;
+  };
 
   /* Compute the Trace of the current execution. */
   virtual Trace getTrace() const { return TB.get_trace(); };

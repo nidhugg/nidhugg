@@ -24,12 +24,21 @@
 #include <set>
 #include <sstream>
 
+#if defined(HAVE_LLVM_DEBUGINFO_H)
 #include <llvm/DebugInfo.h>
-#ifdef LLVM_INCLUDE_IR
+#elif defined(HAVE_LLVM_IR_DEBUGINFO_H)
+#include <llvm/IR/DebugInfo.h>
+#elif defined(HAVE_LLVM_ANALYSIS_DEBUGINFO_H)
+#include <llvm/Analysis/DebugInfo.h>
+#endif
+#if defined(HAVE_LLVM_IR_TYPE_H)
 #include <llvm/IR/Type.h>
-#include <llvm/IR/Constants.h>
-#else
+#elif defined(HAVE_LLVM_TYPE_H)
 #include <llvm/Type.h>
+#endif
+#if defined(HAVE_LLVM_IR_CONSTANTS_H)
+#include <llvm/IR/Constants.h>
+#elif defined(HAVE_LLVM_CONSTANTS_H)
 #include <llvm/Constants.h>
 #endif
 #include <llvm/Support/Dwarf.h>

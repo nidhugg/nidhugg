@@ -20,9 +20,9 @@
 #include "CheckModule.h"
 #include "Debug.h"
 
-#ifdef LLVM_INCLUDE_IR
+#if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
-#else
+#elif defined(HAVE_LLVM_LLVMCONTEXT_H)
 #include <llvm/LLVMContext.h>
 #endif
 #include <llvm/Support/Debug.h>
