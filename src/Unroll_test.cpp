@@ -317,6 +317,77 @@ declare void @__assert_fail() nounwind
   BOOST_CHECK(tres.has_errors());
 }
 
+BOOST_AUTO_TEST_CASE(Fomoffu){
+  Configuration conf = DPORDriver_test::get_sc_conf();
+  Configuration tconf;
+  tconf.transform_loop_unroll = 4;
+  DPORDriver *tdriver =
+    DPORDriver::parseIR(Transform::transform(R"(
+@x = global i32 0, align 4
+
+define i8* @f(i8* %arg) {
+entry:
+  br label %do.body
+
+do.body:
+  br label %do.cond
+
+do.cond:
+  br i1 1, label %land.rhs, label %land.end
+
+land.rhs:
+  store i32 1, i32* @x, align 4
+  br label %land.end
+
+land.end:
+  %E = phi i1 [ false, %do.cond ], [ true, %land.rhs ]
+  br i1 %E, label %do.body, label %do.end
+
+do.end:
+  ret i8* null
+}
+
+define i32 @main(){
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @f, i8* null)
+  store i32 1, i32* @x, align 4
+  ret i32 0
+}
+
+%attr_t = type {i64, [48 x i8]}
+declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
+)",tconf),conf);
+
+  DPORDriver *driver =
+    DPORDriver::parseIR(R"(
+@x = global i32 0, align 4
+
+define i8* @f(i8* %arg){
+  store i32 1, i32* @x, align 4
+  store i32 1, i32* @x, align 4
+  store i32 1, i32* @x, align 4
+  store i32 1, i32* @x, align 4
+  ret i8* null
+}
+
+define i32 @main(){
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @f, i8* null)
+  store i32 1, i32* @x, align 4
+  ret i32 0
+}
+
+%attr_t = type {i64, [48 x i8]}
+declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
+)",conf);
+
+  DPORDriver::Result tres = tdriver->run();
+  DPORDriver::Result res = driver->run();
+  delete tdriver;
+  delete driver;
+
+  BOOST_CHECK(tres.has_errors() == res.has_errors());
+  BOOST_CHECK(tres.trace_count == res.trace_count);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif

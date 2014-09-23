@@ -120,14 +120,14 @@ bool LoopUnrollPass::runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM){
                   --nvals;
                 }else{
                   P->setIncomingBlock(k,bodies[i-1][tgt]);
-                  if(i-1 != 0){
+                  if(i-1 != 0 && VMaps[i].count(P->getIncomingValue(k))){
                     P->setIncomingValue(k,VMaps[i-1][P->getIncomingValue(k)]);
                   }
                 }
               }else{
                 // Incoming from inside this loop
                 P->setIncomingBlock(k,bodies[i][tgt]);
-                if(i != 0){
+                if(i != 0 && VMaps[i].count(P->getIncomingValue(k))){
                   P->setIncomingValue(k,VMaps[i][P->getIncomingValue(k)]);
                 }
               }
