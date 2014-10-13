@@ -18,6 +18,7 @@
  */
 
 #include "CheckModule.h"
+#include "Debug.h"
 
 #ifdef LLVM_INCLUDE_IR
 #include <llvm/IR/LLVMContext.h>
@@ -65,7 +66,8 @@ void CheckModule::check_functions(const llvm::Module *M){
   for(auto it = M->getFunctionList().begin(); it != M->getFunctionList().end(); ++it){
     if(it->getName().startswith("pthread_") &&
        supported.count(it->getName()) == 0){
-      throw CheckModuleError(("Unsupported pthread function: "+it->getName()).str());
+      Debug::warn("CheckModule:"+it->getName().str())
+        << "WARNING: Unsupported pthread function: " << it->getName() << "\n";
     }
   }
 };
