@@ -86,6 +86,9 @@ def get_args():
     def canonize(arg):
         if arg in nidhuggcparamaliases:
             return nidhuggcparamaliases[arg]
+        i = arg.find('=')
+        if 0 <= i and (arg[:i] in nidhuggcparamaliases):
+            return nidhuggcparamaliases[arg[:i]]+arg[i:]
         return arg
     shouldhaveinput=(0 == len([a for a in sys.argv[1:] if canonize(a) in disablesinput]))
     fornidhuggcsingle=[p['name'] for p in nidhuggcparams if p['param'] == False]
