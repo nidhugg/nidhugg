@@ -50,6 +50,19 @@ protected:
   virtual bool optAddFunction(llvm::Module &M,
                               std::string name,
                               const std::vector<std::string> &src);
+  /* If a function named name is declared but not defined in M, then
+   * attempt to add an empty definition of it to M. The definition
+   * will do nothing, and return a value based on the return type as
+   * follows:
+   * - int: 0
+   * - some pointer: null
+   * - void: void
+   * - other: not supported
+   *
+   * Returns true if a definition is added, false otherwise.
+   */
+  virtual bool optNopFunction(llvm::Module &M,
+                              std::string name);
 };
 
 #endif

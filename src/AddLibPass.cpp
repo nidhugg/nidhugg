@@ -21,6 +21,7 @@
 #include "Debug.h"
 #include "StrModule.h"
 
+#include <llvm/IR/Instructions.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Linker.h>
@@ -65,7 +66,33 @@ bool AddLibPass::optAddFunction(llvm::Module &M,
   return added_def;
 };
 
+bool AddLibPass::optNopFunction(llvm::Module &M,
+                                std::string name){
+  llvm::Function *F = M.getFunction(name);
+  if(!F || !F->isDeclaration()) return false;
+  llvm::Value *rv = 0;
+  llvm::Type *retTy = F->getReturnType();
+  if(retTy->isIntegerTy()){
+    rv = llvm::ConstantInt::get(retTy,0);
+  }else if(retTy->isVoidTy()){
+    rv = 0;
+  }else if(retTy->isPointerTy()){
+    rv = llvm::ConstantPointerNull::get(static_cast<llvm::PointerType*>(retTy));
+  }else{
+    Debug::warn("AddLibPass::optNopFunction:"+name)
+      << "WARNING: Failed to add library function (nop) definition for function "
+      << name << "\n";
+    return false;
+  }
+  llvm::BasicBlock *B =
+    llvm::BasicBlock::Create(F->getContext(),"",F);
+  llvm::ReturnInst::Create(F->getContext(),rv,B);
+  return true;
+};
+
 bool AddLibPass::runOnModule(llvm::Module &M){
+  optNopFunction(M,"fflush");
+  optNopFunction(M,"fprintf");
   /**********************************
    *           memset               *
    **********************************/
