@@ -2970,6 +2970,14 @@ void Interpreter::callFree(Function *F,
   }
 };
 
+void Interpreter::callAtexit(Function *F,
+                             const std::vector<GenericValue> &ArgVals){
+  addAtExitHandler((Function*)GVTOP(ArgVals[0]));
+  GenericValue Result;
+  Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0);
+  returnValueToCaller(F->getReturnType(),Result);
+};
+
 void Interpreter::callAssertFail(Function *F,
                                  const std::vector<GenericValue> &ArgVals){
   std::string err;
@@ -3034,6 +3042,9 @@ void Interpreter::callFunction(Function *F,
     return;
   }else if(F->getName().str() == "free"){
     callFree(F,ArgVals);
+    return;
+  }else if(F->getName().str() == "atexit"){
+    callAtexit(F,ArgVals);
     return;
   }else if(F->getName().str() == "__VERIFIER_nondet_int" ||
            F->getName().str() == "__VERIFIER_nondet_uint"){
@@ -3291,7 +3302,12 @@ void Interpreter::run() {
     }
 
     if(ECStack()->empty()){ // The thread has terminated
-      TB.mark_unavailable(CurrentThread);
+      if(CurrentThread == 0 && AtExitHandlers.size()){
+        callFunction(AtExitHandlers.back(),{});
+        AtExitHandlers.pop_back();
+      }else{
+        TB.mark_unavailable(CurrentThread);
+      }
     }
 
     if(DryRun && !rerun){ // Did dry run. Now back up.

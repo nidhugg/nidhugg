@@ -69,7 +69,8 @@ public:
       "__VERIFIER_nondet_int",
       "__VERIFIER_nondet_uint",
       "__VERIFIER_assume",
-      "__assert_fail"
+      "__assert_fail",
+      "atexit"
     };
     check_robustness = false;
     debug_collect_all_traces = false;

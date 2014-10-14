@@ -536,6 +536,7 @@ protected:  // Helper functions
   virtual void callMalloc(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callFree(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
+  virtual void callAtexit(Function *F, const std::vector<GenericValue> &ArgVals);
 };
 
 } // End llvm namespace
