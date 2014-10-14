@@ -2,6 +2,7 @@ AUTOMAKE_OPTIONS = -Wno-override ## Make autotools quit complaining about explic
 
 noinst_LIBRARIES = libnidhugg.a
 libnidhugg_a_SOURCES = \
+  AddLibPass.cpp AddLibPass.h \
   CheckModule.cpp CheckModule.h \
   Configuration.cpp Configuration.h \
   CPid.cpp CPid.h \
@@ -17,6 +18,7 @@ libnidhugg_a_SOURCES = \
   PSOTraceBuilder.cpp PSOTraceBuilder.h \
   SigSegvHandler.cpp SigSegvHandler.h \
   SpinAssumePass.cpp SpinAssumePass.h \
+  StrModule.cpp StrModule.h \
   Trace.cpp Trace.h \
   TraceBuilder.cpp TraceBuilder.h \
   Transform.cpp Transform.h \
