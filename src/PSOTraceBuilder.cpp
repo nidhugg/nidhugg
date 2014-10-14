@@ -270,6 +270,8 @@ bool PSOTraceBuilder::reset(){
     if(br.pid != prefix[i].iid.get_pid()){
       evt.sleep.insert(prefix[i].iid.get_pid());
     }
+    evt.sleep_branch_trace_count =
+      prefix[i].sleep_branch_trace_count + estimate_trace_count(i+1);
 
     prefix[i] = evt;
 
@@ -1211,4 +1213,21 @@ bool PSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
     assert(!has_cycle || 0 <= upd_idx);
     return has_cycle;
   }
+};
+
+int PSOTraceBuilder::estimate_trace_count() const{
+  return estimate_trace_count(0);
+};
+
+int PSOTraceBuilder::estimate_trace_count(int idx) const{
+  if(idx > int(prefix.size())) return 0;
+  if(idx == int(prefix.size())) return 1;
+
+  int count = 1;
+  for(int i = int(prefix.size())-1; idx <= i; --i){
+    count += prefix[i].sleep_branch_trace_count;
+    count += prefix[i].branch.size()*(count / (1 + prefix[i].sleep.size()));
+  }
+
+  return count;
 };
