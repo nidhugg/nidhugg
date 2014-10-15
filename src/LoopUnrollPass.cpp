@@ -45,6 +45,8 @@ llvm::BasicBlock *LoopUnrollPass::make_diverge_block(llvm::Loop *L){
 };
 
 bool LoopUnrollPass::runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM){
+  llvm::SmallVector<llvm::BasicBlock*,10> SuccBlocks;
+  L->getExitBlocks(SuccBlocks);
   llvm::Function *F = (*L->block_begin())->getParent();
   llvm::BasicBlock *Diverge = make_diverge_block(L);
 
@@ -150,6 +152,37 @@ bool LoopUnrollPass::runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM){
               I->setOperand(k,VMaps[i][I->getOperand(k)]);
             }
           }
+        }
+      }
+    }
+  }
+
+  /* Fix PHI nodes in successor blocks. */
+  for(llvm::BasicBlock *SB : SuccBlocks){
+    for(auto I = SB->begin(); llvm::isa<llvm::PHINode>(*I) && I != SB->end(); ++I){
+      llvm::PHINode *P = static_cast<llvm::PHINode*>(&*I);
+
+      /* Identify the value/block pairs where the block is inside the
+       * loop.
+       */
+      std::vector<llvm::Value*> inc_vals;
+      std::vector<llvm::BasicBlock*> inc_blks;
+      std::vector<int> inc_blk_idxs;
+      for(unsigned i = 0; i < P->getNumIncomingValues(); ++i){
+        llvm::BasicBlock *B = P->getIncomingBlock(i);
+        if(loop_block_idx.count(B)){
+          inc_vals.push_back(P->getIncomingValue(i));
+          inc_blks.push_back(P->getIncomingBlock(i));
+          inc_blk_idxs.push_back(loop_block_idx[B]);
+        }
+      }
+
+      /* Multiply those value/block pairs */
+      for(int i = 1; i < int(bodies.size()); ++i){
+        for(int j = 0; j < int(inc_blk_idxs.size()); ++j){
+          int k = inc_blk_idxs[j];
+          assert(VMaps[i].count(inc_vals[j]));
+          P->addIncoming(VMaps[i][inc_vals[j]],bodies[i][k]);
         }
       }
     }

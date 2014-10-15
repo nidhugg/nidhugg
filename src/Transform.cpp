@@ -23,6 +23,7 @@
 #include "StrModule.h"
 #include "Transform.h"
 
+#include <llvm/Analysis/Verifier.h>
 #include <llvm/PassManager.h>
 
 #include <stdexcept>
@@ -65,7 +66,9 @@ namespace Transform {
       PM.add(new LoopUnrollPass(conf.transform_loop_unroll));
     }
     PM.add(new AddLibPass());
-    return PM.run(mod);
+    bool modified = PM.run(mod);
+    assert(!llvm::verifyModule(mod));
+    return modified;
   };
 
 }

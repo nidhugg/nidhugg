@@ -21,8 +21,10 @@
 #ifdef HAVE_BOOST_UNIT_TEST_FRAMEWORK
 
 #include "DPORDriver_test.h"
+#include "StrModule.h"
 #include "Transform.h"
 
+#include <llvm/Analysis/Verifier.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
 
@@ -386,6 +388,34 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 
   BOOST_CHECK(tres.has_errors() == res.has_errors());
   BOOST_CHECK(tres.trace_count == res.trace_count);
+}
+
+BOOST_AUTO_TEST_CASE(PHI_exit){
+  Configuration tconf;
+  tconf.transform_loop_unroll = 4;
+  llvm::Module *mod =
+    StrModule::read_module_src(R"(
+@x = global i32 0
+
+define i32 @main(){
+entry:
+  %rv0 = add i32 1, 1
+  br i1 1, label %done, label %header
+header:
+  %rvloop = add i32 2, 2
+  br i1 1, label %body, label %done
+body:
+  store i32 1, i32* @x
+  br label %header
+done:
+  %rv = phi i32 [%rv0 ,%entry], [%rvloop, %header]
+  ret i32 %rv
+}
+)");
+  BOOST_CHECK(Transform::transform(*mod,tconf));
+  BOOST_CHECK(!llvm::verifyModule(*mod));
+
+  delete mod;
 }
 
 BOOST_AUTO_TEST_SUITE_END()
