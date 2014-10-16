@@ -507,6 +507,7 @@ void PSOTraceBuilder::atomic_store(const ConstMRef &ml){
         mark_unavailable_ipid(uipid);
       }
     }
+    threads[tipid].aux_clock_sum += curnode().clock;
   }
 };
 
@@ -607,10 +608,8 @@ void PSOTraceBuilder::fence(){
   IPid ipid = curnode().iid.get_pid();
   assert(!threads[ipid].cpid.is_auxiliary());
   assert(threads[ipid].all_buffers_empty());
-  for(IPid p : threads[ipid].aux_to_ipid){
-    curnode().clock += threads[p].clock;
-    threads[ipid].clock += threads[p].clock;
-  }
+  curnode().clock += threads[ipid].aux_clock_sum;
+  threads[ipid].clock += threads[ipid].aux_clock_sum;
 };
 
 void PSOTraceBuilder::join(int tgt_proc){
@@ -619,11 +618,8 @@ void PSOTraceBuilder::join(int tgt_proc){
   IPid ipid = curnode().iid.get_pid();
   IPid tgt_ipid = proc_to_ipid[tgt_proc];
   curnode().clock += threads[tgt_ipid].clock;
-  threads[ipid].clock += threads[tgt_ipid].clock;
-  for(IPid p : threads[tgt_ipid].aux_to_ipid){
-    curnode().clock += threads[p].clock;
-    threads[ipid].clock += threads[p].clock;
-  }
+  curnode().clock += threads[tgt_ipid].aux_clock_sum;
+  threads[ipid].clock += curnode().clock;
 };
 
 void PSOTraceBuilder::mutex_lock(const ConstMRef &ml){

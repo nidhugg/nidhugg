@@ -160,6 +160,10 @@ protected:
      * thread, not for the auxiliary.
      */
     std::map<void const*,std::vector<PendingStoreByte> > store_buffers;
+    /* For a non-auxiliary thread, aux_clock_sum is the sum of the
+     * clocks of all auxiliary threads belonging to this thread.
+     */
+    VClock<IPid> aux_clock_sum;
     /* True iff this thread is currently in the sleep set. */
     bool sleeping;
     /* sleep_accesses_r is the set of bytes that will be read by the
