@@ -2003,6 +2003,211 @@ declare void @__assert_fail() noreturn nounwind
   delete driver;
 }
 
+BOOST_AUTO_TEST_CASE(Atexit_1){
+  Configuration conf = DPORDriver_test::get_sc_conf();
+  DPORDriver *driver =
+    DPORDriver::parseIR(R"(
+
+define void @f(){
+  call void @__assert_fail()
+  ret void
+}
+
+define i32 @main(){
+  call i32 @atexit(void()*@f)
+  ret i32 0
+}
+
+declare i32 @atexit(void()*)
+declare void @__assert_fail()
+)",conf);
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  BOOST_CHECK(res.has_errors());
+}
+
+BOOST_AUTO_TEST_CASE(Atexit_2){
+  Configuration conf = DPORDriver_test::get_sc_conf();
+  DPORDriver *driver =
+    DPORDriver::parseIR(R"(
+
+define void @f(){
+  ret void
+}
+
+define i32 @main(){
+  call i32 @atexit(void()*@f)
+  ret i32 0
+}
+
+declare i32 @atexit(void()*)
+declare void @__assert_fail()
+)",conf);
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  BOOST_CHECK(!res.has_errors());
+}
+
+BOOST_AUTO_TEST_CASE(Atexit_3){
+  Configuration conf = DPORDriver_test::get_sc_conf();
+  DPORDriver *driver =
+    DPORDriver::parseIR(R"(
+
+define void @f(){
+  call void @__assert_fail()
+  ret void
+}
+
+define i32 @main(){
+  call i32 @atexit(void()*@f)
+  call void @__VERIFIER_assume(i32 0)
+  ret i32 0
+}
+
+declare i32 @atexit(void()*)
+declare void @__assert_fail()
+declare void @__VERIFIER_assume(i32)
+)",conf);
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  BOOST_CHECK(!res.has_errors());
+}
+
+BOOST_AUTO_TEST_CASE(Atexit_4){
+  Configuration conf = DPORDriver_test::get_sc_conf();
+  DPORDriver *driver =
+    DPORDriver::parseIR(R"(
+@x = global i32 0
+
+define void @f(){
+  %x = load i32* @x
+  %xcmp = icmp eq i32 %x, 0
+  br i1 %xcmp, label %ok, label %error
+error:
+  call void @__assert_fail()
+  ret void
+ok:
+  store i32 1, i32* @x
+  ret void
+}
+
+define void @g(){
+  %x = load i32* @x
+  %xcmp = icmp eq i32 %x, 1
+  br i1 %xcmp, label %ok, label %error
+error:
+  call void @__assert_fail()
+  ret void
+ok:
+  store i32 2, i32* @x
+  ret void
+}
+
+define i32 @main(){
+  call i32 @atexit(void()*@g)
+  call i32 @atexit(void()*@f)
+  ret i32 0
+}
+
+declare i32 @atexit(void()*)
+declare void @__assert_fail()
+)",conf);
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  BOOST_CHECK(!res.has_errors());
+}
+
+BOOST_AUTO_TEST_CASE(Atexit_5){
+  Configuration conf = DPORDriver_test::get_sc_conf();
+  DPORDriver *driver =
+    DPORDriver::parseIR(R"(
+@x = global i32 0
+
+define void @f(){
+  %x = load i32* @x
+  %xcmp = icmp eq i32 %x, 0
+  br i1 %xcmp, label %ok, label %error
+error:
+  call void @__assert_fail()
+  ret void
+ok:
+  store i32 1, i32* @x
+  ret void
+}
+
+define void @g(){
+  %x = load i32* @x
+  %xcmp = icmp eq i32 %x, 1
+  br i1 %xcmp, label %ok, label %error
+error:
+  call void @__assert_fail()
+  ret void
+ok:
+  store i32 2, i32* @x
+  ret void
+}
+
+define i32 @main(){
+  call i32 @atexit(void()*@f)
+  call i32 @atexit(void()*@g)
+  ret i32 0
+}
+
+declare i32 @atexit(void()*)
+declare void @__assert_fail()
+)",conf);
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  BOOST_CHECK(res.has_errors());
+}
+
+BOOST_AUTO_TEST_CASE(Atexit_6){
+  Configuration conf = DPORDriver_test::get_sc_conf();
+  DPORDriver *driver =
+    DPORDriver::parseIR(R"(
+@x = global i32 0
+
+define void @f(){
+  %x = load i32* @x
+  %xcmp = icmp eq i32 %x, 0
+  br i1 %xcmp, label %ok, label %error
+error:
+  call void @__assert_fail()
+  ret void
+ok:
+  store i32 1, i32* @x
+  ret void
+}
+
+define void @g(){
+  store i32 2, i32* @x
+  ret void
+}
+
+define i32 @main(){
+  call i32 @atexit(void()*@f)
+  call i32 @atexit(void()*@g)
+  ret i32 0
+}
+
+declare i32 @atexit(void()*)
+declare void @__assert_fail()
+)",conf);
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  BOOST_CHECK(res.has_errors());
+}
+
+BOOST_AUTO_TEST_CASE(Atexit_multithreaded){
+  BOOST_WARN_MESSAGE(false,"Missing support for multithreaded atexit.");
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif

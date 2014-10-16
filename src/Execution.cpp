@@ -2912,6 +2912,7 @@ void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVa
       return;
     }
     ECStack()->clear();
+    AtExitHandlers.clear();
     /* Do not call terminate. We don't want to explicitly terminate
      * since that would allow other processes to join with this
      * process.
