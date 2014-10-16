@@ -56,7 +56,15 @@ VClock<int> VClock<int>::operator+(const VClock<int> &vc) const{
 };
 
 VClock<int> &VClock<int>::operator+=(const VClock<int> &vc){
-  *this = *this + vc;
+  const unsigned sz = vc.vec.size();
+  if(vec.size() < sz){
+    vec.resize(vc.vec.size(),0);
+  }
+  for(unsigned i = 0; i < sz; ++i){
+    if(vc.vec[i] > vec[i]){
+      vec[i] = vc.vec[i];
+    }
+  }
   return *this;
 };
 
@@ -121,9 +129,14 @@ bool VClock<int>::lt(const VClock<int> &vc) const{
 };
 
 bool VClock<int>::leq(const VClock<int> &vc) const{
-  int m = std::max(vec.size(),vc.vec.size());
-  for(int i = 0; i < m; ++i){
-    if((*this)[i] > vc[i]) return false;
+  unsigned m = std::min(vec.size(),vc.vec.size());
+  unsigned i;
+  for(i = 0; i < m; ++i){
+    if(vc.vec[i] < vec[i]) return false;
+  }
+  m = vec.size();
+  for(; i < m; ++i){
+    if(vec[i]) return false;
   }
   return true;
 };
