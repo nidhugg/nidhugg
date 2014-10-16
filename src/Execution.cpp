@@ -2614,8 +2614,7 @@ void Interpreter::callPthreadMutexInit(Function *F,
     return;
   }
 
-  TB.fence();
-  TB.mutex_init({lck,1});
+  TB.mutex_init({lck,1}); // also acts as a fence
 
   GenericValue Result;
   /* pthread_mutex_init always returns 0 */
@@ -2653,8 +2652,7 @@ void Interpreter::callPthreadMutexLock(void *lck){
 
   assert(PthreadMutexes[lck].isUnlocked());
 
-  TB.fence();
-  TB.mutex_lock({lck,1});
+  TB.mutex_lock({lck,1}); // also acts as a fence
 
   if(DryRun) return;
   PthreadMutexes[lck].lock(CurrentThread);
@@ -2677,9 +2675,8 @@ void Interpreter::callPthreadMutexTryLock(Function *F,
   }
 
   GenericValue Result;
-  TB.fence();
 
-  TB.mutex_trylock({lck,1});
+  TB.mutex_trylock({lck,1}); // also acts as a fence
   if(PthreadMutexes[lck].isUnlocked()){
     Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0); // Success
     returnValueToCaller(F->getReturnType(),Result);
@@ -2714,8 +2711,7 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
     return;
   }
 
-  TB.fence();
-  TB.mutex_unlock({lck,1});
+  TB.mutex_unlock({lck,1}); // also acts as a fence
 
   GenericValue Result;
   Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0); // Success
@@ -2752,8 +2748,7 @@ void Interpreter::callPthreadMutexDestroy(Function *F,
     return;
   }
 
-  TB.fence();
-  TB.mutex_destroy({lck,1});
+  TB.mutex_destroy({lck,1}); // also acts as a fence
 
   GenericValue Result;
   Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0); // Success
@@ -2779,8 +2774,7 @@ void Interpreter::callPthreadCondInit(Function *F,
     return;
   }
 
-  TB.fence();
-  if(!TB.cond_init({cnd,1})){
+  if(!TB.cond_init({cnd,1})){ // also acts as a fence
     abort();
     return;
   }
@@ -2801,8 +2795,7 @@ void Interpreter::callPthreadCondSignal(Function *F,
     return;
   }
 
-  TB.fence();
-  if(!TB.cond_signal({cnd,1})){
+  if(!TB.cond_signal({cnd,1})){ // also acts as a fence
     abort();
     return;
   }
@@ -2823,8 +2816,7 @@ void Interpreter::callPthreadCondBroadcast(Function *F,
     return;
   }
 
-  TB.fence();
-  if(!TB.cond_broadcast({cnd,1})){
+  if(!TB.cond_broadcast({cnd,1})){ // also acts as a fence
     abort();
     return;
   }
@@ -2852,8 +2844,7 @@ void Interpreter::callPthreadCondWait(Function *F,
     return;
   }
 
-  TB.fence();
-  if(!TB.cond_wait({cnd,1},{lck,1})){
+  if(!TB.cond_wait({cnd,1},{lck,1})){ // also acts as a fence
     abort();
     return;
   }
@@ -2886,8 +2877,7 @@ void Interpreter::callPthreadCondDestroy(Function *F,
     return;
   }
 
-  TB.fence();
-  int rv = TB.cond_destroy({cnd,1});
+  int rv = TB.cond_destroy({cnd,1}); // also acts as a fence
 
   if(rv == 0 || rv == EBUSY){
     GenericValue Result;
