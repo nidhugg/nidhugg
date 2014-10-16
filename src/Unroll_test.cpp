@@ -418,6 +418,69 @@ done:
   delete mod;
 }
 
+BOOST_AUTO_TEST_CASE(PHI_exit_2){
+  Configuration tconf;
+  tconf.transform_loop_unroll = 4;
+  llvm::Module *mod =
+    StrModule::read_module_src(R"(
+@x = global i32 0
+
+define i32 @main(){
+entry:
+  %a = add i32 1, 1
+  %b = add i32 2, 2
+  br i1 1, label %done, label %header
+
+header:
+  br i1 1, label %done, label %body
+
+body:
+  store i32 1, i32* @x
+  br label %header
+
+done:
+  %c = phi i32 [%a, %entry], [%b, %header]
+  ret i32 0
+}
+)");
+  BOOST_CHECK(Transform::transform(*mod,tconf));
+  BOOST_CHECK(!llvm::verifyModule(*mod));
+
+  delete mod;
+}
+
+BOOST_AUTO_TEST_CASE(PHI_exit_3){
+  Configuration tconf;
+  tconf.transform_loop_unroll = 4;
+  llvm::Module *mod =
+    StrModule::read_module_src(R"(
+@x = global i32 0
+
+define i32 @main(){
+entry:
+  %a = add i32 1, 1
+  %b = add i32 2, 1
+  %c = add i32 3, 1
+  br i1 1, label %header, label %done
+
+header:
+  br i1 1, label %body, label %done
+
+body:
+  store i32 1, i32* @x
+  br i1 1, label %header, label %done
+
+done:
+  %rv = phi i32 [%a,%entry], [%b,%header], [%c,%body]
+  ret i32 0
+}
+)");
+  BOOST_CHECK(Transform::transform(*mod,tconf));
+  BOOST_CHECK(!llvm::verifyModule(*mod));
+
+  delete mod;
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif
