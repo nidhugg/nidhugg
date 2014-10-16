@@ -30,6 +30,7 @@ PSOTraceBuilder::PSOTraceBuilder(const Configuration &conf) : TraceBuilder(conf)
   dryrun = false;
   replay = false;
   last_full_memory_conflict = -1;
+  available_threads.insert(0);
 };
 
 PSOTraceBuilder::~PSOTraceBuilder(){
@@ -63,6 +64,7 @@ bool PSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers];
       ++dry_sleepers;
       threads[pid].sleeping = true;
+      sleepers.insert(pid);
       *proc = threads[pid].proc;
       if(threads[pid].cpid.is_auxiliary()) *aux = threads[pid].cpid.get_aux_index();
       else *aux = -1;
@@ -110,28 +112,28 @@ bool PSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
    * Prioritize auxiliary before real, and older before younger
    * threads.
    */
-  const unsigned sz = threads.size();
-  unsigned p_real = sz, p_aux;
-  for(p_aux = 0; p_aux < sz; ++p_aux){
+  IPid p = -1;
+  for(IPid p_aux : available_auxs){
     if(threads[p_aux].available && !threads[p_aux].sleeping &&
-       (conf.max_search_depth < 0 || threads[p_aux].clock[p_aux] < conf.max_search_depth)){
-      /* The thread is available. */
-      if(threads[p_aux].cpid.is_auxiliary() && is_aux_at_head(p_aux)){
+       (conf.max_search_depth < 0 || threads[p_aux].clock[p_aux] < conf.max_search_depth) &&
+       is_aux_at_head(p_aux)){
+      p = p_aux;
+      *aux = threads[p].cpid.get_aux_index();
+      break;
+    }
+  }
+  if(p < 0){
+    for(IPid p_real : available_threads){
+      if(threads[p_real].available && !threads[p_real].sleeping &&
+         (conf.max_search_depth < 0 || threads[p_real].clock[p_real] < conf.max_search_depth)){
+        p = p_real;
+        *aux = -1;
         break;
-      }else{
-        if(p_real == sz) p_real = p_aux;
       }
     }
   }
 
-  unsigned p;
-  if(p_aux < sz){ // Schedule auxiliary
-    p = p_aux;
-    *aux = threads[p].cpid.get_aux_index();
-  }else if(p_real < sz){ // Schedule real
-    p = p_real;
-    *aux = -1;
-  }else{ // No threads available
+  if(p < 0){ // No threads available
     return false;
   }
 
@@ -176,15 +178,33 @@ void PSOTraceBuilder::refuse_schedule(){
   prefix.pop_back();
   --prefix_idx;
   --threads[last_pid].clock[last_pid];
-  threads[last_pid].available = false;
+  mark_unavailable_ipid(last_pid);
+};
+
+void PSOTraceBuilder::mark_available_ipid(IPid pid){
+  threads[pid].available = true;
+  if(threads[pid].cpid.is_auxiliary()){
+    available_auxs.insert(pid);
+  }else{
+    available_threads.insert(pid);
+  }
 };
 
 void PSOTraceBuilder::mark_available(int proc, int aux){
-  threads[ipid(proc,aux)].available = true;
+  mark_available_ipid(ipid(proc,aux));
+};
+
+void PSOTraceBuilder::mark_unavailable_ipid(IPid pid){
+  threads[pid].available = false;
+  if(threads[pid].cpid.is_auxiliary()){
+    available_auxs.erase(pid);
+  }else{
+    available_threads.erase(pid);
+  }
 };
 
 void PSOTraceBuilder::mark_unavailable(int proc, int aux){
-  threads[ipid(proc,aux)].available = false;
+  mark_unavailable_ipid(ipid(proc,aux));
 };
 
 void PSOTraceBuilder::metadata(const llvm::MDNode *md){
@@ -194,10 +214,7 @@ void PSOTraceBuilder::metadata(const llvm::MDNode *md){
 };
 
 bool PSOTraceBuilder::sleepset_is_empty() const{
-  for(unsigned i = 0; i < threads.size(); ++i){
-    if(threads[i].sleeping) return false;
-  }
-  return true;
+  return sleepers.empty();
 };
 
 bool PSOTraceBuilder::check_for_cycles(){
@@ -291,6 +308,10 @@ bool PSOTraceBuilder::reset(){
   dryrun = false;
   replay = true;
   dry_sleepers = 0;
+  sleepers.clear();
+  available_threads.clear();
+  available_auxs.clear();
+  available_threads.insert(0);
 
   return true;
 };
@@ -367,13 +388,15 @@ void PSOTraceBuilder::debug_print() const {
 
 void PSOTraceBuilder::spawn(){
   IPid parent_ipid = curnode().iid.get_pid();
+  IPid child_ipid = threads.size();
   CPid child_cpid = CPS.spawn(threads[parent_ipid].cpid);
   int proc = 0;
   for(unsigned i = 0; i < threads.size(); ++i){
     proc = std::max(proc,threads[i].proc+1);
   }
-  proc_to_ipid.push_back(threads.size());
+  proc_to_ipid.push_back(child_ipid);
   threads.push_back(Thread(proc,child_cpid,threads[parent_ipid].clock,parent_ipid));
+  mark_available_ipid(child_ipid);
 };
 
 void PSOTraceBuilder::store(const ConstMRef &ml){
@@ -395,7 +418,7 @@ void PSOTraceBuilder::store(const ConstMRef &ml){
   }else{
     upd_ipid = threads[ipid].aux_to_ipid[it->second];
   }
-  threads[upd_ipid].available = true;
+  mark_available_ipid(upd_ipid);
 };
 
 void PSOTraceBuilder::atomic_store(const ConstMRef &ml){
@@ -481,7 +504,7 @@ void PSOTraceBuilder::atomic_store(const ConstMRef &ml){
       sb.pop_back();
       if(sb.empty()){
         threads[tipid].store_buffers.erase(b);
-        threads[uipid].available = false;
+        mark_unavailable_ipid(uipid);
       }
     }
   }
@@ -775,7 +798,7 @@ bool PSOTraceBuilder::cond_signal(const ConstMRef &ml){
     assert(0 <= i && i < prefix_idx);
     IPid ipid = prefix[i].iid.get_pid();
     assert(!threads[ipid].available);
-    threads[ipid].available = true;
+    mark_available_ipid(ipid);
     /* The next instruction by the thread ipid should be ordered after
      * this signal.
      */
@@ -818,7 +841,7 @@ bool PSOTraceBuilder::cond_broadcast(const ConstMRef &ml){
     assert(0 <= i && i < prefix_idx);
     IPid ipid = prefix[i].iid.get_pid();
     assert(!threads[ipid].available);
-    threads[ipid].available = true;
+    mark_available_ipid(ipid);
     /* The next instruction by the thread ipid should be ordered after
      * this broadcast.
      */
@@ -867,7 +890,7 @@ bool PSOTraceBuilder::cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex
     return false;
   }
   it->second.waiters.push_back(prefix_idx);
-  threads[pid].available = false;
+  mark_unavailable_ipid(pid);
 
   see_events({last_full_memory_conflict,it->second.last_signal});
 
@@ -1015,7 +1038,7 @@ void PSOTraceBuilder::wakeup(Access::Type type, void const *ml){
   switch(type){
   case Access::W_ALL_MEMORY:
     {
-      for(unsigned p = 0; p < threads.size(); ++p){
+      for(unsigned p : sleepers){
         if(threads[p].sleep_full_memory_conflict ||
            threads[p].sleep_accesses_w.size()){
           wakeup.push_back(p);
@@ -1032,7 +1055,7 @@ void PSOTraceBuilder::wakeup(Access::Type type, void const *ml){
     }
   case Access::R:
     {
-      for(unsigned p = 0; p < threads.size(); ++p){
+      for(unsigned p : sleepers){
         if(threads[p].sleep_full_memory_conflict ||
            (threads[p].proc != threads[pid].proc &&
             threads[p].sleep_accesses_w.count(ml))){
@@ -1043,7 +1066,7 @@ void PSOTraceBuilder::wakeup(Access::Type type, void const *ml){
     }
   case Access::W:
     {
-      for(unsigned p = 0; p < threads.size(); ++p){
+      for(unsigned p : sleepers){
         if(threads[p].sleep_full_memory_conflict ||
            (threads[p].proc != threads[pid].proc &&
             (threads[p].sleep_accesses_w.count(ml) ||
@@ -1064,6 +1087,7 @@ void PSOTraceBuilder::wakeup(Access::Type type, void const *ml){
     threads[p].sleep_accesses_w.clear();
     threads[p].sleep_full_memory_conflict = false;
     threads[p].sleeping = false;
+    sleepers.erase(p);
     curnode().wakeup.insert(p);
   }
 };

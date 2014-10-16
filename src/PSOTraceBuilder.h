@@ -204,6 +204,20 @@ protected:
   std::vector<IPid> proc_to_ipid;
   /* The CPids of threads in the current execution. */
   CPidSystem CPS;
+  /* The set sleepers contains precisely the IPids p such that
+   * threads[p].sleeping is true.
+   */
+  VecSet<IPid> sleepers;
+  /* The set available_threads contains precisely the IPids p such
+   * that threads[p].cpid.is_auxiliary is false and
+   * threads[p].available is true.
+   */
+  VecSet<IPid> available_threads;
+  /* The set available_auxs contains precisely the IPids p such that
+   * threads[p].cpid.is_auxiliary is true and threads[p].available is
+   * true.
+   */
+  VecSet<IPid> available_auxs;
 
   /* A ByteInfo object contains information about one byte in
    * memory. In particular, it recalls which events have recently
@@ -451,6 +465,14 @@ protected:
    * the current one, up to the first idx events.
    */
   int estimate_trace_count(int idx) const;
+  /* Same as mark_available, but takes an IPid as thread
+   * identifier.
+   */
+  void mark_available_ipid(IPid pid);
+  /* Same as mark_unavailable, but takes an IPid as thread
+   * identifier.
+   */
+  void mark_unavailable_ipid(IPid pid);
 };
 
 #endif
