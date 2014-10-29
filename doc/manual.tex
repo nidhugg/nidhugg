@@ -1,6 +1,7 @@
 \documentclass[a4paper]{article}
 
 \usepackage[utf8]{inputenc}
+\usepackage{amssymb}
 
 \title{Nidhugg -- Manual\\\large{Version %%NIDHUGGVERSION%%}}
 \author{}
@@ -22,5 +23,486 @@ be deterministic when run in isolation.
 \pagebreak
 
 \tableofcontents
+
+\section{Stateless Model Checking with DPOR}
+
+Stateless model checking systematically tests a program by running a
+test case under many different thread schedules. This is done
+systematically, in such a way that at least one execution is explored
+for each equivalence class.
+
+A test case must satisfy the following two conditions
+
+\begin{description}
+\item{\bf Finiteness}
+%
+  The test case must be finite in the following sense: There must be a
+  bound $n\in\mathbb{N}$ such that all executions of the test case
+  terminate within $n$ execution steps. (The user does not need to
+  know the actual bound value.)
+%
+  If there is no such bound, you can still use Nidhugg to analyze the
+  program, provided that you allow the tool to impose an artificial
+  bound (see switches \texttt{--unroll} and
+  \texttt{--max-search-depth}).
+\item{\bf Determinism}
+%
+  The test case must be deterministic in the following sense: In a
+  given state, executing a given execution step must always take the
+  system to the same new state.
+%
+  This means that the test case may not e.g. check the time, or
+  perform file I/O.
+\end{description}
+
+\section{Running Nidhugg}
+
+The typical workflow of analyzing a test case with Nidhugg is as
+follows:
+
+\begin{enumerate}
+\item Compile the source code into LLVM assembly using a compiler
+  such as e.g. clang, clang++, llvm-gcc, etc.
+\item Optionally use \textsf{nidhugg} to transform the assembly into
+  new assembly that can be analyzed more efficiently.
+\item Use \textsf{nidhugg} to analyze the LLVM assembly file.
+\end{enumerate}
+
+These steps are detailed in
+Section~\ref{sec:using:nidhugg:directly}. For convenience, Nidhugg
+provides a script \textsf{nidhuggc} which automates all the steps, for
+the case when the test case is contained in a single C
+file. Section~\ref{sec:using:nidhuggc} describes how to use
+\textsf{nidhuggc}.
+
+\subsection{Using Nidhugg Directly}\label{sec:using:nidhugg:directly}
+
+\paragraph{Compilation}
+%
+Since Nidhugg works on LLVM internal representation, source code in
+high-level languages such as e.g. C must be compiled before it can be
+analyzed. This can be done with some compilers based on LLVM. C
+programs are conveniently compiled with the \textsf{clang} compiler as
+follows:
+
+\vspace{5pt}
+\noindent
+\texttt{\$ clang $CFLAGS$ -emit-llvm -S -o $FILE$.ll $FILE$.c}
+
+\vspace{5pt}\noindent
+%
+Here $CFLAGS$ can be any switches you would normally give to your
+compiler when compiling \texttt{$FILE$.c}. Notice that if optimization
+switches such as e.g. \texttt{-O2} are given to \textsf{clang}, then
+the corresponding optimizations are performed on the code
+\emph{before} analysis. This can be beneficial for analysis time
+consumption, but may change the behavior of the program, e.g. in cases
+where shared variables are not properly marked as \texttt{volatile}.
+
+Make certain that the compiler supports the version of LLVM against
+which Nidhugg is built. For \textsf{clang} this is easiest done by
+making certain that the LLVM version is the same as the \textsf{clang}
+version.
+
+\paragraph{Multi-File Compilation}
+%
+To compile a test case which consists of multiple C files, the
+procedure is similar to how you would normally compile the code: Use
+e.g. \textsf{clang} to compile each C file into an object file, but
+add switches \texttt{-emit-llvm -S} to generate the object file as
+LLVM assembly. Then link the object files using \textsf{llvm-link}.
+
+\vspace{5pt}
+\noindent
+\texttt{\$ clang -c $CFLAGS$ -emit-llvm -S -o $FILE_0$.ll $FILE_0$.c}\\
+$\vdots$\\
+\texttt{\$ clang -c $CFLAGS$ -emit-llvm -S -o $FILE_n$.ll $FILE_n$.c}\\
+\texttt{\$ llvm-link -o $FILE$.ll $FILE_0$.ll $\cdots$ $FILE_n$.ll}
+
+\paragraph{Transformation}
+%
+Before analyzing a test case with Nidhugg, the test case code can be
+automatically rewritten in various ways, e.g. to improve analysis
+performance or to put a bound on an infinite test case to make it
+finite. This is done with a call to \textsf{nidhugg} as follows:
+
+\vspace{5pt}
+\noindent
+\texttt{\$ nidhugg $TFLAGS$ --transform=$OUTFILE$.ll $INFILE$.ll}
+
+\vspace{5pt}\noindent
+%
+Here we transform the code given as LLVM assembly in
+\texttt{$INFILE$.ll}, and write the resulting code to the file
+\texttt{$OUTFILE$.ll}. The switches given in $TFLAGS$ specify which
+particular transformations should be performed. See
+Section~\ref{sec:transform:switches} for details about the available
+transformations.
+
+\paragraph{Analysis}
+%
+A finite and deterministic test case in the form of LLVM assembly may
+be analyzed by Nidhugg using a command like the following:
+
+\vspace{5pt}
+\noindent
+\texttt{\$ nidhugg $FLAGS$ \{--sc,--tso,--pso\} $FILE$.ll}
+
+\vspace{5pt}\noindent
+%
+Additional switches are detailed in
+Section~\ref{sec:analysis:switches}.
+%
+Nidhugg will systematically run executions of the test case, covering
+all execution equivalence classes, under the given memory model. Then
+it terminates, either giving an error trace or stating that no errors
+were found.
+
+\paragraph{Typical Usage}
+%
+For a small example of typical usage of Nidhugg, consider the C code
+listed in Figure~\ref{fig:dekker:c}. We can analyze it under SC with
+the following sequence of commands:
+
+\vspace{5pt}
+\noindent
+\texttt{\$ clang -o test.ll -S -emit-llvm test.c}\\
+\texttt{\$ nidhugg -sc test.ll}
+
+\vspace{5pt}\noindent
+%
+Nidhugg will here tell us that no error was detected (the assert
+statements are never violated). If we rerun the same test case under
+TSO, Nidhugg will instead give us an error trace describing how the
+assert statements may be violated under TSO. See
+Section~\ref{sec:understand:error:traces} for details about how to
+interpret the error trace.
+
+In this case we performed no transformation. In the common case that
+you have a test case that contains (unbounded) loops, you may instead
+want to use commands such as the following:
+
+\vspace{5pt}
+\noindent
+\texttt{\$ clang -o test.ll -S -emit-llvm test.c}\\
+\texttt{\$ nidhugg --unroll=10 --transform=test.trans.ll test.ll}\\
+\texttt{\$ nidhugg -sc test.trans.ll}
+
+\begin{figure}
+\begin{verbatim}
+// test.c
+#include <pthread.h>
+#include <assert.h>
+
+volatile int x = 0, y = 0, c = 0;
+
+void *thr1(void *arg){
+  y = 1;
+  // __asm__ volatile ("mfence" ::: "memory");
+  if(!x){
+    c = 1;
+    assert(c == 1);
+  }
+  return NULL;
+}
+
+int main(int argc, char *argv[]){
+  pthread_t t;
+  pthread_create(&t,NULL,thr1,NULL);
+  x = 1;
+  // __asm__ volatile ("mfence" ::: "memory");
+  if(!y){
+    c = 0;
+    assert(c == 0);
+  }
+  pthread_join(t,NULL);
+  return 0;
+}
+\end{verbatim}
+  \caption{Small Dekker test in C.}\label{fig:dekker:c}
+\end{figure}
+
+\subsubsection{Analysis Switches}\label{sec:analysis:switches}
+
+\begin{description}
+\item{\texttt{--sc/--tso/--pso}}
+%
+  Analyze the test case under the SC, TSO or PSO memory model
+  respectively.
+\item{\texttt{--robustness}}
+%
+  Perform a robustness analysis. In addition to considering the usual
+  safety criteria, also check robustness, and report an error if a
+  non-robust execution is found.
+\item{\texttt{--malloc-may-fail}}
+%
+  By default, when the test case calls \texttt{malloc}, Nidhugg will
+  assume that the call succeeds, allocate memory and provide the
+  resulting memory pointer as return value for the call. But, if
+  \texttt{--malloc-may-fail} is given to Nidhugg, then the case when
+  \texttt{malloc} fails and returns NULL is also analyzed.
+\item{\texttt{--print-progress}}
+%
+  Continually print the number of hitherto analyzed executions to the
+  terminal while running the analysis.
+\item{\texttt{--print-progress-estimate}}
+%
+  Same as \texttt{--print-progress}, but also estimate the total
+  number of executions of the test case, and correspondingly print a
+  progress percentage together with the execution count.
+\item{\texttt{--version}}
+%
+  Print the Nidhugg version and exit.
+\end{description}
+
+\subsubsection{Transformation Switches}\label{sec:transform:switches}
+
+\begin{description}
+\item{\texttt{--transform=$OUTFILE$}}
+%
+  Don't analyze the input test case. Instead run program
+  transformations on it, and output the resulting code as LLVM
+  assembly to the file $OUTFILE$. This switch should always be used
+  for program transformation, and should be combined with switches
+  that specify specific transformations.
+\item{\texttt{--spin-assume}}
+%
+  Detect spin loops in the code, and replace them by \texttt{assume}
+  statements. This transformation maintains satisfaction or
+  dissatisfaction of the safety properties in the test case. However,
+  this transformation does not in general maintain robustness
+  violations.
+\item{\texttt{--unroll=$N$}}
+%
+  Unroll all loops $N$ times, making the program loop free. A thread
+  that attempts to execute a basic block from a loop more than $N$
+  times in one go will be blocked. This is useful to make a finite
+  test case out of an infinite one. The switch \texttt{--unroll} will
+  also automatically execute the \texttt{--spin-assume} transformation
+  before unrolling.
+
+  Notice that this unrolling works on loops in the LLVM internal
+  representation after compilation and possibly optimization. These
+  loops do not necessarily correspond one-to-one with the loops in the
+  high-level language.
+\end{description}
+
+\subsection{Using Nidhuggc for Single-File C Programs}\label{sec:using:nidhuggc}
+
+In order to simplify the case where a test case consists of only a
+single C file, Nidhugg provides a script \textsf{nidhuggc} which
+automates the process described in
+Section~\ref{sec:using:nidhugg:directly}. The script \textsf{nidhuggc}
+can be used as follows:
+
+\vspace{5pt}
+\noindent
+\texttt{\$ nidhuggc $CFLAGS$ -- \{--sc,--tso,--pso\} $\backslash$}\\
+\rule{20pt}{0pt}\texttt{$AFLAGS$ $TFLAGS$ $FILE$.c}
+
+\vspace{5pt}\noindent
+%
+Here $CFLAGS$ are switches that will be given to the C compiler,
+$TFLAGS$ are Nidhugg transformation switches, and $AFLAGS$ are Nidhugg
+analysis switches. One common way to use \textsf{nidhuggc} is this
+call:
+
+\vspace{5pt}
+\noindent
+\texttt{\$ nidhuggc -O2 -- --tso --unroll=10 $FILE$.c}
+
+\subsubsection{Switches}
+
+\begin{description}
+\item{\texttt{--version}}
+%
+  Print the Nidhugg version and exit.
+\item{\texttt{--c}}
+%
+  Interpret the input file as C code regardless of its file name
+  extension.
+\item{\texttt{--cxx}}
+%
+  Interpret the input file as C++ code regardless of its file name
+  extension.
+\item{\texttt{--clang=$PATH$}}
+%
+  Specify the path to \textsf{clang}.
+\item{\texttt{--clangxx=$PATH$}}
+%
+  Specify the path to \textsf{clang++}.
+\item{\texttt{--nidhugg=$PATH$}}
+%
+  Specify the path to \textsf{nidhugg}.
+\end{description}
+
+\subsection{Understanding Error Traces}\label{sec:understand:error:traces}
+
+In order to understand Nidhugg error traces, it is necessary to
+understand the way Nidhugg identifies threads. Each thread is
+associated with a thread ID (tid). The tid of the initial thread is
+\texttt{<0>}, the threads that are created by \texttt{<0>} are named,
+in order, \texttt{<0.0>}, \texttt{<0.1>}, \texttt{<0.2>} etc. The
+threads created by \texttt{<0.1>} are named \texttt{<0.1.0>},
+\texttt{<0.1.1>}, etc.
+
+In addition to actual program threads, Nidhugg also reasons about
+\emph{auxiliary threads}. These are hypothetical threads that carry
+out non-deterministic events such as updates from a store buffer to
+memory. The auxiliary threads belonging to a certain real thread
+\texttt{<$i_0$.$\cdots$.$i_n$>} are named
+\texttt{<$i_0$.$\cdots$.$i_n$/0>}, \texttt{<$i_0$.$\cdots$.$i_n$/1>},
+etc. For example, in the case TSO, the auxiliary thread \texttt{<0/0>}
+takes care of the memory updates from the store buffer of the initial
+thread \texttt{<0>}.
+
+Now we can consider the example error trace listed in
+Figure~\ref{fig:ex:error:trace:dekker}. It was produced by running the
+following command on the test case given in Figure~\ref{fig:dekker:c}:
+
+\vspace{5pt}
+\noindent
+\texttt{\$ nidhuggc -O2 -- --tso test.c}
+
+\vspace{5pt}\noindent
+%
+Each line corresponds to an event, which is either the execution of an
+instruction or a memory update. Each event is identified by a pair
+\texttt{($tid$,$i$)}, where $tid$ is the thread ID of the executing
+thread, and $i$ is the per-thread index of that event. Notice that
+some events (e.g. \texttt{(<0>,2)}) are missing in the trace. The
+missing events are events that are local, and do not affect any other
+thread. Each event is annotated with the line of C code that produced
+that instruction. Notice that one line of C code may correspond to
+several instructions.
+
+\begin{figure}
+\begin{verbatim}
+ Error detected:
+  (<0>,1) test.c:16: int main(int argc, char *argv[]){
+      (<0.0>,1) test.c:6: void *thr1(void *arg){
+  (<0>,4) test.c:21: if(!y){
+        (<0.0/0>,1) UPDATE test.c:7: y = 1;
+  (<0>,5) test.c:21: if(!y){
+  (<0>,8) test.c:23: assert(c == 0);
+  (<0>,11) test.c:25: pthread_join(t,NULL);
+      (<0.0>,2) test.c:9: if(!x){
+    (<0/0>,1) UPDATE test.c:19: x = 1;
+      (<0.0>,3) test.c:9: if(!x){
+        (<0.0/0>,2) UPDATE test.c:10: c = 1;
+    (<0/0>,2) UPDATE test.c:22: c = 0;
+      (<0.0>,6) test.c:11: assert(c == 1);
+                Error: Assertion violation at (<0.0>,9): (c == 1)
+\end{verbatim}
+  \caption{A TSO error trace for the program shown in
+    Figure~\ref{fig:dekker:c}.}\label{fig:ex:error:trace:dekker}
+\end{figure}
+
+We point out some main features of the error trace in
+Figure~\ref{fig:ex:error:trace:dekker}.
+%
+First we see that the load of \texttt{y} in event \texttt{(<0>,4)}
+precedes the update to \texttt{y} by the other thread in event
+\texttt{(<0.0/0>,1)}. Hence thread \texttt{<0>} sees the initial value
+0 for \texttt{y}. Similarly the load \texttt{(<0.0>,2)} precedes the
+update \texttt{(<0/0>,1)}, and so the other thread sees the value 0
+for \texttt{x}.
+%
+At the end of the trace, we see that thread \texttt{<0>} updates
+\texttt{c} with the value 0, just before thread \texttt{0.0} executes
+\texttt{assert(c == 1)}, and so the assertion fails.
+
+\section{Compatibility: Pthreads, stdlib, etc.}
+
+\subsection{Pthreads}
+
+The following pthread functions are currently supported by Nidhugg:
+
+\begin{description}
+\item{\texttt{pthread\_create}}
+\item{\texttt{pthread\_join}}
+\item{\texttt{pthread\_self}}
+\item{\texttt{pthread\_exit}}
+\item{\texttt{pthread\_mutex\_init}}
+\item{\texttt{pthread\_mutex\_lock}}
+\item{\texttt{pthread\_mutex\_trylock}}
+\item{\texttt{pthread\_mutex\_unlock}}
+\item{\texttt{pthread\_mutex\_destroy}}
+\item{\texttt{pthread\_cond\_init}}
+\item{\texttt{pthread\_cond\_signal}}
+\item{\texttt{pthread\_cond\_broadcast}}
+\item{\texttt{pthread\_cond\_wait}}
+\item{\texttt{pthread\_cond\_destroy}}
+\end{description}
+
+\subsection{The Standard C library}
+
+While running an execution, if Nidhugg encounters an unknown external
+function (e.g. some function from the standard C library), it will
+handle it by printing a warning and making \emph{an actual call} to
+the function. This will usually work fine for well-behaved functions
+such as e.g. the ones in \textsf{string.h}. But may cause undefined
+behavior in other cases, such as e.g. when calling functions that deal
+with signal handling or file I/O.
+
+Notice that the external functions are actually run on your system. If
+the analyzed code does undesirable things to the system, those things
+will really be executed.
+
+Notable functions that are supported are these:
+
+\begin{description}
+\item{\texttt{malloc}}
+\item{\texttt{free}}
+\item{\texttt{atexit}}
+\item{\texttt{\_\_assert\_fail}} (Called by the \texttt{assert} macro
+  in \textsf{assert.h}.)
+\end{description}
+
+\subsection{Verifier Functions}
+
+Nidhugg also provides a number of functions that can be convenient for
+modelling and verification. Declare the functions in your C code
+before use, making sure to use the same signatures as described here.
+
+\begin{description}
+\item{\texttt{void \_\_VERIFIER\_assume(int b)}}
+%
+  This function checks the value of \texttt{b}. If $\texttt{b} = 0$,
+  the execution blocks indefinitely, otherwise the call does nothing.
+\item{\texttt{int \_\_VERIFIER\_nondet\_int()}}
+%
+  Returns a non-deterministic integer value. The function gives
+  support for a very limited non-determinism. Each call to
+  \texttt{\_\_VERIFIER\_nondet\_int} will return a value which is
+  unpredictable before the analysis. But a given call to
+  \texttt{\_\_VERIFIER\_nondet\_int} by a given thread will always
+  return the same value in all executions that are explored.
+\item{\texttt{unsigned int \_\_VERIFIER\_nondet\_uint()}}
+%
+  Same as \texttt{\_\_VERIFIER\_nondet\_int}.
+\item{\texttt{\_\_VERIFIER\_atomic\_*}}
+%
+  Any function, defined by the user, whose name starts with
+  \texttt{\_\_VERIFIER\_atomic\_} will execute atomically. This also
+  means that it will execute under sequential consistency, and act as
+  a full memory fence.
+\end{description}
+
+\subsection{Fences and Intrinsics}
+
+The following are currently supported memory fences:
+
+\begin{description}
+\item{\texttt{\_\_asm\_\_ volatile ("mfence" ::: "memory")}} Full memory fence.
+\item{\texttt{\_\_sync\_synchronize()}} Full memory fence.
+\item{\texttt{\_\_atomic\_thread\_fence(\_\_ATOMIC\_SEQ\_CST)}} Full memory fence.
+\end{description}
+
+Built-in atomic functions provided by the compiler are typically
+supported, but only for the model \texttt{\_\_ATOMIC\_SEQ\_CST}. This
+allows use of e.g. compare and exchange
+(\texttt{\_\_atomic\_compare\_exchange\_n}) or atomic increase\\
+(\texttt{\_\_atomic\_add\_fetch}).
 
 \end{document}
