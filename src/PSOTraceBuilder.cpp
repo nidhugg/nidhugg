@@ -31,6 +31,7 @@ PSOTraceBuilder::PSOTraceBuilder(const Configuration &conf) : TraceBuilder(conf)
   replay = false;
   last_full_memory_conflict = -1;
   available_threads.insert(0);
+  last_md = 0;
 };
 
 PSOTraceBuilder::~PSOTraceBuilder(){
@@ -211,6 +212,7 @@ void PSOTraceBuilder::metadata(const llvm::MDNode *md){
   if(curnode().md == 0){
     curnode().md = md;
   }
+  last_md = md;
 };
 
 bool PSOTraceBuilder::sleepset_is_empty() const{
@@ -312,6 +314,7 @@ bool PSOTraceBuilder::reset(){
   available_threads.clear();
   available_auxs.clear();
   available_threads.insert(0);
+  last_md = 0;
 
   return true;
 };
@@ -403,7 +406,7 @@ void PSOTraceBuilder::store(const ConstMRef &ml){
   if(dryrun) return;
   IPid ipid = curnode().iid.get_pid();
   for(void const *b : ml){
-    threads[ipid].store_buffers[b].push_back(PendingStoreByte(ml,threads[ipid].clock,curnode().md));
+    threads[ipid].store_buffers[b].push_back(PendingStoreByte(ml,threads[ipid].clock,last_md));
   }
   IPid upd_ipid;
   auto it = threads[ipid].byte_to_aux.find(ml.ref);
@@ -447,6 +450,7 @@ void PSOTraceBuilder::atomic_store(const ConstMRef &ml){
     curnode().clock += pst.clock;
     threads[uipid].clock += pst.clock;
     curnode().origin_iid = IID<IPid>(tipid,pst.clock[tipid]);
+    curnode().md = pst.md;
   }else{ // Add the clock of auxiliary threads (because of fencing semantics)
     assert(threads[tipid].all_buffers_empty());
     for(IPid p : threads[tipid].aux_to_ipid){

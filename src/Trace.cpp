@@ -126,6 +126,9 @@ std::string Trace::computation_to_string(int _ind) const{
   for(unsigned i = 0; i < computation.size(); ++i){
     std::string iid_str = ind + cpind[computation[i].get_pid()] + computation[i].to_string();
     s += iid_str;
+    if(computation[i].get_pid().is_auxiliary()){
+      s+=" UPDATE";
+    }
     {
       int ln;
       std::string fname, dname;

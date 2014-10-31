@@ -410,6 +410,9 @@ protected:
    */
   bool replay;
 
+  /* The latest value passed to this->metadata(). */
+  const llvm::MDNode *last_md;
+
   IPid ipid(int proc, int aux) const {
     assert(0 <= proc && proc < int(proc_to_ipid.size()));
     IPid p = proc_to_ipid[proc];

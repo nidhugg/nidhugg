@@ -91,6 +91,8 @@ int main(int argc, char *argv[]){
       if(res.has_errors()){
         std::cout << "\n Error detected:\n"
                   << res.error_trace.computation_to_string(2);
+      }else{
+        std::cout << "No errors were detected.\n";
       }
 
       delete driver;

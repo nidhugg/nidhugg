@@ -356,6 +356,9 @@ protected:
    */
   bool replay;
 
+  /* The latest value passed to this->metadata(). */
+  const llvm::MDNode *last_md;
+
   IPid ipid(int proc, int aux) const {
     assert(-1 <= aux && aux <= 0);
     assert(proc*2+1 < int(threads.size()));

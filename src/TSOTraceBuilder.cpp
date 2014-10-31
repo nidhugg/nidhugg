@@ -31,6 +31,7 @@ TSOTraceBuilder::TSOTraceBuilder(const Configuration &conf) : TraceBuilder(conf)
   dryrun = false;
   replay = false;
   last_full_memory_conflict = -1;
+  last_md = 0;
 };
 
 TSOTraceBuilder::~TSOTraceBuilder(){
@@ -163,6 +164,7 @@ void TSOTraceBuilder::metadata(const llvm::MDNode *md){
   if(!dryrun && curnode().md == 0){
     curnode().md = md;
   }
+  last_md = md;
 };
 
 bool TSOTraceBuilder::sleepset_is_empty() const{
@@ -263,6 +265,7 @@ bool TSOTraceBuilder::reset(){
   dryrun = false;
   replay = true;
   dry_sleepers = 0;
+  last_md = 0;
 
   return true;
 };
@@ -348,7 +351,7 @@ void TSOTraceBuilder::spawn(){
 void TSOTraceBuilder::store(const ConstMRef &ml){
   if(dryrun) return;
   IPid ipid = curnode().iid.get_pid();
-  threads[ipid].store_buffer.push_back(PendingStore(ml,threads[ipid].clock,curnode().md));
+  threads[ipid].store_buffer.push_back(PendingStore(ml,threads[ipid].clock,last_md));
   threads[ipid+1].available = true;
 };
 
@@ -376,6 +379,7 @@ void TSOTraceBuilder::atomic_store(const ConstMRef &ml){
     curnode().clock += pst.clock;
     threads[uipid].clock += pst.clock;
     curnode().origin_iid = IID<IPid>(tipid,pst.clock[tipid]);
+    curnode().md = pst.md;
   }else{ // Add the clock of the auxiliary thread (because of fence semantics)
     assert(threads[tipid].store_buffer.empty());
     threads[tipid].clock += threads[tipid+1].clock;
