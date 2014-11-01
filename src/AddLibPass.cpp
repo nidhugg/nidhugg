@@ -66,7 +66,11 @@ bool AddLibPass::optAddFunction(llvm::Module &M,
     llvm::Module *M2 = StrModule::read_module_src(src);
 
     if(!tgtTy || M2->getFunction(name)->getType() == tgtTy){
+#ifdef LLVM_LINKER_LINKINMODULE_HAS_MODE
       if(lnk.linkInModule(M2,llvm::Linker::DestroySource,&err)){
+#else
+      if(lnk.linkInModule(M2)){
+#endif
         delete M2;
         throw std::logic_error("Failed to link in library code: "+err);
       }

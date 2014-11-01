@@ -222,7 +222,11 @@ bool Trace::get_location(const llvm::MDNode *m,
     std::set<const llvm::MDNode*> visited;
     stack.push_back(m);
     visited.insert(m);
+#ifdef HAVE_LLVM_LLVMDEBUGVERSION
     llvm::APInt tag_file_type(32,llvm::LLVMDebugVersion | llvm::dwarf::DW_TAG_file_type);
+#else
+    llvm::APInt tag_file_type(32,llvm::dwarf::DW_TAG_file_type);
+#endif
     while(stack.size()){
       const llvm::MDNode *n = stack.back();
       stack.pop_back();

@@ -423,6 +423,35 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[
          [Define if llvm::ParseIR takes ownership of its buffer.])
          AC_MSG_RESULT([yes])])
 
+## Check the signature of Linker::linkInModule
+AC_MSG_CHECKING([the signature of Linker::linkInModule])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_LINKER_H)
+#include <llvm/Linker.h>
+#elif defined(HAVE_LLVM_LINKER_LINKER_H)
+#include <llvm/Linker/Linker.h>
+#endif
+]],[[
+  llvm::Linker lnk((llvm::Module*)0);
+  bool b = lnk.linkInModule((llvm::Module*)0);
+]])],
+        [AC_MSG_RESULT([Module* -> bool])],
+        [AC_MSG_RESULT([(Module*,unsigned,string*) -> bool])
+         AC_DEFINE([LLVM_LINKER_LINKINMODULE_HAS_MODE],[1],
+         [Define if llvm::Linker::linkInModule takes a mode argument.])])
+
+## Check if llvm::LLVMDebugVersion is defined
+AC_MSG_CHECKING([for LLVMDebugVersion])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Support/Dwarf.h>
+]],[[
+  unsigned dbg = llvm::LLVMDebugVersion;
+]])],
+        [AC_MSG_RESULT([yes])
+         AC_DEFINE([HAVE_LLVM_LLVMDEBUGVERSION],[1],
+         [Define if llvm::LLVMDebugVersion is defined.])],
+        [AC_MSG_RESULT([no])])
+
 # Checks for typedefs, structures, and compiler characteristics.
 AC_CHECK_HEADER_STDBOOL
 AC_C_INLINE
