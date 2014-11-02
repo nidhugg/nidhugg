@@ -64,11 +64,39 @@ AC_DEFUN([AX_LLVM],
     LDFLAGS="$LDFLAGS $LLVMLDFLAGS"
     LIBS="$LIBS $LLVMLIBS"
 
-    AC_MSG_CHECKING([for LLVM])
+  fi
 
+  if test "x$ax_llvm_ok" = "xyes"; then
+    AC_MSG_CHECKING([linking with LLVM])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Support/Debug.h>
+#include <llvm/Support/raw_ostream.h>
+]],[[
+  llvm::dbgs() << "Successfully linked.\n";
+]])],
+            [AC_MSG_RESULT([yes])],
+            [AC_MSG_RESULT([no])
+             ax_llvm_ok='no'
+            ])
+    if test "x$ax_llvm_ok" = "xno"; then
+      AC_MSG_NOTICE([Trying another way of calling llvm-config.])
+      LIBS="$LIBS $LLVMLDFLAGS"
+      AC_MSG_CHECKING([linking with LLVM])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Support/Debug.h>
+#include <llvm/Support/raw_ostream.h>
+]],[[
+  llvm::dbgs() << "Successfully linked.\n";
+]])],
+              [AC_MSG_RESULT([yes])
+               ax_llvm_ok='yes'],
+              [AC_MSG_RESULT([no])
+               ax_llvm_ok='no'])
+    fi
   fi
 
   AC_LANG_POP([C++])
+  AC_MSG_CHECKING([for LLVM])
   if test "x$ax_llvm_ok" = "xyes"; then
     AC_MSG_RESULT([$LLVMVERSION ($LLVMBUILDMODE)])
     ifelse([$1],,[AC_DEFINE([HAVE_LLVM],[1],[Define if there is a working LLVM library.])
