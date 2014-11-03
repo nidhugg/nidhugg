@@ -38,6 +38,8 @@ Requirements
 
    (9). Optional: Valgrind
 
+   (10). Optional: pdflatex for documentation.
+
 For Users of Debian-like Systems
 --------------------------------
 
@@ -56,12 +58,12 @@ Getting Nidhugg
 
    Git users can clone Nidhugg as follows:
 
-   $ git clone https://github.com/carlleonardsson/nidhugg
+   $ git clone https://github.com/nidhugg/nidhugg.git
 
    Non git users may find it easier to download the latest revision as
    a zip archive:
 
-   https://github.com/carlleonardsson/nidhugg/archive/master.zip
+   https://github.com/nidhugg/nidhugg/archive/master.zip
 
 Basic Installation
 ==================
