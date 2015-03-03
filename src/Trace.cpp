@@ -212,6 +212,7 @@ bool Trace::get_location(const llvm::MDNode *m,
   *lineno = loc.getLineNumber();
   *fname = loc.getFilename();
   *dname = loc.getDirectory();
+#if defined(LLVM_MDNODE_OPERAND_IS_VALUE) /* Otherwise, disable fallback and hope that the C compiler produces well-formed metadata. */
   if(*fname == "" && *dname == ""){
     /* Failed to get file name and directory name.
      *
@@ -264,6 +265,7 @@ bool Trace::get_location(const llvm::MDNode *m,
       }
     }
   }
+#endif
   return (lineno >= 0) && fname->size() && dname->size();
 };
 

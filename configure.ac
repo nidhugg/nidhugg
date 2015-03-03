@@ -452,6 +452,26 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [Define if llvm::LLVMDebugVersion is defined.])],
         [AC_MSG_RESULT([no])])
 
+## Check whether llvm::MDNode::getOperand returns an llvm::Value
+AC_MSG_CHECKING([for llvm::MDNode::getOperand return type])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_IR_METADATA_H)
+#include <llvm/IR/Metadata.h>
+#elif defined(HAVE_LLVM_METADATA_H)
+#include <llvm/Metadata.h>
+#endif
+]],[[
+  llvm::MDNode *n = 0;
+  llvm::Value *v = n->getOperand(0);
+]])],
+        [AC_MSG_RESULT([llvm::Value])
+         AC_DEFINE([LLVM_MDNODE_OPERAND_IS_VALUE],[1],
+         [Define if llvm::MDNode::getOperand returns llvm::Value*.])
+         AC_DEFINE([LLVM_METADATA_IS_VALUE],[1],
+         [Define if llvm considers metadata to be a value.])
+        ],
+        [AC_MSG_RESULT([llvm::MDOperand])])
+
 # Checks for typedefs, structures, and compiler characteristics.
 AC_CHECK_HEADER_STDBOOL
 AC_C_INLINE

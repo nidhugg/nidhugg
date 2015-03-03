@@ -697,6 +697,7 @@ BOOST_AUTO_TEST_CASE(Intrinsic){
    * affect which IIDs correspond to which real instructions.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
+#ifdef LLVM_METADATA_IS_VALUE
   DPORDriver *driver =
     DPORDriver::parseIR(R"(
 @x = global i32 0, align 4
@@ -725,6 +726,36 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 !0 = metadata !{i32 0}
 !1 = metadata !{i32 2, metadata !"Debug Info Version", i32 1}
 )",conf);
+#else
+  DPORDriver *driver =
+    DPORDriver::parseIR(R"(
+@x = global i32 0, align 4
+
+define i8* @work(i8* %arg){
+  %_arg = alloca i8*, align 8
+  store i8* %arg, i8** %_arg, align 8
+  load i32* @x, align 4
+  call void @llvm.dbg.declare(metadata i8** %_arg, metadata !0)
+  store i32 1, i32* @x, align 4
+  ret i8* null
+}
+
+define i32 @main(){
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)*@work, i8* null)
+  call i8* @work(i8* null)
+  ret i32 0
+}
+
+%attr_t = type { i64, [48 x i8] }
+
+declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
+declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
+
+!llvm.module.flags = !{!1}
+!0 = !{i32 0}
+!1 = !{i32 2, !"Debug Info Version", i32 1}
+)",conf);
+#endif
 
   DPORDriver::Result res = driver->run();
   delete driver;
