@@ -2520,12 +2520,28 @@ GenericValue Interpreter::getConstantExprValue (ConstantExpr *CE,
 }
 
 GenericValue Interpreter::getOperandValue(Value *V, ExecutionContext &SF) {
-  if (ConstantExpr *CE = dyn_cast<ConstantExpr>(V)) {
-    return getConstantExprValue(CE, SF);
-  } else if (Constant *CPV = dyn_cast<Constant>(V)) {
+  if(Constant *CPV = dyn_cast<Constant>(V)){
+    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(V)) {
+      return getConstantExprValue(CE, SF);
+    } else if (llvm::GlobalVariable *GV = dyn_cast<llvm::GlobalVariable>(V)) {
+      if(GV->isThreadLocal()){
+        auto it = Threads[CurrentThread].ThreadLocalValues.find(GV);
+        if(it == Threads[CurrentThread].ThreadLocalValues.end()){
+          llvm::Type *ty = static_cast<llvm::PointerType*>(GV->getType())->getElementType();
+          unsigned TypeSize = (size_t)TD.getTypeAllocSize(ty);
+          void *Memory = malloc(TypeSize);
+          GenericValue Result = PTOGV(Memory);
+          assert(Result.PointerVal != 0 && "Null pointer returned by malloc!");
+          AllocatedMemHeap.insert(Memory);
+          Threads[CurrentThread].ThreadLocalValues[GV] = Result;
+          InitializeMemory(GV->getInitializer(),Memory);
+          return Result;
+        }else{
+          return it->second;
+        }
+      }
+    }
     return getConstantValue(CPV);
-  } else if (GlobalValue *GV = dyn_cast<GlobalValue>(V)) {
-    return PTOGV(getPointerToGlobal(GV));
   } else {
     return SF.Values[V];
   }

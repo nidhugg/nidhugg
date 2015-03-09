@@ -143,6 +143,8 @@ protected:
      * pending_mutex_lock == 0 otherwise.
      */
     void *pending_mutex_lock;
+    /* Thread local global values are stored here. */
+    std::map<GlobalValue*,GenericValue> ThreadLocalValues;
   };
   /* All threads that are or have been running during this execution
    * have an entry in Threads, in the order in which they were

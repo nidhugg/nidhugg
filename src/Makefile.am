@@ -46,6 +46,7 @@ unittest_SOURCES = \
   RMW_test.cpp \
   Robustness_test.cpp \
   SC_test.cpp \
+  SC_test2.cpp \
   TSO_test.cpp \
   TSO_test2.cpp \
   Unroll_test.cpp \
