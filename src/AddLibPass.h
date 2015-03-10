@@ -63,6 +63,15 @@ protected:
    */
   virtual bool optNopFunction(llvm::Module &M,
                               std::string name);
+  /* If a function named name is declared but not defined in M, then
+   * attempt to add a definition of it to M, which does nothing but
+   * return the value val.
+   *
+   * Returns true if a definition is added, false otherwise.
+   */
+  virtual bool optConstIntFunction(llvm::Module &M,
+                                   std::string name,
+                                   int val);
 };
 
 #endif

@@ -109,9 +109,151 @@ bool AddLibPass::optNopFunction(llvm::Module &M,
   return true;
 };
 
+bool AddLibPass::optConstIntFunction(llvm::Module &M,
+                                     std::string name,
+                                     int val){
+  llvm::Function *F = M.getFunction(name);
+  if(!F || !F->isDeclaration()) return false;
+  llvm::Type *retTy = F->getReturnType();
+  if(!retTy->isIntegerTy()){
+    Debug::warn("AddLibPass::optConstIntFunction:"+name)
+      << "WARNING: Failed to add library function (nop) definition for function "
+      << name << "\n";
+    return false;
+  }
+  llvm::Value *rv = llvm::ConstantInt::get(retTy,val);
+  llvm::BasicBlock *B =
+    llvm::BasicBlock::Create(F->getContext(),"",F);
+  llvm::ReturnInst::Create(F->getContext(),rv,B);
+  return true;
+};
+
 bool AddLibPass::runOnModule(llvm::Module &M){
+  optNopFunction(M,"fclose");
   optNopFunction(M,"fflush");
+  optNopFunction(M,"fopen");
   optNopFunction(M,"fprintf");
+  optConstIntFunction(M,"sched_setaffinity",-1);
+  /**********************************
+   *           calloc               *
+   **********************************/
+  {
+    llvm::Function *F = M.getFunction("calloc");
+    if(F && F->isDeclaration()){
+      /* Figure out types for arguments of calloc (declaration) and
+       * malloc.
+       */
+      if(F->getArgumentList().size() != 2){
+        throw std::logic_error("Unable to add definition of calloc. Wrong signature.");
+      }
+      std::string arg0ty, arg1ty, malloc_argty, malloc_declaration;
+      llvm::raw_string_ostream arg0tys(arg0ty), arg1tys(arg1ty),
+        malloc_argtys(malloc_argty);
+      auto it = F->arg_begin();
+      arg0tys << *it->getType();
+      ++it;
+      arg1tys << *it->getType();
+      arg0tys.flush();
+      arg1tys.flush();
+      llvm::Function *F_malloc = M.getFunction("malloc");
+      if(F_malloc){
+        if(F_malloc->getArgumentList().size() != 1){
+          throw std::logic_error("Unable to add definition of calloc. malloc has the wrong signature.");
+        }
+        malloc_argtys << *F_malloc->arg_begin()->getType();
+        malloc_argtys.flush();
+        malloc_declaration="declare i8* @malloc("+malloc_argty+")\n";
+      }else{
+        malloc_declaration="declare i8* @malloc(i64)\n";
+        malloc_argty="i64";
+      }
+      if(!(arg0ty == "i32" || arg0ty == "i64") ||
+         !(arg1ty == "i32" || arg1ty == "i64")){
+        throw std::logic_error("Unable to add definition of calloc. Wrong signature.");
+      }
+      if(!(malloc_argty == "i32" || malloc_argty == "i64")){
+        throw std::logic_error("Unable to add definition of calloc. malloc has the wrong signature.");
+      }
+      /* Define calloc */
+      optAddFunction(M,"calloc",{R"(
+define i8* @calloc()"+arg0ty+R"( %_nmemb, )"+arg1ty+R"( %_size){
+entry:
+  %nmemb = trunc )"+arg0ty+R"( %_nmemb to i32
+  %size = trunc )"+arg1ty+R"( %_size to i32
+  %sz = mul i32 %nmemb, %size
+  %sz_m = zext i32 %sz to )"+malloc_argty+R"(
+  %m = call i8* @malloc()"+malloc_argty+R"( %sz_m)
+  br label %head
+head:
+  %n = phi i32 [%sz,%entry], [%nnext, %body]
+  %ncmp = icmp sgt i32 %n, 0
+  br i1 %ncmp, label %body, label %exit
+body:
+  %nnext = sub i32 %n, 1
+  %scur = getelementptr i8* %m, i32 %nnext
+  store i8 0, i8* %scur
+  br label %head
+exit:
+  ret i8* %m
+}
+)"+malloc_declaration});
+    }
+  }
+  /**********************************
+   *           strcmp               *
+   **********************************/
+  optAddFunction(M,"strcmp",{R"(
+define i32 @strcmp(i8* %p1, i8* %p2) nounwind readonly uwtable {
+entry:
+  br label %head
+
+head:
+  %s1 = phi i8* [ %p1, %entry ], [ %s1next, %body ]
+  %s2 = phi i8* [ %p2, %entry ], [ %s2next, %body ]
+  %a = load i8* %s1, align 1
+  %b = load i8* %s2, align 1
+  %a0 = icmp eq i8 %a, 0
+  br i1 %a0, label %exit, label %body
+
+body:
+  %s1next = getelementptr inbounds i8* %s1, i64 1
+  %s2next = getelementptr inbounds i8* %s2, i64 1
+  %abeq = icmp eq i8 %a, %b
+  br i1 %abeq, label %head, label %exit
+
+exit:
+  %a32 = zext i8 %a to i32
+  %b32 = zext i8 %b to i32
+  %rv = sub nsw i32 %a32, %b32
+  ret i32 %rv
+}
+)",R"(
+define i64 @strcmp(i8* %p1, i8* %p2) nounwind readonly uwtable {
+entry:
+  br label %head
+
+head:
+  %s1 = phi i8* [ %p1, %entry ], [ %s1next, %body ]
+  %s2 = phi i8* [ %p2, %entry ], [ %s2next, %body ]
+  %a = load i8* %s1, align 1
+  %b = load i8* %s2, align 1
+  %a0 = icmp eq i8 %a, 0
+  br i1 %a0, label %exit, label %body
+
+body:
+  %s1next = getelementptr inbounds i8* %s1, i64 1
+  %s2next = getelementptr inbounds i8* %s2, i64 1
+  %abeq = icmp eq i8 %a, %b
+  br i1 %abeq, label %head, label %exit
+
+exit:
+  %a64 = zext i8 %a to i64
+  %b64 = zext i8 %b to i64
+  %rv = sub nsw i64 %a64, %b64
+  ret i64 %rv
+}
+)"
+    });
   /**********************************
    *           memset               *
    **********************************/
