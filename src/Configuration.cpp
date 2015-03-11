@@ -62,9 +62,16 @@ static llvm::cl::opt<bool> cl_print_progress_estimate("print-progress-estimate",
                                                       llvm::cl::desc("Continually print analysis progress and trace "
                                                                      "number estimate to stdout."));
 
+static llvm::cl::list<std::string> cl_extfun_no_race("extfun-no-race",llvm::cl::NotHidden,
+                                                         llvm::cl::value_desc("FUN"),
+                                                         llvm::cl::desc("Assume that the external function FUN, when called as blackbox,\n"
+                                                                        "does not participate in any races. (See manual.)\n"
+                                                                        "May be given multiple times."));
+
 const std::set<std::string> &Configuration::commandline_opts(){
   static std::set<std::string> opts = {
     "dpor-explore-all",
+    "extfun-no-race",
     "malloc-may-fail",
     "max-search-depth",
     "sc","tso","pso",
@@ -81,6 +88,9 @@ const Configuration Configuration::default_conf;
 
 void Configuration::assign_by_commandline(){
   explore_all_traces = cl_explore_all;
+  for(std::string f : cl_extfun_no_race){
+    extfun_no_full_memory_conflict.insert(f);
+  }
   malloc_may_fail = cl_malloc_may_fail;
   max_search_depth = cl_max_search_depth;
   memory_model = cl_memory_model;

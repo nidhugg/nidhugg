@@ -234,6 +234,11 @@ int main(int argc, char *argv[]){
   Perform a robustness analysis. In addition to considering the usual
   safety criteria, also check robustness, and report an error if a
   non-robust execution is found.
+\item{\texttt{--extfun-no-race=FUN}}
+%
+  Assume that the external function \texttt{FUN}, when called as
+  blackbox, does not participate in any races. May be given several
+  times. See Section~\ref{sec:stdlibc:races}.
 \item{\texttt{--malloc-may-fail}}
 %
   By default, when the test case calls \texttt{malloc}, Nidhugg will
@@ -435,7 +440,7 @@ The following pthread functions are currently supported by Nidhugg:
 \item{\texttt{pthread\_cond\_destroy}}
 \end{description}
 
-\subsection{The Standard C library}
+\subsection{The Standard C library}\label{sec:stdlibc}
 
 While running an execution, if Nidhugg encounters an unknown external
 function (e.g. some function from the standard C library), it will
@@ -458,6 +463,131 @@ Notable functions that are supported are these:
 \item{\texttt{\_\_assert\_fail}} (Called by the \texttt{assert} macro
   in \textsf{assert.h}.)
 \end{description}
+
+\subsection{External Functions and Races}\label{sec:stdlibc:races}
+
+Since external functions are called as blackboxes, there is no way for
+Nidhugg to know which memory locations will be accessed by the
+functions, which mutexes will be locked or unlocked etc. In order to
+provide a complete under-approximation, Nidhugg therefore assumes that
+external functions conflict with \emph{all} other accesses to memory,
+mutexes etc.
+%
+This may cause Nidhugg to explore a huge number of superfluous
+computations, which differ only in the order between unrelated or
+irrelevant external function calls.
+%
+To avoid this problem, the user may use the switch
+\texttt{--extfun-no-race} to specify external functions which should
+be assumed to not participate in races.
+
+For example, consider the program given in
+Figure~\ref{fig:printf:prog}. It has two threads, each calling
+\texttt{printf} once. There are no (real) data
+races. Figure~\ref{fig:printf:run:16} shows analysis of the program
+using \textsf{nidhuggc}. Here the calls to \texttt{printf} are assumed
+to race both with each other, and with the loads of \texttt{t0} and
+\texttt{t1} in the main thread.
+%
+Nidhugg explores computations corresponding to all the different ways
+to resolve the races. In total 16 computations are explored. One
+single computation would suffice.
+%
+In Figure~\ref{fig:printf:run:1} we show how to use the switch
+\texttt{--extfun-no-race} to fix the problem, and correctly explore
+only one computation.
+
+\begin{figure}
+\begin{verbatim}
+// testprintf.c
+
+#include <pthread.h>
+#include <stdio.h>
+
+void *p(void *arg){
+  printf("foo\n");
+  return NULL;
+}
+
+int main(int argc, char *argv[]){
+  pthread_t t0, t1;
+  pthread_create(&t0,NULL,p,NULL);
+  pthread_create(&t1,NULL,p,NULL);
+  pthread_join(t0,NULL);
+  pthread_join(t1,NULL);
+  return 0;
+}
+\end{verbatim}
+\caption{A small race free program.}\label{fig:printf:prog}
+\end{figure}
+
+\begin{figure}
+  \scriptsize{
+\begin{verbatim}
+$ nidhuggc --sc testprintf.c
+* Nidhuggc: $ clang -o /tmp/tmp4ndgl1_l/tmpjs60nht_.ll -S -emit-llvm -g testprintf.c
+* Nidhuggc: $ /usr/bin/nidhugg --sc /tmp/tmp4ndgl1_l/tmpjs60nht_.ll
+WARNING: Calling unknown external function printf as blackbox.
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+foo
+Trace count: 16 (also 0 sleepset blocked)
+No errors were detected.
+Total wall-clock time: 0.08 s
+\end{verbatim}}
+\caption{Analysis of the program in Figure~\ref{fig:printf:prog}. Here
+  \texttt{printf} is assumed to race with any memory access. This
+  causes a wasteful exploration of 16 different
+  computations.}\label{fig:printf:run:16}
+\end{figure}
+
+\begin{figure}
+  \scriptsize{
+\begin{verbatim}
+$ nidhuggc --sc --extfun-no-race=printf testprintf.c
+* Nidhuggc: $ clang -o /tmp/tmpsqqgz4fz/tmpabpqpy9z.ll -S -emit-llvm -g testprintf.c
+* Nidhuggc: $ /usr/bin/nidhugg --sc --extfun-no-race=printf /tmp/tmpsqqgz4fz/tmpabpqpy9z.ll
+WARNING: Calling unknown external function printf as blackbox.
+foo
+foo
+Trace count: 1 (also 0 sleepset blocked)
+No errors were detected.
+Total wall-clock time: 0.07 s
+\end{verbatim}}
+\caption{Analysis of the program in Figure~\ref{fig:printf:prog} using
+  the switch \texttt{--extfun-no-race}. As intended, only one
+  computation is explored.}\label{fig:printf:run:1}
+\end{figure}
+
 
 \subsection{Verifier Functions}
 
