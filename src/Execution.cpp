@@ -1373,8 +1373,6 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
   Type *Ty = I.getCompareOperand()->getType();
   GenericValue Result;
 
-  TB.atomic_store(GetMRef(Ptr,Ty));
-
 #if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
   // Return a tuple (oldval,success)
   Result.AggregateVal.resize(2);
@@ -1394,6 +1392,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
   GenericValue CmpRes = executeICMP_EQ(Result,CmpVal,Ty);
 #endif
   if(CmpRes.IntVal.getBoolValue()){
+    TB.atomic_store(GetMRef(Ptr,Ty));
 #if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
     Result.AggregateVal[1].IntVal = 1;
 #endif
@@ -1404,6 +1403,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
     }
     CheckedStoreValueToMemory(NewVal,Ptr,Ty);
   }else{
+    TB.load(GetMRef(Ptr,Ty));
 #if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
     Result.AggregateVal[1].IntVal = 0;
 #endif
