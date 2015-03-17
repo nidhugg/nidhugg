@@ -20,6 +20,12 @@
 #include "Debug.h"
 #include "TSOInterpreter.h"
 
+#if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
+#include <llvm/IR/LLVMContext.h>
+#elif defined(HAVE_LLVM_LLVMCONTEXT_H)
+#include <llvm/LLVMContext.h>
+#endif
+
 static void SetValue(llvm::Value *V, llvm::GenericValue Val, llvm::ExecutionContext &SF) {
   SF.Values[V] = Val;
 }
