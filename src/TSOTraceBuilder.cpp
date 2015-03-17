@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -23,7 +23,7 @@
 #include <sstream>
 #include <stdexcept>
 
-TSOTraceBuilder::TSOTraceBuilder(const Configuration &conf) : TraceBuilder(conf) {
+TSOTraceBuilder::TSOTraceBuilder(const Configuration &conf) : TSOPSOTraceBuilder(conf) {
   threads.push_back(Thread(CPid(),{}));
   threads.push_back(Thread(CPS.new_aux(CPid()),{}));
   threads[1].available = false; // Store buffer is empty.
@@ -188,7 +188,7 @@ bool TSOTraceBuilder::check_for_cycles(){
   return true;
 };
 
-Trace TSOTraceBuilder::get_trace() const{
+Trace *TSOTraceBuilder::get_trace() const{
   std::vector<IID<CPid> > cmp;
   std::vector<const llvm::MDNode*> cmp_md;
   std::vector<Error*> errs;
@@ -199,8 +199,8 @@ Trace TSOTraceBuilder::get_trace() const{
   for(unsigned i = 0; i < errors.size(); ++i){
     errs.push_back(errors[i]->clone());
   }
-  Trace t(cmp,cmp_md,errs);
-  t.set_sleep_set_blocked(!sleepset_is_empty());
+  Trace *t = new IIDSeqTrace(cmp,cmp_md,errs);
+  t->set_blocked(!sleepset_is_empty());
   return t;
 };
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -28,18 +28,26 @@ MBlock::MBlock(const MRef &r, int alloc_size) : ref(r) {
   *ptr_counter = 1;
 };
 
+MBlock::MBlock(const MRef &r) : ref(r), ptr_counter(0) {
+  block = r.ref;
+};
+
 MBlock::MBlock(const MBlock &B)
   : ref(B.ref), block(B.block), ptr_counter(B.ptr_counter){
-  ++*ptr_counter;
+  if(ptr_counter){
+    ++*ptr_counter;
+  }
 };
 
 MBlock &MBlock::operator=(const MBlock &B){
   if(this != &B){
-    ++*B.ptr_counter;
-    --*ptr_counter;
-    if(*ptr_counter == 0){
-      free(block);
-      delete ptr_counter;
+    if(B.ptr_counter) ++*B.ptr_counter;
+    if(ptr_counter){
+      --*ptr_counter;
+      if(*ptr_counter == 0){
+        free(block);
+        delete ptr_counter;
+      }
     }
     ref = B.ref;
     block = B.block;
@@ -49,10 +57,12 @@ MBlock &MBlock::operator=(const MBlock &B){
 };
 
 MBlock::~MBlock(){
-  --*ptr_counter;
-  if(*ptr_counter == 0){
-    free(block);
-    delete ptr_counter;
+  if(ptr_counter){
+    --*ptr_counter;
+    if(*ptr_counter == 0){
+      free(block);
+      delete ptr_counter;
+    }
   }
 };
 

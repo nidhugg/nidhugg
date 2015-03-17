@@ -148,6 +148,7 @@ AC_CHECK_HEADERS_ALT([llvm/Linker.h llvm/Linker/Linker.h],[],[AC_MSG_FAILURE([Co
 AC_CHECK_HEADERS_ALT([llvm/LLVMContext.h llvm/IR/LLVMContext.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS_ALT([llvm/Metadata.h llvm/IR/Metadata.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS_ALT([llvm/Module.h llvm/IR/Module.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
+AC_CHECK_HEADERS_ALT([llvm/PassManager.h llvm/IR/PassManager.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS_ALT([llvm/Type.h llvm/IR/Type.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS_ALT([llvm/Assembly/PrintModulePass.h llvm/IR/IRPrintingPasses.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS_ALT([llvm/Analysis/Verifier.h llvm/IR/Verifier.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],AC_INCLUDES_DEFAULT[])
@@ -209,7 +210,23 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
             [Define if Module::materializeAllPermanently accepts zero arguments and returns an error_code.])
             AC_MSG_RESULT([(bool) -> error_code])
            ],
-           [AC_MSG_RESULT([string -> bool])])
+           [
+   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_MODULE_H)
+#include <llvm/Module.h>
+#elif defined(HAVE_LLVM_IR_MODULE_H)
+#include <llvm/IR/Module.h>
+#endif
+]],[[
+  llvm::Module *M = 0;
+  std::string *s = 0;
+  bool b = M->MaterializeAllPermanently(s);
+]])],
+           [AC_DEFINE([LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_BOOL_STRPTR],[1],
+            [Define if Module::MaterializeAllPermanenty has signature std::string* -> bool])
+            AC_MSG_RESULT([string* -> bool])],
+           [AC_MSG_RESULT([use materializeAll instead])])
+])
 
 ## Check if AtomicCmpXchg has separate success and failure orderings
 AC_MSG_CHECKING([for success/failure orderings of llvm::AtomicCmpXchgInst])
@@ -423,23 +440,6 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[
          [Define if llvm::ParseIR takes ownership of its buffer.])
          AC_MSG_RESULT([yes])])
 
-## Check the signature of Linker::linkInModule
-AC_MSG_CHECKING([the signature of Linker::linkInModule])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_LINKER_H)
-#include <llvm/Linker.h>
-#elif defined(HAVE_LLVM_LINKER_LINKER_H)
-#include <llvm/Linker/Linker.h>
-#endif
-]],[[
-  llvm::Linker lnk((llvm::Module*)0);
-  bool b = lnk.linkInModule((llvm::Module*)0);
-]])],
-        [AC_MSG_RESULT([Module* -> bool])],
-        [AC_MSG_RESULT([(Module*,unsigned,string*) -> bool])
-         AC_DEFINE([LLVM_LINKER_LINKINMODULE_HAS_MODE],[1],
-         [Define if llvm::Linker::linkInModule takes a mode argument.])])
-
 ## Check if llvm::LLVMDebugVersion is defined
 AC_MSG_CHECKING([for LLVMDebugVersion])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -471,6 +471,369 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [Define if llvm considers metadata to be a value.])
         ],
         [AC_MSG_RESULT([llvm::MDOperand])])
+
+## Check if llvm.dbg.declare should take two arguments (or three)
+AC_MSG_CHECKING([for number of arguments to llvm.dbg.declare])
+AC_RUN_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_ASSEMBLY_PRINTMODULEPASS_H)
+#include <llvm/Assembly/PrintModulePass.h>
+#elif defined(HAVE_LLVM_IR_IRPRINTINGPASSES_H)
+#include <llvm/IR/IRPrintingPasses.h>
+#endif
+#if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
+#include <llvm/IR/LLVMContext.h>
+#elif defined(HAVE_LLVM_LLVMCONTEXT_H)
+#include <llvm/LLVMContext.h>
+#endif
+#include <llvm/IRReader/IRReader.h>
+#if defined(HAVE_LLVM_PASSMANAGER_H)
+#include <llvm/PassManager.h>
+#elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
+#include <llvm/IR/PassManager.h>
+#endif
+#include <llvm/Support/FileSystem.h>
+#include <llvm/Support/MemoryBuffer.h>
+#include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/SourceMgr.h>
+#if defined(HAVE_LLVM_SUPPORT_SYSTEM_ERROR_H)
+#include <llvm/Support/system_error.h>
+#endif
+#if defined(HAVE_LLVM_SUPPORT_ERROROR_H)
+#include <llvm/Support/ErrorOr.h>
+#endif
+#if defined(HAVE_LLVM_MODULE_H)
+#include <llvm/Module.h>
+#elif defined(HAVE_LLVM_IR_MODULE_H)
+#include <llvm/IR/Module.h>
+#endif
+]],[[
+#ifdef LLVM_METADATA_IS_VALUE
+  std::string src = R"(
+define i8* @p(i8* %arg){
+  call void @llvm.dbg.declare(metadata !{i8* %arg}, metadata !0)
+  ret i8* null
+}
+declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
+!0 = metadata !{i32 0}
+)";
+#else
+  std::string src = R"(
+define i8* @p(i8* %arg){
+  call void @llvm.dbg.declare(metadata i8* %arg, metadata !0)
+  ret i8* null
+}
+declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
+!0 = !{i32 0}
+)";
+#endif
+  llvm::Module *mod;
+  llvm::SMDiagnostic err;
+  llvm::MemoryBuffer *buf =
+#ifdef LLVM_GETMEMBUFFER_RET_PTR
+    llvm::MemoryBuffer::getMemBuffer(src,"",false);
+#else
+  llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
+#endif
+#ifdef LLVM_PARSE_IR_MEMBUF_PTR
+  mod = llvm::ParseIR(buf,err,llvm::getGlobalContext());
+#else
+  mod = llvm::parseIR(buf->getMemBufferRef(),err,llvm::getGlobalContext()).release();
+#endif
+  if(!mod) return 1;
+]])],
+  [AC_MSG_RESULT(2)
+   AC_DEFINE([LLVM_DBG_DECLARE_TWO_ARGS],[1],
+   [Define if llvm.dbg.declare takes two arguments (rather than three).])],
+  [AC_MSG_RESULT(3)])
+
+## Check the metadata version number for LLVM
+AC_MSG_CHECKING([the LLVM metadata version number])
+AC_RUN_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_IR_METADATA_H)
+#include <llvm/IR/Metadata.h>
+#elif defined(HAVE_LLVM_METADATA_H)
+#include <llvm/Metadata.h>
+#endif
+#include <iostream>
+]],[[
+  std::cout << llvm::DEBUG_METADATA_VERSION << std::endl;
+]])],
+  [VN=`./conftest$EXEEXT`
+   AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER],[$VN],
+             [The LLVM metadata version number.])
+   AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER_STR],["$VN"],
+             [The LLVM metadata version number.])
+  ],
+  [AC_MSG_RESULT(0)
+   AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER],[0],
+             [The LLVM metadata version number.])
+   AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER_STR],["0"],
+             [The LLVM metadata version number.])])
+
+## Check the parameter type for ExecutionEngine::runFunction
+AC_MSG_CHECKING([for parameter type for ExecutionEngine::runFunction])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/ExecutionEngine/GenericValue.h>
+]],[[
+  class EE : public llvm::ExecutionEngine{
+  public:
+    virtual llvm::GenericValue runFunction(llvm::Function*, const std::vector<llvm::GenericValue>&) override {
+      return llvm::GenericValue();
+    };
+  };
+]])],
+        [AC_MSG_RESULT([std::vector<llvm::GenericValue>])
+         AC_DEFINE([LLVM_EXECUTION_ENGINE_RUN_FUNCTION_VECTOR],[1],
+         [Define if ExecutionEngine::runFunction takes a std::vector<llvm::GenericValue> argument.])],
+        [AC_MSG_RESULT([llvm::ArrayRef<llvm::GenericValue>])])
+
+## Check how to call getAnalysis to get LoopInfo
+AC_MSG_CHECKING([how to get LoopInfo analysis])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Analysis/LoopPass.h>
+]],[[
+  llvm::LPPassManager *LPM = 0;
+  LPM->getAnalysis<llvm::LoopInfo>();
+]])],
+        [AC_MSG_RESULT([llvm::LoopInfo])
+         AC_DEFINE([LLVM_GET_ANALYSIS_LOOP_INFO],[1],
+         [Define if LPPassManager::getAnalysis<LoopInfo> can be called.])],
+        [AC_MSG_RESULT([llvm::LoopInfoWrapperPass])])
+
+## Checking if llvm::PassManager requires a template argument
+AC_MSG_CHECKING([if llvm::PassManager requires a template argument])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_PASSMANAGER_H)
+#include <llvm/PassManager.h>
+#elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
+#include <llvm/IR/PassManager.h>
+#endif
+]],[[
+  llvm::PassManager PM;
+]])],
+        [AC_MSG_RESULT([no])],
+        [AC_MSG_RESULT([yes])
+         AC_DEFINE([LLVM_PASSMANAGER_TEMPLATE],[1],
+         [Define if llvm::PassManager requires a template argument.])
+         AC_CHECK_HEADERS([llvm/IR/LegacyPassManager.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])])
+
+## Checking if an llvm::DILocation is an llvm::MDNode
+AC_MSG_CHECKING([if an llvm::DILocation is an llvm::MDNode])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_DEBUGINFO_H)
+#include <llvm/DebugInfo.h>
+#elif defined(HAVE_LLVM_IR_DEBUGINFO_H)
+#include <llvm/IR/DebugInfo.h>
+#elif defined(HAVE_LLVM_ANALYSIS_DEBUGINFO_H)
+#include <llvm/Analysis/DebugInfo.h>
+#endif
+]],[[
+  llvm::MDNode *m = 0;
+  llvm::DILocation *l = static_cast<llvm::DILocation*>(m);
+]])],
+        [AC_MSG_RESULT([yes])
+         AC_DEFINE([LLVM_DILOCATION_IS_MDNODE],[1],
+         [Define if an llvm::DILocation is an MDNode.])],
+        [AC_MSG_RESULT([no])])
+
+## Checking if llvm::DILocation::getLineNumber is a method.
+AC_MSG_CHECKING([if llvm::DILocation::getLineNumber is a method.])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_DEBUGINFO_H)
+#include <llvm/DebugInfo.h>
+#elif defined(HAVE_LLVM_IR_DEBUGINFO_H)
+#include <llvm/IR/DebugInfo.h>
+#elif defined(HAVE_LLVM_ANALYSIS_DEBUGINFO_H)
+#include <llvm/Analysis/DebugInfo.h>
+#endif
+]],[[
+  llvm::DILocation *l;
+  l->getLineNumber();
+]])],
+        [AC_MSG_RESULT([yes])
+         AC_DEFINE([LLVM_DILOCATION_HAS_GETLINENUMBER],[1],
+         [Define if llvm::DILocation::getLineNumber is a method.])],
+        [AC_MSG_RESULT([no])])
+
+## Checking if llvm::cl::getRegisteredOptions takes an argument
+AC_MSG_CHECKING([if llvm::cl::getRegisteredOptions takes an argument.])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Support/CommandLine.h>
+]],[[
+  llvm::StringMap<llvm::cl::Option*> opts;
+  llvm::cl::getRegisteredOptions(opts);
+]])],
+        [AC_MSG_RESULT([yes])
+         AC_DEFINE([LLVM_CL_GETREGISTEREDOPTIONS_TAKES_ARGUMENT],[1],
+         [Define if llvm::cl::getRegisteredOptions takes an argument.])],
+        [AC_MSG_RESULT([no])])
+
+
+## Check if loads in assembly should explicitly state their return type
+AC_MSG_CHECKING([if assembly loads explicitly state their return type])
+AC_RUN_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_ASSEMBLY_PRINTMODULEPASS_H)
+#include <llvm/Assembly/PrintModulePass.h>
+#elif defined(HAVE_LLVM_IR_IRPRINTINGPASSES_H)
+#include <llvm/IR/IRPrintingPasses.h>
+#endif
+#if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
+#include <llvm/IR/LLVMContext.h>
+#elif defined(HAVE_LLVM_LLVMCONTEXT_H)
+#include <llvm/LLVMContext.h>
+#endif
+#include <llvm/IRReader/IRReader.h>
+#if defined(HAVE_LLVM_PASSMANAGER_H)
+#include <llvm/PassManager.h>
+#elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
+#include <llvm/IR/PassManager.h>
+#endif
+#include <llvm/Support/FileSystem.h>
+#include <llvm/Support/MemoryBuffer.h>
+#include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/SourceMgr.h>
+#if defined(HAVE_LLVM_SUPPORT_SYSTEM_ERROR_H)
+#include <llvm/Support/system_error.h>
+#endif
+#if defined(HAVE_LLVM_SUPPORT_ERROROR_H)
+#include <llvm/Support/ErrorOr.h>
+#endif
+#if defined(HAVE_LLVM_MODULE_H)
+#include <llvm/Module.h>
+#elif defined(HAVE_LLVM_IR_MODULE_H)
+#include <llvm/IR/Module.h>
+#endif
+]],[[
+  std::string src = R"(
+@x = global i32 0, align 4
+define i8* @p(i8* %arg){
+  load i32* @x, align 4
+  ret i8* null
+}
+)";
+  llvm::Module *mod;
+  llvm::SMDiagnostic err;
+  llvm::MemoryBuffer *buf =
+#ifdef LLVM_GETMEMBUFFER_RET_PTR
+    llvm::MemoryBuffer::getMemBuffer(src,"",false);
+#else
+  llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
+#endif
+#ifdef LLVM_PARSE_IR_MEMBUF_PTR
+  mod = llvm::ParseIR(buf,err,llvm::getGlobalContext());
+#else
+  mod = llvm::parseIR(buf->getMemBufferRef(),err,llvm::getGlobalContext()).release();
+#endif
+  if(!mod) return 1;
+]])],
+  [AC_MSG_RESULT(no)],
+  [AC_MSG_RESULT(yes)
+   AC_DEFINE([LLVM_ASM_LOAD_EXPLICIT_TYPE],[1],
+   [Define if assembly loads should explicitly state their return type.])])
+
+AC_MSG_CHECKING([for llvm::Linker constructor parameter type])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_LINKER_H)
+#include <llvm/Linker.h>
+#elif defined(HAVE_LLVM_LINKER_LINKER_H)
+#include <llvm/Linker/Linker.h>
+#endif
+]],[[
+  llvm::Module *M = 0;
+  llvm::Linker lnk(M);
+]])],
+  [AC_MSG_RESULT(llvm::Module*)],
+  [AC_MSG_RESULT(llvm::Module&)
+   AC_DEFINE([LLVM_LINKER_CTOR_PARAM_MODULE_REFERENCE],[1],
+   [Define if llvm::Linker constructor takes a Module reference (not pointer).])])
+
+## Check the signature of Linker::linkInModule
+AC_MSG_CHECKING([the signature of Linker::linkInModule])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_LINKER_H)
+#include <llvm/Linker.h>
+#elif defined(HAVE_LLVM_LINKER_LINKER_H)
+#include <llvm/Linker/Linker.h>
+#endif
+]],[[
+  llvm::Linker *lnk = 0;
+  bool b = lnk->linkInModule((llvm::Module*)0);
+]])],
+        [AC_MSG_RESULT([Module* -> bool])
+         AC_DEFINE([LLVM_LINKER_LINKINMODULE_PTR_BOOL],[1],
+         [Define if llvm::Linker::linkInModule has signature Module* -> bool])
+         LLVM_LINKER_LINKINMODULE_PTR_BOOL='yes'
+        ],
+        [LLVM_LINKER_LINKINMODULE_PTR_BOOL='no'])
+
+if test "x$LLVM_LINKER_LINKINMODULE_PTR_BOOL" != 'xyes'; then
+   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_LINKER_H)
+#include <llvm/Linker.h>
+#elif defined(HAVE_LLVM_LINKER_LINKER_H)
+#include <llvm/Linker/Linker.h>
+#endif
+]],[[
+  llvm::Linker *lnk = 0;
+  bool b = lnk->linkInModule(std::unique_ptr<llvm::Module>((llvm::Module*)0));
+]])],
+      [AC_MSG_RESULT([std::unique_ptr<llvm::Module> -> bool])
+       AC_DEFINE([LLVM_LINKER_LINKINMODULE_UNIQUEPTR_BOOL],[1],
+       [Define if llvm::Linker::linkInModule has signature std::unique_ptr<Module> -> bool])],
+      [AC_MSG_RESULT([(Module*,unsigned,string*) -> bool])])
+fi
+
+## Check if the datalayout of an execution engine is a pointer
+AC_MSG_CHECKING([whether DataLayout of ExecutionEngine is a pointer])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+]],[[
+  llvm::ExecutionEngine *E = 0;
+  const llvm::DataLayout *DL = E->getDataLayout();
+]])],
+  [AC_MSG_RESULT([yes])
+   AC_DEFINE([LLVM_EXECUTIONENGINE_DATALAYOUT_PTR],[1],
+   [Define if the DataLayout field of ExecutionEngine is a pointer.])],
+  [AC_MSG_RESULT([no])])
+
+## Check if llvm::LoopInfo::markAsRemoved exists
+AC_MSG_CHECKING([for llvm::LoopInfo::markAsRemoved])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Analysis/LoopPass.h>
+]],[[
+  llvm::Loop * L = 0;
+  llvm::LoopInfo *LI = 0;
+  LI->markAsRemoved(L);
+]])],
+  [AC_MSG_RESULT([yes])
+   AC_DEFINE([HAVE_LLVM_LOOPINFO_MARK_AS_REMOVED],[1],
+   [Define if llvm::LoopInfo::markAsRemoved exists])],
+  [AC_MSG_RESULT([no])])
+
+## Check if initializeIPA exists
+AC_MSG_CHECKING([for llvm::initializeIPA])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_ANALYSIS_VERIFIER_H)
+#include <llvm/Analysis/Verifier.h>
+#elif defined(HAVE_LLVM_IR_VERIFIER_H)
+#include <llvm/IR/Verifier.h>
+#endif
+#if defined(HAVE_LLVM_PASSMANAGER_H)
+#include <llvm/PassManager.h>
+#elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
+#include <llvm/IR/PassManager.h>
+#endif
+#if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H) && defined(LLVM_PASSMANAGER_TEMPLATE)
+#include <llvm/IR/LegacyPassManager.h>
+#endif
+]],[[
+  void (*f)(llvm::PassRegistry&) = llvm::initializeIPA;
+]])],
+  [AC_MSG_RESULT([yes])
+   AC_DEFINE([HAVE_LLVM_INITIALIZE_IPA],[1],
+   [Define if llvm::initializeIPA exists])],
+  [AC_MSG_RESULT([no])])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_CHECK_HEADER_STDBOOL

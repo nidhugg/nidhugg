@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -81,7 +81,11 @@ bool LoopUnrollPass::runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM){
       llvm::BasicBlock *B = llvm::CloneBasicBlock(*it,VMaps[unroll_idx],ss.str());
       F->getBasicBlockList().push_back(B);
       bodies.back().push_back(B);
+#ifdef LLVM_GET_ANALYSIS_LOOP_INFO
       L->addBasicBlockToLoop(B,LPM.getAnalysis<llvm::LoopInfo>().getBase());
+#else
+      L->addBasicBlockToLoop(B,LPM.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo());
+#endif
     }
   }
 
@@ -203,8 +207,11 @@ bool LoopUnrollPass::runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM){
       }
     }
   }
-
+#ifdef HAVE_LLVM_LOOPINFO_MARK_AS_REMOVED
+  LPM.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().markAsRemoved(L);
+#else
   LPM.deleteLoopFromQueue(L);
+#endif
 
   return true;
 };

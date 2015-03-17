@@ -14,7 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  * (For the modifications made in this file to the code from LLVM.)
  *
  * This file is part of Nidhugg.
@@ -60,7 +60,7 @@ using namespace llvm;
 
 /// create - Create a new interpreter object.  This can never fail.
 ///
-ExecutionEngine *Interpreter::create(Module *M, TraceBuilder &TB,
+ExecutionEngine *Interpreter::create(Module *M, TSOPSOTraceBuilder &TB,
                                      const Configuration &C, std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
 #ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
@@ -69,9 +69,15 @@ ExecutionEngine *Interpreter::create(Module *M, TraceBuilder &TB,
     if(ErrStr) *ErrStr = EC.message();
     return 0;
   }
-#else
+#elif defined LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_BOOL_STRPTR
   if (M->MaterializeAllPermanently(ErrStr)){
     // We got an error, just return 0
+    return 0;
+  }
+#else
+  if(std::error_code EC = M->materializeAll()){
+    // We got an error, just return 0
+    if(ErrStr) *ErrStr = EC.message();
     return 0;
   }
 #endif
@@ -82,7 +88,7 @@ ExecutionEngine *Interpreter::create(Module *M, TraceBuilder &TB,
 //===----------------------------------------------------------------------===//
 // Interpreter ctor - Initialize stuff
 //
-Interpreter::Interpreter(Module *M, TraceBuilder &TB,
+Interpreter::Interpreter(Module *M, TSOPSOTraceBuilder &TB,
                          const Configuration &C)
 #ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
   : ExecutionEngine(std::unique_ptr<Module>(M)),
@@ -96,7 +102,9 @@ Interpreter::Interpreter(Module *M, TraceBuilder &TB,
   CurrentThread = 0;
   AtomicFunctionCall = -1;
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
   setDataLayout(&TD);
+#endif
   // Initialize the "backend"
   initializeExecutionEngine();
   initializeExternalFunctions();
@@ -165,7 +173,7 @@ Interpreter::~Interpreter() {
   for(void *ptr : AllocatedMemStack){
     if(!FreedMem.count(ptr)) CheckedFree(ptr,on_error0);
   }
-  TraceBuilder *TBptr = &TB;
+  TSOPSOTraceBuilder *TBptr = &TB;
   for(auto it = FreedMem.begin(); it != FreedMem.end(); ++it){
     std::function<void()> on_error =
       [&it,TBptr](){
@@ -185,9 +193,15 @@ void Interpreter::runAtExitHandlers () {
 
 /// run - Start execution with the specified function and arguments.
 ///
+#ifdef LLVM_EXECUTION_ENGINE_RUN_FUNCTION_VECTOR
 GenericValue
 Interpreter::runFunction(Function *F,
                          const std::vector<GenericValue> &ArgValues) {
+#else
+GenericValue
+Interpreter::runFunction(Function *F,
+                         ArrayRef<GenericValue> ArgValues) {
+#endif
   assert (F && "Function *F was null at entry to run()");
 
   // Try extra hard not to pass extra args to a function that isn't

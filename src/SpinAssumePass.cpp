@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -201,7 +201,11 @@ bool SpinAssumePass::runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM){
   bool modified = false;
   if(is_spin(L)){
     if(assumify_loop(L,LPM)){
+#ifdef HAVE_LLVM_LOOPINFO_MARK_AS_REMOVED
+      LPM.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().markAsRemoved(L);
+#else
       LPM.deleteLoopFromQueue(L);
+#endif
       modified = true;
     }
   }

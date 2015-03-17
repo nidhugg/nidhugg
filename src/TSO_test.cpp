@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -22,6 +22,7 @@
 
 #include "DPORDriver.h"
 #include "DPORDriver_test.h"
+#include "StrModule.h"
 
 #include <boost/test/unit_test.hpp>
 
@@ -30,16 +31,16 @@ BOOST_AUTO_TEST_SUITE(TSO_test)
 BOOST_AUTO_TEST_CASE(Minimal_computation){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 define i32 @main(){
   ret i32 0
 }
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
 
   BOOST_CHECK(res.all_traces.size() == 1);
-  BOOST_CHECK(res.all_traces[0].get_computation() == std::vector<IID<CPid> >({{CPid(),1}}));
+  BOOST_CHECK(static_cast<const IIDSeqTrace*>(res.all_traces[0])->get_computation() == std::vector<IID<CPid> >({{CPid(),1}}));
 
   delete driver;
 }
@@ -47,19 +48,19 @@ define i32 @main(){
 BOOST_AUTO_TEST_CASE(Small_dekker){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
 define i8* @p0(i8* %arg){
   store i32 1, i32* @x, align 4
-  %1 = load i32* @y, align 4
+  %1 = load i32, i32* @y, align 4
   ret i8* null
 }
 
 define i8* @p1(i8* %arg){
   store i32 1, i32* @y, align 4
-  %1 = load i32* @x, align 4
+  %1 = load i32, i32* @x, align 4
   ret i8* null
 }
 
@@ -72,7 +73,7 @@ define i32 @main(){
 %union.pthread_attr_t = type { i64, [48 x i8] }
 
 declare i32 @pthread_create(i64*,%union.pthread_attr_t*,i8*(i8*)*,i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
 
@@ -100,7 +101,7 @@ declare i32 @pthread_create(i64*,%union.pthread_attr_t*,i8*(i8*)*,i8*) nounwind
 BOOST_AUTO_TEST_CASE(Small_peterson){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 @t = global i32 0, align 4
@@ -108,16 +109,16 @@ BOOST_AUTO_TEST_CASE(Small_peterson){
 define i8* @p0(i8* %arg){
   store i32 1, i32* @x, align 4
   store i32 1, i32* @t, align 4
-  %rt = load i32* @t, align 4
-  %ry = load i32* @y, align 4
+  %rt = load i32, i32* @t, align 4
+  %ry = load i32, i32* @y, align 4
   ret i8* null
 }
 
 define i8* @p1(i8* %arg){
   store i32 1, i32* @y, align 4
   store i32 0, i32* @t, align 4
-  %rt = load i32* @t, align 4
-  %rx = load i32* @x, align 4
+  %rt = load i32, i32* @t, align 4
+  %rx = load i32, i32* @x, align 4
   ret i8* null
 }
 
@@ -129,7 +130,7 @@ define i32 @main(){
 
 %union.pthread_attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %union.pthread_attr_t*, i8*(i8*)*, i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
 
@@ -175,12 +176,12 @@ BOOST_AUTO_TEST_CASE(ROWE_1){
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p0(i8* %arg){
   store i32 1, i32* @x, align 4
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
@@ -197,7 +198,7 @@ define i32 @main(){
 
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
 
@@ -228,12 +229,12 @@ BOOST_AUTO_TEST_CASE(ROWE_2){
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p0(i8* %arg){
   store i32 1, i32* @x, align 4
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
@@ -250,7 +251,7 @@ define i32 @main(){
 
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
 
@@ -271,7 +272,7 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 BOOST_AUTO_TEST_CASE(read_read_write_1){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p0(i8* %arg){
@@ -280,12 +281,12 @@ define i8* @p0(i8* %arg){
 }
 
 define i8* @p1(i8* %arg){
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
 define i8* @p2(i8* %arg){
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
@@ -298,7 +299,7 @@ define i32 @main(){
 
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -323,7 +324,7 @@ BOOST_AUTO_TEST_CASE(read_read_write_2){
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p0(i8* %arg){
@@ -332,12 +333,12 @@ define i8* @p0(i8* %arg){
 }
 
 define i8* @p1(i8* %arg){
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
 define i8* @p2(i8* %arg){
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
@@ -350,7 +351,7 @@ define i32 @main(){
 
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -378,26 +379,26 @@ BOOST_AUTO_TEST_CASE(before_update){
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   store i32 1, i32* @y, align 4
   ret i8* null
 }
 
 define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
-  load i32* @y, align 4
+  load i32, i32* @y, align 4
   store i32 1, i32* @x
   ret i32 0
 }
 
 %attr_t = type { i64 , [48 x i8] }
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res =
     driver->run();
@@ -420,21 +421,21 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
 BOOST_AUTO_TEST_CASE(fib_simple){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @i = global i32 1, align 4
 @j = global i32 1, align 4
 
 define i8* @p1(i8* %arg){
-  %1 = load i32* @i, align 4
-  %2 = load i32* @j, align 4
+  %1 = load i32, i32* @i, align 4
+  %2 = load i32, i32* @j, align 4
   %3 = add i32 %1, %2
   store i32 %3, i32* @i, align 4
   ret i8* null
 }
 
 define i8* @p2(i8* %arg){
-  %1 = load i32* @i, align 4
-  %2 = load i32* @j, align 4
+  %1 = load i32, i32* @i, align 4
+  %2 = load i32, i32* @j, align 4
   %3 = add i32 %1, %2
   store i32 %3, i32* @j, align 4
   ret i8* null
@@ -444,15 +445,15 @@ define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p2, i8* null)
 
-  %3 = load i32* @i, align 4
-  %4 = load i32* @j, align 4
+  %3 = load i32, i32* @i, align 4
+  %4 = load i32, i32* @j, align 4
 
   ret i32 0
 }
 
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -494,29 +495,29 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 BOOST_AUTO_TEST_CASE(fib_simple_n2){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @i = global i32 1, align 4
 @j = global i32 1, align 4
 
 define i8* @p1(i8* %arg){
-  %1 = load i32* @i, align 4
-  %2 = load i32* @j, align 4
+  %1 = load i32, i32* @i, align 4
+  %2 = load i32, i32* @j, align 4
   %3 = add i32 %1, %2
   store i32 %3, i32* @i, align 4
-  %4 = load i32* @i, align 4
-  %5 = load i32* @j, align 4
+  %4 = load i32, i32* @i, align 4
+  %5 = load i32, i32* @j, align 4
   %6 = add i32 %4, %5
   store i32 %6, i32* @i, align 4
   ret i8* null
 }
 
 define i8* @p2(i8* %arg){
-  %1 = load i32* @i, align 4
-  %2 = load i32* @j, align 4
+  %1 = load i32, i32* @i, align 4
+  %2 = load i32, i32* @j, align 4
   %3 = add i32 %1, %2
   store i32 %3, i32* @j, align 4
-  %4 = load i32* @i, align 4
-  %5 = load i32* @j, align 4
+  %4 = load i32, i32* @i, align 4
+  %5 = load i32, i32* @j, align 4
   %6 = add i32 %4, %5
   store i32 %6, i32* @j, align 4
   ret i8* null
@@ -526,8 +527,8 @@ define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p2, i8* null)
 
-  %3 = load i32* @i, align 4
-  %4 = load i32* @j, align 4
+  %3 = load i32, i32* @i, align 4
+  %4 = load i32, i32* @j, align 4
 
   %icmp = icmp eq i32 %3, 8
   br i1 %icmp, label %error, label %exit
@@ -543,7 +544,7 @@ exit:
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() nounwind noreturn
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -554,29 +555,29 @@ declare void @__assert_fail() nounwind noreturn
 BOOST_AUTO_TEST_CASE(fib_simple_n2_true){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @i = global i32 1, align 4
 @j = global i32 1, align 4
 
 define i8* @p1(i8* %arg){
-  %1 = load i32* @i, align 4
-  %2 = load i32* @j, align 4
+  %1 = load i32, i32* @i, align 4
+  %2 = load i32, i32* @j, align 4
   %3 = add i32 %1, %2
   store i32 %3, i32* @i, align 4
-  %4 = load i32* @i, align 4
-  %5 = load i32* @j, align 4
+  %4 = load i32, i32* @i, align 4
+  %5 = load i32, i32* @j, align 4
   %6 = add i32 %4, %5
   store i32 %6, i32* @i, align 4
   ret i8* null
 }
 
 define i8* @p2(i8* %arg){
-  %1 = load i32* @i, align 4
-  %2 = load i32* @j, align 4
+  %1 = load i32, i32* @i, align 4
+  %2 = load i32, i32* @j, align 4
   %3 = add i32 %1, %2
   store i32 %3, i32* @j, align 4
-  %4 = load i32* @i, align 4
-  %5 = load i32* @j, align 4
+  %4 = load i32, i32* @i, align 4
+  %5 = load i32, i32* @j, align 4
   %6 = add i32 %4, %5
   store i32 %6, i32* @j, align 4
   ret i8* null
@@ -586,8 +587,8 @@ define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p2, i8* null)
 
-  %3 = load i32* @i, align 4
-  %4 = load i32* @j, align 4
+  %3 = load i32, i32* @i, align 4
+  %4 = load i32, i32* @j, align 4
 
   %icmp = icmp sgt i32 %3, 8
   br i1 %icmp, label %error, label %exit
@@ -603,7 +604,7 @@ exit:
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() nounwind noreturn
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -614,20 +615,20 @@ declare void @__assert_fail() nounwind noreturn
 BOOST_AUTO_TEST_CASE(blacken_change_clock){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @i = global i32 1, align 4
 @j = global i32 1, align 4
 
 define i8* @p1(i8* %arg){
-  load i32* @j, align 4
+  load i32, i32* @j, align 4
   store i32 2, i32* @i, align 4
-  load i32* @j, align 4
+  load i32, i32* @j, align 4
   store i32 3, i32* @i, align 4
   ret i8* null
 }
 
 define i8* @p2(i8* %arg){
-  load i32* @i, align 4
+  load i32, i32* @i, align 4
   store i32 2, i32* @j, align 4
   ret i8* null
 }
@@ -636,14 +637,14 @@ define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p2, i8* null)
 
-  load i32* @i, align 4
+  load i32, i32* @i, align 4
 
   ret i32 0
 }
 
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -699,13 +700,13 @@ BOOST_AUTO_TEST_CASE(Intrinsic){
   Configuration conf = DPORDriver_test::get_tso_conf();
 #ifdef LLVM_METADATA_IS_VALUE
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @work(i8* %arg){
   %_arg = alloca i8*, align 8
   store i8* %arg, i8** %_arg, align 8
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   call void @llvm.dbg.declare(metadata !{i8** %_arg}, metadata !0)
   store i32 1, i32* @x, align 4
   ret i8* null
@@ -724,18 +725,25 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 
 !llvm.module.flags = !{!1}
 !0 = metadata !{i32 0}
-!1 = metadata !{i32 2, metadata !"Debug Info Version", i32 1}
-)",conf);
+!1 = metadata !{i32 2, metadata !"Debug Info Version", i32 )" LLVM_METADATA_VERSION_NUMBER_STR R"(}
+)"),conf);
 #else
+#ifdef LLVM_DBG_DECLARE_TWO_ARGS
+  std::string declarecall = "call void @llvm.dbg.declare(metadata i8** %_arg, metadata !0)";
+  std::string declaredeclare = "declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone";
+#else
+  std::string declarecall = "call void @llvm.dbg.declare(metadata i8** %_arg, metadata !0, metadata !0)";
+  std::string declaredeclare = "declare void @llvm.dbg.declare(metadata, metadata, metadata) nounwind readnone";
+#endif
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @work(i8* %arg){
   %_arg = alloca i8*, align 8
   store i8* %arg, i8** %_arg, align 8
-  load i32* @x, align 4
-  call void @llvm.dbg.declare(metadata i8** %_arg, metadata !0)
+  load i32, i32* @x, align 4
+  )" + declarecall + R"(
   store i32 1, i32* @x, align 4
   ret i8* null
 }
@@ -748,13 +756,13 @@ define i32 @main(){
 
 %attr_t = type { i64, [48 x i8] }
 
-declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
+)" + declaredeclare + R"(
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 
 !llvm.module.flags = !{!1}
 !0 = !{i32 0}
-!1 = !{i32 2, !"Debug Info Version", i32 1}
-)",conf);
+!1 = !{i32 2, !"Debug Info Version", i32 )" LLVM_METADATA_VERSION_NUMBER_STR R"(}
+)"),conf);
 #endif
 
   DPORDriver::Result res = driver->run();
@@ -776,14 +784,14 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 BOOST_AUTO_TEST_CASE(small_dekker_checker){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 @c = global i32 0, align 4
 
 define i8* @p0(i8* %arg){
   store i32 1, i32* @x, align 4
-  %y = load i32* @y, align 4
+  %y = load i32, i32* @y, align 4
   %ycmp = icmp eq i32 %y, 0
   br i1 %ycmp, label %p0check, label %p0exit
 
@@ -793,7 +801,7 @@ p0check:
   %y4 = add i32 %y, %y
   %y5 = add i32 %y, %y
   %y6 = add i32 %y, %y
-  load i32* @c, align 4
+  load i32, i32* @c, align 4
   br label %p0exit
 
 p0exit:
@@ -803,7 +811,7 @@ p0exit:
 
 define i8* @p1(i8* %arg){
   store i32 1, i32* @y, align 4
-  %x = load i32* @x, align 4
+  %x = load i32, i32* @x, align 4
   %xcmp = icmp eq i32 %x, 0
   br i1 %xcmp, label %p1check, label %p1exit
 
@@ -813,7 +821,7 @@ p1check:
   %x4 = add i32 %x, %x
   %x5 = add i32 %x, %x
   %x6 = add i32 %x, %x
-  load i32* @c, align 4
+  load i32, i32* @c, align 4
   br label %p1exit
 
 p1exit:
@@ -829,7 +837,7 @@ define i32 @main(){
 
 %attr_t = type {i64,[48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -860,37 +868,37 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
 BOOST_AUTO_TEST_CASE(Disappearing_conflict){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
 define i8* @p0(i8* %arg){
-  %x1 = load i32* @x, align 4
+  %x1 = load i32, i32* @x, align 4
   %xcmp1 = icmp eq i32 %x1, 0
   br i1 %xcmp1, label %l2, label %p0exit
 
 l2:
-  %x2 = load i32* @x, align 4
+  %x2 = load i32, i32* @x, align 4
   %xcmp2 = icmp eq i32 %x2, 0
   br i1 %xcmp2, label %l3, label %p0exit
 
 l3:
-  %x3 = load i32* @x, align 4
+  %x3 = load i32, i32* @x, align 4
   %xcmp3 = icmp eq i32 %x3, 0
   br i1 %xcmp3, label %l4, label %p0exit
 
 l4:
-  %x4 = load i32* @x, align 4
+  %x4 = load i32, i32* @x, align 4
   %xcmp4 = icmp eq i32 %x4, 0
   br i1 %xcmp4, label %l5, label %p0exit
 
 l5:
-  %x5 = load i32* @x, align 4
+  %x5 = load i32, i32* @x, align 4
   %xcmp5 = icmp eq i32 %x5, 0
   br i1 %xcmp5, label %l6, label %p0exit
 
 l6:
-  load i32* @y, align 4
+  load i32, i32* @y, align 4
   br label %p0exit
 
 p0exit:
@@ -914,7 +922,7 @@ define i32 @main(){
 
 %attr_t = type {i64,[48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -949,7 +957,7 @@ BOOST_AUTO_TEST_CASE(rruu){
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
@@ -961,14 +969,14 @@ define i8* @p1(i8* %arg){
 
 define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)*@p1, i8* null)
-  load i32* @x, align 4
-  load i32* @y, align 4
+  load i32, i32* @x, align 4
+  load i32, i32* @y, align 4
   ret i32 0
 }
 
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -996,11 +1004,11 @@ BOOST_AUTO_TEST_CASE(own_black_read){
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p(i8* %arg){
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   store i32 1, i32* @x, align 4
   ret i8* null
 }
@@ -1013,7 +1021,7 @@ define i32 @main(){
 
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1050,7 +1058,7 @@ BOOST_AUTO_TEST_CASE(own_black_read_2){
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
@@ -1060,14 +1068,14 @@ define i8* @p1(i8* %arg){
 
 define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)*@p1, i8* null)
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   store i32 1, i32* @x, align 4
   ret i32 0
 }
 
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1100,11 +1108,11 @@ BOOST_AUTO_TEST_CASE(own_black_read_3){
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   store i32 1, i32* @x, align 4
   ret i8* null
 }
@@ -1117,7 +1125,7 @@ define i32 @main(){
 
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1144,11 +1152,12 @@ BOOST_AUTO_TEST_CASE(Refuse_1){
    * would cause the call to pthread_create to be refused, until the
    * update was performed. This would cause a bug where the
    * instruction count was wrong. Hence the subsequent load would be
+   , would be
    * associated with the wrong IID.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
@@ -1159,13 +1168,13 @@ define i8* @p1(i8* %arg){
 define i32 @main(){
   store i32 1, i32* @x, align 4
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   ret i32 0
 }
 
 %attr_t = type { i64, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1184,11 +1193,11 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 BOOST_AUTO_TEST_CASE(Propagate){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
-  %x = load i32* @x, align 4
+  %x = load i32, i32* @x, align 4
   %xcmp = icmp eq i32 %x, 1
   br i1 %xcmp, label %error, label %exit
 
@@ -1209,7 +1218,7 @@ define i32 @main(){
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1221,37 +1230,37 @@ BOOST_AUTO_TEST_CASE(Branch_sleep){
   Configuration conf = DPORDriver_test::get_tso_conf();
   conf.explore_all_traces = true;
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @i = global i32 1, align 4
 @j = global i32 1, align 4
 
 define i8* @p1(i8* %arg){
-  %j0 = load i32* @j, align 4
+  %j0 = load i32, i32* @j, align 4
   %i0 = add nsw i32 %j0, 1
   store i32 %i0, i32* @i, align 4
-  %j1 = load i32* @j, align 4
+  %j1 = load i32, i32* @j, align 4
   %i1 = add nsw i32 %i0, %j1
   store i32 %i1, i32* @i, align 4
-  %j2 = load i32* @j, align 4
+  %j2 = load i32, i32* @j, align 4
   %i2 = add nsw i32 %i1, %j2
   store i32 %i2, i32* @i, align 4
-  %j3 = load i32* @j, align 4
+  %j3 = load i32, i32* @j, align 4
   %i3 = add nsw i32 %i2, %j3
   store i32 %i3, i32* @i, align 4
   ret i8* null
 }
 
 define i8* @p2(i8* %arg){
-  %i0 = load i32* @i, align 4
+  %i0 = load i32, i32* @i, align 4
   %j0 = add nsw i32 1, %i0
   store i32 %j0, i32* @j, align 4
-  %i1 = load i32* @i, align 4
+  %i1 = load i32, i32* @i, align 4
   %j1 = add nsw i32 %j0, %i1
   store i32 %j1, i32* @j, align 4
-  %i2 = load i32* @i, align 4
+  %i2 = load i32, i32* @i, align 4
   %j2 = add nsw i32 %j1, %i2
   store i32 %j2, i32* @j, align 4
-  %i3 = load i32* @i, align 4
+  %i3 = load i32, i32* @i, align 4
   %j3 = add nsw i32 %j2, %i3
   store i32 %j3, i32* @j, align 4
   ret i8* null
@@ -1260,7 +1269,7 @@ define i8* @p2(i8* %arg){
 define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p2, i8* null)
-  %j = load i32* @j, align 4
+  %j = load i32, i32* @j, align 4
   %jcmp = icmp eq i32 %j, 55
   br i1 %jcmp, label %error, label %exit
 
@@ -1275,7 +1284,7 @@ exit:
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1286,19 +1295,19 @@ declare void @__assert_fail() noreturn nounwind
 BOOST_AUTO_TEST_CASE(Atomic_store_1){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @c = global i32 0, align 4
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
   store atomic i32 1, i32* @y seq_cst, align 4
-  %x = load i32* @x, align 4
+  %x = load i32, i32* @x, align 4
   %xcmp = icmp eq i32 %x, 0
   br i1 %xcmp, label %cs, label %exit
 
 cs:
-  %c = load i32* @c, align 4
+  %c = load i32, i32* @c, align 4
   %ccmp = icmp eq i32 %c, 1
   br i1 %ccmp, label %error, label %cs2
 
@@ -1318,12 +1327,12 @@ exit:
 define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
   store atomic i32 1, i32* @x seq_cst, align 4
-  %y = load i32* @y, align 4
+  %y = load i32, i32* @y, align 4
   %ycmp = icmp eq i32 %y, 0
   br i1 %ycmp, label %cs, label %exit
 
 cs:
-  %c = load i32* @c, align 4
+  %c = load i32, i32* @c, align 4
   %ccmp = icmp eq i32 %c, 1
   br i1 %ccmp, label %error, label %cs2
 
@@ -1343,7 +1352,7 @@ exit:
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1365,7 +1374,7 @@ declare void @__assert_fail() noreturn nounwind
 BOOST_AUTO_TEST_CASE(Atomic_store_2){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @c = global i32 0, align 4
 @x = global i32 0, align 4
 @y = global i32 0, align 4
@@ -1375,12 +1384,12 @@ BOOST_AUTO_TEST_CASE(Atomic_store_2){
 define i8* @p1(i8* %arg){
   store i32 1, i32* @y, align 4
   store atomic i32 1, i32* @f1 seq_cst, align 4
-  %x = load i32* @x, align 4
+  %x = load i32, i32* @x, align 4
   %xcmp = icmp eq i32 %x, 0
   br i1 %xcmp, label %cs, label %exit
 
 cs:
-  %c = load i32* @c, align 4
+  %c = load i32, i32* @c, align 4
   %ccmp = icmp eq i32 %c, 1
   br i1 %ccmp, label %error, label %cs2
 
@@ -1401,12 +1410,12 @@ define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
   store i32 1, i32* @x, align 4
   store atomic i32 1, i32* @f0 seq_cst, align 4
-  %y = load i32* @y, align 4
+  %y = load i32, i32* @y, align 4
   %ycmp = icmp eq i32 %y, 0
   br i1 %ycmp, label %cs, label %exit
 
 cs:
-  %c = load i32* @c, align 4
+  %c = load i32, i32* @c, align 4
   %ccmp = icmp eq i32 %c, 1
   br i1 %ccmp, label %error, label %cs2
 
@@ -1426,7 +1435,7 @@ exit:
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1448,7 +1457,7 @@ declare void @__assert_fail() noreturn nounwind
 BOOST_AUTO_TEST_CASE(Atomic_store_3){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 @z = global i32 0, align 4
@@ -1456,7 +1465,7 @@ BOOST_AUTO_TEST_CASE(Atomic_store_3){
 define i8* @p1(i8* %arg){
   store i32 1, i32* @y, align 4
   store atomic i32 1, i32* @z seq_cst, align 4
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
@@ -1464,13 +1473,13 @@ define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
   store i32 1, i32* @x, align 4
   store atomic i32 1, i32* @z seq_cst, align 4
-  load i32* @y, align 4
+  load i32, i32* @y, align 4
   ret i32 0
 }
 
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1491,7 +1500,7 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 BOOST_AUTO_TEST_CASE(CMPXCHG_1){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @c = global i32 0, align 4
 @x = global i32 0, align 4
 @y = global i32 0, align 4
@@ -1505,12 +1514,12 @@ R"(
   cmpxchg volatile i32* @y, i32 0, i32 1 seq_cst)"
 #endif
 R"(
-  %x = load i32* @x, align 4
+  %x = load i32, i32* @x, align 4
   %xcmp = icmp eq i32 %x, 0
   br i1 %xcmp, label %cs, label %exit
 
 cs:
-  %c = load i32* @c, align 4
+  %c = load i32, i32* @c, align 4
   %ccmp = icmp eq i32 %c, 1
   br i1 %ccmp, label %error, label %cs2
 
@@ -1537,12 +1546,12 @@ R"(
   cmpxchg volatile i32* @x, i32 0, i32 1 seq_cst)"
 #endif
 R"(
-  %y = load i32* @y, align 4
+  %y = load i32, i32* @y, align 4
   %ycmp = icmp eq i32 %y, 0
   br i1 %ycmp, label %cs, label %exit
 
 cs:
-  %c = load i32* @c, align 4
+  %c = load i32, i32* @c, align 4
   %ccmp = icmp eq i32 %c, 1
   br i1 %ccmp, label %error, label %cs2
 
@@ -1562,7 +1571,7 @@ exit:
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1584,7 +1593,7 @@ declare void @__assert_fail() noreturn nounwind
 BOOST_AUTO_TEST_CASE(CMPXCHG_2){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @c = global i32 0, align 4
 @x = global i32 0, align 4
 @y = global i32 0, align 4
@@ -1601,12 +1610,12 @@ R"(
   cmpxchg volatile i32* @f1, i32 0, i32 1 seq_cst)"
 #endif
 R"(
-  %x = load i32* @x, align 4
+  %x = load i32, i32* @x, align 4
   %xcmp = icmp eq i32 %x, 0
   br i1 %xcmp, label %cs, label %exit
 
 cs:
-  %c = load i32* @c, align 4
+  %c = load i32, i32* @c, align 4
   %ccmp = icmp eq i32 %c, 1
   br i1 %ccmp, label %error, label %cs2
 
@@ -1634,12 +1643,12 @@ R"(
   cmpxchg volatile i32* @f0, i32 0, i32 1 seq_cst)"
 #endif
 R"(
-  %y = load i32* @y, align 4
+  %y = load i32, i32* @y, align 4
   %ycmp = icmp eq i32 %y, 0
   br i1 %ycmp, label %cs, label %exit
 
 cs:
-  %c = load i32* @c, align 4
+  %c = load i32, i32* @c, align 4
   %ccmp = icmp eq i32 %c, 1
   br i1 %ccmp, label %error, label %cs2
 
@@ -1659,7 +1668,7 @@ exit:
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1681,7 +1690,7 @@ declare void @__assert_fail() noreturn nounwind
 BOOST_AUTO_TEST_CASE(CMPXCHG_3){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @c = global i32 0, align 4
 @l = global i32 0, align 4
 
@@ -1720,7 +1729,7 @@ R"(
 R"(
   br i1 %ocmp, label %cs, label %exit
 cs:
-  %c = load i32* @c, align 4
+  %c = load i32, i32* @c, align 4
   %ccmp = icmp eq i32 %c, 1
   br i1 %ccmp, label %cone, label %unlock
 cone:
@@ -1736,7 +1745,7 @@ exit:
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1747,7 +1756,7 @@ declare void @__assert_fail() noreturn nounwind
 BOOST_AUTO_TEST_CASE(CMPXCHG_4){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @c = global i32 0, align 4
 @l = global i32 0, align 4
 
@@ -1787,7 +1796,7 @@ R"(
 R"(
   br i1 %ocmp, label %cs, label %exit
 cs:
-  %c = load i32* @c, align 4
+  %c = load i32, i32* @c, align 4
   %ccmp = icmp eq i32 %c, 1
   br i1 %ccmp, label %cone, label %unlock
 cone:
@@ -1803,7 +1812,7 @@ exit:
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1817,7 +1826,7 @@ BOOST_AUTO_TEST_CASE(Join_1){
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 define i8* @p1(i8* %arg){
   %iarg = ptrtoint i8* %arg to i32
   %rv = mul i32 %iarg, %iarg
@@ -1831,9 +1840,9 @@ define i32 @main(){
   %rv = alloca i8*
   %arg = inttoptr i32 4 to i8*
   call i32 @pthread_create(i64* %thread, %attr_t* null, i8*(i8*)* @p1, i8* %arg)
-  %thr = load i64* %thread
+  %thr = load i64, i64* %thread
   call i32 @pthread_join(i64 %thr,i8** %rv)
-  %rvv = load i8** %rv
+  %rvv = load i8*, i8** %rv
   %retval = ptrtoint i8* %rvv to i32
   %rvcmp = icmp ne i32 %retval, 16
   br i1 %rvcmp, label %error, label %exit
@@ -1848,7 +1857,7 @@ exit:
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare i32 @pthread_join(i64, i8**) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1859,18 +1868,18 @@ declare void @__assert_fail() noreturn nounwind
 BOOST_AUTO_TEST_CASE(Join_2){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
 define i32 @main(){
   %thread = alloca i64
   call i32 @pthread_create(i64* %thread, %attr_t* null, i8*(i8*)* @p1, i8* null)
-  %thr = load i64* %thread
+  %thr = load i64, i64* %thread
   call i32 @pthread_join(i64 %thr,i8** null)
   store i32 1, i32* @x, align 4
   ret i32 0
@@ -1880,7 +1889,7 @@ define i32 @main(){
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare i32 @pthread_join(i64, i8**) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1899,7 +1908,7 @@ declare void @__assert_fail() noreturn nounwind
 BOOST_AUTO_TEST_CASE(Join_3){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
@@ -1910,9 +1919,9 @@ define i8* @p1(i8* %arg){
 define i32 @main(){
   %thread = alloca i64
   call i32 @pthread_create(i64* %thread, %attr_t* null, i8*(i8*)* @p1, i8* null)
-  %thr = load i64* %thread
+  %thr = load i64, i64* %thread
   call i32 @pthread_join(i64 %thr,i8** null)
-  %x = load i32* @x, align 4
+  %x = load i32, i32* @x, align 4
   %xcmp = icmp ne i32 %x, 42
   br i1 %xcmp, label %error, label %exit
 error:
@@ -1926,7 +1935,7 @@ exit:
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare i32 @pthread_join(i64, i8**) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1945,13 +1954,13 @@ declare void @__assert_fail() noreturn nounwind
 BOOST_AUTO_TEST_CASE(Mutex_1){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @lck = global i32 0, align 4
 @c = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
   call i32 @pthread_mutex_lock(i32* @lck)
-  %c = load i32* @c, align 4
+  %c = load i32, i32* @c, align 4
   %ccmp = icmp ne i32 %c, 0
   br i1 %ccmp, label %error, label %cs
 error:
@@ -1977,7 +1986,7 @@ declare i32 @pthread_mutex_init(i32*,i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1998,13 +2007,13 @@ BOOST_AUTO_TEST_CASE(Mutex_2){
   /* Possible access to mutex before initialization. */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @lck = global i32 0, align 4
 @c = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
   call i32 @pthread_mutex_lock(i32* @lck)
-  %c = load i32* @c, align 4
+  %c = load i32, i32* @c, align 4
   %ccmp = icmp ne i32 %c, 0
   br i1 %ccmp, label %error, label %cs
 error:
@@ -2030,7 +2039,7 @@ declare i32 @pthread_mutex_init(i32*,i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2041,7 +2050,7 @@ declare void @__assert_fail() noreturn nounwind
 BOOST_AUTO_TEST_CASE(Mutex_3){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @lck = global i32 0, align 4
 @x = global i32 0, align 4
 @y = global i32 0, align 4
@@ -2058,9 +2067,9 @@ define i32 @main(){
   call i32 @pthread_mutex_init(i32* @lck, i32* null)
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
   call i32 @pthread_mutex_lock(i32* @lck)
-  %y = load i32* @y, align 4
+  %y = load i32, i32* @y, align 4
   call i32 @pthread_mutex_unlock(i32* @lck)
-  %x = load i32* @x, align 4
+  %x = load i32, i32* @x, align 4
   %xycmp = icmp sgt i32 %y, %x
   br i1 %xycmp, label %error, label %exit
 error:
@@ -2076,7 +2085,7 @@ declare i32 @pthread_mutex_init(i32*,i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2099,7 +2108,7 @@ BOOST_AUTO_TEST_CASE(Mutex_4){
   /* Unlock without lock */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @lck = global i32 0, align 4
 
 define i32 @main(){
@@ -2111,7 +2120,7 @@ define i32 @main(){
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_mutex_init(i32*,i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2123,7 +2132,7 @@ BOOST_AUTO_TEST_CASE(Mutex_5){
   /* Unlock mutex when locked by other process. */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @lck = global i32 0, align 4
 @x = global i32 0, align 4
 @y = global i32 0, align 4
@@ -2146,7 +2155,7 @@ declare i32 @pthread_mutex_init(i32*,i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2159,13 +2168,13 @@ BOOST_AUTO_TEST_CASE(Mutex_6){
    * refuses to release a lock. */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @lck = global i32 0, align 4
 @x = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
   call i32 @pthread_mutex_lock(i32* @lck)
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
@@ -2175,7 +2184,7 @@ define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
   call i32 @pthread_mutex_lock(i32* @lck)
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   ret i32 0
 }
 
@@ -2185,7 +2194,7 @@ declare i32 @pthread_mutex_init(i32*,i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2205,7 +2214,7 @@ BOOST_AUTO_TEST_CASE(Mutex_7){
   /* Typical use of pthread_mutex_destroy */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @lck = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
@@ -2220,7 +2229,7 @@ define i32 @main(){
   call i32 @pthread_create(i64* %thread, %attr_t* null, i8*(i8*)* @p1, i8* null)
   call i32 @pthread_mutex_lock(i32* @lck)
   call i32 @pthread_mutex_unlock(i32* @lck)
-  %thr = load i64* %thread, align 4
+  %thr = load i64, i64* %thread, align 4
   call i32 @pthread_join(i64 %thr, i8** null)
   call i32 @pthread_mutex_destroy(i32* @lck)
   ret i32 0
@@ -2234,7 +2243,7 @@ declare i32 @pthread_mutex_destroy(i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2255,7 +2264,7 @@ BOOST_AUTO_TEST_CASE(Mutex_8){
   /* Too early destruction of mutex. */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @lck = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
@@ -2281,7 +2290,7 @@ declare i32 @pthread_mutex_destroy(i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2293,14 +2302,14 @@ BOOST_AUTO_TEST_CASE(Mutex_9){
   /* Mutex destruction and flag */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @lck = global i32 0, align 4
 @flag = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
   call i32 @pthread_mutex_lock(i32* @lck)
   call i32 @pthread_mutex_unlock(i32* @lck)
-  %flag = load i32* @flag, align 4
+  %flag = load i32, i32* @flag, align 4
   %fcmp = icmp eq i32 %flag, 1
   br i1 %fcmp, label %destroy, label %exit
 destroy:
@@ -2327,7 +2336,7 @@ declare i32 @pthread_mutex_destroy(i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2352,14 +2361,14 @@ BOOST_AUTO_TEST_CASE(Mutex_10){
    * overlap. */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @lck0 = global i32 0, align 4
 @lck1 = global i32 0, align 4
 @c = global i32 0, align 4
 
 define i8* @p0(i8* %arg){
   call i32 @pthread_mutex_lock(i32* @lck0)
-  %c = load i32* @c, align 4
+  %c = load i32, i32* @c, align 4
   %ccmp = icmp ne i32 %c, 0
   br i1 %ccmp, label %error, label %cs
 error:
@@ -2374,7 +2383,7 @@ cs:
 
 define i8* @p1(i8* %arg){
   call i32 @pthread_mutex_lock(i32* @lck1)
-  %c = load i32* @c, align 4
+  %c = load i32, i32* @c, align 4
   %ccmp = icmp ne i32 %c, 0
   br i1 %ccmp, label %error, label %cs
 error:
@@ -2401,7 +2410,7 @@ declare i32 @pthread_mutex_init(i32*,i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2413,13 +2422,13 @@ BOOST_AUTO_TEST_CASE(Mutex_11){
   /* Check return values from calls to pthread_mutex_* */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @lck = global i32 0, align 4
 @c = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
   %i0 = call i32 @pthread_mutex_lock(i32* @lck)
-  %c = load i32* @c, align 4
+  %c = load i32, i32* @c, align 4
   %ccmp = icmp ne i32 %c, 0
   br i1 %ccmp, label %error, label %cs
 error:
@@ -2448,7 +2457,7 @@ create:
   %thread = alloca i64, align 4
   call i32 @pthread_create(i64* %thread, %attr_t* null, i8*(i8*)* @p1, i8* null)
   call i8* @p1(i8* null)
-  %thr = load i64* %thread, align 4
+  %thr = load i64, i64* %thread, align 4
   call i32 @pthread_join(i64 %thr, i8** null)
   %i1 = call i32 @pthread_mutex_destroy(i32* @lck)
   %icmp1 = icmp ne i32 %i1, 0
@@ -2465,7 +2474,7 @@ declare i32 @pthread_mutex_destroy(i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2479,7 +2488,7 @@ BOOST_AUTO_TEST_CASE(Mutex_12){
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @lck = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
@@ -2505,7 +2514,7 @@ declare i32 @pthread_mutex_destroy(i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2531,7 +2540,7 @@ BOOST_AUTO_TEST_CASE(Malloc_1){
   Configuration conf = DPORDriver_test::get_tso_conf();
   conf.malloc_may_fail = true;
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 define i32 @main(){
   %p = call i8* @malloc(i32 10)
   %pcmp = icmp eq i8* %p, null
@@ -2549,7 +2558,7 @@ exit:
 declare i8* @malloc(i32) nounwind
 declare void @free(i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
@@ -2560,7 +2569,7 @@ BOOST_AUTO_TEST_CASE(Malloc_2){
   Configuration conf = DPORDriver_test::get_tso_conf();
   conf.malloc_may_fail = true;
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 define i32 @main(){
   %p = call i8* @malloc(i32 10)
   %pcmp = icmp ne i8* %p, null
@@ -2576,7 +2585,7 @@ exit:
 declare i8* @malloc(i32) nounwind
 declare void @free(i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)",conf);
+)"),conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
@@ -2587,7 +2596,7 @@ BOOST_AUTO_TEST_CASE(Assume_1){
   Configuration conf = DPORDriver_test::get_tso_conf();
   conf.malloc_may_fail = true;
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 define i32 @main(){
   %p = call i8* @malloc(i32 10)
   %pi = ptrtoint i8* %p to i32
@@ -2600,7 +2609,7 @@ define i32 @main(){
 declare i8* @malloc(i32) nounwind
 declare void @free(i8*) nounwind
 declare void @__VERIFIER_assume(i32)
-)",conf);
+)"),conf);
   DPORDriver::Result res = driver->run();
   delete driver;
   BOOST_CHECK(!res.has_errors());
@@ -2610,7 +2619,7 @@ BOOST_AUTO_TEST_CASE(Assume_2){
   Configuration conf = DPORDriver_test::get_tso_conf();
   conf.malloc_may_fail = true;
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 define i32 @main(){
   %p = call i8* @malloc(i32 10)
   %pi = ptrtoint i8* %p to i32
@@ -2624,7 +2633,7 @@ declare i8* @malloc(i32) nounwind
 declare void @free(i8*) nounwind
 declare void @__assert_fail()
 declare void @__VERIFIER_assume(i32)
-)",conf);
+)"),conf);
   DPORDriver::Result res = driver->run();
   delete driver;
   BOOST_CHECK(res.has_errors());
@@ -2636,7 +2645,7 @@ BOOST_AUTO_TEST_CASE(Nasty_bitcast){
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 define i8* @p(){
   ret i8* null
 }
@@ -2648,7 +2657,7 @@ define i32 @main(){
 
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)",conf);
+)"),conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
@@ -2658,11 +2667,11 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
 BOOST_AUTO_TEST_CASE(Atomic_2){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
-  %x = load i32* @x, align 4
+  %x = load i32, i32* @x, align 4
   %xcmp = icmp eq i32 %x, 1
   br i1 %xcmp, label %error, label %exit
 error:
@@ -2687,7 +2696,7 @@ define i32 @main(){
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail()
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2705,14 +2714,14 @@ BOOST_AUTO_TEST_CASE(Atomic_4){
   /* Atomic functions act as full fences */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
   store i32 1, i32* @y, align 4
   call void @__VERIFIER_atomic_fence()
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
@@ -2724,14 +2733,14 @@ define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
   store i32 1, i32* @x, align 4
   call void @__VERIFIER_atomic_fence()
-  load i32* @y, align 4
+  load i32, i32* @y, align 4
   ret i32 0
 }
 
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail()
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2754,7 +2763,7 @@ declare void @__assert_fail()
 BOOST_AUTO_TEST_CASE(Non_fences){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
@@ -2763,7 +2772,7 @@ declare void @__VERIFIER_assume(i32) nounwind
 define i8* @p(i8* %arg){
   store i32 1, i32* @y, align 4
   call void @__VERIFIER_assume(i32 1)       ; Not a fence
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
@@ -2771,13 +2780,13 @@ define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p, i8* null)
   store i32 1, i32* @x, align 4
   fence seq_cst
-  load i32* @y, align 4
+  load i32, i32* @y, align 4
   ret i32 0
 }
 
 %attr_t = type{i64, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2799,7 +2808,7 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 BOOST_AUTO_TEST_CASE(Bitcast_rowe_1){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @p = global i32* null, align 8
 @i = global i32 0, align 4
 
@@ -2810,7 +2819,7 @@ BOOST_AUTO_TEST_CASE(Bitcast_rowe_1){
 ; This thread exists only to force ROWE in main function
 define i8* @p1(i8* %arg){
   store atomic i32 1, i32* @y seq_cst, align 4
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
@@ -2819,8 +2828,8 @@ define i32 @main(){
   store i32 1, i32* @x, align 4
   store i32* @i, i32** @p, align 8
   %pp64 = bitcast i32** @p to i64* ; Assume that pointers are 64 bit
-  %p64 = load i64* %pp64, align 8 ; ROWE
-  load i32* @y, align 4
+  %p64 = load i64, i64* %pp64, align 8 ; ROWE
+  load i32, i32* @y, align 4
 
   %pi64 = ptrtoint i32* @i to i64
   %pcmp = icmp eq i64 %pi64, %p64
@@ -2837,7 +2846,7 @@ exit:
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
 declare void @__assert_fail() nounwind noreturn
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2848,7 +2857,7 @@ declare void @__assert_fail() nounwind noreturn
 BOOST_AUTO_TEST_CASE(Bitcast_rowe_2){
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @p = global i32* null, align 8
 @i = global i32 0, align 4
 @j = global i32 0, align 4
@@ -2859,7 +2868,7 @@ BOOST_AUTO_TEST_CASE(Bitcast_rowe_2){
 ; This thread exists only to force ROWE in main function
 define i8* @p1(i8* %arg){
   store atomic i32 1, i32* @y seq_cst, align 4
-  load i32** @p, align 8
+  load i32*, i32** @p, align 8
   ret i8* null
 }
 
@@ -2867,8 +2876,8 @@ define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)*@p1, i8* null)
   store i32* @i, i32** @p, align 8
   %pp64 = bitcast i32** @p to i64* ; Assume that pointers are 64 bit
-  %p64 = load i64* %pp64, align 8 ; ROWE
-  load i32* @y, align 4
+  %p64 = load i64, i64* %pp64, align 8 ; ROWE
+  load i32, i32* @y, align 4
 
   %pi64 = ptrtoint i32* @i to i64
   %pcmp = icmp eq i64 %pi64, %p64
@@ -2885,7 +2894,7 @@ exit:
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
 declare void @__assert_fail() nounwind noreturn
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2901,7 +2910,7 @@ BOOST_AUTO_TEST_CASE(Full_conflict_5){
   Configuration conf = DPORDriver_test::get_tso_conf();
   conf.explore_all_traces = true;
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 
 @x = global i32 0, align 4
 @y = global i32 0, align 4
@@ -2923,7 +2932,7 @@ define i32 @main(){
 %attr_t = type { i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
 declare i8* @memcpy(i8*, i8*, i32) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2947,29 +2956,30 @@ declare i8* @memcpy(i8*, i8*, i32) nounwind
 
 BOOST_AUTO_TEST_CASE(Overlapping_ROWE_1){
   /* A load l of bytes B(l) where the latest preceding store which
+   , l of bytes B(l) where the latest preceding store which
    * accesses some bytes in B(l) does not access precisely the bytes
    * in B(l), will block until that store has updated to memory. This
    * is intended to be a safe under-approximation of TSO behaviour.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
 define i8* @p0(i8* %arg){
   store i32 1, i32* @x, align 4
   %xb = bitcast i32* @x to i8*
-  load i8* %xb
-  load i32* @y, align 4
+  load i8, i8* %xb
+  load i32, i32* @y, align 4
   ret i8* null
 }
 
 define i8* @p1(i8* %arg){
   store i32 1, i32* @y, align 4
   %yb = bitcast i32* @y to i8*
-  load i8* %yb
-  load i32* @x, align 4
+  load i8, i8* %yb
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
@@ -2981,7 +2991,7 @@ define i32 @main(){
 
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -2999,13 +3009,14 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
 
 BOOST_AUTO_TEST_CASE(Overlapping_ROWE_2){
   /* A load l of bytes B(l) where the latest preceding store which
+   , l of bytes B(l) where the latest preceding store which
    * accesses some bytes in B(l) does not access precisely the bytes
    * in B(l), will block until that store has updated to memory. This
    * is intended to be a safe under-approximation of TSO behaviour.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
@@ -3013,8 +3024,8 @@ define i8* @p0(i8* %arg){
   store i32 1, i32* @x, align 4
   store i32 2, i32* @x, align 4
   %xb = bitcast i32* @x to i8*
-  load i8* %xb
-  load i32* @y, align 4
+  load i8, i8* %xb
+  load i32, i32* @y, align 4
   ret i8* null
 }
 
@@ -3022,8 +3033,8 @@ define i8* @p1(i8* %arg){
   store i32 1, i32* @y, align 4
   store i32 2, i32* @y, align 4
   %yb = bitcast i32* @y to i8*
-  load i8* %yb
-  load i32* @x, align 4
+  load i8, i8* %yb
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
@@ -3035,7 +3046,7 @@ define i32 @main(){
 
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -3057,13 +3068,14 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
 
 BOOST_AUTO_TEST_CASE(Overlapping_ROWE_3){
   /* A load l of bytes B(l) where the latest preceding store which
+   , l of bytes B(l) where the latest preceding store which
    * accesses some bytes in B(l) does not access precisely the bytes
    * in B(l), will block until that store has updated to memory. This
    * is intended to be a safe under-approximation of TSO behaviour.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
@@ -3071,8 +3083,8 @@ define i8* @p0(i8* %arg){
   store i32 1, i32* @x, align 4
   %xb = bitcast i32* @x to i8*
   store i8 2, i8* %xb
-  load i8* %xb
-  load i32* @y, align 4
+  load i8, i8* %xb
+  load i32, i32* @y, align 4
   ret i8* null
 }
 
@@ -3080,8 +3092,8 @@ define i8* @p1(i8* %arg){
   store i32 1, i32* @y, align 4
   %yb = bitcast i32* @y to i8*
   store i8 2, i8* %yb
-  load i8* %yb
-  load i32* @x, align 4
+  load i8, i8* %yb
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
@@ -3093,7 +3105,7 @@ define i32 @main(){
 
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -3120,31 +3132,32 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
 
 BOOST_AUTO_TEST_CASE(Overlapping_ROWE_4){
   /* A load l of bytes B(l) where the latest preceding store which
+   , l of bytes B(l) where the latest preceding store which
    * accesses some bytes in B(l) does not access precisely the bytes
    * in B(l), will block until that store has updated to memory. This
    * is intended to be a safe under-approximation of TSO behaviour.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
 define i8* @p0(i8* %arg){
   %xb = bitcast i32* @x to i8*
-  %xb1 = getelementptr i8* %xb, i32 1
+  %xb1 = getelementptr i8, i8* %xb, i32 1
   store i8 2, i8* %xb1
-  load i32* @x, align 4
-  load i32* @y, align 4
+  load i32, i32* @x, align 4
+  load i32, i32* @y, align 4
   ret i8* null
 }
 
 define i8* @p1(i8* %arg){
   %yb = bitcast i32* @y to i8*
-  %yb1 = getelementptr i8* %yb, i32 1
+  %yb1 = getelementptr i8, i8* %yb, i32 1
   store i8 1, i8* %yb1
-  load i32* @y, align 4
-  load i32* @x, align 4
+  load i32, i32* @y, align 4
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
@@ -3156,7 +3169,7 @@ define i32 @main(){
 
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -3175,33 +3188,34 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
 
 BOOST_AUTO_TEST_CASE(Overlapping_ROWE_5){
   /* A load l of bytes B(l) where the latest preceding store which
+   , l of bytes B(l) where the latest preceding store which
    * accesses some bytes in B(l) does not access precisely the bytes
    * in B(l), will block until that store has updated to memory. This
    * is intended to be a safe under-approximation of TSO behaviour.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
 define i8* @p0(i8* %arg){
   %xb = bitcast i32* @x to i8*
-  %xb1 = getelementptr i8* %xb, i32 1
+  %xb1 = getelementptr i8, i8* %xb, i32 1
   store i8 2, i8* %xb1
-  load i8* %xb
-  load i8* %xb1
-  load i32* @y, align 4
+  load i8, i8* %xb
+  load i8, i8* %xb1
+  load i32, i32* @y, align 4
   ret i8* null
 }
 
 define i8* @p1(i8* %arg){
   %yb = bitcast i32* @y to i8*
-  %yb1 = getelementptr i8* %yb, i32 1
+  %yb1 = getelementptr i8, i8* %yb, i32 1
   store i8 1, i8* %yb1
-  load i8* %yb
-  load i8* %yb1
-  load i32* @x, align 4
+  load i8, i8* %yb
+  load i8, i8* %yb1
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
@@ -3213,7 +3227,7 @@ define i32 @main(){
 
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;

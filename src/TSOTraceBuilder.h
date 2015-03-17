@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -21,10 +21,10 @@
 #ifndef __TSO_TRACE_BUILDER_H__
 #define __TSO_TRACE_BUILDER_H__
 
-#include "TraceBuilder.h"
+#include "TSOPSOTraceBuilder.h"
 #include "VClock.h"
 
-class TSOTraceBuilder : public TraceBuilder{
+class TSOTraceBuilder : public TSOPSOTraceBuilder{
 public:
   TSOTraceBuilder(const Configuration &conf = Configuration::default_conf);
   virtual ~TSOTraceBuilder();
@@ -35,7 +35,7 @@ public:
   virtual void metadata(const llvm::MDNode *md);
   virtual bool sleepset_is_empty() const;
   virtual bool check_for_cycles();
-  virtual Trace get_trace() const;
+  virtual Trace *get_trace() const;
   virtual bool reset();
   virtual IID<CPid> get_iid() const;
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2012-2014 Carl Leonardsson
+/* Copyright (C) 2012-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -41,6 +41,14 @@ public:
     : vec(v) {
     assert(check_invariant());
   };
+  /* A set consisting of the values in v.
+   *
+   * Pre: v is sorted and distinct.
+   */
+  VecSet(std::vector<T> &&v)
+    : vec(std::move(v)) {
+    assert(check_invariant());
+  };
   /* A set consisting of the values of [begin,end). Each element is
    * inserted using a separate call to insert.
    */
@@ -48,7 +56,9 @@ public:
   VecSet(ITER begin, ITER end);
   VecSet(std::initializer_list<T> il);
   VecSet(const VecSet &) = default;
+  VecSet(VecSet &&);
   VecSet &operator=(const VecSet&) = default;
+  VecSet &operator=(VecSet&&);
   virtual ~VecSet() {};
   /* Returns a set which is the singleton {t}. */
   static VecSet singleton(const T &t){
@@ -74,6 +84,11 @@ public:
    * Return the number of elements that were erased (0 or 1).
    */
   int erase(const T &t);
+  /* Erase all elements of S from this set.
+   *
+   * Return the number of elements that were erased.
+   */
+  int erase(const VecSet<T> &S);
   /* Return 1 if t is in this set, 0 otherwise. */
   int count(const T &t) const;
   /* Return the index of t in the vector.
@@ -91,6 +106,13 @@ public:
   bool intersects(const VecSet<T> &s) const;
   /* Returns the i:th smallest element in the set. */
   const T &operator[](int i) const { return vec[i]; };
+  /* Returns the largest element in the set. */
+  const T &back() const { return vec.back(); };
+  /* Removes the largest element from the set.
+   *
+   * Pre: the set is non-empty
+   */
+  void pop_back() { vec.pop_back(); };
   class const_iterator{
   public:
     typedef std::bidirectional_iterator_tag iterator_category;

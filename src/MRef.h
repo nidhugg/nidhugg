@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -151,7 +151,7 @@ private:
   MRef ref;
   /* Block points to at least ref.size bytes of memory. */
   void *block;
-  /* Pointer counter for block and itself. */
+  /* Pointer counter for block and itself. 0 if the block is not owned. */
   int *ptr_counter;
 public:
   /* Create an MBlock with reference ref, and a fresh block of memory
@@ -160,6 +160,11 @@ public:
    * Pre: ref.size <= alloc_size
    */
   MBlock(const MRef &ref, int alloc_size);
+  /* Create an MBlock with reference ref, using the actual memory
+   * location referenced by ref as its memory block. Does not take
+   * ownership.
+   */
+  MBlock(const MRef &ref);
   MBlock(const MBlock &B);
   MBlock &operator=(const MBlock &B);
   ~MBlock();

@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -23,7 +23,7 @@
 #include <sstream>
 #include <stdexcept>
 
-PSOTraceBuilder::PSOTraceBuilder(const Configuration &conf) : TraceBuilder(conf) {
+PSOTraceBuilder::PSOTraceBuilder(const Configuration &conf) : TSOPSOTraceBuilder(conf) {
   threads.push_back(Thread(0,CPid(),{},-1));
   proc_to_ipid.push_back(0);
   prefix_idx = -1;
@@ -233,7 +233,7 @@ bool PSOTraceBuilder::check_for_cycles(){
   return true;
 };
 
-Trace PSOTraceBuilder::get_trace() const{
+Trace *PSOTraceBuilder::get_trace() const{
   std::vector<IID<CPid> > cmp;
   std::vector<const llvm::MDNode*> cmp_md;
   std::vector<Error*> errs;
@@ -244,8 +244,8 @@ Trace PSOTraceBuilder::get_trace() const{
   for(unsigned i = 0; i < errors.size(); ++i){
     errs.push_back(errors[i]->clone());
   }
-  Trace t(cmp,cmp_md,errs);
-  t.set_sleep_set_blocked(!sleepset_is_empty());
+  Trace *t = new IIDSeqTrace(cmp,cmp_md,errs);
+  t->set_blocked(!sleepset_is_empty());
   return t;
 };
 

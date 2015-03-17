@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -53,6 +53,20 @@ namespace DPORDriver_test {
     return conf;
   };
 
+  const Configuration &get_power_conf(){
+    static Configuration conf;
+    conf.memory_model = Configuration::POWER;
+    conf.debug_collect_all_traces = true;
+    return conf;
+  };
+
+  const Configuration &get_arm_conf(){
+    static Configuration conf;
+    conf.memory_model = Configuration::ARM;
+    conf.debug_collect_all_traces = true;
+    return conf;
+  };
+
   std::string trace_spec_to_string(const trace_spec &v){
     std::stringstream ss;
     ss << "{";
@@ -63,16 +77,12 @@ namespace DPORDriver_test {
     return ss.str() + "}";
   };
 
-  void print_trace(const Trace &_t, llvm::raw_ostream &os, int ind){
-    const std::vector<IID<CPid> > &t = _t.get_computation();
-    for(unsigned i = 0; i < t.size(); ++i){
-      for(int j = 0; j < ind; ++j) os << " ";
-      os << t[i].to_string() << "\n";
-    }
+  void print_trace(const Trace *_t, llvm::raw_ostream &os, int ind){
+    os << _t->to_string(ind);
   };
 
-  int find(const Trace &_t, const IID<CPid> &iid){
-    const std::vector<IID<CPid> > &t = _t.get_computation();
+  int find(const IIDSeqTrace *_t, const IID<CPid> &iid){
+    const std::vector<IID<CPid> > &t = _t->get_computation();
     for(int i = 0; i < int(t.size()); ++i){
       if(t[i] == iid){
         return i;
@@ -81,7 +91,7 @@ namespace DPORDriver_test {
     return -1;
   }
 
-  bool check_trace(const Trace &t, const trace_spec &spec){
+  bool check_trace(const IIDSeqTrace *t, const trace_spec &spec){
     for(unsigned i = 0; i < spec.size(); ++i){
       int a_i = find(t,spec[i].a);
       int b_i = find(t,spec[i].b);
@@ -94,9 +104,9 @@ namespace DPORDriver_test {
 
   /* Returns true iff the indices of the IIDs of each process is
    * strictly increasing along the computation of t. */
-  bool all_clocks_increasing(const Trace &t){
+  bool all_clocks_increasing(const IIDSeqTrace *t){
     VClock<CPid> pcs;
-    for(auto it = t.get_computation().begin(); it != t.get_computation().end(); ++it){
+    for(auto it = t->get_computation().begin(); it != t->get_computation().end(); ++it){
       if(it->get_index() <= pcs[it->get_pid()]) return false;
       pcs[it->get_pid()] = it->get_index();
     }
@@ -112,7 +122,7 @@ namespace DPORDriver_test {
     }
     bool retval = true;
     for(unsigned i = 0; i < res.all_traces.size(); ++i){
-      if(!all_clocks_increasing(res.all_traces[i])){
+      if(!all_clocks_increasing(static_cast<const IIDSeqTrace*>(res.all_traces[i]))){
         llvm::dbgs() << "DPORDriver_test::check_all_traces: "
                      << "Non increasing instruction index in trace.\n";
         retval = false;
@@ -130,8 +140,8 @@ namespace DPORDriver_test {
       bool found = false;
       int prev_match = -1;
       for(unsigned(j) = 0; j < res.all_traces.size(); ++j){
-        if(res.all_traces[j].is_sleep_set_blocked()) continue;
-        if(check_trace(res.all_traces[j],spec[i])){
+        if(res.all_traces[j]->is_blocked()) continue;
+        if(check_trace(static_cast<const IIDSeqTrace*>(res.all_traces[j]),spec[i])){
           if(found){
             // Multiple traces match the same specification
             llvm::dbgs() << "DPORDriver_test::check_all_traces: Multiple traces (#"
@@ -140,9 +150,9 @@ namespace DPORDriver_test {
                          << j+1
                          << ") match the same specification:\n";
             llvm::dbgs() << "#" << prev_match+1 << ":\n"
-                         << res.all_traces[prev_match].computation_to_string(2)
+                         << res.all_traces[prev_match]->to_string(2)
                          << "\n#" << j+1 << ":\n"
-                         << res.all_traces[j].computation_to_string(2);
+                         << res.all_traces[j]->to_string(2);
             llvm::dbgs() << "  " << trace_spec_to_string(spec[i]) << "\n";
             t2e[j] = i;
             retval = false;
@@ -166,14 +176,13 @@ namespace DPORDriver_test {
       }
     }
     for(unsigned i = 0; i < t2e.size(); ++i){
-      if(!res.all_traces[i].is_sleep_set_blocked() && t2e[i] < 0){
+      if(!res.all_traces[i]->is_blocked() && t2e[i] < 0){
         llvm::dbgs() << "DPORDriver_test::check_all_traces: A trace is not matched by any specification: #" << i+1 << "\n";
         retval = false;
       }
     }
     return retval;
   };
-
 }
 
 #endif

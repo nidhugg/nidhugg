@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  * (For the modifications made in this file to the code from LLVM.)
  *
  * This file is part of Nidhugg.
@@ -1094,7 +1094,11 @@ void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
 
 void Interpreter::DryRunLoadValueFromMemory(GenericValue &Val,
                                             GenericValue *Src, Type *Ty){
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
   int sz = getDataLayout()->getTypeStoreSize(Ty);
+#else
+  int sz = getDataLayout().getTypeStoreSize(Ty);
+#endif
   char buf[sz];
 
   // Copy value from memory to buf
@@ -1223,7 +1227,11 @@ bool Interpreter::CheckedLoadIntFromMemory(APInt &IntVal, uint8_t *Src, unsigned
 
 bool Interpreter::CheckedLoadValueFromMemory(GenericValue &Result,
                                              GenericValue *Ptr, Type *Ty){
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
   const unsigned LoadBytes = getDataLayout()->getTypeStoreSize(Ty);
+#else
+  const unsigned LoadBytes = getDataLayout().getTypeStoreSize(Ty);
+#endif
 
   switch (Ty->getTypeID()) {
   case Type::IntegerTyID:
@@ -1281,7 +1289,11 @@ bool Interpreter::CheckedLoadValueFromMemory(GenericValue &Result,
 
 bool Interpreter::CheckedStoreValueToMemory(const GenericValue &Val,
                                             GenericValue *Ptr, Type *Ty){
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
   const unsigned StoreBytes = getDataLayout()->getTypeStoreSize(Ty);
+#else
+  const unsigned StoreBytes = getDataLayout().getTypeStoreSize(Ty);
+#endif
 
   switch (Ty->getTypeID()) {
   default:
@@ -1324,9 +1336,15 @@ bool Interpreter::CheckedStoreValueToMemory(const GenericValue &Val,
     break;
   }
 
-  if (sys::IsLittleEndianHost != getDataLayout()->isLittleEndian())
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
+  bool dl_little_endian = getDataLayout()->isLittleEndian();
+#else
+  bool dl_little_endian = getDataLayout().isLittleEndian();
+#endif
+  if (sys::IsLittleEndianHost != dl_little_endian){
     // Host and target are different endian - reverse the stored bytes.
     std::reverse((uint8_t*)Ptr, StoreBytes + (uint8_t*)Ptr);
+  }
 
   return true;
 };
@@ -3145,7 +3163,7 @@ void Interpreter::callFunction(Function *F,
   }
 
   // Get pointers to first LLVM BB & Instruction in function.
-  StackFrame.CurBB     = F->begin();
+  StackFrame.CurBB     = &F->front();
   StackFrame.CurInst   = StackFrame.CurBB->begin();
 
   // Run through the function arguments and initialize their values...
@@ -3156,8 +3174,9 @@ void Interpreter::callFunction(Function *F,
   // Handle non-varargs arguments...
   unsigned i = 0;
   for (Function::arg_iterator AI = F->arg_begin(), E = F->arg_end();
-       AI != E; ++AI, ++i)
-    SetValue(AI, ArgVals[i], StackFrame);
+       AI != E; ++AI, ++i){
+    SetValue(&*AI, ArgVals[i], StackFrame);
+  }
 
   // Handle varargs arguments...
   StackFrame.VarArgs.assign(ArgVals.begin()+i, ArgVals.end());
@@ -3177,7 +3196,7 @@ bool Interpreter::isInlineAsm(CallSite &CS, std::string *asmstr){
     llvm::CallInst *CI = cast<llvm::CallInst>(CS.getInstruction());
     if(CI){
       if(CI->isInlineAsm()){
-        llvm::InlineAsm *IA = dyn_cast<llvm::InlineAsm>(CI->getArgOperand(0));
+        llvm::InlineAsm *IA = llvm::dyn_cast<llvm::InlineAsm>(CI->getCalledValue());
         assert(IA);
         *asmstr = IA->getAsmString();
         stripws(*asmstr);

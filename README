@@ -3,9 +3,9 @@ and relaxed memory consistency in concurrent programs. It works on the
 level of LLVM internal representation, which means that it can be used
 for programs written in languages such as C or C++.
 
-Currently Nidhugg supports the SC, TSO and PSO memory models. Target
-programs should use pthreads for concurrency, and each thread should
-be deterministic when run in isolation.
+Currently Nidhugg supports the SC, TSO, PSO, POWER and ARM memory
+models. Target programs should use pthreads for concurrency, and each
+thread should be deterministic when run in isolation.
 
 Installation
 ************

@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -126,45 +126,27 @@ private:
  */
 class Trace{
 public:
-  /* A Trace corresponding to the event sequence computation.
+  /* A Trace containing some errors.
    *
-   * For each i s.t. 0 <= i < computation.size(), it should be the
-   * case that either computation_md[i] points to the LLVM Metadata
-   * (kind "dbg") for the event computation[i], or computation_md[i]
-   * is null.
-   *
-   * errors contains all errors that were discovered in this
-   * trace. This object takes ownership of errors.
+   * This object takes ownership of errors.
    */
-  Trace(const std::vector<IID<CPid> > &computation,
-        const std::vector<const llvm::MDNode*> &computation_md,
-        const std::vector<Error*> &errors);
-  ~Trace();
-  Trace(const Trace&);
-  Trace &operator=(const Trace&);
-  /* The sequence of events. */
-  const std::vector<IID<CPid> > &get_computation() const { return computation; };
-  /* The sequence of metadata (see above). */
-  const std::vector<const llvm::MDNode*> &get_computation_metadata() const{
-    return computation_md;
-  };
+  Trace(const std::vector<Error*> &errors, bool blocked = false);
+  virtual ~Trace();
+  Trace(const Trace&) = delete;
+  Trace &operator=(const Trace&) = delete;
   /* The trace keeps ownership of the errors. */
   const std::vector<Error*> &get_errors() const { return errors; };
   bool has_errors() const { return errors.size(); };
   /* A multi-line, human-readable string representation of this
-   * Trace. Each instruction (or pseudo-instruction) will occur on a
-   * separate string, indented with as many spaces as given by the
-   * argument ind.
+   * Trace. Indentation will be in multiples of ind spaces.
    */
-  std::string computation_to_string(int ind = 0) const;
-  /* Was the exploration of this execution sleepset blocked? */
-  bool is_sleep_set_blocked() const { return sleep_set_blocked; };
-  void set_sleep_set_blocked(bool b = true) { sleep_set_blocked = b; };
-private:
-  std::vector<IID<CPid> > computation;
-  std::vector<const llvm::MDNode*> computation_md;
+  virtual std::string to_string(int ind = 0) const;
+  /* Was the exploration of this execution (sleep set) blocked? */
+  virtual bool is_blocked() const { return blocked; };
+  virtual void set_blocked(bool b = true) { blocked = b; };
+protected:
   std::vector<Error*> errors;
-  bool sleep_set_blocked;
+  bool blocked;
 
   /* Attempt to find the directory, file name and line number
    * corresponding to the metadata m.
@@ -187,6 +169,40 @@ private:
   static std::string get_src_line_verbatim(const llvm::MDNode *m);
   static std::string basename(const std::string &fname);
   static bool is_absolute_path(const std::string &fname);
+};
+
+/* This class represents traces that are expressed as sequences of
+ * IIDs.
+ */
+class IIDSeqTrace : public Trace {
+public:
+  /* A Trace corresponding to the event sequence computation.
+   *
+   * For each i s.t. 0 <= i < computation.size(), it should be the
+   * case that either computation_md[i] points to the LLVM Metadata
+   * (kind "dbg") for the event computation[i], or computation_md[i]
+   * is null.
+   *
+   * errors contains all errors that were discovered in this
+   * trace. This object takes ownership of errors.
+   */
+  IIDSeqTrace(const std::vector<IID<CPid> > &computation,
+              const std::vector<const llvm::MDNode*> &computation_md,
+              const std::vector<Error*> &errors,
+              bool blocked = false);
+  virtual ~IIDSeqTrace();
+  IIDSeqTrace(const IIDSeqTrace&) = delete;
+  IIDSeqTrace &operator=(const IIDSeqTrace&) = delete;
+  /* The sequence of events. */
+  virtual const std::vector<IID<CPid> > &get_computation() const { return computation; };
+  /* The sequence of metadata (see above). */
+  virtual const std::vector<const llvm::MDNode*> &get_computation_metadata() const{
+    return computation_md;
+  };
+  virtual std::string to_string(int ind = 0) const;
+protected:
+  std::vector<IID<CPid> > computation;
+  std::vector<const llvm::MDNode*> computation_md;
 };
 
 

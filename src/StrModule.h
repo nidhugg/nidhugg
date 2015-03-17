@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -45,6 +45,12 @@ namespace StrModule {
 
   /* Returns a string representation of mod. */
   std::string write_module_str(llvm::Module *mod);
+
+  /* Rewrites and returns the assembly code in s, to be of the form
+   * expected by the version of LLVM against which this tool is
+   * compiled.
+   */
+  std::string portasm(std::string s);
 };
 
 #endif

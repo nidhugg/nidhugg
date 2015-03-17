@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -28,7 +28,14 @@
 #elif defined(HAVE_LLVM_IR_VERIFIER_H)
 #include <llvm/IR/Verifier.h>
 #endif
+#if defined(HAVE_LLVM_PASSMANAGER_H)
 #include <llvm/PassManager.h>
+#elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
+#include <llvm/IR/PassManager.h>
+#endif
+#if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H) && defined(LLVM_PASSMANAGER_TEMPLATE)
+#include <llvm/IR/LegacyPassManager.h>
+#endif
 
 #include <stdexcept>
 
@@ -56,13 +63,19 @@ namespace Transform {
     llvm::initializeVectorization(Registry);
     llvm::initializeIPO(Registry);
     llvm::initializeAnalysis(Registry);
+#ifdef HAVE_LLVM_INITIALIZE_IPA
     llvm::initializeIPA(Registry);
+#endif
     llvm::initializeTransformUtils(Registry);
     llvm::initializeInstCombine(Registry);
     llvm::initializeInstrumentation(Registry);
     llvm::initializeTarget(Registry);
 
+#ifdef LLVM_PASSMANAGER_TEMPLATE
+    llvm::legacy::PassManager PM;
+#else
     llvm::PassManager PM;
+#endif
     if(conf.transform_spin_assume){
       PM.add(new SpinAssumePass());
     }

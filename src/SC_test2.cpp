@@ -1,4 +1,4 @@
-/* Copyright (C) 2015 Carl Leonardsson
+/* Copyright (C) 2015-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -25,6 +25,7 @@
 #endif
 #include "DPORDriver.h"
 #include "DPORDriver_test.h"
+#include "StrModule.h"
 
 #include <boost/test/unit_test.hpp>
 
@@ -61,15 +62,15 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 BOOST_AUTO_TEST_CASE(Thread_local_2){
   Configuration conf = DPORDriver_test::get_sc_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = thread_local global i32 0, align 4
 @p = global i32* null, align 8
 
 define i8* @w(i8* %arg){
   store i32* @x, i32** @p, align 8
   store i32 1, i32* @x, align 4
-  %p = load i32** @p, align 8
-  load i32* %p, align 4
+  %p = load i32*, i32** @p, align 8
+  load i32, i32* %p, align 4
   ret i8* null
 }
 
@@ -81,7 +82,7 @@ define i32 @main(){
 
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -103,11 +104,11 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 BOOST_AUTO_TEST_CASE(Thread_local_3){ // Initialization
   Configuration conf = DPORDriver_test::get_sc_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = thread_local global i32 666, align 4
 
 define i8* @w(i8* %arg){
-  %x = load i32* @x, align 4
+  %x = load i32, i32* @x, align 4
   %c = icmp eq i32 %x, 666
   br i1 %c, label %exit, label %error
 error:
@@ -127,7 +128,7 @@ define i32 @main(){
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail()
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -139,11 +140,11 @@ BOOST_AUTO_TEST_CASE(CAS_load){
   /* Check that a failing CAS does not have a conflict with loads. */
   Configuration conf = DPORDriver_test::get_sc_conf();
   DPORDriver *driver =
-    DPORDriver::parseIR(R"(
+    DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @r(i8* %arg){
-  load i32* @x, align 4
+  load i32, i32* @x, align 4
   ret i8* null
 }
 
@@ -167,7 +168,7 @@ R"(
 
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)",conf);
+)"),conf);
 
   DPORDriver::Result res = driver->run();
   delete driver;

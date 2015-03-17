@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -43,11 +43,8 @@
 #endif
 #include <llvm/Support/Dwarf.h>
 
-Trace::Trace(const std::vector<IID<CPid> > &cmp,
-             const std::vector<const llvm::MDNode*> &cmpmd,
-             const std::vector<Error*> &errors)
-  : computation(cmp), computation_md(cmpmd),
-    errors(errors), sleep_set_blocked(false) {
+Trace::Trace(const std::vector<Error*> &errors, bool blk)
+  : errors(errors), blocked(blk) {
 };
 
 Trace::~Trace(){
@@ -56,33 +53,29 @@ Trace::~Trace(){
   }
 };
 
-Trace::Trace(const Trace &t)
-  : computation(t.computation),
-    computation_md(t.computation_md),
-    sleep_set_blocked(t.sleep_set_blocked)
-{
-  for(unsigned i = 0; i < t.errors.size(); ++i){
-    errors.push_back(t.errors[i]->clone());
+IIDSeqTrace::IIDSeqTrace(const std::vector<IID<CPid> > &cmp,
+                         const std::vector<const llvm::MDNode*> &cmpmd,
+                         const std::vector<Error*> &errors,
+                         bool blk)
+  : Trace(errors,blk), computation(cmp), computation_md(cmpmd) {
+};
+
+IIDSeqTrace::~IIDSeqTrace(){
+};
+
+std::string Trace::to_string(int _ind) const{
+  if(errors.size()){
+    std::string s = "Errors found:\n";
+    for(Error *e : errors){
+      s += e->to_string()+"\n";
+    }
+    return s;
+  }else{
+    return "No errors found.\n";
   }
 };
 
-Trace &Trace::operator=(const Trace &t){
-  if(&t != this){
-    computation = t.computation;
-    computation_md = t.computation_md;
-    for(unsigned i = 0; i < errors.size(); ++i){
-      delete errors[i];
-    }
-    errors.clear();
-    for(unsigned i = 0; i < t.errors.size(); ++i){
-      errors.push_back(t.errors[i]->clone());
-    }
-    sleep_set_blocked = t.sleep_set_blocked;
-  }
-  return *this;
-};
-
-std::string Trace::computation_to_string(int _ind) const{
+std::string IIDSeqTrace::to_string(int _ind) const{
   std::string s;
   std::string ind;
   assert(_ind >= 0);
@@ -208,8 +201,16 @@ bool Trace::get_location(const llvm::MDNode *m,
   if(!m){
     return false;
   }
+#ifdef LLVM_DILOCATION_IS_MDNODE
+  const llvm::DILocation &loc = static_cast<const llvm::DILocation&>(*m);
+#else
   llvm::DILocation loc(m);
+#endif
+#ifdef LLVM_DILOCATION_HAS_GETLINENUMBER
   *lineno = loc.getLineNumber();
+#else
+  *lineno = loc.getLine();
+#endif
   *fname = loc.getFilename();
   *dname = loc.getDirectory();
 #if defined(LLVM_MDNODE_OPERAND_IS_VALUE) /* Otherwise, disable fallback and hope that the C compiler produces well-formed metadata. */

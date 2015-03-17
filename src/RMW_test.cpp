@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -21,6 +21,8 @@
 #ifdef HAVE_BOOST_UNIT_TEST_FRAMEWORK
 
 #include "DPORDriver.h"
+#include "DPORDriver_test.h"
+#include "StrModule.h"
 #include "vecset.h"
 
 #include <boost/test/unit_test.hpp>
@@ -39,12 +41,12 @@ BOOST_AUTO_TEST_CASE(RMW_xchg){
     Configuration conf;
     conf.memory_model = MM;
     DPORDriver *driver =
-      DPORDriver::parseIR(R"(
+      DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i32 @main(){
   %x0 = atomicrmw xchg i32* @x, i32 1 seq_cst
-  %x1 = load i32* @x, align 4
+  %x1 = load i32, i32* @x, align 4
   %cmp0 = icmp ne i32 %x0, 0
   %cmp1 = icmp ne i32 %x1, 1
   %cmp0or1 = or i1 %cmp0, %cmp1
@@ -61,7 +63,7 @@ exit:
 }
 
 declare void @__assert_fail() nounwind
-)",conf);
+)"),conf);
 
     DPORDriver::Result res = driver->run();
     delete driver;
@@ -75,12 +77,12 @@ BOOST_AUTO_TEST_CASE(RMW_add){
     Configuration conf;
     conf.memory_model = MM;
     DPORDriver *driver =
-      DPORDriver::parseIR(R"(
+      DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 2, align 4
 
 define i32 @main(){
   %x0 = atomicrmw add i32* @x, i32 1 seq_cst
-  %x1 = load i32* @x, align 4
+  %x1 = load i32, i32* @x, align 4
   %cmp0 = icmp ne i32 %x0, 2
   %cmp1 = icmp ne i32 %x1, 3
   %cmp0or1 = or i1 %cmp0, %cmp1
@@ -88,13 +90,13 @@ define i32 @main(){
 
 L1:
   atomicrmw add i32* @x, i32 2147483647 seq_cst ; 2147483647 == 2^31-1
-  %x2 = load i32* @x, align 4
+  %x2 = load i32, i32* @x, align 4
   %cmp2 = icmp ne i32 %x2, -2147483646 ; ~ 2147483650 == 2^31+2
   br i1 %cmp2, label %error, label %L2
 
 L2:
   atomicrmw add i32* @x, i32 2147483647 seq_cst
-  %x3 = load i32* @x, align 4
+  %x3 = load i32, i32* @x, align 4
   %cmp3 = icmp ne i32 %x3, 1 ; 2^31+2 + 2^31-1 == 2^32+1 ~ 1
   br i1 %cmp3, label %error, label %L3
 
@@ -109,7 +111,7 @@ exit:
 }
 
 declare void @__assert_fail() nounwind
-)",conf);
+)"),conf);
 
     DPORDriver::Result res = driver->run();
     delete driver;
@@ -123,12 +125,12 @@ BOOST_AUTO_TEST_CASE(RMW_sub){
     Configuration conf;
     conf.memory_model = MM;
     DPORDriver *driver =
-      DPORDriver::parseIR(R"(
+      DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 2, align 4
 
 define i32 @main(){
   %x0 = atomicrmw sub i32* @x, i32 1 seq_cst
-  %x1 = load i32* @x, align 4
+  %x1 = load i32, i32* @x, align 4
   %cmp0 = icmp ne i32 %x0, 2
   %cmp1 = icmp ne i32 %x1, 1
   %cmp0or1 = or i1 %cmp0, %cmp1
@@ -145,7 +147,7 @@ exit:
 }
 
 declare void @__assert_fail() nounwind
-)",conf);
+)"),conf);
 
     DPORDriver::Result res = driver->run();
     delete driver;
@@ -159,12 +161,12 @@ BOOST_AUTO_TEST_CASE(RMW_and){
     Configuration conf;
     conf.memory_model = MM;
     DPORDriver *driver =
-      DPORDriver::parseIR(R"(
+      DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 3840, align 4 ; 0xF00
 
 define i32 @main(){
   %x0 = atomicrmw and i32* @x, i32 1311 seq_cst ; 0x51F
-  %x1 = load i32* @x, align 4
+  %x1 = load i32, i32* @x, align 4
   %cmp0 = icmp ne i32 %x0, 3840
   %cmp1 = icmp ne i32 %x1, 1280 ; 0x500
   %cmp0or1 = or i1 %cmp0, %cmp1
@@ -181,7 +183,7 @@ exit:
 }
 
 declare void @__assert_fail() nounwind
-)",conf);
+)"),conf);
 
     DPORDriver::Result res = driver->run();
     delete driver;
@@ -195,12 +197,12 @@ BOOST_AUTO_TEST_CASE(RMW_nand){
     Configuration conf;
     conf.memory_model = MM;
     DPORDriver *driver =
-      DPORDriver::parseIR(R"(
+      DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 3840, align 4 ; 0xF00
 
 define i32 @main(){
   %x0 = atomicrmw nand i32* @x, i32 1311 seq_cst ; 0x51F
-  %x1 = load i32* @x, align 4
+  %x1 = load i32, i32* @x, align 4
   %cmp0 = icmp ne i32 %x0, 3840
   %cmp1 = icmp ne i32 %x1, 4294966015 ; 0xFFFFFAFF
   %cmp0or1 = or i1 %cmp0, %cmp1
@@ -217,7 +219,7 @@ exit:
 }
 
 declare void @__assert_fail() nounwind
-)",conf);
+)"),conf);
 
     DPORDriver::Result res = driver->run();
     delete driver;
@@ -231,12 +233,12 @@ BOOST_AUTO_TEST_CASE(RMW_or){
     Configuration conf;
     conf.memory_model = MM;
     DPORDriver *driver =
-      DPORDriver::parseIR(R"(
+      DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 3840, align 4 ; 0xF00
 
 define i32 @main(){
   %x0 = atomicrmw or i32* @x, i32 1311 seq_cst ; 0x51F
-  %x1 = load i32* @x, align 4
+  %x1 = load i32, i32* @x, align 4
   %cmp0 = icmp ne i32 %x0, 3840
   %cmp1 = icmp ne i32 %x1, 3871 ; 0xF1F
   %cmp0or1 = or i1 %cmp0, %cmp1
@@ -253,7 +255,7 @@ exit:
 }
 
 declare void @__assert_fail() nounwind
-)",conf);
+)"),conf);
 
     DPORDriver::Result res = driver->run();
     delete driver;
@@ -267,12 +269,12 @@ BOOST_AUTO_TEST_CASE(RMW_xor){
     Configuration conf;
     conf.memory_model = MM;
     DPORDriver *driver =
-      DPORDriver::parseIR(R"(
+      DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 3840, align 4 ; 0xF00
 
 define i32 @main(){
   %x0 = atomicrmw xor i32* @x, i32 1311 seq_cst ; 0x51F
-  %x1 = load i32* @x, align 4
+  %x1 = load i32, i32* @x, align 4
   %cmp0 = icmp ne i32 %x0, 3840
   %cmp1 = icmp ne i32 %x1, 2591 ; 0xA1F
   %cmp0or1 = or i1 %cmp0, %cmp1
@@ -289,7 +291,7 @@ exit:
 }
 
 declare void @__assert_fail() nounwind
-)",conf);
+)"),conf);
 
     DPORDriver::Result res = driver->run();
     delete driver;
@@ -303,12 +305,12 @@ BOOST_AUTO_TEST_CASE(RMW_max){
     Configuration conf;
     conf.memory_model = MM;
     DPORDriver *driver =
-      DPORDriver::parseIR(R"(
+      DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 -1, align 4
 
 define i32 @main(){
   %x0 = atomicrmw max i32* @x, i32 4 seq_cst
-  %x1 = load i32* @x, align 4
+  %x1 = load i32, i32* @x, align 4
   %cmp0 = icmp ne i32 %x0, -1
   %cmp1 = icmp ne i32 %x1, 4
   %cmp0or1 = or i1 %cmp0, %cmp1
@@ -316,7 +318,7 @@ define i32 @main(){
 
 L1:
   atomicrmw max i32* @x, i32 1 seq_cst
-  %x2 = load i32* @x, align 4
+  %x2 = load i32, i32* @x, align 4
   %cmp2 = icmp ne i32 %x2, 4
   br i1 %cmp2, label %error, label %L2
 
@@ -331,7 +333,7 @@ exit:
 }
 
 declare void @__assert_fail() nounwind
-)",conf);
+)"),conf);
 
     DPORDriver::Result res = driver->run();
     delete driver;
@@ -345,12 +347,12 @@ BOOST_AUTO_TEST_CASE(RMW_min){
     Configuration conf;
     conf.memory_model = MM;
     DPORDriver *driver =
-      DPORDriver::parseIR(R"(
+      DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 2, align 4
 
 define i32 @main(){
   %x0 = atomicrmw min i32* @x, i32 4 seq_cst
-  %x1 = load i32* @x, align 4
+  %x1 = load i32, i32* @x, align 4
   %cmp0 = icmp ne i32 %x0, 2
   %cmp1 = icmp ne i32 %x1, 2
   %cmp0or1 = or i1 %cmp0, %cmp1
@@ -358,7 +360,7 @@ define i32 @main(){
 
 L1:
   atomicrmw min i32* @x, i32 -3 seq_cst
-  %x2 = load i32* @x, align 4
+  %x2 = load i32, i32* @x, align 4
   %cmp2 = icmp ne i32 %x2, -3
   br i1 %cmp2, label %error, label %L2
 
@@ -373,7 +375,7 @@ exit:
 }
 
 declare void @__assert_fail() nounwind
-)",conf);
+)"),conf);
 
     DPORDriver::Result res = driver->run();
     delete driver;
@@ -387,12 +389,12 @@ BOOST_AUTO_TEST_CASE(RMW_umax){
     Configuration conf;
     conf.memory_model = MM;
     DPORDriver *driver =
-      DPORDriver::parseIR(R"(
+      DPORDriver::parseIR(StrModule::portasm(R"(
 @x = global i32 2, align 4
 
 define i32 @main(){
   %x0 = atomicrmw umax i32* @x, i32 4 seq_cst
-  %x1 = load i32* @x, align 4
+  %x1 = load i32, i32* @x, align 4
   %cmp0 = icmp ne i32 %x0, 2
   %cmp1 = icmp ne i32 %x1, 4
   %cmp0or1 = or i1 %cmp0, %cmp1
@@ -400,7 +402,7 @@ define i32 @main(){
 
 L1:
   atomicrmw umax i32* @x, i32 -2 seq_cst
-  %x2 = load i32* @x, align 4
+  %x2 = load i32, i32* @x, align 4
   %cmp2 = icmp ne i32 %x2, -2
   br i1 %cmp2, label %error, label %L2
 
@@ -415,7 +417,7 @@ exit:
 }
 
 declare void @__assert_fail() nounwind
-)",conf);
+)"),conf);
 
     DPORDriver::Result res = driver->run();
     delete driver;

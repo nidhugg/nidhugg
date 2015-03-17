@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -34,6 +34,10 @@
 
 #include <string>
 
+namespace llvm{
+  class ExecutionEngine;
+}
+
 /* The DPORDriver is the main driver of the trace exploration. It
  * takes an LLVM Module, and repeatedly explores its different traces.
  */
@@ -59,7 +63,15 @@ public:
   class Result{
   public:
     /* Empty result */
-    Result() : trace_count(0), sleepset_blocked_trace_count(0), error_trace({},{},{}) {};
+    Result() : trace_count(0), sleepset_blocked_trace_count(0), error_trace(0) {};
+    ~Result(){
+      if(all_traces.empty()){ // Otherwise error_trace also appears in all_traces.
+        delete error_trace;
+      }
+      for(Trace *t : all_traces){
+        delete t;
+      }
+    };
     /* The number of explored (non-sleepset-blocked) traces */
     int trace_count;
     /* The number of explored sleepset-blocked traces */
@@ -67,8 +79,8 @@ public:
     /* An empty trace if no error has been encountered. Otherwise some
      * error trace.
      */
-    Trace error_trace;
-    bool has_errors() const { return error_trace.has_errors(); };
+    Trace *error_trace;
+    bool has_errors() const { return error_trace && error_trace->has_errors(); };
     /* Contains all traces that were explored, sleepset blocked and
      * otherwise.
      *
@@ -79,7 +91,7 @@ public:
      * for modules known to have few traces. Automated testing is the
      * intended usage.
      */
-    std::vector<Trace> all_traces;
+    std::vector<Trace*> all_traces;
   };
 
   /* Explore the traces of the given module, and return the result.
@@ -96,12 +108,17 @@ private:
   std::string src;
 
   DPORDriver(const Configuration &conf);
-  Trace run_once(TraceBuilder &TB) const;
+  Trace *run_once(TraceBuilder &TB) const;
   void reparse();
   /* Opens and reads the file filename. Stores the entire content in
    * tgt. Throws an exception on failure.
    */
   static void read_file(const std::string &filename, std::string &tgt);
+  /* Creates an execution engine based on the configuration conf and
+   * the TraceBuilder TB. The kind of execution engine is determined
+   * by conf.memory_model.
+   */
+  llvm::ExecutionEngine *create_execution_engine(TraceBuilder &TB, const Configuration &conf) const;
 };
 
 #endif

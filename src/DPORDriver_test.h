@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -40,6 +40,8 @@ namespace DPORDriver_test {
   const Configuration &get_tso_conf();
   const Configuration &get_sc_conf();
   const Configuration &get_pso_conf();
+  const Configuration &get_power_conf();
+  const Configuration &get_arm_conf();
 
   /* An IIDOrder object {a,b} should be interpreted as a predicate
    * over traces, with the meaning "a precedes b in time".

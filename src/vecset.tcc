@@ -1,4 +1,4 @@
-/* Copyright (C) 2012-2014 Carl Leonardsson
+/* Copyright (C) 2012-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -38,6 +38,20 @@ VecSet<T>::VecSet(std::initializer_list<T> il){
       insert(*it);
     }
   }
+};
+
+template<class T>
+VecSet<T>::VecSet(VecSet<T> &&S)
+  : vec(std::move(S.vec))
+{
+};
+
+template<class T>
+VecSet<T> &VecSet<T>::operator=(VecSet<T> &&S){
+  if(this != &S){
+    vec = std::move(S.vec);
+  }
+  return *this;
 };
 
 template<class T>
@@ -164,6 +178,38 @@ int VecSet<T>::erase(const T &t){
   vec.resize(vec.size()-1,t);
 
   return 1;
+};
+
+template<class T>
+int VecSet<T>::erase(const VecSet<T> &S){
+  if(vec.empty()) return 0;
+  if(S.vec.empty()) return 0;
+  int a = 0;
+  int b = 0;
+  int ains = 0;
+  int erase_count = 0;
+  while(a < size() && b < S.size()){
+    if(vec[a] == S.vec[b]){
+      ++a;
+      ++b;
+      ++erase_count;
+    }else if(vec[a] < S.vec[b]){
+      if(ains != a) vec[ains] = vec[a];
+      ++a;
+      ++ains;
+    }else{
+      ++b;
+    }
+  }
+  if(ains != a){
+    while(a < size()){
+      vec[ains] = vec[a];
+      ++a;
+      ++ains;
+    }
+    vec.resize(ains,vec[0]);
+  }
+  return erase_count;
 };
 
 template<class T>

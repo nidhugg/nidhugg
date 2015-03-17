@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -37,6 +37,8 @@ public:
   enum MemoryModel{
     MM_UNDEF, // No memory model was specified
     SC,
+    ARM,
+    POWER,
     PSO,
     TSO
   };
@@ -73,6 +75,7 @@ public:
       "atexit"
     };
     check_robustness = false;
+    ee_store_trace = false;
     debug_collect_all_traces = false;
     debug_print_on_reset = false;
     debug_print_on_error = false;
@@ -85,6 +88,10 @@ public:
    * configuration options accordingly.
    */
   void assign_by_commandline();
+  /* Read the switches given to the program by the user. Print
+   * warnings if incompatible switches are supplied.
+   */
+  void check_commandline();
 
   /* Should analysis continue, even when an error was discovered,
    * until all traces have been explored?
@@ -119,6 +126,15 @@ public:
   VecSet<std::string> extfun_no_full_memory_conflict;
   /* Should we check for robustness as a correctness criterion? */
   bool check_robustness;
+  /* If this flag is set, the ExecutionEngine will log what happens
+   * during the run to the TraceBuilder, so that the TraceBuilder can
+   * produce a more detailed (human-readable) error trace.
+   *
+   * This flag is not intended to be set during normal operation. When
+   * an error has been found, the erroneous run can be repeated, with
+   * ee_store_trace set, in order to produce a readable error trace.
+   */
+  bool ee_store_trace;
   /* If set, all explored traces will be stored by DPORDriver until
    * the end of the analysis.
    *

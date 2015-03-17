@@ -20,7 +20,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  * (For the modifications made in this file to the code from LLVM.)
  *
  * This file is part of Nidhugg.
@@ -308,8 +308,14 @@ GenericValue Interpreter::callExternalFunction(Function *F,
   FunctionsLock->LLVM_SYS_MUTEX_UNLOCK_FN();
 
   GenericValue Result;
-  if (RawFn != 0 && ffiInvoke(RawFn, F, ArgVals, getDataLayout(), Result))
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
+  const llvm::DataLayout *DL = getDataLayout();
+#else
+  const llvm::DataLayout *DL = &getDataLayout();
+#endif
+  if (RawFn != 0 && ffiInvoke(RawFn, F, ArgVals, DL, Result)){
     return Result;
+  }
 #endif // USE_LIBFFI
 
   if (F->getName() == "__main")
@@ -407,8 +413,13 @@ GenericValue lle_X_sprintf(FunctionType *FT,
       case 'u': case 'o':
       case 'x': case 'X':
         if (HowLong >= 1) {
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
+          unsigned ptr_size = TheInterpreter->getDataLayout()->getPointerSizeInBits();
+#else
+          unsigned ptr_size = TheInterpreter->getDataLayout().getPointerSizeInBits();
+#endif
           if (HowLong == 1 &&
-              TheInterpreter->getDataLayout()->getPointerSizeInBits() == 64 &&
+              ptr_size == 64 &&
               sizeof(long) < sizeof(int64_t)) {
             // Make sure we use %lld with a 64 bit argument because we might be
             // compiling LLI on a 32 bit compiler.

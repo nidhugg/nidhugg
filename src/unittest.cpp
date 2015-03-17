@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -40,6 +40,17 @@ BOOST_GLOBAL_FIXTURE(Fixture);
 
 BOOST_AUTO_TEST_CASE(Testing_testing){
   BOOST_CHECK_MESSAGE(true,"Testing testing.");
+}
+
+/* Solves a problem with compiling with clang++ against certain
+ * versions of the boost library.
+ */
+namespace boost{ namespace unit_test { namespace ut_detail{
+      std::string normalize_test_case_name(const_string name) {
+        return name[0] == '&' ? std::string(name.begin()+1, name.size()-1) : std::string(name.begin(), name.size());
+      }
+    }
+  }
 }
 
 #else

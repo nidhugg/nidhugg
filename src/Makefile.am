@@ -3,6 +3,7 @@ AUTOMAKE_OPTIONS = -Wno-override ## Make autotools quit complaining about explic
 noinst_LIBRARIES = libnidhugg.a
 libnidhugg_a_SOURCES = \
   AddLibPass.cpp AddLibPass.h \
+  BVClock.cpp BVClock.h \
   CheckModule.cpp CheckModule.h \
   Configuration.cpp Configuration.h \
   CPid.cpp CPid.h \
@@ -10,10 +11,14 @@ libnidhugg_a_SOURCES = \
   DPORDriver.cpp DPORDriver.h \
   Execution.cpp \
   ExternalFunctions.cpp \
+  FBVClock.cpp FBVClock.h \
   IID.h IID.tcc \
   Interpreter.cpp Interpreter.h \
   LoopUnrollPass.cpp LoopUnrollPass.h \
   MRef.cpp MRef.h \
+  POWERExecution.cpp \
+  POWERInterpreter.cpp POWERInterpreter.h \
+  POWERARMTraceBuilder.cpp POWERARMTraceBuilder.tcc POWERARMTraceBuilder.h POWERARMTraceBuilder_decl.h \
   PSOInterpreter.cpp PSOInterpreter.h \
   PSOTraceBuilder.cpp PSOTraceBuilder.h \
   SigSegvHandler.cpp SigSegvHandler.h \
@@ -23,6 +28,7 @@ libnidhugg_a_SOURCES = \
   TraceBuilder.cpp TraceBuilder.h \
   Transform.cpp Transform.h \
   TSOInterpreter.cpp TSOInterpreter.h \
+  TSOPSOTraceBuilder.h \
   TSOTraceBuilder.cpp TSOTraceBuilder.h \
   VClock.cpp VClock.h VClock.tcc \
   vecset.h vecset.tcc
@@ -38,9 +44,14 @@ nidhuggc_SOURCES = nidhuggc.py
 TESTS = unittest
 check_PROGRAMS = unittest
 unittest_SOURCES = \
+  ARM_test.cpp \
+  ARM_test2.cpp \
   CPid_test.cpp \
   DPORDriver_test.cpp DPORDriver_test.h \
   DryRun_test.cpp \
+  FBVClock_test.cpp \
+  POWER_test.cpp \
+  POWER_test2.cpp \
   PSO_test.cpp \
   PSO_test2.cpp \
   RMW_test.cpp \

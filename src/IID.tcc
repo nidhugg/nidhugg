@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -21,7 +21,11 @@
 
 template<typename Pid_t>
 std::string IID<Pid_t>::to_string() const{
-  std::stringstream ss;
-  ss << "(" << pid << "," << idx << ")";
-  return ss.str();
+  if(is_null()){
+    return "null";
+  }else{
+    std::stringstream ss;
+    ss << "(" << pid << "," << idx << ")";
+    return ss.str();
+  }
 };

@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  * (For the modifications made in this file to the code from LLVM.)
  *
  * This file is part of Nidhugg.
@@ -40,7 +40,7 @@
 #include "Configuration.h"
 #include "CPid.h"
 #include "MRef.h"
-#include "TraceBuilder.h"
+#include "TSOPSOTraceBuilder.h"
 
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
@@ -106,7 +106,7 @@ protected:
    * Interpreter, and which will be notified of any actions that may
    * affect the chronological trace of this execution.
    */
-  TraceBuilder &TB;
+  TSOPSOTraceBuilder &TB;
   const Configuration &conf;
 
   /* A Thread object keeps track of each running thread. */
@@ -246,20 +246,25 @@ protected:
   std::vector<Function*> AtExitHandlers;
 
 public:
-  explicit Interpreter(Module *M, TraceBuilder &TB,
+  explicit Interpreter(Module *M, TSOPSOTraceBuilder &TB,
                        const Configuration &conf = Configuration::default_conf);
   virtual ~Interpreter();
 
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///
-  static ExecutionEngine *create(Module *M, TraceBuilder &TB,
+  static ExecutionEngine *create(Module *M, TSOPSOTraceBuilder &TB,
                                  const Configuration &conf = Configuration::default_conf,
                                  std::string *ErrorStr = 0);
 
   /// run - Start execution with the specified function and arguments.
   ///
+#ifdef LLVM_EXECUTION_ENGINE_RUN_FUNCTION_VECTOR
   virtual GenericValue runFunction(Function *F,
                                    const std::vector<GenericValue> &ArgValues);
+#else
+  virtual GenericValue runFunction(Function *F,
+                                   llvm::ArrayRef<GenericValue> ArgValues);
+#endif
 
   void *getPointerToNamedFunction(const std::string &Name,
                                   bool AbortOnFailure = true) {
@@ -273,8 +278,6 @@ public:
     return 0;
   };
 
-  /* Compute the Trace of the current execution. */
-  virtual Trace getTrace() const { return TB.get_trace(); };
   /* Returns true iff this trace contains any happens-before cycle.
    *
    * If there is a happens-before cycle, and conf.check_robustness is
@@ -455,17 +458,30 @@ protected:  // Helper functions
    * the current data layout.
    */
   MRef GetMRef(void *Ptr, Type *Ty){
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
     return {Ptr,int(getDataLayout()->getTypeStoreSize(Ty))};
+#else
+    return {Ptr,int(getDataLayout().getTypeStoreSize(Ty))};
+#endif
   };
   ConstMRef GetConstMRef(void const *Ptr, Type *Ty){
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
     return {Ptr,int(getDataLayout()->getTypeStoreSize(Ty))};
+#else
+    return {Ptr,int(getDataLayout().getTypeStoreSize(Ty))};
+#endif
   };
   /* Get an MBlock associated with the location Ptr, and holding the
    * value Val of type Ty. The size of the memory location will be
    * that of Ty.
    */
   MBlock GetMBlock(void *Ptr, Type *Ty, const GenericValue &Val){
-    MBlock B(GetMRef(Ptr,Ty),getDataLayout()->getTypeAllocSize(Ty));
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
+    uint64_t alloc_size = getDataLayout()->getTypeAllocSize(Ty);
+#else
+    uint64_t alloc_size = getDataLayout().getTypeAllocSize(Ty);
+#endif
+    MBlock B(GetMRef(Ptr,Ty),alloc_size);
     StoreValueToMemory(Val,static_cast<GenericValue*>(B.get_block()),Ty);
     return B;
   };

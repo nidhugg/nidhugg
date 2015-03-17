@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -30,7 +30,14 @@
 #include <llvm/LLVMContext.h>
 #endif
 #include <llvm/IRReader/IRReader.h>
+#if defined(HAVE_LLVM_PASSMANAGER_H)
 #include <llvm/PassManager.h>
+#elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
+#include <llvm/IR/PassManager.h>
+#endif
+#if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H) && defined(LLVM_PASSMANAGER_TEMPLATE)
+#include <llvm/IR/LegacyPassManager.h>
+#endif
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
@@ -43,6 +50,7 @@
 #endif
 
 #include <stdexcept>
+#include <regex>
 
 namespace StrModule {
 
@@ -103,7 +111,11 @@ namespace StrModule {
   };
 
   void write_module(llvm::Module *mod, std::string outfile){
+#ifdef LLVM_PASSMANAGER_TEMPLATE
+    llvm::legacy::PassManager PM;
+#else
     llvm::PassManager PM;
+#endif
 #ifdef LLVM_RAW_FD_OSTREAM_ERR_STR
     std::string errs;
 #else
@@ -136,7 +148,11 @@ namespace StrModule {
 
   std::string write_module_str(llvm::Module *mod){
     std::string s;
+#ifdef LLVM_PASSMANAGER_TEMPLATE
+    llvm::legacy::PassManager PM;
+#else
     llvm::PassManager PM;
+#endif
     llvm::raw_ostream *os = new llvm::raw_string_ostream(s);
 #ifdef LLVM_CREATE_PRINT_MODULE_PASS_PTR_ARG
     PM.add(llvm::createPrintModulePass(os,true));
@@ -150,5 +166,30 @@ namespace StrModule {
     return s;
   };
 
+  std::string portasm(std::string s){
+#ifndef LLVM_ASM_LOAD_EXPLICIT_TYPE
+    {
+      /* Remove explicit return types for loads: Replace loads of the
+       * form
+       *
+       * load rettype, rettype* addr
+       *
+       * with loads of the form
+       *
+       * load rettype* addr
+       */
+      std::regex rgx("load [^,]*,");
+      s = std::regex_replace(s,rgx,"load ");
+    }
+    {
+      /* Remove explicit return types for getelementptr.*/
+      std::regex rgx1("getelementptr *((?:inbounds)?) *[^ (]*,");
+      s = std::regex_replace(s,rgx1,"getelementptr $1 ");
+      std::regex rgx3("getelementptr *\\([^,]*,");
+      s = std::regex_replace(s,rgx3,"getelementptr (");
+    }
+#endif
+    return s;
+  };
 };
 

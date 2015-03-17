@@ -7,6 +7,8 @@
 \author{}
 \date{}
 
+\newcommand{\limitsupport}[1]{\textbf{Supported only for #1.}}
+
 \begin{document}
 
 \maketitle
@@ -16,9 +18,9 @@ and relaxed memory consistency in concurrent programs. It works on the
 level of LLVM internal representation, which means that it can be used
 for programs written in languages such as C or C++.
 
-Currently Nidhugg supports the SC, TSO and PSO memory models. Target
-programs should use pthreads for concurrency, and each thread should
-be deterministic when run in isolation.
+Currently Nidhugg supports the SC, TSO, PSO, POWER and ARM memory
+models. Target programs should use pthreads for concurrency, and each
+thread should be deterministic when run in isolation.
 
 \pagebreak
 
@@ -54,6 +56,41 @@ A test case must satisfy the following two conditions
   This means that the test case may not e.g. check the time, or
   perform file I/O.
 \end{description}
+
+\section{Supported Memory Models}
+
+Nidhugg supports the memory models SC, TSO, PSO, POWER and ARM.
+
+The SC semantics are the classical interleaving semantics described
+in~\cite{lamport1979make}. The TSO and PSO memory models, used on the
+x86 and SPARC architectures, are described in~\cite{sparcv9}. For
+POWER and ARM, we use the semantics described in~\cite{alglaveHerding}.
+
+For SC, TSO and PSO, we use the analysis technique described
+in~\cite{leonardssonSMCTSO}. The technique is precise, and guarantees
+to explore all behaviors.
+
+For POWER, we use the analysis technique described
+in~\cite{leonardssonRSMCPOWER}. The technique is precise, and
+guarantees to explore all behaviors.
+
+For ARM, we use an adaptation of the technique
+in~\cite{leonardssonRSMCPOWER}. The technique is an
+\emph{under-approximation} of ARM, and does \emph{not} guarantee to
+explore all behaviors.
+
+\begin{thebibliography}{99}
+\bibitem{lamport1979make}
+  Lamport, Leslie. ``How to make a multiprocessor computer that correctly executes multiprocess programs.'' Computers, IEEE Transactions on 100.9 (1979): 690-691.
+\bibitem{sparcv9}
+  The SPARC architecture manual. Englewood Cliffs, NJ 07632: PTR Prentice Hall, 1994.
+\bibitem{alglaveHerding}
+  Alglave, Jade, Luc Maranget, and Michael Tautschnig. ``Herding cats: Modelling, simulation, testing, and data mining for weak memory.'' ACM Transactions on Programming Languages and Systems (TOPLAS) 36.2 (2014): 7.
+\bibitem{leonardssonSMCTSO}
+  Abdulla, Parosh Aziz, Stavros Aronis, Mohamed Faouzi Atig, Bengt Jonsson, Carl Leonardsson, Konstantinos Sagonas. ``Stateless model checking for TSO and PSO.'' Tools and Algorithms for the Construction and Analysis of Systems. Springer Berlin Heidelberg, 2015. 353-367.
+\bibitem{leonardssonRSMCPOWER}
+  Abdulla, Parosh Aziz, Mohamed Faouzi Atig, Bengt Jonsson, Carl Leonardsson. ``Stateless model checking for POWER.'' Pending peer review.
+\end{thebibliography}
 
 \section{Running Nidhugg}
 
@@ -146,7 +183,7 @@ be analyzed by Nidhugg using a command like the following:
 
 \vspace{5pt}
 \noindent
-\texttt{\$ nidhugg $FLAGS$ \{--sc,--tso,--pso\} $FILE$.ll}
+\texttt{\$ nidhugg $FLAGS$ \{--sc,--tso,--pso,--power,--arm\} $FILE$.ll}
 
 \vspace{5pt}\noindent
 %
@@ -225,20 +262,24 @@ int main(int argc, char *argv[]){
 \subsubsection{Analysis Switches}\label{sec:analysis:switches}
 
 \begin{description}
-\item{\texttt{--sc/--tso/--pso}}
+\item{\texttt{--sc/--tso/--pso/--power/--arm}}
 %
-  Analyze the test case under the SC, TSO or PSO memory model
-  respectively.
+  Analyze the test case under the SC, TSO, PSO, POWER or ARM memory
+  model respectively.
 \item{\texttt{--robustness}}
 %
   Perform a robustness analysis. In addition to considering the usual
   safety criteria, also check robustness, and report an error if a
   non-robust execution is found.
+%
+  \limitsupport{SC, TSO, PSO}
 \item{\texttt{--extfun-no-race=FUN}}
 %
   Assume that the external function \texttt{FUN}, when called as
   blackbox, does not participate in any races. May be given several
   times. See Section~\ref{sec:stdlibc:races}.
+%
+  \limitsupport{SC, TSO, PSO}
 \item{\texttt{--malloc-may-fail}}
 %
   By default, when the test case calls \texttt{malloc}, Nidhugg will
@@ -246,6 +287,8 @@ int main(int argc, char *argv[]){
   resulting memory pointer as return value for the call. But, if
   \texttt{--malloc-may-fail} is given to Nidhugg, then the case when
   \texttt{malloc} fails and returns NULL is also analyzed.
+%
+  \limitsupport{SC, TSO, PSO}
 \item{\texttt{--print-progress}}
 %
   Continually print the number of hitherto analyzed executions to the
@@ -301,7 +344,7 @@ can be used as follows:
 
 \vspace{5pt}
 \noindent
-\texttt{\$ nidhuggc $CFLAGS$ -- \{--sc,--tso,--pso\} $\backslash$}\\
+\texttt{\$ nidhuggc $CFLAGS$ -- \{--sc,--tso,--pso,--power,--arm\} $\backslash$}\\
 \rule{20pt}{0pt}\texttt{$AFLAGS$ $TFLAGS$ $FILE$.c}
 
 \vspace{5pt}\noindent
@@ -350,6 +393,12 @@ in order, \texttt{<0.0>}, \texttt{<0.1>}, \texttt{<0.2>} etc. The
 threads created by \texttt{<0.1>} are named \texttt{<0.1.0>},
 \texttt{<0.1.1>}, etc.
 
+Since the operational semantics of the different memory models differ
+significantly, the error traces are also different under different
+models.
+
+\subsubsection{Error Traces under TSO and PSO}
+
 In addition to actual program threads, Nidhugg also reasons about
 \emph{auxiliary threads}. These are hypothetical threads that carry
 out non-deterministic events such as updates from a store buffer to
@@ -361,7 +410,7 @@ takes care of the memory updates from the store buffer of the initial
 thread \texttt{<0>}.
 
 Now we can consider the example error trace listed in
-Figure~\ref{fig:ex:error:trace:dekker}. It was produced by running the
+Figure~\ref{fig:ex:error:trace:dekker:tso}. It was produced by running the
 following command on the test case given in Figure~\ref{fig:dekker:c}:
 
 \vspace{5pt}
@@ -399,11 +448,11 @@ several instructions.
                 Error: Assertion violation at (<0.0>,9): (c == 1)
 \end{verbatim}
   \caption{A TSO error trace for the program shown in
-    Figure~\ref{fig:dekker:c}.}\label{fig:ex:error:trace:dekker}
+    Figure~\ref{fig:dekker:c}.}\label{fig:ex:error:trace:dekker:tso}
 \end{figure}
 
 We point out some main features of the error trace in
-Figure~\ref{fig:ex:error:trace:dekker}.
+Figure~\ref{fig:ex:error:trace:dekker:tso}.
 %
 First we see that the load of \texttt{y} in event \texttt{(<0>,4)}
 precedes the update to \texttt{y} by the other thread in event
@@ -416,6 +465,114 @@ At the end of the trace, we see that thread \texttt{<0>} updates
 \texttt{c} with the value 0, just before thread \texttt{0.0} executes
 \texttt{assert(c == 1)}, and so the assertion fails.
 
+\subsubsection{Error Traces under POWER and ARM}
+
+\begin{figure}
+\begin{verbatim}
+Error detected:
+(<0>): Entering function main
+(<0>,1): test.c:16 pthread_create(&t,NULL,thr1,NULL);
+         store 0x0100000000000000 to [0x1ac39b0]
+         store 0x01 to [0x1acd740]
+  (<0.0>): Entering function thr1
+(<0>,2): test.c:17 x = 1;
+         store 0x01000000 to [0x1ad3110]
+(<0>,3): test.c:19 if(!y){
+         load 0x00000000 from [0x1ac0020] source: (initial value)
+(<0>,4): test.c:20 c = 0;
+         store 0x00000000 to [0x1acd680]
+(<0>,5): test.c:21 assert(c == 0);
+         load 0x00000000 from [0x1acd680] source: (<0>,4)
+(<0>,6): test.c:23 pthread_join(t,NULL);
+         load 0x0100000000000000 from [0x1ac39b0] source: (<0>,1)
+  (<0.0>,1):
+             load 0x01 from [0x1acd740] source: (<0>,1)
+  (<0.0>,2): test.c:6 y = 1;
+             store 0x01000000 to [0x1ac0020]
+  (<0.0>,3): test.c:8 if(!x){
+             load 0x00000000 from [0x1ad3110] source: (initial value)
+  (<0.0>,4): test.c:9 c = 1;
+             store 0x01000000 to [0x1acd680]
+  (<0.0>,5): test.c:10 assert(c == 1);
+             load 0x00000000 from [0x1acd680] source: (<0>,4)
+  Error: Assertion failure at test.c:10: c == 1
+\end{verbatim}
+\caption{A POWER error trace for the program shown in Figure~\ref{fig:dekker:c}.}\label{fig:ex:error:trace:dekker:power}
+\end{figure}
+
+In the operational semantics of POWER and ARM, there are no auxiliary
+threads or auxiliary events (as is the case under TSO and
+PSO). Instead, each memory access is equipped with a parameter at the
+time when it is committed. The parameter choice determines the
+behavior of the event and its relation (memory ordering) to other
+events. For stores, the parameter determines how the store is
+coherence-ordered with other stores to the same memory location. For
+loads, the parameter determines the source of the read value, i.e.,
+the store which provided the observed value.
+
+Now we can consider the example error trace given in
+Figure~\ref{fig:ex:error:trace:dekker:power}. It was produced by
+running the following command on the test case given in
+Figure~\ref{fig:dekker:c}.
+
+\noindent
+\begin{verbatim}
+$ nidhuggc -O2 -- --power test.c
+\end{verbatim}
+
+\noindent
+Events represent the execution of a memory access. They are identified
+as a pair \texttt{($tid$,$i$)} where $tid$ is the ID of the executing
+thread, and $i$ is the index in program order of the executed memory
+access instruction. Local instructions are not visible in the error
+trace. For each event, the error trace contains the corresponding line
+of source code, and an explanation of the behavior of the event when
+it was committed.
+
+For a store event, the explanation has the form
+\texttt{store~$v$~to~[$a$]} where $v$ is the written value, and $a$ is
+the memory address where it was stored. Notice that the value and
+address are dependent on the architecture of the machine running
+Nidhugg. For example, for event \texttt{(<0>,2)} in
+Figure~\ref{fig:ex:error:trace:dekker:power}, the value 1 appears as
+\texttt{0x01000000} because the test was run on a little endian
+machine. The parameter (coherence order position) of the store event
+is not printed.
+
+For a load event, the explanation has the form
+\texttt{load~$v$~from~[$a$]~source:~$s$} where $v$ is the observed
+value that was read from memory address $a$. The parameter of the load
+event is given as the source $s$. The source is the store event which
+provided the observed value. In the general case, a load may have
+multiple sources, in case the load reads multiple bytes written by
+different stores.
+
+A special case which is visible in
+Figure~\ref{fig:ex:error:trace:dekker:power} is the event
+\texttt{(<0>,1)}. This event, corresponding to the call to
+\texttt{pthread\_create}, performs two stores: The thread ID of the
+new thread is written to the output variable \texttt{t} here located
+at \texttt{[0x1ac39b0]}. Furthermore, a byte-sized store is performed
+to \texttt{[0x1acd740]}. The latter store is used to simulate
+communication between threads during thread creation and thread
+joining.
+
+The error trace also contains lines specifying when the execution of
+each thread enters and exits functions. Notice that the entering and
+exiting of functions is related to when instructions contained in
+those functions are \emph{fetched}. This may occur far earlier than
+the fetched instructions are committed. Therefore it is not uncommon
+or unexpected that the exit from a function appears earlier in the
+error trace than the committing of its contained instructions.
+
+For more details on the representation of (error) traces under POWER
+and ARM, see~\cite{leonardssonRSMCPOWER}.
+
+\begin{thebibliography}{99}
+\bibitem{leonardssonRSMCPOWER}
+  Abdulla, Parosh Aziz, Mohamed Faouzi Atig, Bengt Jonsson, Carl Leonardsson. ``Stateless model checking for POWER.'' Pending peer review.
+\end{thebibliography}
+
 \section{Compatibility: Pthreads, stdlib, etc.}
 
 \subsection{Pthreads}
@@ -425,13 +582,18 @@ The following pthread functions are currently supported by Nidhugg:
 \begin{description}
 \item{\texttt{pthread\_create}}
 \item{\texttt{pthread\_join}}
-\item{\texttt{pthread\_self}}
 \item{\texttt{pthread\_exit}}
 \item{\texttt{pthread\_mutex\_init}}
 \item{\texttt{pthread\_mutex\_lock}}
-\item{\texttt{pthread\_mutex\_trylock}}
 \item{\texttt{pthread\_mutex\_unlock}}
 \item{\texttt{pthread\_mutex\_destroy}}
+\end{description}
+
+\paragraph{The following are only supported under SC, TSO and PSO.}
+
+\begin{description}
+\item{\texttt{pthread\_self}}
+\item{\texttt{pthread\_mutex\_trylock}}
 \item{\texttt{pthread\_cond\_init}}
 \item{\texttt{pthread\_cond\_signal}}
 \item{\texttt{pthread\_cond\_broadcast}}
@@ -441,6 +603,23 @@ The following pthread functions are currently supported by Nidhugg:
 
 \subsection{The Standard C library}\label{sec:stdlibc}
 
+Nidhugg has limited support for functions in the standard C
+library. The functions listed below has custom support. Other
+functions in the standard library can, under SC, TSO and PSO, be
+called as blackboxes. See Section~\ref{sec:external:functions}.
+
+\paragraph{Functions with custom support:}
+
+\begin{description}
+\item{\texttt{malloc}}
+\item{\texttt{free}}
+\item{\texttt{atexit}} (\limitsupport{SC, TSO, PSO})
+\item{\texttt{\_\_assert\_fail}} (Called by the \texttt{assert} macro
+  in \textsf{assert.h}.)
+\end{description}
+
+\subsection{External Functions (SC, TSO, PSO only)}\label{sec:external:functions}
+
 While running an execution, if Nidhugg encounters an unknown external
 function (e.g. some function from the standard C library), it will
 handle it by printing a warning and making \emph{an actual call} to
@@ -449,21 +628,19 @@ such as e.g. the ones in \textsf{string.h}. But may cause undefined
 behavior in other cases, such as e.g. when calling functions that deal
 with signal handling or file I/O.
 
-Notice that the external functions are actually run on your system. If
-the analyzed code does undesirable things to the system, those things
-will really be executed.
+\begin{center}
+  \begin{tabular}{|p{.8\linewidth}|}
+    \hline
+    \multicolumn{1}{|c|}{\textbf{Warning}}\\
+    \hline
+    Notice that the external functions are actually run on your system. If
+    the analyzed code does undesirable things to the system, those things
+    will really be executed.\\
+    \hline
+  \end{tabular}
+\end{center}
 
-Notable functions that are supported are these:
-
-\begin{description}
-\item{\texttt{malloc}}
-\item{\texttt{free}}
-\item{\texttt{atexit}}
-\item{\texttt{\_\_assert\_fail}} (Called by the \texttt{assert} macro
-  in \textsf{assert.h}.)
-\end{description}
-
-\subsection{External Functions and Races}\label{sec:stdlibc:races}
+\subsubsection{External Functions and Races}\label{sec:stdlibc:races}
 
 Since external functions are called as blackboxes, there is no way for
 Nidhugg to know which memory locations will be accessed by the
@@ -607,15 +784,21 @@ before use, making sure to use the same signatures as described here.
   unpredictable before the analysis. But a given call to
   \texttt{\_\_VERIFIER\_nondet\_int} by a given thread will always
   return the same value in all executions that are explored.
+%
+  \limitsupport{SC, TSO, PSO}
 \item{\texttt{unsigned int \_\_VERIFIER\_nondet\_uint()}}
 %
   Same as \texttt{\_\_VERIFIER\_nondet\_int}.
+%
+  \limitsupport{SC, TSO, PSO}
 \item{\texttt{\_\_VERIFIER\_atomic\_*}}
 %
   Any function, defined by the user, whose name starts with
   \texttt{\_\_VERIFIER\_atomic\_} will execute atomically. This also
   means that it will execute under sequential consistency, and act as
   a full memory fence.
+%
+  \limitsupport{SC, TSO, PSO}
 \end{description}
 
 \subsection{Fences and Intrinsics}
@@ -623,15 +806,28 @@ before use, making sure to use the same signatures as described here.
 The following are currently supported memory fences:
 
 \begin{description}
-\item{\texttt{\_\_asm\_\_ volatile ("mfence" ::: "memory")}} Full memory fence.
-\item{\texttt{\_\_sync\_synchronize()}} Full memory fence.
-\item{\texttt{\_\_atomic\_thread\_fence(\_\_ATOMIC\_SEQ\_CST)}} Full memory fence.
+\item{\texttt{\_\_asm\_\_ volatile ("mfence" ::: "memory")}} Full
+  memory fence. Supported under SC (with no effect), TSO and PSO.
+\item{\texttt{\_\_asm\_\_ volatile ("sync" ::: "memory")}} POWER \textsf{sync} fence. See~\cite{alglaveHerding}.
+\item{\texttt{\_\_asm\_\_ volatile ("lwsync" ::: "memory")}} POWER \textsf{lwsync} fence. See~\cite{alglaveHerding}.
+\item{\texttt{\_\_asm\_\_ volatile ("eieio" ::: "memory")}} POWER \textsf{eieio} fence. See~\cite{alglaveHerding}.
+\item{\texttt{\_\_asm\_\_ volatile ("isync" ::: "memory")}} POWER \textsf{isync} fence. See~\cite{alglaveHerding}.
+\item{\texttt{\_\_asm\_\_ volatile ("dmb" ::: "memory")}} ARM \textsf{dmb} fence. See~\cite{alglaveHerding}.
+\item{\texttt{\_\_asm\_\_ volatile ("dsb" ::: "memory")}} ARM \textsf{dsb} fence. See~\cite{alglaveHerding}.
+\item{\texttt{\_\_asm\_\_ volatile ("isb" ::: "memory")}} ARM \textsf{isb} fence. See~\cite{alglaveHerding}.
+\item{\texttt{\_\_sync\_synchronize()}} Full memory fence. \limitsupport{SC, TSO, PSO}
+\item{\texttt{\_\_atomic\_thread\_fence(\_\_ATOMIC\_SEQ\_CST)}} Full memory fence. \limitsupport{SC, TSO, PSO}
 \end{description}
 
 Built-in atomic functions provided by the compiler are typically
-supported, but only for the model \texttt{\_\_ATOMIC\_SEQ\_CST}. This
-allows use of e.g. compare and exchange
-(\texttt{\_\_atomic\_compare\_exchange\_n}) or atomic increase\\
-(\texttt{\_\_atomic\_add\_fetch}).
+supported under SC, TSO and PSO, but only for the model
+\texttt{\_\_ATOMIC\_SEQ\_CST}. This allows use of e.g. compare and
+exchange (\texttt{\_\_atomic\_compare\_exchange\_n}) or atomic
+increase (\texttt{\_\_atomic\_add\_fetch}).
+
+\begin{thebibliography}{99}
+\bibitem{alglaveHerding}
+  Alglave, Jade, Luc Maranget, and Michael Tautschnig. ``Herding cats: Modelling, simulation, testing, and data mining for weak memory.'' ACM Transactions on Programming Languages and Systems (TOPLAS) 36.2 (2014): 7.
+\end{thebibliography}
 
 \end{document}

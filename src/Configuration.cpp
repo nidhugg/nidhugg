@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -20,6 +20,9 @@
 #include "Configuration.h"
 
 #include <llvm/Support/CommandLine.h>
+#include "Debug.h"
+
+extern llvm::cl::opt<std::string> cl_transform;
 
 static llvm::cl::opt<bool> cl_explore_all("explore-all",llvm::cl::NotHidden,
                                           llvm::cl::desc("Continue exploring all traces, "
@@ -37,6 +40,8 @@ static llvm::cl::opt<Configuration::MemoryModel>
 cl_memory_model(llvm::cl::NotHidden, llvm::cl::init(Configuration::MM_UNDEF),
                 llvm::cl::desc("Select memory model"),
                 llvm::cl::values(clEnumValN(Configuration::SC,"sc","Sequential Consistency"),
+                                 clEnumValN(Configuration::ARM,"arm","The ARM model"),
+                                 clEnumValN(Configuration::POWER,"power","The POWER model"),
                                  clEnumValN(Configuration::PSO,"pso","Partial Store Order"),
                                  clEnumValN(Configuration::TSO,"tso","Total Store Order"),
                                  clEnumValEnd));
@@ -74,7 +79,7 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "extfun-no-race",
     "malloc-may-fail",
     "max-search-depth",
-    "sc","tso","pso",
+    "sc","tso","pso","power","arm",
     "robustness",
     "no-spin-assume",
     "unroll",
@@ -99,4 +104,74 @@ void Configuration::assign_by_commandline(){
   transform_loop_unroll = cl_transform_loop_unroll;
   print_progress = cl_print_progress || cl_print_progress_estimate;
   print_progress_estimate = cl_print_progress_estimate;
+};
+
+void Configuration::check_commandline(){
+  /* Check commandline switch compatibility with --transform. */
+  if(cl_transform.getNumOccurrences()){
+    if(cl_extfun_no_race.getNumOccurrences()){
+      Debug::warn("Configuration::check_commandline:transform:extfun_no_race")
+        << "WARNING: --extfun-no-race ignored in presence of --transform.\n";
+    }
+    if(cl_malloc_may_fail.getNumOccurrences()){
+      Debug::warn("Configuration::check_commandline:transform:malloc_may_fail")
+        << "WARNING: --malloc_may_fail ignored in presence of --transform.\n";
+    }
+    if(cl_max_search_depth.getNumOccurrences()){
+      Debug::warn("Configuration::check_commandline:transform:max-search-depth")
+        << "WARNING: --max-search-depth ignored in presence of --transform.\n";
+    }
+    if(cl_memory_model.getNumOccurrences()){
+      Debug::warn("Configuration::check_commandline:transform:memory_model")
+        << "WARNING: Given memory model ignored in presence of --transform.\n";
+    }
+    if(cl_print_progress.getNumOccurrences()){
+      Debug::warn("Configuration::check_commandline:transform:print-progress")
+        << "WARNING: --print-progress ignored in presence of --transform.\n";
+    }
+    if(cl_print_progress_estimate.getNumOccurrences()){
+      Debug::warn("Configuration::check_commandline:transform:print-progress-estimate")
+        << "WARNING: --print-progress-estimate ignored in presence of --transform.\n";
+    }
+    if(cl_check_robustness.getNumOccurrences()){
+      Debug::warn("Configuration::check_commandline:transform:check_robustness")
+        << "WARNING: --robustness ignored in presence of --transform.\n";
+    }
+  }else{
+    if(cl_transform_no_spin_assume.getNumOccurrences()){
+      Debug::warn("Configuration::check_commandline:no:transform:transform-no-spin-assume")
+        << "WARNING: --no-spin-assume ignored in absence of --transform.\n";
+    }
+    if(cl_transform_loop_unroll.getNumOccurrences()){
+      Debug::warn("Configuration::check_commandline:no:transform:transform_loop_unroll")
+        << "WARNING: --unroll ignored in absence of --transform.\n";
+    }
+  }
+  /* Check commandline switch compatibility with memory model. */
+  {
+    std::string mm;
+    if(cl_memory_model == Configuration::SC) mm = "SC";
+    if(cl_memory_model == Configuration::TSO) mm = "TSO";
+    if(cl_memory_model == Configuration::PSO) mm = "PSO";
+    if(cl_memory_model == Configuration::POWER) mm = "POWER";
+    if(cl_memory_model == Configuration::ARM) mm = "ARM";
+    if(cl_memory_model == Configuration::ARM || cl_memory_model == Configuration::POWER){
+      if(cl_extfun_no_race.getNumOccurrences()){
+        Debug::warn("Configuration::check_commandline:mm:extfun-no-race")
+          << "WARNING: --extfun-no-race ignored under memory model " << mm << ".\n";
+      }
+      if(cl_malloc_may_fail.getNumOccurrences()){
+        Debug::warn("Configuration::check_commandline:mm:malloc-may-fail")
+          << "WARNING: --malloc-may-fail ignored under memory model " << mm << ".\n";
+      }
+      if(cl_max_search_depth.getNumOccurrences()){
+        Debug::warn("Configuration::check_commandline:mm:max-search-depth")
+          << "WARNING: --max-search-depth ignored under memory model " << mm << ".\n";
+      }
+      if(cl_check_robustness.getNumOccurrences()){
+        Debug::warn("Configuration::check_commandline:mm:robustness")
+          << "WARNING: --robustness ignored under memory model " << mm << ".\n";
+      }
+    }
+  }
 };

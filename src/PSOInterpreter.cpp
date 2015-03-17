@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -59,9 +59,15 @@ llvm::ExecutionEngine *PSOInterpreter::create(llvm::Module *M, PSOTraceBuilder &
     if(ErrorStr) *ErrorStr = EC.message();
     return 0;
   }
-#else
+#elif defined LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_BOOL_STRPTR
   if (M->MaterializeAllPermanently(ErrorStr)){
     // We got an error, just return 0
+    return 0;
+  }
+#else
+  if(std::error_code EC = M->materializeAll()){
+    // We got an error, just return 0
+    if(ErrorStr) *ErrorStr = EC.message();
     return 0;
   }
 #endif

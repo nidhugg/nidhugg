@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Carl Leonardsson
+/* Copyright (C) 2014-2016 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -30,6 +30,11 @@
 #include <set>
 #include <stdexcept>
 
+llvm::cl::opt<std::string>
+cl_transform("transform",llvm::cl::init(""),
+             llvm::cl::desc("Transform the input module and store it (as LLVM assembly) to OUTFILE."),
+             llvm::cl::NotHidden,llvm::cl::value_desc("OUTFILE"));
+
 void print_version(){
   std::cout << PACKAGE_STRING
             << " ("
@@ -55,8 +60,13 @@ int main(int argc, char *argv[]){
       {"version"};
     visible_options.insert(Configuration::commandline_opts().begin(),
                            Configuration::commandline_opts().end());
+#ifdef LLVM_CL_GETREGISTEREDOPTIONS_TAKES_ARGUMENT
     llvm::StringMap<llvm::cl::Option*> opts;
     llvm::cl::getRegisteredOptions(opts);
+#else
+    llvm::StringMap<llvm::cl::Option*> &opts =
+      llvm::cl::getRegisteredOptions();
+#endif
     for(auto it = opts.begin(); it != opts.end(); ++it){
       if(visible_options.count(it->getKey()) == 0){
         it->getValue()->setHiddenFlag(llvm::cl::Hidden);
@@ -67,15 +77,12 @@ int main(int argc, char *argv[]){
   input_file(llvm::cl::desc("<input bitcode or assembly>"),
              llvm::cl::Positional,
              llvm::cl::init("-"));
-  llvm::cl::opt<std::string>
-    cl_transform("transform",llvm::cl::init(""),
-                 llvm::cl::desc("Transform the input module and store it (as LLVM assembly) to OUTFILE."),
-                 llvm::cl::NotHidden,llvm::cl::value_desc("OUTFILE"));
   llvm::cl::ParseCommandLineOptions(argc, argv);
 
   try{
     Configuration conf;
     conf.assign_by_commandline();
+    conf.check_commandline();
 
     if(cl_transform != ""){
       Transform::transform(input_file,cl_transform,conf);
@@ -89,8 +96,8 @@ int main(int argc, char *argv[]){
                 << " (also " << res.sleepset_blocked_trace_count
                 << " sleepset blocked)" << std::endl; 
       if(res.has_errors()){
-        std::cout << "\n Error detected:" << std::endl
-                  << res.error_trace.computation_to_string(2);
+        std::cout << "\n Error detected:\n"
+                  << res.error_trace->to_string(2);
       }else{
         std::cout << "No errors were detected." << std::endl;
       }
