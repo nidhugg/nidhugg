@@ -23,6 +23,20 @@
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
 
+/* The DeclareAssumePass checks that __VERIFIER_assume is correctly
+ * declared in the module. If they are incorrectly declared, an
+ * error is raised. If they are not declared, then their (correct)
+ * declaration is added to the module.
+ *
+ * This pass is a prerequisite for SpinAssumePass.
+ */
+class DeclareAssumePass : public llvm::ModulePass {
+public:
+  static char ID;
+  DeclareAssumePass() : llvm::ModulePass(ID) {};
+  virtual bool runOnModule(llvm::Module &M);
+};
+
 /* The SpinAssumePass identifies side-effect-free spin loops and
  * replaces them with a single, non-looping, call to
  * __VERIFIER_assume, while maintaining reachability for the module.

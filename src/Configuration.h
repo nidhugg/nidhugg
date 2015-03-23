@@ -76,7 +76,7 @@ public:
     debug_collect_all_traces = false;
     debug_print_on_reset = false;
     debug_print_on_error = false;
-    transform_spin_assume = false;
+    transform_spin_assume = true;
     transform_loop_unroll = -1;
     print_progress = false;
     print_progress_estimate = false;

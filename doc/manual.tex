@@ -270,21 +270,20 @@ int main(int argc, char *argv[]){
   assembly to the file $OUTFILE$. This switch should always be used
   for program transformation, and should be combined with switches
   that specify specific transformations.
-\item{\texttt{--spin-assume}}
+\item{\texttt{--no-spin-assume}}
 %
-  Detect spin loops in the code, and replace them by \texttt{assume}
-  statements. This transformation maintains satisfaction or
-  dissatisfaction of the safety properties in the test case. However,
-  this transformation does not in general maintain robustness
-  violations.
+  Disable the \texttt{spin-assume} transformation. By default, the
+  transformation will detect spin loops in the code, and replace them
+  by \texttt{assume} statements. This transformation maintains
+  satisfaction or dissatisfaction of the safety properties in the test
+  case. However, this transformation does not in general maintain
+  robustness violations.
 \item{\texttt{--unroll=$N$}}
 %
   Unroll all loops $N$ times, making the program loop free. A thread
   that attempts to execute a basic block from a loop more than $N$
   times in one go will be blocked. This is useful to make a finite
-  test case out of an infinite one. The switch \texttt{--unroll} will
-  also automatically execute the \texttt{--spin-assume} transformation
-  before unrolling.
+  test case out of an infinite one.
 
   Notice that this unrolling works on loops in the LLVM internal
   representation after compilation and possibly optimization. These

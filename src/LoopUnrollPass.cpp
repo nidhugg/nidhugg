@@ -38,8 +38,8 @@
 
 void LoopUnrollPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
   llvm::LoopPass::getAnalysisUsage(AU);
-  AU.addRequired<SpinAssumePass>();
-  AU.addPreserved<SpinAssumePass>();
+  AU.addRequired<DeclareAssumePass>();
+  AU.addPreserved<DeclareAssumePass>();
 };
 
 llvm::BasicBlock *LoopUnrollPass::make_diverge_block(llvm::Loop *L){

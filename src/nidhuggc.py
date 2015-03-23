@@ -23,7 +23,7 @@ nidhuggcparams = [
     {'name':'--clang','help':'Specify the path to clang.','param':'PATH'},
     {'name':'--clangxx','help':'Specify the path to clang++.','param':'PATH'},
     {'name':'--nidhugg','help':'Specify the path to the nidhugg binary.','param':'PATH'},
-    {'name':'--spin-assume','help':'Use spin-assume transformation on module before calling nidhugg.','param':False},
+    {'name':'--no-spin-assume','help':'Don\'t use the spin-assume transformation on module before calling nidhugg.','param':False},
     {'name':'--unroll','help':'Use unroll transformation on module before calling nidhugg.','param':'N'}
 ]
 
@@ -38,7 +38,7 @@ nidhuggcparamaliases = {
     '-clang':'--clang',
     '-clangxx':'--clangxx',
     '-nidhugg':'--nidhugg',
-    '-spin-assume':'--spin-assume',
+    '-no-spin-assume':'--no-spin-assume',
     '-unroll':'--unroll'
 }
 
@@ -225,7 +225,7 @@ def main():
                 CLANGXX=argarg
             elif argname == '--nidhugg':
                 NIDHUGG=argarg
-            elif argname == '--spin-assume':
+            elif argname == '--no-spin-assume':
                 transformargs.append(argname)
             elif argname == '--unroll':
                 transformargs.append('--unroll={0}'.format(argarg))
@@ -240,8 +240,7 @@ def main():
         # Compile
         irfname = get_IR(nidhuggcargs,compilerargs)
         # Transform
-        if 0 < len(transformargs):
-            irfname = transform(nidhuggcargs,transformargs,irfname)
+        irfname = transform(nidhuggcargs,transformargs,irfname)
         # Run stateless model-checker
         run_nidhugg(nidhuggcargs,nidhuggargs,irfname)
         print('Total wall-clock time: {0:.2f} s'.format(time.time()-t0))

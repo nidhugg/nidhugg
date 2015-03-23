@@ -46,8 +46,8 @@ static llvm::cl::opt<bool> cl_check_robustness("robustness",llvm::cl::NotHidden,
 
 static llvm::cl::OptionCategory cl_transformation_cat("Module Transformation Passes");
 
-static llvm::cl::opt<bool> cl_transform_spin_assume("spin-assume",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
-                                                    llvm::cl::desc("Enable the spin assume pass in module transformation."));
+static llvm::cl::opt<bool> cl_transform_no_spin_assume("no-spin-assume",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
+                                                       llvm::cl::desc("Disable the spin assume pass in module transformation."));
 
 static llvm::cl::opt<int>
 cl_transform_loop_unroll("unroll",
@@ -76,7 +76,7 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "max-search-depth",
     "sc","tso","pso",
     "robustness",
-    "spin-assume",
+    "no-spin-assume",
     "unroll",
     "print-progress",
     "print-progress-estimate"
@@ -95,7 +95,7 @@ void Configuration::assign_by_commandline(){
   max_search_depth = cl_max_search_depth;
   memory_model = cl_memory_model;
   check_robustness = cl_check_robustness;
-  transform_spin_assume = cl_transform_spin_assume;
+  transform_spin_assume = !cl_transform_no_spin_assume;
   transform_loop_unroll = cl_transform_loop_unroll;
   print_progress = cl_print_progress || cl_print_progress_estimate;
   print_progress_estimate = cl_print_progress_estimate;
