@@ -70,7 +70,7 @@ public:
    */
   bool operator==(const IID &iid) const {
     return (idx == 0 && iid.idx == 0) ||
-      (pid == iid.pid && idx == iid.idx);
+      (idx == iid.idx && pid == iid.pid);
   };
   bool operator!=(const IID &iid) const { return !((*this) == iid); };
   bool operator<(const IID &iid) const {
