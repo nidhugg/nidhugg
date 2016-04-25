@@ -18,6 +18,7 @@
  */
 
 #include "StrModule.h"
+#include "nregex.h"
 
 #if defined(HAVE_LLVM_ASSEMBLY_PRINTMODULEPASS_H)
 #include <llvm/Assembly/PrintModulePass.h>
@@ -50,7 +51,6 @@
 #endif
 
 #include <stdexcept>
-#include <regex>
 
 namespace StrModule {
 
@@ -178,15 +178,12 @@ namespace StrModule {
        *
        * load rettype* addr
        */
-      std::regex rgx("load [^,]*,");
-      s = std::regex_replace(s,rgx,"load ");
+      s = nregex::regex_replace(s,"load [^,]*,","load ");
     }
     {
       /* Remove explicit return types for getelementptr.*/
-      std::regex rgx1("getelementptr *((?:inbounds)?) *[^ (]*,");
-      s = std::regex_replace(s,rgx1,"getelementptr $1 ");
-      std::regex rgx3("getelementptr *\\([^,]*,");
-      s = std::regex_replace(s,rgx3,"getelementptr (");
+      s = nregex::regex_replace(s,"getelementptr *((inbounds)?) *[^ (]*,","getelementptr $1 ");
+      s = nregex::regex_replace(s,"getelementptr *\\([^,]*,","getelementptr (");
     }
 #endif
     return s;

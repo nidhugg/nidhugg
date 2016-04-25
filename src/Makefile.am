@@ -16,6 +16,7 @@ libnidhugg_a_SOURCES = \
   Interpreter.cpp Interpreter.h \
   LoopUnrollPass.cpp LoopUnrollPass.h \
   MRef.cpp MRef.h \
+  nregex.cpp nregex.h \
   POWERExecution.cpp \
   POWERInterpreter.cpp POWERInterpreter.h \
   POWERARMTraceBuilder.cpp POWERARMTraceBuilder.tcc POWERARMTraceBuilder.h POWERARMTraceBuilder_decl.h \
@@ -50,6 +51,7 @@ unittest_SOURCES = \
   DPORDriver_test.cpp DPORDriver_test.h \
   DryRun_test.cpp \
   FBVClock_test.cpp \
+  nregex_test.cpp \
   POWER_test.cpp \
   POWER_test2.cpp \
   PSO_test.cpp \

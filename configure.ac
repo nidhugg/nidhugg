@@ -101,6 +101,7 @@ AC_CHECK_HEADERS([ \
   map \
   ostream \
   random \
+  regex.h \
   set \
   sstream \
   stdexcept \
