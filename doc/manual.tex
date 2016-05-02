@@ -53,7 +53,7 @@ A test case must satisfy the following two conditions
   given state, executing a given execution step must always take the
   system to the same new state.
 %
-  This means that the test case may not e.g. check the time, or
+  This means that the test case may not e.g.\ check the time, or
   perform file I/O.
 \end{description}
 
@@ -87,7 +87,7 @@ explore all behaviors.
 \bibitem{alglaveHerding}
   Alglave, Jade, Luc Maranget, and Michael Tautschnig. ``Herding cats: Modelling, simulation, testing, and data mining for weak memory.'' ACM Transactions on Programming Languages and Systems (TOPLAS) 36.2 (2014): 7.
 \bibitem{leonardssonSMCTSO}
-  Abdulla, Parosh Aziz, Stavros Aronis, Mohamed Faouzi Atig, Bengt Jonsson, Carl Leonardsson, Konstantinos Sagonas. ``Stateless model checking for TSO and PSO.'' Tools and Algorithms for the Construction and Analysis of Systems. Springer Berlin Heidelberg, 2015. 353-367.
+  Abdulla, Parosh Aziz, Stavros Aronis, Mohamed Faouzi Atig, Bengt Jonsson, Carl Leonardsson, Konstantinos Sagonas. ``Stateless model checking for TSO and PSO.'' Tools and Algorithms for the Construction and Analysis of Systems. Springer Berlin Heidelberg, 2015. 353--367.
 \bibitem{leonardssonRSMCPOWER}
   Abdulla, Parosh Aziz, Mohamed Faouzi Atig, Bengt Jonsson, Carl Leonardsson. ``Stateless model checking for POWER.'' Pending peer review.
 \end{thebibliography}
@@ -99,7 +99,7 @@ follows:
 
 \begin{enumerate}
 \item Compile the source code into LLVM assembly using a compiler
-  such as e.g. clang, clang++, llvm-gcc, etc.
+  such as e.g.\ clang, clang++, llvm-gcc, etc.
 \item Optionally use \textsf{nidhugg} to transform the assembly into
   new assembly that can be analyzed more efficiently.
 \item Use \textsf{nidhugg} to analyze the LLVM assembly file.
@@ -117,7 +117,7 @@ file. Section~\ref{sec:using:nidhuggc} describes how to use
 \paragraph{Compilation}
 %
 Since Nidhugg works on LLVM internal representation, source code in
-high-level languages such as e.g. C must be compiled before it can be
+high-level languages such as e.g.\ C must be compiled before it can be
 analyzed. This can be done with some compilers based on LLVM. C
 programs are conveniently compiled with the \textsf{clang} compiler as
 follows:
@@ -130,10 +130,10 @@ follows:
 %
 Here $CFLAGS$ can be any switches you would normally give to your
 compiler when compiling \texttt{$FILE$.c}. Notice that if optimization
-switches such as e.g. \texttt{-O2} are given to \textsf{clang}, then
+switches such as e.g.\ \texttt{-O2} are given to \textsf{clang}, then
 the corresponding optimizations are performed on the code
 \emph{before} analysis. This can be beneficial for analysis time
-consumption, but may change the behavior of the program, e.g. in cases
+consumption, but may change the behavior of the program, e.g.\ in cases
 where shared variables are not properly marked as \texttt{volatile}.
 
 Make certain that the compiler supports the version of LLVM against
@@ -145,7 +145,7 @@ version.
 %
 To compile a test case which consists of multiple C files, the
 procedure is similar to how you would normally compile the code: Use
-e.g. \textsf{clang} to compile each C file into an object file, but
+e.g.\ \textsf{clang} to compile each C file into an object file, but
 add switches \texttt{-emit-llvm -S} to generate the object file as
 LLVM assembly. Then link the object files using \textsf{llvm-link}.
 
@@ -159,7 +159,7 @@ $\vdots$\\
 \paragraph{Transformation}
 %
 Before analyzing a test case with Nidhugg, the test case code can be
-automatically rewritten in various ways, e.g. to improve analysis
+automatically rewritten in various ways, e.g.\ to improve analysis
 performance or to put a bound on an infinite test case to make it
 finite. This is done with a call to \textsf{nidhugg} as follows:
 
@@ -216,7 +216,7 @@ Section~\ref{sec:understand:error:traces} for details about how to
 interpret the error trace.
 
 In this case we performed no transformation. In the common case that
-you have a test case that contains (unbounded) loops, you may instead
+a test case contains (unbounded) loops, one may instead
 want to use commands such as the following:
 
 \vspace{5pt}
@@ -423,7 +423,7 @@ Each line corresponds to an event, which is either the execution of an
 instruction or a memory update. Each event is identified by a pair
 \texttt{($tid$,$i$)}, where $tid$ is the thread ID of the executing
 thread, and $i$ is the per-thread index of that event. Notice that
-some events (e.g. \texttt{(<0>,2)}) are missing in the trace. The
+some events (e.g.\ \texttt{(<0>,2)}) are missing in the trace. The
 missing events are events that are local, and do not affect any other
 thread. Each event is annotated with the line of C code that produced
 that instruction. Notice that one line of C code may correspond to
@@ -604,7 +604,7 @@ The following pthread functions are currently supported by Nidhugg:
 \subsection{The Standard C library}\label{sec:stdlibc}
 
 Nidhugg has limited support for functions in the standard C
-library. The functions listed below has custom support. Other
+library. The functions listed below have custom support. Other
 functions in the standard library can, under SC, TSO and PSO, be
 called as blackboxes. See Section~\ref{sec:external:functions}.
 
@@ -621,11 +621,11 @@ called as blackboxes. See Section~\ref{sec:external:functions}.
 \subsection{External Functions (SC, TSO, PSO only)}\label{sec:external:functions}
 
 While running an execution, if Nidhugg encounters an unknown external
-function (e.g. some function from the standard C library), it will
+function (e.g.\ some function from the standard C library), it will
 handle it by printing a warning and making \emph{an actual call} to
 the function. This will usually work fine for well-behaved functions
-such as e.g. the ones in \textsf{string.h}. But may cause undefined
-behavior in other cases, such as e.g. when calling functions that deal
+such as e.g.\ the ones in \textsf{string.h}. But may cause undefined
+behavior in other cases, such as e.g.\ when calling functions that deal
 with signal handling or file I/O.
 
 \begin{center}
@@ -644,10 +644,10 @@ with signal handling or file I/O.
 
 Since external functions are called as blackboxes, there is no way for
 Nidhugg to know which memory locations will be accessed by the
-functions, which mutexes will be locked or unlocked etc. In order to
+functions, which mutexes will be locked or unlocked, etc. In order to
 provide a complete under-approximation, Nidhugg therefore assumes that
 external functions conflict with \emph{all} other accesses to memory,
-mutexes etc.
+mutexes, etc.
 %
 This may cause Nidhugg to explore a huge number of superfluous
 computations, which differ only in the order between unrelated or
@@ -821,7 +821,7 @@ The following are currently supported memory fences:
 
 Built-in atomic functions provided by the compiler are typically
 supported under SC, TSO and PSO, but only for the model
-\texttt{\_\_ATOMIC\_SEQ\_CST}. This allows use of e.g. compare and
+\texttt{\_\_ATOMIC\_SEQ\_CST}. This allows use of e.g.\ compare and
 exchange (\texttt{\_\_atomic\_compare\_exchange\_n}) or atomic
 increase (\texttt{\_\_atomic\_add\_fetch}).
 
