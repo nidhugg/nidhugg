@@ -490,7 +490,8 @@ Error detected:
   (<0.0>,2): test.c:6 y = 1;
              store 0x01000000 to [0x1ac0020]
   (<0.0>,3): test.c:8 if(!x){
-             load 0x00000000 from [0x1ad3110] source: (initial value)
+             load 0x00000000 from [0x1ad3110] source:
+             (initial value)
   (<0.0>,4): test.c:9 c = 1;
              store 0x01000000 to [0x1acd680]
   (<0.0>,5): test.c:10 assert(c == 1);
@@ -806,15 +807,15 @@ before use, making sure to use the same signatures as described here.
 The following are currently supported memory fences:
 
 \begin{description}
-\item{\texttt{\_\_asm\_\_ volatile ("mfence" ::: "memory")}} Full
+\item{\texttt{\_\_asm\_\_ volatile ("mfence" :::\ "memory")}} Full
   memory fence. Supported under SC (with no effect), TSO and PSO.
-\item{\texttt{\_\_asm\_\_ volatile ("sync" ::: "memory")}} POWER \textsf{sync} fence. See~\cite{alglaveHerding}.
-\item{\texttt{\_\_asm\_\_ volatile ("lwsync" ::: "memory")}} POWER \textsf{lwsync} fence. See~\cite{alglaveHerding}.
-\item{\texttt{\_\_asm\_\_ volatile ("eieio" ::: "memory")}} POWER \textsf{eieio} fence. See~\cite{alglaveHerding}.
-\item{\texttt{\_\_asm\_\_ volatile ("isync" ::: "memory")}} POWER \textsf{isync} fence. See~\cite{alglaveHerding}.
-\item{\texttt{\_\_asm\_\_ volatile ("dmb" ::: "memory")}} ARM \textsf{dmb} fence. See~\cite{alglaveHerding}.
-\item{\texttt{\_\_asm\_\_ volatile ("dsb" ::: "memory")}} ARM \textsf{dsb} fence. See~\cite{alglaveHerding}.
-\item{\texttt{\_\_asm\_\_ volatile ("isb" ::: "memory")}} ARM \textsf{isb} fence. See~\cite{alglaveHerding}.
+\item{\texttt{\_\_asm\_\_ volatile ("sync" :::\ "memory")}} POWER \textsf{sync} fence. See~\cite{alglaveHerding}.
+\item{\texttt{\_\_asm\_\_ volatile ("lwsync" :::\ "memory")}} POWER \textsf{lwsync} fence. See~\cite{alglaveHerding}.
+\item{\texttt{\_\_asm\_\_ volatile ("eieio" :::\ "memory")}} POWER \textsf{eieio} fence. See~\cite{alglaveHerding}.
+\item{\texttt{\_\_asm\_\_ volatile ("isync" :::\ "memory")}} POWER \textsf{isync} fence. See~\cite{alglaveHerding}.
+\item{\texttt{\_\_asm\_\_ volatile ("dmb" :::\ "memory")}} ARM \textsf{dmb} fence. See~\cite{alglaveHerding}.
+\item{\texttt{\_\_asm\_\_ volatile ("dsb" :::\ "memory")}} ARM \textsf{dsb} fence. See~\cite{alglaveHerding}.
+\item{\texttt{\_\_asm\_\_ volatile ("isb" :::\ "memory")}} ARM \textsf{isb} fence. See~\cite{alglaveHerding}.
 \item{\texttt{\_\_sync\_synchronize()}} Full memory fence. \limitsupport{SC, TSO, PSO}
 \item{\texttt{\_\_atomic\_thread\_fence(\_\_ATOMIC\_SEQ\_CST)}} Full memory fence. \limitsupport{SC, TSO, PSO}
 \end{description}
