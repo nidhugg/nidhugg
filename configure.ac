@@ -50,15 +50,20 @@ fi
 # Enable assert? Compile with NDEBUG?
 AC_ARG_ENABLE([asserts],
               [AS_HELP_STRING([--enable-asserts],[Enable asserts for debugging.])],[
-  if test "x$LLVM_NDEBUG" = "xyes"; then
-    AC_MSG_WARN([LLVM was compiled without asserts, and incompatible with asserts build.])
-    AC_MSG_WARN([  Refusing to enable asserts, despite --enable-asserts.])
-    AC_MSG_WARN([  To enable asserts, try compiling against a debug build of LLVM.])
-  elif test "x`echo "$CXXFLAGS" | grep -e -DNDEBUG`" != "x"; then
-    AC_MSG_WARN([Asserts have been previously disabled for some reason.])
-    AC_MSG_WARN([  Refusing to enable asserts, despite --enable-asserts.])
+  if test "x$enableval" = "xyes"; then
+    if test "x$LLVM_NDEBUG" = "xyes"; then
+      AC_MSG_WARN([LLVM was compiled without asserts, and incompatible with asserts build.])
+      AC_MSG_WARN([  Refusing to enable asserts, despite --enable-asserts.])
+      AC_MSG_WARN([  To enable asserts, try compiling against a debug build of LLVM.])
+    elif test "x`echo "$CXXFLAGS" | grep -e -DNDEBUG`" != "x"; then
+      AC_MSG_WARN([Asserts have been previously disabled for some reason.])
+      AC_MSG_WARN([  Refusing to enable asserts, despite --enable-asserts.])
+    else
+      AC_MSG_NOTICE([Enabling asserts.])
+    fi
   else
-    AC_MSG_NOTICE([Enabling asserts.])
+    AC_MSG_NOTICE([Disabling asserts.])
+    CXXFLAGS="$CXXFLAGS -DNDEBUG"
   fi
 ],[CXXFLAGS="$CXXFLAGS -DNDEBUG"])
 
