@@ -1139,7 +1139,8 @@ void POWERInterpreter::visitInlineAsm(llvm::CallSite &CS, const std::string &asm
      asmstr == "isync" ||
      asmstr == "eieio" ||
      asmstr == "lwsync" ||
-     asmstr == "sync"){ // Do nothing
+     asmstr == "sync" ||
+     asmstr == ""){ // Do nothing
   }else{
     throw std::logic_error("Unsupported inline assembly: " + asmstr);
   }
@@ -2647,6 +2648,7 @@ std::shared_ptr<POWERInterpreter::FetchedInstruction> POWERInterpreter::fetch(ll
         }else if(asmstr == "sync" || asmstr == "DMB" || asmstr == "DSB" ||
                  asmstr == "dmb" || asmstr == "dsb"){
           TB.fetch_fence(CurrentThread,POWERARMTraceBuilder::SYNC);
+        }else if(asmstr == ""){ // Do nothing
         }
       }else{
         llvm::Function *F;

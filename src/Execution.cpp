@@ -1486,6 +1486,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
 
 void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmstr){
   if(asmstr == "mfence"){ // Do nothing
+  }else if(asmstr == ""){ // Do nothing
   }else{
     throw std::logic_error("Unsupported inline assembly: " + asmstr);
   }

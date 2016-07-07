@@ -961,6 +961,62 @@ declare void @__assert_fail()
   BOOST_CHECK(res.has_errors());
 }
 
+BOOST_AUTO_TEST_CASE(Compiler_fenced_dekker){
+  /* Dekker with compiler fence (). */
+  Configuration conf = DPORDriver_test::get_tso_conf();
+  DPORDriver *driver =
+    DPORDriver::parseIR(StrModule::portasm(R"(
+@x = global i32 0, align 4
+@y = global i32 0, align 4
+
+define i8* @p0(i8* %arg){
+  store i32 1, i32* @x, align 4
+  call void asm sideeffect "", "~{memory}"()
+  %1 = load i32, i32* @y, align 4
+  ret i8* null
+}
+
+define i8* @p1(i8* %arg){
+  store i32 1, i32* @y, align 4
+  call void asm sideeffect "", "~{memory}"()
+  %1 = load i32, i32* @x, align 4
+  ret i8* null
+}
+
+define i32 @main(){
+  call i32 @pthread_create(i64* null, %union.pthread_attr_t* null, i8*(i8*)* @p1,i8* null)
+  call i8* @p0(i8* null)
+  ret i32 0
+}
+
+%union.pthread_attr_t = type { i64, [48 x i8] }
+
+declare i32 @pthread_create(i64*,%union.pthread_attr_t*,i8*(i8*)*,i8*) nounwind
+)"),conf);
+
+  DPORDriver::Result res = driver->run();
+
+  CPid P0;
+  CPid U0 = P0.aux(0);
+  CPid P1 = P0.spawn(0);
+  CPid U1 = P1.aux(0);
+
+  IID<CPid>
+    ux0(U0,1),
+    ry0(P0,5),
+    uy1(U1,1),
+    rx1(P1,3);
+
+  DPORDriver_test::trace_set_spec spec =
+    {{{ux0,rx1},{uy1,ry0}},
+     {{ux0,rx1},{ry0,uy1}},
+     {{rx1,ux0},{uy1,ry0}},
+     {{rx1,ux0},{ry0,uy1}}};
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,spec,conf));
+
+  delete driver;
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif

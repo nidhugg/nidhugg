@@ -807,6 +807,11 @@ before use, making sure to use the same signatures as described here.
 The following are currently supported memory fences:
 
 \begin{description}
+\item{\texttt{\_\_asm\_\_ volatile ("" :::\ "memory")}} Compiler
+  fence. Supported. Notice that a compiler fence may affect how the
+  compiler produces the LLVM assembly. Nidhugg, on the other hand,
+  will ignore the compiler fence since it has no effect on the
+  hardware level.
 \item{\texttt{\_\_asm\_\_ volatile ("mfence" :::\ "memory")}} Full
   memory fence. Supported under SC (with no effect), TSO and PSO.
 \item{\texttt{\_\_asm\_\_ volatile ("sync" :::\ "memory")}} POWER \textsf{sync} fence. See~\cite{alglaveHerding}.

@@ -288,6 +288,7 @@ void TSOInterpreter::visitAtomicRMWInst(llvm::AtomicRMWInst &I){
 void TSOInterpreter::visitInlineAsm(llvm::CallSite &CS, const std::string &asmstr){
   if(asmstr == "mfence"){
     TB.fence();
+  }else if(asmstr == ""){ // Do nothing
   }else{
     throw std::logic_error("Unsupported inline assembly: "+asmstr);
   }

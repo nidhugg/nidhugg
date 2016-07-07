@@ -1118,6 +1118,51 @@ declare void @__assert_fail()
   BOOST_CHECK(res.has_errors());
 }
 
+BOOST_AUTO_TEST_CASE(Compiler_fence_mp){
+  /* MP with compiler fence */
+  Configuration conf = DPORDriver_test::get_pso_conf();
+  conf.explore_all_traces = true;
+  DPORDriver *driver =
+    DPORDriver::parseIR(StrModule::portasm(R"(
+@x = global i32 0, align 4
+@y = global i32 0, align 4
+
+define i8* @p1(i8* %arg){
+  %y = load i32, i32* @y, align 4
+  call void asm sideeffect "", "~{memory}"()
+  %x = load i32, i32* @x, align 4
+  ret i8* null
+}
+
+define i32 @main(){
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
+  store i32 1, i32* @x, align 4
+  call void asm sideeffect "", "~{memory}"()
+  store i32 1, i32* @y, align 4
+  ret i32 0
+}
+
+%attr_t = type { i64, [48 x i8] }
+declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
+declare void @__assert_fail() nounwind noreturn
+)"),conf);
+
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  CPid P0; CPid U0x = P0.aux(0); CPid U0y = P0.aux(1);
+  CPid P1 = P0.spawn(0);
+  IID<CPid>
+    ux0(U0x,1), uy0(U0y,1),
+    ry1(P1,1), rx1(P1,3);
+  DPORDriver_test::trace_set_spec expected =
+    {{{ux0,rx1},{uy0,ry1}},
+     {{ux0,rx1},{ry1,uy0}},
+     {{rx1,ux0},{uy0,ry1}},
+     {{rx1,ux0},{ry1,uy0}}};
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif
