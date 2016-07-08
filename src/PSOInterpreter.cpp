@@ -93,7 +93,7 @@ void PSOInterpreter::runAux(int proc, int aux){
 
   if(DryRun) return;
 
-  uint8_t blk[ml.size];
+  uint8_t *blk = new uint8_t[ml.size];
 
   for(void const *b : ml){
     assert(pso_threads[proc].store_buffers.count(b));
@@ -109,8 +109,10 @@ void PSOInterpreter::runAux(int proc, int aux){
   }
 
   if(!CheckedMemCpy((uint8_t*)b0,blk,ml.size)){
+    delete[] blk;
     return;
-  };
+  }
+  delete[] blk;
 
   /* Should we reenable the thread after awaiting buffer flush? */
   switch(pso_threads[proc].awaiting_buffer_flush){
@@ -263,13 +265,14 @@ void PSOInterpreter::visitLoadInst(llvm::LoadInst &I){
 
   /* Check store buffer for ROWE opportunity. */
   if(pso_threads[CurrentThread].store_buffers.count(ml.ref)){
-    uint8_t blk[ml.size];
+    uint8_t *blk = new uint8_t[ml.size];
     for(void const *b : ml){
       assert(pso_threads[CurrentThread].store_buffers[b].back().ml == ml);
       blk[unsigned((uint8_t const *)b-(uint8_t const *)ml.ref)] = pso_threads[CurrentThread].store_buffers[b].back().val;
     }
     CheckedLoadValueFromMemory(Result,(llvm::GenericValue*)blk,I.getType());
     SetValue(&I, Result, SF);
+    delete[] blk;
     return;
   }
 

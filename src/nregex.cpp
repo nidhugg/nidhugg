@@ -68,7 +68,7 @@ namespace nregex{
       throw std::logic_error(std::string("regex_replace: Failed to compile regex: ")+errbuf);
     }
     int nmatch = 256;
-    regmatch_t pmatch[nmatch];
+    regmatch_t *pmatch = new regmatch_t[nmatch];
     unsigned start_off = 0;
     std::string result = "";
     bool ok_match_empty = true;
@@ -89,6 +89,7 @@ namespace nregex{
         start_off = tgt.size()+1;
       }
     }
+    delete[] pmatch;
     regfree(&preg);
     return result;
   }

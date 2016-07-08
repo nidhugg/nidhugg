@@ -2803,7 +2803,7 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
      {{rx1,ux0},{uy1,ry0}}
     };
   BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
-};
+}
 
 BOOST_AUTO_TEST_CASE(Bitcast_rowe_1){
   Configuration conf = DPORDriver_test::get_tso_conf();

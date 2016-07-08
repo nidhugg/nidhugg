@@ -46,13 +46,13 @@ static void check(Configuration::MemoryModel MM, const std::string &prog){
   delete driver;
 
   BOOST_CHECK(!res.has_errors());
-};
+}
 
 static void check_all(const std::string &prog_template){
   for(auto MM : MMs){
     check(MM,prog_template);
   }
-};
+}
 
 static std::string &format(std::string &s, const std::vector<int> &substs){
   for(unsigned i = 0; i < substs.size(); ++i){

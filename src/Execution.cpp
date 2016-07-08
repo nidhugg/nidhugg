@@ -1099,7 +1099,7 @@ void Interpreter::DryRunLoadValueFromMemory(GenericValue &Val,
 #else
   int sz = getDataLayout().getTypeStoreSize(Ty);
 #endif
-  char buf[sz];
+  char *buf = new char[sz];
 
   // Copy value from memory to buf
   for(int i = 0; i < sz; ++i){
@@ -1121,6 +1121,7 @@ void Interpreter::DryRunLoadValueFromMemory(GenericValue &Val,
   }
 
   LoadValueFromMemory(Val,(GenericValue*)&buf[0],Ty);
+  delete[] buf;
 }
 
 bool Interpreter::CheckedMemCpy(uint8_t *dst, const uint8_t *src, unsigned n){
