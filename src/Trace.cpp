@@ -267,7 +267,7 @@ bool Trace::get_location(const llvm::MDNode *m,
     }
   }
 #endif
-  return (lineno >= 0) && fname->size() && dname->size();
+  return (*lineno >= 0) && fname->size() && dname->size();
 }
 
 std::string Trace::get_src_line_verbatim(const llvm::MDNode *m){
