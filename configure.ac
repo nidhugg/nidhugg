@@ -27,9 +27,7 @@ AX_BOOST_UNIT_TEST_FRAMEWORK
 AX_LLVM(,[AC_MSG_FAILURE(LLVM is required.)])
 CXXFLAGS="`echo " $CXXFLAGS " | sed 's/ -fno-rtti / /' | sed 's/ -fno-exceptions / /'`"
 AC_CHECK_LIB([dl], [dlopen],[],[AC_MSG_FAILURE([Could not find library libdl.])])
-AC_CHECK_LIB([ffi], [ffi_call],[
-                    AC_DEFINE([HAVE_FFI_CALL],[1],[Define if libffi is available on this platform.])
-                    ],[AC_MSG_FAILURE([Could not find library libffi.])])
+AC_CHECK_LIB([ffi], [ffi_call],[],[AC_MSG_FAILURE([Could not find library libffi.])])
 BUILDNIDHUGGC='yes'
 AC_ARG_ENABLE([nidhuggc],[AS_HELP_STRING([--disable-nidhuggc],[Don't build the script nidhuggc.])],
               [if test "x$enableval" = "xno"; then

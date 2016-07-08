@@ -66,7 +66,7 @@
 #include <cstring>
 #include <map>
 
-#ifdef HAVE_FFI_CALL
+#ifdef HAVE_LIBFFI
 #ifdef HAVE_FFI_H
 #include <ffi.h>
 #define USE_LIBFFI
