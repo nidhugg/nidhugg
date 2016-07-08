@@ -2718,12 +2718,16 @@ void Interpreter::callPthreadMutexLock(void *lck){
   }
 
   if(PthreadMutexes.count(lck) == 0){
-    TB.pthreads_error("pthread_mutex_lock called with uninitialized mutex.");
-    abort();
-    return;
+    if(conf.mutex_require_init){
+      TB.pthreads_error("pthread_mutex_lock called with uninitialized mutex.");
+      abort();
+      return;
+    }else if(!DryRun){
+      PthreadMutexes[lck] = PthreadMutex();
+    }
   }
 
-  assert(PthreadMutexes[lck].isUnlocked());
+  assert(PthreadMutexes.count(lck) == 0 || PthreadMutexes[lck].isUnlocked());
 
   TB.mutex_lock({lck,1}); // also acts as a fence
 
@@ -2742,15 +2746,19 @@ void Interpreter::callPthreadMutexTryLock(Function *F,
   }
 
   if(PthreadMutexes.count(lck) == 0){
-    TB.pthreads_error("pthread_mutex_trylock called with uninitialized mutex.");
-    abort();
-    return;
+    if(conf.mutex_require_init){
+      TB.pthreads_error("pthread_mutex_trylock called with uninitialized mutex.");
+      abort();
+      return;
+    }else if(!DryRun){
+      PthreadMutexes[lck] = PthreadMutex();
+    }
   }
 
   GenericValue Result;
 
   TB.mutex_trylock({lck,1}); // also acts as a fence
-  if(PthreadMutexes[lck].isUnlocked()){
+  if(PthreadMutexes.count(lck) == 0 || PthreadMutexes[lck].isUnlocked()){
     Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0); // Success
     returnValueToCaller(F->getReturnType(),Result);
 
@@ -2773,12 +2781,16 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
   }
 
   if(PthreadMutexes.count(lck) == 0){
-    TB.pthreads_error("pthread_mutex_unlock called with uninitialized mutex.");
-    abort();
-    return;
+    if(conf.mutex_require_init){
+      TB.pthreads_error("pthread_mutex_unlock called with uninitialized mutex.");
+      abort();
+      return;
+    }else if(!DryRun){
+      PthreadMutexes[lck] = PthreadMutex();
+    }
   }
 
-  if(PthreadMutexes[lck].owner != CurrentThread){
+  if(PthreadMutexes.count(lck) && PthreadMutexes[lck].owner != CurrentThread){
     TB.pthreads_error("pthread_mutex_unlock called with mutex not locked by the same process.");
     abort();
     return;
@@ -2810,12 +2822,16 @@ void Interpreter::callPthreadMutexDestroy(Function *F,
   }
 
   if(PthreadMutexes.count(lck) == 0){
-    TB.pthreads_error("pthread_mutex_destroy called with uninitialized mutex.");
-    abort();
-    return;
+    if(conf.mutex_require_init){
+      TB.pthreads_error("pthread_mutex_destroy called with uninitialized mutex.");
+      abort();
+      return;
+    }else if(!DryRun){
+      PthreadMutexes[lck] = PthreadMutex();
+    }
   }
 
-  if(PthreadMutexes[lck].isLocked()){
+  if(PthreadMutexes.count(lck) && PthreadMutexes[lck].isLocked()){
     TB.pthreads_error("pthread_mutex_destroy called with locked mutex.");
     abort();
     return;

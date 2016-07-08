@@ -289,6 +289,14 @@ int main(int argc, char *argv[]){
   \texttt{malloc} fails and returns NULL is also analyzed.
 %
   \limitsupport{SC, TSO, PSO}
+\item{\texttt{--disable-mutex-init-requirement}}
+%
+  If this switch is given, the operations lock, trylock, unlock,
+  destroy, cond\_wait are allowed to operate on mutex variables
+  without the mutex being previously initialized by an explicit call
+  to \texttt{pthread\_mutex\_init}. This is useful because it allows
+  analysis of programs using static mutex initialization instead of
+  explicit calls to \texttt{pthread\_mutex\_init}.
 \item{\texttt{--print-progress}}
 %
   Continually print the number of hitherto analyzed executions to the

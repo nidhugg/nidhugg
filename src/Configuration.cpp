@@ -31,6 +31,9 @@ static llvm::cl::opt<bool> cl_explore_all("explore-all",llvm::cl::NotHidden,
 static llvm::cl::opt<bool> cl_malloc_may_fail("malloc-may-fail",llvm::cl::NotHidden,
                                               llvm::cl::desc("If set then the case of malloc failure is also explored."));
 
+static llvm::cl::opt<bool> cl_disable_mutex_init_requirement("disable-mutex-init-requirement",llvm::cl::NotHidden,
+                                                             llvm::cl::desc("If set, then allow use of mutexes without a preceding call to pthread_mutex_init.\nThis switch is necessary when using static mutex initialization."));
+
 static llvm::cl::opt<int>
 cl_max_search_depth("max-search-depth",
                     llvm::cl::NotHidden,llvm::cl::init(-1),
@@ -78,6 +81,7 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "dpor-explore-all",
     "extfun-no-race",
     "malloc-may-fail",
+    "disable-mutex-init-requirement",
     "max-search-depth",
     "sc","tso","pso","power","arm",
     "robustness",
@@ -97,6 +101,7 @@ void Configuration::assign_by_commandline(){
     extfun_no_full_memory_conflict.insert(f);
   }
   malloc_may_fail = cl_malloc_may_fail;
+  mutex_require_init = !cl_disable_mutex_init_requirement;
   max_search_depth = cl_max_search_depth;
   memory_model = cl_memory_model;
   check_robustness = cl_check_robustness;
@@ -116,6 +121,10 @@ void Configuration::check_commandline(){
     if(cl_malloc_may_fail.getNumOccurrences()){
       Debug::warn("Configuration::check_commandline:transform:malloc_may_fail")
         << "WARNING: --malloc_may_fail ignored in presence of --transform.\n";
+    }
+    if(cl_disable_mutex_init_requirement.getNumOccurrences()){
+      Debug::warn("Configuration::check_commandline:transform:disable_mutex_init_requirement")
+        << "WARNING: --disable-mutex-init-requirement ignored in presence of --transform.\n";
     }
     if(cl_max_search_depth.getNumOccurrences()){
       Debug::warn("Configuration::check_commandline:transform:max-search-depth")

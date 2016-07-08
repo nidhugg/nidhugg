@@ -46,6 +46,7 @@ public:
   Configuration(){
     explore_all_traces = false;
     malloc_may_fail = false;
+    mutex_require_init = true;
     max_search_depth = -1;
     memory_model = MM_UNDEF;
     extfun_no_fence = {
@@ -102,6 +103,13 @@ public:
    * malloc failure is simulated.
    */
   bool malloc_may_fail;
+  /* Should it be required that each pthread mutex is initialized with
+   * a call to pthread_mutex_init before use? Disabling
+   * mutex_require_init will cause programs using static mutex
+   * initialization to be accepted (as well as programs which
+   * erroneously use mutexes without any initialization).
+   */
+  bool mutex_require_init;
   /* If non-negative, limit the number of instructions that may be
    * executed by each thread to max_search_depth. If negative, threads
    * may continue to run until they terminate by themselves.

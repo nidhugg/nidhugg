@@ -1017,6 +1017,174 @@ declare i32 @pthread_create(i64*,%union.pthread_attr_t*,i8*(i8*)*,i8*) nounwind
   delete driver;
 }
 
+BOOST_AUTO_TEST_CASE(Mutex_13_no_req_init){
+  /* Mutex lock without init with mutex_require_init==false. */
+  Configuration conf = DPORDriver_test::get_tso_conf();
+  conf.mutex_require_init = false;
+  DPORDriver *driver =
+    DPORDriver::parseIR(StrModule::portasm(R"(
+@lck = global i32 0, align 4
+
+define i32 @main(){
+  call i32 @pthread_mutex_lock(i32* @lck)
+  ret i32 0
+}
+
+declare i32 @pthread_mutex_lock(i32*) nounwind
+)"),conf);
+
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  BOOST_CHECK(!res.has_errors());
+}
+
+BOOST_AUTO_TEST_CASE(Mutex_14_no_req_init){
+  /* Mutex trylock without init with mutex_require_init==false. */
+  Configuration conf = DPORDriver_test::get_tso_conf();
+  conf.mutex_require_init = false;
+  DPORDriver *driver =
+    DPORDriver::parseIR(StrModule::portasm(R"(
+@lck = global i32 0, align 4
+
+define i32 @main(){
+  call i32 @pthread_mutex_trylock(i32* @lck)
+  ret i32 0
+}
+
+declare i32 @pthread_mutex_trylock(i32*) nounwind
+)"),conf);
+
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  BOOST_CHECK(!res.has_errors());
+}
+
+BOOST_AUTO_TEST_CASE(Mutex_15_no_req_init){
+  /* Mutex destroy without init with mutex_require_init==false. */
+  Configuration conf = DPORDriver_test::get_tso_conf();
+  conf.mutex_require_init = false;
+  DPORDriver *driver =
+    DPORDriver::parseIR(StrModule::portasm(R"(
+@lck = global i32 0, align 4
+
+define i32 @main(){
+  call i32 @pthread_mutex_destroy(i32* @lck)
+  ret i32 0
+}
+
+declare i32 @pthread_mutex_destroy(i32*) nounwind
+)"),conf);
+
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  BOOST_CHECK(!res.has_errors());
+}
+
+BOOST_AUTO_TEST_CASE(Mutex_16_no_req_init){
+  /* Race between mutex lock and init. This is still an error with
+   * mutex_require_init==false. That is because if the mutex is
+   * assumed to be initialized before the lock, then a later init will
+   * be a double initialization.
+   */
+  Configuration conf = DPORDriver_test::get_tso_conf();
+  conf.mutex_require_init = false;
+  DPORDriver *driver =
+    DPORDriver::parseIR(StrModule::portasm(R"(
+@lck = global i32 0, align 4
+@c = global i32 0, align 4
+
+define i8* @p1(i8* %arg){
+  call i32 @pthread_mutex_lock(i32* @lck)
+  %c = load i32, i32* @c, align 4
+  %ccmp = icmp ne i32 %c, 0
+  br i1 %ccmp, label %error, label %cs
+error:
+  call void @__assert_fail()
+  br label %cs
+cs:
+  store i32 1, i32* @c, align 4
+  store i32 0, i32* @c, align 4
+  call i32 @pthread_mutex_unlock(i32* @lck)
+  ret i8* null
+}
+
+define i32 @main(){
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
+  call i32 @pthread_mutex_init(i32* @lck, i32* null)
+  call i8* @p1(i8* null)
+  ret i32 0
+}
+
+%attr_t = type {i64*, [48 x i8]}
+declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
+declare i32 @pthread_mutex_init(i32*,i32*) nounwind
+declare i32 @pthread_mutex_lock(i32*) nounwind
+declare i32 @pthread_mutex_unlock(i32*) nounwind
+declare void @__assert_fail() noreturn nounwind
+)"),conf);
+
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  BOOST_CHECK(res.has_errors());
+}
+
+BOOST_AUTO_TEST_CASE(Mutex_17_req_init){
+  /* cond_wait without init with mutex_require_init==true. */
+  Configuration conf = DPORDriver_test::get_tso_conf();
+  DPORDriver *driver =
+    DPORDriver::parseIR(StrModule::portasm(R"(
+@cnd = global i32 0, align 4
+@lck = global i32 0, align 4
+
+define i32 @main(){
+  call i32 @pthread_cond_init(i32* @cnd, i32* null)
+  call i32 @pthread_mutex_lock(i32* @lck)
+  call i32 @pthread_cond_wait(i32* @cnd, i32* @lck)
+  ret i32 0
+}
+
+declare i32 @pthread_mutex_lock(i32*) nounwind
+declare i32 @pthread_cond_init(i32*,i32*) nounwind
+declare i32 @pthread_cond_wait(i32*,i32*) nounwind
+)"),conf);
+
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  BOOST_CHECK(res.has_errors());
+}
+
+BOOST_AUTO_TEST_CASE(Mutex_18_no_req_init){
+  /* cond_wait without init with mutex_require_init==false. */
+  Configuration conf = DPORDriver_test::get_tso_conf();
+  conf.mutex_require_init = false;
+  DPORDriver *driver =
+    DPORDriver::parseIR(StrModule::portasm(R"(
+@cnd = global i32 0, align 4
+@lck = global i32 0, align 4
+
+define i32 @main(){
+  call i32 @pthread_cond_init(i32* @cnd, i32* null)
+  call i32 @pthread_mutex_lock(i32* @lck)
+  call i32 @pthread_cond_wait(i32* @cnd, i32* @lck)
+  ret i32 0
+}
+
+declare i32 @pthread_mutex_lock(i32*) nounwind
+declare i32 @pthread_cond_init(i32*,i32*) nounwind
+declare i32 @pthread_cond_wait(i32*,i32*) nounwind
+)"),conf);
+
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  BOOST_CHECK(!res.has_errors());
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif

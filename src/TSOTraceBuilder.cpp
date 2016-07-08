@@ -543,6 +543,10 @@ void TSOTraceBuilder::mutex_lock(const ConstMRef &ml){
     return;
   }
   fence();
+  if(!conf.mutex_require_init && !mutexes.count(ml.ref)){
+    // Assume static initialization
+    mutexes[ml.ref] = Mutex();
+  }
   assert(mutexes.count(ml.ref));
   curnode().may_conflict = true;
   wakeup(Access::W,ml.ref);
@@ -568,6 +572,10 @@ void TSOTraceBuilder::mutex_lock(const ConstMRef &ml){
 
 void TSOTraceBuilder::mutex_lock_fail(const ConstMRef &ml){
   assert(!dryrun);
+  if(!conf.mutex_require_init && !mutexes.count(ml.ref)){
+    // Assume static initialization
+    mutexes[ml.ref] = Mutex();
+  }
   assert(mutexes.count(ml.ref));
   Mutex &mutex = mutexes[ml.ref];
   assert(0 <= mutex.last_lock);
@@ -590,6 +598,10 @@ void TSOTraceBuilder::mutex_trylock(const ConstMRef &ml){
     return;
   }
   fence();
+  if(!conf.mutex_require_init && !mutexes.count(ml.ref)){
+    // Assume static initialization
+    mutexes[ml.ref] = Mutex();
+  }
   assert(mutexes.count(ml.ref));
   curnode().may_conflict = true;
   wakeup(Access::W,ml.ref);
@@ -611,6 +623,10 @@ void TSOTraceBuilder::mutex_unlock(const ConstMRef &ml){
     return;
   }
   fence();
+  if(!conf.mutex_require_init && !mutexes.count(ml.ref)){
+    // Assume static initialization
+    mutexes[ml.ref] = Mutex();
+  }
   assert(mutexes.count(ml.ref));
   Mutex &mutex = mutexes[ml.ref];
   curnode().may_conflict = true;
@@ -646,6 +662,10 @@ void TSOTraceBuilder::mutex_destroy(const ConstMRef &ml){
     return;
   }
   fence();
+  if(!conf.mutex_require_init && !mutexes.count(ml.ref)){
+    // Assume static initialization
+    mutexes[ml.ref] = Mutex();
+  }
   assert(mutexes.count(ml.ref));
   Mutex &mutex = mutexes[ml.ref];
   curnode().may_conflict = true;
@@ -768,7 +788,11 @@ bool TSOTraceBuilder::cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex
   {
     auto it = mutexes.find(mutex_ml.ref);
     if(!dryrun && it == mutexes.end()){
-      pthreads_error("cond_wait called with uninitialized mutex object.");
+      if(conf.mutex_require_init){
+        pthreads_error("cond_wait called with uninitialized mutex object.");
+      }else{
+        pthreads_error("cond_wait called with unlocked mutex object.");
+      }
       return false;
     }
     Mutex &mtx = it->second;
