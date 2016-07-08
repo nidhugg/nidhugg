@@ -27,7 +27,7 @@ VecSet<T>::VecSet(ITER begin, ITER end){
       insert(*begin);
     }
   }
-};
+}
 
 template<class T>
 VecSet<T>::VecSet(std::initializer_list<T> il){
@@ -38,13 +38,13 @@ VecSet<T>::VecSet(std::initializer_list<T> il){
       insert(*it);
     }
   }
-};
+}
 
 template<class T>
 VecSet<T>::VecSet(VecSet<T> &&S)
   : vec(std::move(S.vec))
 {
-};
+}
 
 template<class T>
 VecSet<T> &VecSet<T>::operator=(VecSet<T> &&S){
@@ -52,7 +52,7 @@ VecSet<T> &VecSet<T>::operator=(VecSet<T> &&S){
     vec = std::move(S.vec);
   }
   return *this;
-};
+}
 
 template<class T>
 int VecSet<T>::find_geq(const T &t) const{
@@ -70,7 +70,7 @@ int VecSet<T>::find_geq(const T &t) const{
     }
   }
   return a;
-};
+}
 
 template<class T>
 int VecSet<T>::find(const T &t) const{
@@ -80,7 +80,7 @@ int VecSet<T>::find(const T &t) const{
   }else{
     return i;
   }
-};
+}
 
 template<class T>
 int VecSet<T>::count(const T &t) const{
@@ -89,7 +89,7 @@ int VecSet<T>::count(const T &t) const{
   }else{
     return 0;
   }
-};
+}
 
 template<class T>
 std::pair<int,bool> VecSet<T>::insert(const T &t){
@@ -109,7 +109,7 @@ std::pair<int,bool> VecSet<T>::insert(const T &t){
     }
     return std::pair<int,bool>(i,true);
   }
-};
+}
 
 template<class T>
 int VecSet<T>::insert(const VecSet<T> &s){
@@ -165,7 +165,7 @@ int VecSet<T>::insert(const VecSet<T> &s){
 
     return count;
   }
-};
+}
 
 template<class T>
 int VecSet<T>::erase(const T &t){
@@ -178,7 +178,7 @@ int VecSet<T>::erase(const T &t){
   vec.resize(vec.size()-1,t);
 
   return 1;
-};
+}
 
 template<class T>
 int VecSet<T>::erase(const VecSet<T> &S){
@@ -210,7 +210,7 @@ int VecSet<T>::erase(const VecSet<T> &S){
     vec.resize(ains,vec[0]);
   }
   return erase_count;
-};
+}
 
 template<class T>
 bool VecSet<T>::check_invariant() const{
@@ -220,7 +220,7 @@ bool VecSet<T>::check_invariant() const{
     }
   }
   return true;
-};
+}
 
 template<class T>
 std::string VecSet<T>::to_string_one_line(std::function<std::string(const T&)> &f) const{
@@ -231,7 +231,7 @@ std::string VecSet<T>::to_string_one_line(std::function<std::string(const T&)> &
   }
   s += "}";
   return s;
-};
+}
 
 template<class T>
 bool VecSet<T>::subset_of(const VecSet<T> &s) const{
@@ -254,7 +254,7 @@ bool VecSet<T>::subset_of(const VecSet<T> &s) const{
     }
   }
   return true;
-};
+}
 
 template<class T>
 bool VecSet<T>::intersects(const VecSet<T> &s) const{
@@ -270,4 +270,4 @@ bool VecSet<T>::intersects(const VecSet<T> &s) const{
     }
   }
   return false;
-};
+}

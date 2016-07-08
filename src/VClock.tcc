@@ -22,7 +22,7 @@
 #include <sstream>
 
 template<typename DOM>
-VClock<DOM>::VClock(){};
+VClock<DOM>::VClock(){}
 
 template<typename DOM>
 VClock<DOM>::VClock(const std::map<DOM,int> &m) : clocks(m) {
@@ -31,10 +31,10 @@ VClock<DOM>::VClock(const std::map<DOM,int> &m) : clocks(m) {
     assert(it->second >= 0);
   }
 #endif
-};
+}
 
 template<typename DOM>
-VClock<DOM>::VClock(const VClock<DOM> &vc) : clocks(vc.clocks) {};
+VClock<DOM>::VClock(const VClock<DOM> &vc) : clocks(vc.clocks) {}
 
 template<typename DOM>
 VClock<DOM>::VClock(const std::initializer_list<std::pair<DOM,int> > &il) {
@@ -44,7 +44,7 @@ VClock<DOM>::VClock(const std::initializer_list<std::pair<DOM,int> > &il) {
       clocks[it->first] = it->second;
     }
   }
-};
+}
 
 template<typename DOM>
 VClock<DOM>::VClock(const VClock<int> &vc, const std::vector<DOM> &t){
@@ -54,10 +54,10 @@ VClock<DOM>::VClock(const VClock<int> &vc, const std::vector<DOM> &t){
       clocks[t[i]] = vc[i];
     }
   }
-};
+}
 
 template<typename DOM>
-VClock<DOM>::~VClock(){};
+VClock<DOM>::~VClock(){}
 
 template<typename DOM>
 int VClock<DOM>::get_nonzero_count() const{
@@ -68,13 +68,13 @@ int VClock<DOM>::get_nonzero_count() const{
     }
   }
   return c;
-};
+}
 
 template<typename DOM>
 VClock<DOM> &VClock<DOM>::operator=(const VClock<DOM> &vc){
   clocks = vc.clocks;
   return *this;
-};
+}
 
 template<typename DOM>
 VClock<DOM> VClock<DOM>::operator+(const VClock<DOM> &vc) const{
@@ -83,13 +83,13 @@ VClock<DOM> VClock<DOM>::operator+(const VClock<DOM> &vc) const{
     vc2[it->first] = std::max(vc2[it->first],it->second);
   }
   return vc2;
-};
+}
 
 template<typename DOM>
 VClock<DOM> &VClock<DOM>::operator+=(const VClock<DOM> &vc){
   *this = *this + vc;
   return *this;
-};
+}
 
 template<typename DOM>
 int VClock<DOM>::operator[](const DOM &c) const{
@@ -99,12 +99,12 @@ int VClock<DOM>::operator[](const DOM &c) const{
   }else{
     return it->second;
   }
-};
+}
 
 template<typename DOM>
 int &VClock<DOM>::operator[](const DOM &c){
   return clocks[c];
-};
+}
 
 template<typename DOM>
 bool VClock<DOM>::operator==(const VClock<DOM> &vc) const{
@@ -128,12 +128,12 @@ bool VClock<DOM>::operator==(const VClock<DOM> &vc) const{
     }
   }
   return true;
-};
+}
 
 template<typename DOM>
 bool VClock<DOM>::operator!=(const VClock<DOM> &vc) const{
   return !(*this == vc);
-};
+}
 
 template<typename DOM>
 bool VClock<DOM>::operator<(const VClock<DOM> &vc) const{
@@ -157,7 +157,7 @@ bool VClock<DOM>::operator<(const VClock<DOM> &vc) const{
     ++b_it;
   }
   return false;
-};
+}
 
 template<typename DOM>
 bool VClock<DOM>::operator<=(const VClock<DOM> &vc) const{
@@ -181,17 +181,17 @@ bool VClock<DOM>::operator<=(const VClock<DOM> &vc) const{
     ++b_it;
   }
   return true;
-};
+}
 
 template<typename DOM>
 bool VClock<DOM>::operator>(const VClock<DOM> &vc) const{
   return vc < *this;
-};
+}
 
 template<typename DOM>
 bool VClock<DOM>::operator>=(const VClock<DOM> &vc) const{
   return vc <= *this;
-};
+}
 
 template<typename DOM>
 bool VClock<DOM>::lt(const VClock<DOM> &vc) const{
@@ -217,7 +217,7 @@ bool VClock<DOM>::lt(const VClock<DOM> &vc) const{
     }
   }
   return strict;
-};
+}
 
 template<typename DOM>
 bool VClock<DOM>::leq(const VClock<DOM> &vc) const{
@@ -240,17 +240,17 @@ bool VClock<DOM>::leq(const VClock<DOM> &vc) const{
     }
   }
   return true;
-};
+}
 
 template<typename DOM>
 bool VClock<DOM>::gt(const VClock<DOM> &vc) const{
   return vc.lt(*this);
-};
+}
 
 template<typename DOM>
 bool VClock<DOM>::geq(const VClock<DOM> &vc) const{
   return vc.leq(*this);
-};
+}
 
 template<typename DOM>
 std::string VClock<DOM>::to_string() const{
@@ -266,4 +266,4 @@ std::string VClock<DOM>::to_string() const{
   }
   ss << "]";
   return ss.str();
-};
+}

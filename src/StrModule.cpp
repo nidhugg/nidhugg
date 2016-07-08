@@ -84,7 +84,7 @@ namespace StrModule {
       throw std::logic_error("Failed to parse assembly.");
     }
     return mod;
-  };
+  }
 
   llvm::Module *read_module_src(const std::string &src){
     llvm::Module *mod;
@@ -108,7 +108,7 @@ namespace StrModule {
       throw std::logic_error("Failed to parse assembly.");
     }
     return mod;
-  };
+  }
 
   void write_module(llvm::Module *mod, std::string outfile){
 #ifdef LLVM_PASSMANAGER_TEMPLATE
@@ -144,7 +144,7 @@ namespace StrModule {
     PM.add(llvm::createPrintModulePass(*os));
 #endif
     PM.run(*mod);
-  };
+  }
 
   std::string write_module_str(llvm::Module *mod){
     std::string s;
@@ -164,7 +164,7 @@ namespace StrModule {
     delete os;
 #endif
     return s;
-  };
+  }
 
   std::string portasm(std::string s){
 #ifndef LLVM_ASM_LOAD_EXPLICIT_TYPE
@@ -187,6 +187,6 @@ namespace StrModule {
     }
 #endif
     return s;
-  };
-};
+  }
+}
 

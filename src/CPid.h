@@ -94,11 +94,11 @@ private:
 
 inline std::ostream &operator<<(std::ostream &os, const CPid &c){
   return os << c.to_string();
-};
+}
 
 inline llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const CPid &c){
   return os << c.to_string();
-};
+}
 
 /* A CPidSystem is a set of CPid:s which satisfies that for each
  * member <p0.....pn>, the set also contains its parent, as well as

@@ -68,11 +68,11 @@ private:
 
 inline std::ostream &operator<<(std::ostream &os, FBVClock &c){
   return os << c.to_string();
-};
+}
 
 inline llvm::raw_ostream &operator<<(llvm::raw_ostream &os, FBVClock &c){
   return os << c.to_string();
-};
+}
 
 #endif
 

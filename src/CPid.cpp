@@ -22,7 +22,7 @@
 #include <cassert>
 #include <sstream>
 
-CPid::CPid() : aux_idx(-1) {};
+CPid::CPid() : aux_idx(-1) {}
 
 CPid::CPid(const std::vector<int> &pvec){
   assert(pvec.size() > 0);
@@ -31,7 +31,7 @@ CPid::CPid(const std::vector<int> &pvec){
   ++b;
   proc_seq = std::vector<int>(b,pvec.end());
   aux_idx = -1;
-};
+}
 
 CPid::CPid(const std::initializer_list<int> &il){
   auto b = il.begin();
@@ -40,7 +40,7 @@ CPid::CPid(const std::initializer_list<int> &il){
   ++b;
   proc_seq = std::vector<int>(b,il.end());
   aux_idx = -1;
-};
+}
 
 CPid::CPid(const std::vector<int> &pvec, int i){
   assert(pvec.size() > 0);
@@ -50,7 +50,7 @@ CPid::CPid(const std::vector<int> &pvec, int i){
   ++b;
   proc_seq = std::vector<int>(b,pvec.end());
   aux_idx = i;
-};
+}
 
 CPid CPid::spawn(int pn1) const{
   assert(!is_auxiliary());
@@ -58,7 +58,7 @@ CPid CPid::spawn(int pn1) const{
   CPid c = *this;
   c.proc_seq.push_back(pn1);
   return c;
-};
+}
 
 CPid CPid::aux(int i) const{
   assert(!is_auxiliary());
@@ -66,11 +66,11 @@ CPid CPid::aux(int i) const{
   CPid c = *this;
   c.aux_idx = i;
   return c;
-};
+}
 
 bool CPid::is_auxiliary() const{
   return aux_idx >= 0;
-};
+}
 
 std::string CPid::to_string() const{
   std::stringstream ss;
@@ -83,7 +83,7 @@ std::string CPid::to_string() const{
   }
   ss << ">";
   return ss.str();
-};
+}
 
 CPid CPid::parent() const{
   assert(has_parent());
@@ -94,11 +94,11 @@ CPid CPid::parent() const{
     cp.proc_seq.pop_back();
   }
   return cp;
-};
+}
 
 bool CPid::has_parent() const{
   return proc_seq.size() || is_auxiliary();
-};
+}
 
 int CPid::compare(const CPid &c) const{
   unsigned i = 0;
@@ -114,12 +114,12 @@ int CPid::compare(const CPid &c) const{
   }
   if(aux_idx < c.aux_idx) return -1;
   return 1;
-};
+}
 
 int CPid::get_aux_index() const{
   assert(is_auxiliary());
   return aux_idx;
-};
+}
 
 CPidSystem::CPidSystem(){
   real_children.push_back({});
@@ -127,7 +127,7 @@ CPidSystem::CPidSystem(){
   parent.push_back(-1);
   cpids.push_back(CPid());
   identifiers[CPid()] = 0;
-};
+}
 
 CPid CPidSystem::spawn(const CPid &c){
   int c_id = identifiers[c];
@@ -140,7 +140,7 @@ CPid CPidSystem::spawn(const CPid &c){
   cpids.push_back(c2);
   identifiers[c2] = c2_id;
   return c2;
-};
+}
 
 CPid CPidSystem::new_aux(const CPid &c){
   int c_id = identifiers[c];
@@ -153,4 +153,4 @@ CPid CPidSystem::new_aux(const CPid &c){
   cpids.push_back(c2);
   identifiers[c2] = c2_id;
   return c2;
-};
+}

@@ -70,7 +70,7 @@ void CheckModule::check_functions(const llvm::Module *M){
         << "WARNING: Unsupported pthread function: " << it->getName() << "\n";
     }
   }
-};
+}
 
 void CheckModule::check_pthread_create(const llvm::Module *M){
   std::string _err;
@@ -116,8 +116,8 @@ void CheckModule::check_pthread_create(const llvm::Module *M){
           << ", should be " << *vpty;
       throw CheckModuleError(err.str());
     }
-  };
-};
+  }
+}
 
 void CheckModule::check_pthread_join(const llvm::Module *M){
   std::string _err;
@@ -152,7 +152,7 @@ void CheckModule::check_pthread_join(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
   }
-};
+}
 
 void CheckModule::check_pthread_self(const llvm::Module *M){
   std::string _err;
@@ -169,7 +169,7 @@ void CheckModule::check_pthread_self(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
   }
-};
+}
 
 
 void CheckModule::check_pthread_exit(const llvm::Module *M){
@@ -195,7 +195,7 @@ void CheckModule::check_pthread_exit(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
   }
-};
+}
 
 void CheckModule::check_pthread_mutex_init(const llvm::Module *M){
   std::string _err;
@@ -229,7 +229,7 @@ void CheckModule::check_pthread_mutex_init(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
   }
-};
+}
 
 void CheckModule::check_pthread_mutex_lock(const llvm::Module *M){
   std::string _err;
@@ -253,7 +253,7 @@ void CheckModule::check_pthread_mutex_lock(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
   }
-};
+}
 
 void CheckModule::check_pthread_mutex_trylock(const llvm::Module *M){
   std::string _err;
@@ -277,7 +277,7 @@ void CheckModule::check_pthread_mutex_trylock(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
   }
-};
+}
 
 void CheckModule::check_pthread_mutex_unlock(const llvm::Module *M){
   std::string _err;
@@ -301,7 +301,7 @@ void CheckModule::check_pthread_mutex_unlock(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
   }
-};
+}
 
 void CheckModule::check_pthread_mutex_destroy(const llvm::Module *M){
   std::string _err;
@@ -325,7 +325,7 @@ void CheckModule::check_pthread_mutex_destroy(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
   }
-};
+}
 
 void CheckModule::check_malloc(const llvm::Module *M){
   std::string _err;
@@ -338,7 +338,7 @@ void CheckModule::check_malloc(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
   }
-};
+}
 
 namespace CheckModule {
 
@@ -353,7 +353,7 @@ namespace CheckModule {
         throw CheckModuleError(err.str());
       }
     }
-  };
+  }
 
   static void check_assume(const llvm::Module *M, const std::string &name){
     std::string _err;
@@ -376,18 +376,18 @@ namespace CheckModule {
         throw CheckModuleError(err.str());
       }
     }
-  };
+  }
 
-};
+}
 
 void CheckModule::check_nondet_int(const llvm::Module *M){
   check_nondet_int(M,"__VERIFIER_nondet_int");
   check_nondet_int(M,"__VERIFIER_nondet_uint");
-};
+}
 
 void CheckModule::check_assume(const llvm::Module *M){
   check_assume(M,"__VERIFIER_assume");
-};
+}
 
 void CheckModule::check_pthread_cond_init(const llvm::Module *M){
   std::string _err;
@@ -421,7 +421,7 @@ void CheckModule::check_pthread_cond_init(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
   }
-};
+}
 
 void CheckModule::check_pthread_cond_signal(const llvm::Module *M){
   std::string _err;
@@ -445,7 +445,7 @@ void CheckModule::check_pthread_cond_signal(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
   }
-};
+}
 
 void CheckModule::check_pthread_cond_broadcast(const llvm::Module *M){
   std::string _err;
@@ -469,7 +469,7 @@ void CheckModule::check_pthread_cond_broadcast(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
   }
-};
+}
 
 void CheckModule::check_pthread_cond_wait(const llvm::Module *M){
   std::string _err;
@@ -503,7 +503,7 @@ void CheckModule::check_pthread_cond_wait(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
   }
-};
+}
 
 void CheckModule::check_pthread_cond_destroy(const llvm::Module *M){
   std::string _err;
@@ -527,5 +527,5 @@ void CheckModule::check_pthread_cond_destroy(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
   }
-};
+}
 

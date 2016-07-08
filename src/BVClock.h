@@ -100,10 +100,10 @@ private:
 
 inline std::ostream &operator<<(std::ostream &os, const BVClock &vc){
   return os << vc.to_string();
-};
+}
 
 inline llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const BVClock &vc){
   return os << vc.to_string();
-};
+}
 
 #endif

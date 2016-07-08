@@ -34,10 +34,10 @@ PSOInterpreter::PSOInterpreter(llvm::Module *M, PSOTraceBuilder &TB,
                                const Configuration &conf)
   : Interpreter(M,TB,conf) {
   pso_threads.push_back(PSOThread());
-};
+}
 
 PSOInterpreter::~PSOInterpreter(){
-};
+}
 
 bool PSOInterpreter::PSOThread::readable(const ConstMRef &ml) const {
   for(void const *b : ml){
@@ -48,7 +48,7 @@ bool PSOInterpreter::PSOThread::readable(const ConstMRef &ml) const {
     }
   }
   return true;
-};
+}
 
 llvm::ExecutionEngine *PSOInterpreter::create(llvm::Module *M, PSOTraceBuilder &TB,
                                               const Configuration &conf,
@@ -73,7 +73,7 @@ llvm::ExecutionEngine *PSOInterpreter::create(llvm::Module *M, PSOTraceBuilder &
 #endif
 
   return new PSOInterpreter(M,TB,conf);
-};
+}
 
 void PSOInterpreter::runAux(int proc, int aux){
   /* Perform an update from store buffer to memory. */
@@ -142,12 +142,12 @@ void PSOInterpreter::runAux(int proc, int aux){
       }
     }
   }
-};
+}
 
 int PSOInterpreter::newThread(const CPid &cpid){
   pso_threads.push_back(PSOThread());
   return Interpreter::newThread(cpid);
-};
+}
 
 bool PSOInterpreter::isFence(llvm::Instruction &I){
   if(llvm::isa<llvm::CallInst>(I)){
@@ -185,7 +185,7 @@ bool PSOInterpreter::isFence(llvm::Instruction &I){
     return true;
   }
   return false;
-};
+}
 
 void PSOInterpreter::terminate(llvm::Type *RetTy, llvm::GenericValue Result){
   if(CurrentThread != 0){
@@ -197,7 +197,7 @@ void PSOInterpreter::terminate(llvm::Type *RetTy, llvm::GenericValue Result){
       TB.mark_available(p);
     }
   }
-};
+}
 
 bool PSOInterpreter::checkRefuse(llvm::Instruction &I){
   int tid;
@@ -243,7 +243,7 @@ bool PSOInterpreter::checkRefuse(llvm::Instruction &I){
     }
   }
   return Interpreter::checkRefuse(I);
-};
+}
 
 void PSOInterpreter::visitLoadInst(llvm::LoadInst &I){
   llvm::ExecutionContext &SF = ECStack()->back();
@@ -276,7 +276,7 @@ void PSOInterpreter::visitLoadInst(llvm::LoadInst &I){
   /* Load from memory */
   if(!CheckedLoadValueFromMemory(Result, Ptr, I.getType())) return;
   SetValue(&I, Result, SF);
-};
+}
 
 void PSOInterpreter::visitStoreInst(llvm::StoreInst &I){
   llvm::ExecutionContext &SF = ECStack()->back();
@@ -313,23 +313,23 @@ void PSOInterpreter::visitStoreInst(llvm::StoreInst &I){
       thr.store_buffers[b].push_back(PendingStoreByte(mb.get_ref(),((uint8_t*)mb.get_block())[i]));
     }
   }
-};
+}
 
 void PSOInterpreter::visitFenceInst(llvm::FenceInst &I){
   if(I.getOrdering() == llvm::SequentiallyConsistent){
     TB.fence();
   }
-};
+}
 
 void PSOInterpreter::visitAtomicCmpXchgInst(llvm::AtomicCmpXchgInst &I){
   assert(pso_threads[CurrentThread].all_buffers_empty());
   Interpreter::visitAtomicCmpXchgInst(I);
-};
+}
 
 void PSOInterpreter::visitAtomicRMWInst(llvm::AtomicRMWInst &I){
   assert(pso_threads[CurrentThread].all_buffers_empty());
   Interpreter::visitAtomicRMWInst(I);
-};
+}
 
 void PSOInterpreter::visitInlineAsm(llvm::CallSite &CS, const std::string &asmstr){
   if(asmstr == "mfence"){
@@ -338,4 +338,4 @@ void PSOInterpreter::visitInlineAsm(llvm::CallSite &CS, const std::string &asmst
   }else{
     throw std::logic_error("Unsupported inline assembly: "+asmstr);
   }
-};
+}

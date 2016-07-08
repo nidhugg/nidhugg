@@ -19,7 +19,7 @@
 
 #include "VClock.h"
 
-VClock<int>::VClock(){};
+VClock<int>::VClock(){}
 
 VClock<int>::VClock(const std::vector<int> &v) : vec(v) {
 #ifndef NDEBUG
@@ -27,9 +27,9 @@ VClock<int>::VClock(const std::vector<int> &v) : vec(v) {
     assert(vec[i] >= 0);
   }
 #endif
-};
+}
 
-VClock<int>::VClock(const VClock &vc) : vec(vc.vec) {};
+VClock<int>::VClock(const VClock &vc) : vec(vc.vec) {}
 
 VClock<int>::VClock(const std::initializer_list<int> &il) : vec(il) {
 #ifndef NDEBUG
@@ -37,14 +37,14 @@ VClock<int>::VClock(const std::initializer_list<int> &il) : vec(il) {
     assert(vec[i] >= 0);
   }
 #endif
-};
+}
 
-VClock<int>::~VClock(){};
+VClock<int>::~VClock(){}
 
 VClock<int> &VClock<int>::operator=(const VClock<int> &vc){
   vec = vc.vec;
   return *this;
-};
+}
 
 VClock<int> VClock<int>::operator+(const VClock<int> &vc) const{
   VClock<int> vc2;
@@ -53,7 +53,7 @@ VClock<int> VClock<int>::operator+(const VClock<int> &vc) const{
     vc2.vec[i] = std::max((*this)[i],vc[i]);
   }
   return vc2;
-};
+}
 
 VClock<int> &VClock<int>::operator+=(const VClock<int> &vc){
   const unsigned sz = vc.vec.size();
@@ -66,7 +66,7 @@ VClock<int> &VClock<int>::operator+=(const VClock<int> &vc){
     }
   }
   return *this;
-};
+}
 
 int VClock<int>::operator[](int i) const{
   assert(i >= 0);
@@ -75,7 +75,7 @@ int VClock<int>::operator[](int i) const{
   }else{
     return 0;
   }
-};
+}
 
 int &VClock<int>::operator[](int i){
   assert(i >= 0);
@@ -83,7 +83,7 @@ int &VClock<int>::operator[](int i){
     vec.resize(i+1,0);
   }
   return vec[i];
-};
+}
 
 bool VClock<int>::operator==(const VClock<int> &vc) const{
   int m = std::max(vec.size(),vc.vec.size());
@@ -91,11 +91,11 @@ bool VClock<int>::operator==(const VClock<int> &vc) const{
     if((*this)[i] != vc[i]) return false;
   }
   return true;
-};
+}
 
 bool VClock<int>::operator!=(const VClock<int> &vc) const{
   return !(*this == vc);
-};
+}
 
 bool VClock<int>::operator<(const VClock<int> &vc) const{
   int m = std::max(vec.size(),vc.vec.size());
@@ -104,19 +104,19 @@ bool VClock<int>::operator<(const VClock<int> &vc) const{
     if((*this)[i] > vc[i]) return false;
   }
   return false;
-};
+}
 
 bool VClock<int>::operator<=(const VClock<int> &vc) const{
   return !(vc < *this);
-};
+}
 
 bool VClock<int>::operator>(const VClock<int> &vc) const{
   return vc < *this;
-};
+}
 
 bool VClock<int>::operator>=(const VClock<int> &vc) const{
   return !(*this < vc);
-};
+}
 
 bool VClock<int>::lt(const VClock<int> &vc) const{
   int m = std::max(vec.size(),vc.vec.size());
@@ -126,7 +126,7 @@ bool VClock<int>::lt(const VClock<int> &vc) const{
     less = less || ((*this)[i] < vc[i]);
   }
   return less;
-};
+}
 
 bool VClock<int>::leq(const VClock<int> &vc) const{
   unsigned m = std::min(vec.size(),vc.vec.size());
@@ -139,7 +139,7 @@ bool VClock<int>::leq(const VClock<int> &vc) const{
     if(vec[i]) return false;
   }
   return true;
-};
+}
 
 bool VClock<int>::geq(const VClock<int> &vc) const{
   int m = std::max(vec.size(),vc.vec.size());
@@ -147,7 +147,7 @@ bool VClock<int>::geq(const VClock<int> &vc) const{
     if((*this)[i] < vc[i]) return false;
   }
   return true;
-};
+}
 
 bool VClock<int>::gt(const VClock<int> &vc) const{
   int m = std::max(vec.size(),vc.vec.size());
@@ -157,7 +157,7 @@ bool VClock<int>::gt(const VClock<int> &vc) const{
     greater = greater || ((*this)[i] > vc[i]);
   }
   return greater;
-};
+}
 
 std::string VClock<int>::to_string() const{
   int m = vec.size() - 1;
@@ -171,4 +171,4 @@ std::string VClock<int>::to_string() const{
   }
   ss << "]";
   return ss.str();
-};
+}

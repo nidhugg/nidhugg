@@ -40,7 +40,7 @@ void LoopUnrollPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
   llvm::LoopPass::getAnalysisUsage(AU);
   AU.addRequired<DeclareAssumePass>();
   AU.addPreserved<DeclareAssumePass>();
-};
+}
 
 llvm::BasicBlock *LoopUnrollPass::make_diverge_block(llvm::Loop *L){
   llvm::Function *F = (*L->block_begin())->getParent();
@@ -52,7 +52,7 @@ llvm::BasicBlock *LoopUnrollPass::make_diverge_block(llvm::Loop *L){
   llvm::CallInst::Create(F_assume,{llvm::ConstantInt::get(assume_arg0_ty,0)},"",Diverge);
   llvm::BranchInst::Create(Diverge,Diverge);
   return Diverge;
-};
+}
 
 bool LoopUnrollPass::runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM){
   llvm::SmallVector<llvm::BasicBlock*,10> SuccBlocks;
@@ -214,6 +214,6 @@ bool LoopUnrollPass::runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM){
 #endif
 
   return true;
-};
+}
 
 char LoopUnrollPass::ID = 0;

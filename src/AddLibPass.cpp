@@ -42,7 +42,7 @@
 #include <stdexcept>
 
 void AddLibPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
-};
+}
 
 bool AddLibPass::optAddFunction(llvm::Module &M,
                                 std::string name,
@@ -93,7 +93,7 @@ bool AddLibPass::optAddFunction(llvm::Module &M,
       << "WARNING: Failed to add library function definition for function " << name << "\n";
   }
   return added_def;
-};
+}
 
 bool AddLibPass::optNopFunction(llvm::Module &M,
                                 std::string name){
@@ -117,7 +117,7 @@ bool AddLibPass::optNopFunction(llvm::Module &M,
     llvm::BasicBlock::Create(F->getContext(),"",F);
   llvm::ReturnInst::Create(F->getContext(),rv,B);
   return true;
-};
+}
 
 bool AddLibPass::optConstIntFunction(llvm::Module &M,
                                      std::string name,
@@ -136,7 +136,7 @@ bool AddLibPass::optConstIntFunction(llvm::Module &M,
     llvm::BasicBlock::Create(F->getContext(),"",F);
   llvm::ReturnInst::Create(F->getContext(),rv,B);
   return true;
-};
+}
 
 bool AddLibPass::runOnModule(llvm::Module &M){
   optNopFunction(M,"fclose");
@@ -386,7 +386,7 @@ exit:
 }
 )"+putchar_decl+"\n"});
   return true;
-};
+}
 
 char AddLibPass::ID = 0;
 static llvm::RegisterPass<AddLibPass> X("add-lib",

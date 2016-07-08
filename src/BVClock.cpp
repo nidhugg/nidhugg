@@ -37,7 +37,7 @@ BVClock BVClock::operator+(const BVClock &vc) const{
     rv.vec[i] = vec[i] || vc.vec[i];
   }
   return rv;
-};
+}
 
 std::string BVClock::to_string() const{
   if(vec.size()){
@@ -51,7 +51,7 @@ std::string BVClock::to_string() const{
     return s;
   }
   return "[]";
-};
+}
 
 bool BVClock::leq(const BVClock &vc) const{
   const int m = std::min(vec.size(),vc.vec.size());
@@ -62,7 +62,7 @@ bool BVClock::leq(const BVClock &vc) const{
     if(vec[i]) return false;
   }
   return true;
-};
+}
 
 BVClock &BVClock::operator=(FBVClock &vc){
   const int sz = vc.size();
@@ -71,7 +71,7 @@ BVClock &BVClock::operator=(FBVClock &vc){
     vec[i] = vc[i];
   }
   return *this;
-};
+}
 
 BVClock &BVClock::operator+=(FBVClock &vc){
   const unsigned sz = vc.size();
@@ -82,4 +82,4 @@ BVClock &BVClock::operator+=(FBVClock &vc){
     vec[i] = vec[i] || vc[i];
   }
   return *this;
-};
+}

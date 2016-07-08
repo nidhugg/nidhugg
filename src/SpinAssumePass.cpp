@@ -61,7 +61,7 @@ void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
   AU.addRequired<llvm::LLVM_DOMINATOR_TREE_PASS>();
   AU.addRequired<DeclareAssumePass>();
   AU.addPreserved<DeclareAssumePass>();
-};
+}
 
 bool DeclareAssumePass::runOnModule(llvm::Module &M){
   bool modified_M = false;
@@ -82,7 +82,7 @@ bool DeclareAssumePass::runOnModule(llvm::Module &M){
     modified_M = true;
   }
   return modified_M;
-};
+}
 
 bool SpinAssumePass::is_assume(llvm::Instruction &I) const {
   llvm::CallInst *C = llvm::dyn_cast<llvm::CallInst>(&I);
@@ -90,7 +90,7 @@ bool SpinAssumePass::is_assume(llvm::Instruction &I) const {
   llvm::CallSite CS(C);
   llvm::Function *F = CS.getCalledFunction();
   return F && F->getName().str() == "__VERIFIER_assume";
-};
+}
 
 bool SpinAssumePass::is_spin(const llvm::Loop *l) const{
   for(auto B_it = l->block_begin(); B_it != l->block_end(); ++B_it){
@@ -109,7 +109,7 @@ bool SpinAssumePass::is_spin(const llvm::Loop *l) const{
     }
   }
   return true;
-};
+}
 
 void SpinAssumePass::remove_disconnected(llvm::Loop *l){
   // Traverse l and all its ancestor loops
@@ -145,7 +145,7 @@ void SpinAssumePass::remove_disconnected(llvm::Loop *l){
     }
     l = l->getParentLoop();
   }
-};
+}
 
 bool SpinAssumePass::assumify_loop(llvm::Loop *l,llvm::LPPassManager &LPM){
   llvm::BasicBlock *EB = l->getExitingBlock();
@@ -195,7 +195,7 @@ bool SpinAssumePass::assumify_loop(llvm::Loop *l,llvm::LPPassManager &LPM){
   I->setMetadata("dbg",MD);
   remove_disconnected(l);
   return true;
-};
+}
 
 bool SpinAssumePass::runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM){
   bool modified = false;
@@ -210,7 +210,7 @@ bool SpinAssumePass::runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM){
     }
   }
   return modified;
-};
+}
 
 char SpinAssumePass::ID = 0;
 static llvm::RegisterPass<SpinAssumePass> X("spin-assume","Replace spin loops with __VERIFIER_assumes.");

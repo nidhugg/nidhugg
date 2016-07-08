@@ -28,4 +28,4 @@ std::string IID<Pid_t>::to_string() const{
     ss << "(" << pid << "," << idx << ")";
     return ss.str();
   }
-};
+}

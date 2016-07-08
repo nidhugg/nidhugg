@@ -54,6 +54,6 @@ namespace SigSegvHandler {
   bool setenv();
   void unsetenv();
 
-};
+}
 
 #endif

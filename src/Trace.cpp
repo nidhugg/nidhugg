@@ -45,23 +45,23 @@
 
 Trace::Trace(const std::vector<Error*> &errors, bool blk)
   : errors(errors), blocked(blk) {
-};
+}
 
 Trace::~Trace(){
   for(unsigned i = 0; i < errors.size(); ++i){
     delete errors[i];
   }
-};
+}
 
 IIDSeqTrace::IIDSeqTrace(const std::vector<IID<CPid> > &cmp,
                          const std::vector<const llvm::MDNode*> &cmpmd,
                          const std::vector<Error*> &errors,
                          bool blk)
   : Trace(errors,blk), computation(cmp), computation_md(cmpmd) {
-};
+}
 
 IIDSeqTrace::~IIDSeqTrace(){
-};
+}
 
 std::string Trace::to_string(int _ind) const{
   if(errors.size()){
@@ -73,7 +73,7 @@ std::string Trace::to_string(int _ind) const{
   }else{
     return "No errors found.\n";
   }
-};
+}
 
 std::string IIDSeqTrace::to_string(int _ind) const{
   std::string s;
@@ -152,47 +152,47 @@ std::string IIDSeqTrace::to_string(int _ind) const{
     }
   }
   return s;
-};
+}
 
 Error *AssertionError::clone() const{
   return new AssertionError(loc,condition);
-};
+}
 
 std::string AssertionError::to_string() const{
   return "Assertion violation at "+loc.to_string()+": ("+condition+")";
-};
+}
 
 Error *PthreadsError::clone() const{
   return new PthreadsError(loc,msg);
-};
+}
 
 std::string PthreadsError::to_string() const{
   return "Pthreads error at "+loc.to_string()+": "+msg;
-};
+}
 
 Error *SegmentationFaultError::clone() const{
   return new SegmentationFaultError(loc);
-};
+}
 
 std::string SegmentationFaultError::to_string() const{
   return "Segmentation fault at "+loc.to_string();
-};
+}
 
 Error *RobustnessError::clone() const{
   return new RobustnessError(loc);
-};
+}
 
 std::string RobustnessError::to_string() const{
   return "The trace contains a happens-before cycle.";
-};
+}
 
 Error *MemoryError::clone() const{
   return new MemoryError(loc,msg);
-};
+}
 
 std::string MemoryError::to_string() const{
   return "Memory error at "+loc.to_string()+": ("+msg+")";
-};
+}
 
 bool Trace::get_location(const llvm::MDNode *m,
                          int *lineno,
@@ -268,7 +268,7 @@ bool Trace::get_location(const llvm::MDNode *m,
   }
 #endif
   return (lineno >= 0) && fname->size() && dname->size();
-};
+}
 
 std::string Trace::get_src_line_verbatim(const llvm::MDNode *m){
   int lineno;
@@ -301,7 +301,7 @@ std::string Trace::get_src_line_verbatim(const llvm::MDNode *m){
   }
 
   return ln;
-};
+}
 
 std::string Trace::basename(const std::string &fname){
   std::size_t i = fname.find_last_of('/');
@@ -310,8 +310,8 @@ std::string Trace::basename(const std::string &fname){
     return basename(fname.substr(0,fname.size()-1));
   }
   return fname.substr(i+1);
-};
+}
 
 bool Trace::is_absolute_path(const std::string &fname){
   return fname.size() && fname.front() == '/';
-};
+}

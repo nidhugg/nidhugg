@@ -37,35 +37,35 @@ namespace DPORDriver_test {
     conf.memory_model = Configuration::TSO;
     conf.debug_collect_all_traces = true;
     return conf;
-  };
+  }
 
   const Configuration &get_sc_conf(){
     static Configuration conf;
     conf.memory_model = Configuration::SC;
     conf.debug_collect_all_traces = true;
     return conf;
-  };
+  }
 
   const Configuration &get_pso_conf(){
     static Configuration conf;
     conf.memory_model = Configuration::PSO;
     conf.debug_collect_all_traces = true;
     return conf;
-  };
+  }
 
   const Configuration &get_power_conf(){
     static Configuration conf;
     conf.memory_model = Configuration::POWER;
     conf.debug_collect_all_traces = true;
     return conf;
-  };
+  }
 
   const Configuration &get_arm_conf(){
     static Configuration conf;
     conf.memory_model = Configuration::ARM;
     conf.debug_collect_all_traces = true;
     return conf;
-  };
+  }
 
   std::string trace_spec_to_string(const trace_spec &v){
     std::stringstream ss;
@@ -75,11 +75,11 @@ namespace DPORDriver_test {
       ss << v[i].a << " -> " << v[i].b;
     }
     return ss.str() + "}";
-  };
+  }
 
   void print_trace(const Trace *_t, llvm::raw_ostream &os, int ind){
     os << _t->to_string(ind);
-  };
+  }
 
   int find(const IIDSeqTrace *_t, const IID<CPid> &iid){
     const std::vector<IID<CPid> > &t = _t->get_computation();
@@ -100,7 +100,7 @@ namespace DPORDriver_test {
       }
     }
     return true;
-  };
+  }
 
   /* Returns true iff the indices of the IIDs of each process is
    * strictly increasing along the computation of t. */
@@ -111,7 +111,7 @@ namespace DPORDriver_test {
       pcs[it->get_pid()] = it->get_index();
     }
     return true;
-  };
+  }
 
   bool check_all_traces(const DPORDriver::Result &res,
                         const trace_set_spec &spec,
@@ -182,7 +182,7 @@ namespace DPORDriver_test {
       }
     }
     return retval;
-  };
+  }
 }
 
 #endif

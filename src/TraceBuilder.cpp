@@ -20,13 +20,13 @@
 #include "TraceBuilder.h"
 
 TraceBuilder::TraceBuilder(const Configuration &C) : conf(C) {
-};
+}
 
 TraceBuilder::~TraceBuilder(){
   for(unsigned i = 0; i < errors.size(); ++i){
     delete errors[i];
   }
-};
+}
 
 void TraceBuilder::assertion_error(std::string cond, const IID<CPid> &loc){
   if(loc.is_null()){
@@ -35,7 +35,7 @@ void TraceBuilder::assertion_error(std::string cond, const IID<CPid> &loc){
     errors.push_back(new AssertionError(loc,cond));
   }
   if(conf.debug_print_on_error) debug_print();
-};
+}
 
 void TraceBuilder::pthreads_error(std::string msg, const IID<CPid> &loc){
   if(loc.is_null()){
@@ -44,7 +44,7 @@ void TraceBuilder::pthreads_error(std::string msg, const IID<CPid> &loc){
     errors.push_back(new PthreadsError(loc,msg));
   }
   if(conf.debug_print_on_error) debug_print();
-};
+}
 
 void TraceBuilder::segmentation_fault_error(const IID<CPid> &loc){
   if(loc.is_null()){
@@ -53,7 +53,7 @@ void TraceBuilder::segmentation_fault_error(const IID<CPid> &loc){
     errors.push_back(new SegmentationFaultError(loc));
   }
   if(conf.debug_print_on_error) debug_print();
-};
+}
 
 void TraceBuilder::memory_error(std::string msg, const IID<CPid> &loc){
   if(loc.is_null()){
@@ -62,4 +62,4 @@ void TraceBuilder::memory_error(std::string msg, const IID<CPid> &loc){
     errors.push_back(new MemoryError(loc,msg));
   }
   if(conf.debug_print_on_error) debug_print();
-};
+}

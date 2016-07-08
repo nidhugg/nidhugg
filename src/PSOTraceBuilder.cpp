@@ -32,10 +32,10 @@ PSOTraceBuilder::PSOTraceBuilder(const Configuration &conf) : TSOPSOTraceBuilder
   last_full_memory_conflict = -1;
   available_threads.insert(0);
   last_md = 0;
-};
+}
 
 PSOTraceBuilder::~PSOTraceBuilder(){
-};
+}
 
 bool PSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   *dryrun = false;
@@ -143,7 +143,7 @@ bool PSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
                          threads[p].clock));
   *proc = threads[p].proc;
   return true;
-};
+}
 
 bool PSOTraceBuilder::is_aux_at_head(IPid pid) const{
   assert(threads[pid].cpid.is_auxiliary());
@@ -166,7 +166,7 @@ bool PSOTraceBuilder::is_aux_at_head(IPid pid) const{
     assert(threads[parent_pid].store_buffers.at(b).front().ml == ml);
   }
   return true;
-};
+}
 
 void PSOTraceBuilder::refuse_schedule(){
   assert(prefix_idx == int(prefix.size())-1);
@@ -180,7 +180,7 @@ void PSOTraceBuilder::refuse_schedule(){
   --prefix_idx;
   --threads[last_pid].clock[last_pid];
   mark_unavailable_ipid(last_pid);
-};
+}
 
 void PSOTraceBuilder::mark_available_ipid(IPid pid){
   threads[pid].available = true;
@@ -189,11 +189,11 @@ void PSOTraceBuilder::mark_available_ipid(IPid pid){
   }else{
     available_threads.insert(pid);
   }
-};
+}
 
 void PSOTraceBuilder::mark_available(int proc, int aux){
   mark_available_ipid(ipid(proc,aux));
-};
+}
 
 void PSOTraceBuilder::mark_unavailable_ipid(IPid pid){
   threads[pid].available = false;
@@ -202,22 +202,22 @@ void PSOTraceBuilder::mark_unavailable_ipid(IPid pid){
   }else{
     available_threads.erase(pid);
   }
-};
+}
 
 void PSOTraceBuilder::mark_unavailable(int proc, int aux){
   mark_unavailable_ipid(ipid(proc,aux));
-};
+}
 
 void PSOTraceBuilder::metadata(const llvm::MDNode *md){
   if(curnode().md == 0){
     curnode().md = md;
   }
   last_md = md;
-};
+}
 
 bool PSOTraceBuilder::sleepset_is_empty() const{
   return sleepers.empty();
-};
+}
 
 bool PSOTraceBuilder::check_for_cycles(){
   IID<IPid> i_iid;
@@ -231,7 +231,7 @@ bool PSOTraceBuilder::check_for_cycles(){
   }
 
   return true;
-};
+}
 
 Trace *PSOTraceBuilder::get_trace() const{
   std::vector<IID<CPid> > cmp;
@@ -240,14 +240,14 @@ Trace *PSOTraceBuilder::get_trace() const{
   for(unsigned i = 0; i < prefix.size(); ++i){
     cmp.push_back(IID<CPid>(threads[prefix[i].iid.get_pid()].cpid,prefix[i].iid.get_index()));
     cmp_md.push_back(prefix[i].md);
-  };
+  }
   for(unsigned i = 0; i < errors.size(); ++i){
     errs.push_back(errors[i]->clone());
   }
   Trace *t = new IIDSeqTrace(cmp,cmp_md,errs);
   t->set_blocked(!sleepset_is_empty());
   return t;
-};
+}
 
 bool PSOTraceBuilder::reset(){
   if(conf.debug_print_on_reset){
@@ -317,18 +317,18 @@ bool PSOTraceBuilder::reset(){
   last_md = 0;
 
   return true;
-};
+}
 
 IID<CPid> PSOTraceBuilder::get_iid() const{
   IPid pid = curnode().iid.get_pid();
   int idx = curnode().iid.get_index();
   return IID<CPid>(threads[pid].cpid,idx);
-};
+}
 
 static std::string rpad(std::string s, int n){
   while(int(s.size()) < n) s += " ";
   return s;
-};
+}
 
 std::string PSOTraceBuilder::iid_string(const Event &evt) const{
   std::stringstream ss;
@@ -341,7 +341,7 @@ std::string PSOTraceBuilder::iid_string(const Event &evt) const{
     ss << "-alt:" << evt.alt;
   }
   return ss.str();
-};
+}
 
 void PSOTraceBuilder::debug_print() const {
   llvm::dbgs() << "PSOTraceBuilder (debug print):\n";
@@ -387,7 +387,7 @@ void PSOTraceBuilder::debug_print() const {
                    << errors[i]->to_string() << "\n";
     }
   }
-};
+}
 
 void PSOTraceBuilder::spawn(){
   IPid parent_ipid = curnode().iid.get_pid();
@@ -400,7 +400,7 @@ void PSOTraceBuilder::spawn(){
   proc_to_ipid.push_back(child_ipid);
   threads.push_back(Thread(proc,child_cpid,threads[parent_ipid].clock,parent_ipid));
   mark_available_ipid(child_ipid);
-};
+}
 
 void PSOTraceBuilder::store(const ConstMRef &ml){
   if(dryrun) return;
@@ -422,7 +422,7 @@ void PSOTraceBuilder::store(const ConstMRef &ml){
     upd_ipid = threads[ipid].aux_to_ipid[it->second];
   }
   mark_available_ipid(upd_ipid);
-};
+}
 
 void PSOTraceBuilder::atomic_store(const ConstMRef &ml){
   if(dryrun){
@@ -513,7 +513,7 @@ void PSOTraceBuilder::atomic_store(const ConstMRef &ml){
     }
     threads[tipid].aux_clock_sum += curnode().clock;
   }
-};
+}
 
 void PSOTraceBuilder::load(const ConstMRef &ml){
   if(dryrun){
@@ -573,7 +573,7 @@ void PSOTraceBuilder::load(const ConstMRef &ml){
     mem[b].last_read[threads[ipid].proc] = prefix_idx;
     wakeup(Access::R,b);
   }
-};
+}
 
 void PSOTraceBuilder::full_memory_conflict(){
   if(dryrun){
@@ -605,7 +605,7 @@ void PSOTraceBuilder::full_memory_conflict(){
 
   /* No later access can have a conflict with any earlier access */
   mem.clear();
-};
+}
 
 void PSOTraceBuilder::fence(){
   if(dryrun) return;
@@ -614,7 +614,7 @@ void PSOTraceBuilder::fence(){
   assert(threads[ipid].all_buffers_empty());
   curnode().clock += threads[ipid].aux_clock_sum;
   threads[ipid].clock += threads[ipid].aux_clock_sum;
-};
+}
 
 void PSOTraceBuilder::join(int tgt_proc){
   if(dryrun) return;
@@ -624,7 +624,7 @@ void PSOTraceBuilder::join(int tgt_proc){
   curnode().clock += threads[tgt_ipid].clock;
   curnode().clock += threads[tgt_ipid].aux_clock_sum;
   threads[ipid].clock += curnode().clock;
-};
+}
 
 void PSOTraceBuilder::mutex_lock(const ConstMRef &ml){
   if(dryrun){
@@ -656,7 +656,7 @@ void PSOTraceBuilder::mutex_lock(const ConstMRef &ml){
   }
 
   mutex.last_lock = mutex.last_access = prefix_idx;
-};
+}
 
 void PSOTraceBuilder::mutex_lock_fail(const ConstMRef &ml){
   assert(!dryrun);
@@ -671,7 +671,7 @@ void PSOTraceBuilder::mutex_lock_fail(const ConstMRef &ml){
      !prefix[last_full_memory_conflict].clock.leq(curnode().clock)){
     add_branch(last_full_memory_conflict,prefix_idx);
   }
-};
+}
 
 void PSOTraceBuilder::mutex_unlock(const ConstMRef &ml){
   if(dryrun){
@@ -691,7 +691,7 @@ void PSOTraceBuilder::mutex_unlock(const ConstMRef &ml){
   see_events({mutex.last_access,last_full_memory_conflict});
 
   mutex.last_access = prefix_idx;
-};
+}
 
 void PSOTraceBuilder::mutex_trylock(const ConstMRef &ml){
   if(dryrun){
@@ -712,7 +712,7 @@ void PSOTraceBuilder::mutex_trylock(const ConstMRef &ml){
   if(mutex.last_lock < 0){ // Mutex is free
     mutex.last_lock = prefix_idx;
   }
-};
+}
 
 void PSOTraceBuilder::mutex_init(const ConstMRef &ml){
   if(dryrun){
@@ -727,7 +727,7 @@ void PSOTraceBuilder::mutex_init(const ConstMRef &ml){
   curnode().may_conflict = true;
   mutexes[ml.ref] = Mutex(prefix_idx);
   see_events({last_full_memory_conflict});
-};
+}
 
 void PSOTraceBuilder::mutex_destroy(const ConstMRef &ml){
   if(dryrun){
@@ -746,7 +746,7 @@ void PSOTraceBuilder::mutex_destroy(const ConstMRef &ml){
   see_events({mutex.last_access,last_full_memory_conflict});
 
   mutexes.erase(ml.ref);
-};
+}
 
 bool PSOTraceBuilder::cond_init(const ConstMRef &ml){
   if(dryrun){
@@ -765,7 +765,7 @@ bool PSOTraceBuilder::cond_init(const ConstMRef &ml){
   cond_vars[ml.ref] = CondVar(prefix_idx);
   see_events({last_full_memory_conflict});
   return true;
-};
+}
 
 bool PSOTraceBuilder::cond_signal(const ConstMRef &ml){
   if(dryrun){
@@ -816,7 +816,7 @@ bool PSOTraceBuilder::cond_signal(const ConstMRef &ml){
   see_events(seen_events);
 
   return true;
-};
+}
 
 bool PSOTraceBuilder::cond_broadcast(const ConstMRef &ml){
   if(dryrun){
@@ -854,7 +854,7 @@ bool PSOTraceBuilder::cond_broadcast(const ConstMRef &ml){
   see_events(seen_events);
 
   return true;
-};
+}
 
 bool PSOTraceBuilder::cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex_ml){
   {
@@ -895,7 +895,7 @@ bool PSOTraceBuilder::cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex
   see_events({last_full_memory_conflict,it->second.last_signal});
 
   return true;
-};
+}
 
 int PSOTraceBuilder::cond_destroy(const ConstMRef &ml){
   if(dryrun){
@@ -925,14 +925,14 @@ int PSOTraceBuilder::cond_destroy(const ConstMRef &ml){
   int rv = cond_var.waiters.size() ? EBUSY : 0;
   cond_vars.erase(ml.ref);
   return rv;
-};
+}
 
 void PSOTraceBuilder::register_alternatives(int alt_count){
   curnode().may_conflict = true;
   for(int i = curnode().alt+1; i < alt_count; ++i){
     curnode().branch.insert(Branch({curnode().iid.get_pid(),i}));
   }
-};
+}
 
 VecSet<PSOTraceBuilder::IPid> PSOTraceBuilder::sleep_set_at(int i){
   VecSet<IPid> sleep;
@@ -944,7 +944,7 @@ VecSet<PSOTraceBuilder::IPid> PSOTraceBuilder::sleep_set_at(int i){
   }
   sleep.insert(prefix[i].sleep);
   return sleep;
-};
+}
 
 void PSOTraceBuilder::see_events(const VecSet<int> &seen_accesses){
   /* Register new branches */
@@ -972,7 +972,7 @@ void PSOTraceBuilder::see_events(const VecSet<int> &seen_accesses){
   for(int i : branch){
     add_branch(i,prefix_idx);
   }
-};
+}
 
 void PSOTraceBuilder::add_branch(int i, int j){
   assert(0 <= i);
@@ -1026,11 +1026,11 @@ void PSOTraceBuilder::add_branch(int i, int j){
 
   assert(0 <= cand.pid);
   prefix[i].branch.insert(cand);
-};
+}
 
 bool PSOTraceBuilder::has_pending_store(IPid pid, void const *ml) const {
   return threads[pid].store_buffers.count(ml);
-};
+}
 
 void PSOTraceBuilder::wakeup(Access::Type type, void const *ml){
   IPid pid = curnode().iid.get_pid();
@@ -1090,7 +1090,7 @@ void PSOTraceBuilder::wakeup(Access::Type type, void const *ml){
     sleepers.erase(p);
     curnode().wakeup.insert(p);
   }
-};
+}
 
 bool PSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
   int real_thread_count = proc_to_ipid.size();
@@ -1237,11 +1237,11 @@ bool PSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
     assert(!has_cycle || 0 <= upd_idx);
     return has_cycle;
   }
-};
+}
 
 int PSOTraceBuilder::estimate_trace_count() const{
   return estimate_trace_count(0);
-};
+}
 
 int PSOTraceBuilder::estimate_trace_count(int idx) const{
   if(idx > int(prefix.size())) return 0;
@@ -1254,4 +1254,4 @@ int PSOTraceBuilder::estimate_trace_count(int idx) const{
   }
 
   return count;
-};
+}

@@ -93,11 +93,11 @@ private:
 template<typename Pid_t>
 std::ostream &operator<<(std::ostream &os, const IID<Pid_t> &iid){
   return os << iid.to_string();
-};
+}
 
 template<typename Pid_t>
 llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const IID<Pid_t> &iid){
   return os << iid.to_string();
-};
+}
 
 #endif

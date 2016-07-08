@@ -32,12 +32,12 @@ FBVClock::ClockSystemID FBVClock::new_clock_system(){
   }
   sys.emplace_back();
   return int(sys.size())-1;
-};
+}
 
 void FBVClock::delete_clock_system(ClockSystemID cid){
   sys[cid] = ClockSystem(); // Clear old data
   sys[cid].allocated = false;
-};
+}
 
 FBVClock::FBVClock(ClockSystemID cid, int idx) : cid(cid), idx(idx) {
   assert(0 <= cid && cid < int(sys.size()));
@@ -50,12 +50,12 @@ FBVClock::FBVClock(ClockSystemID cid, int idx) : cid(cid), idx(idx) {
   CS.idx_to_id[idx] = id;
   CS.change_ts.push_back(CS.time);
   CS.update_ts.push_back(CS.time);
-};
+}
 
 bool FBVClock::operator[](int i){
   update();
   return i < int(sys[cid].clocks[id].size()) && sys[cid].clocks[id][i];
-};
+}
 
 FBVClock &FBVClock::operator+=(FBVClock &c){
   ClockSystem &CS = sys[cid];
@@ -70,7 +70,7 @@ FBVClock &FBVClock::operator+=(FBVClock &c){
   add_clock(clk,CS.clocks[c.id]);
   CS.change_ts[id] = CS.time;
   return *this;
-};
+}
 
 void FBVClock::update(ClockSystemID cid, int id){
   assert(0 <= cid && cid < int(sys.size()));
@@ -90,14 +90,14 @@ void FBVClock::update(ClockSystemID cid, int id){
   }
 
   CS.update_ts[id] = CS.time;
-};
+}
 
 void FBVClock::add_clock(std::vector<bool> &dst, std::vector<bool> &src){
   if(dst.size() < src.size()) dst.resize(src.size(),false);
   for(unsigned i = 0; i < src.size(); ++i){
     dst[i] = dst[i] || src[i];
   }
-};
+}
 
 std::string FBVClock::to_string() const{
   if(id < 0){
@@ -110,4 +110,4 @@ std::string FBVClock::to_string() const{
     if(clk[i]) s[i] = '1';
   }
   return s;
-};
+}

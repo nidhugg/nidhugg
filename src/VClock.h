@@ -170,12 +170,12 @@ private:
 template<typename DOM>
 std::ostream &operator<<(std::ostream &os, const VClock<DOM> &vc){
   return os << vc.to_string();
-};
+}
 
 template<typename DOM>
 llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const VClock<DOM> &vc){
   return os << vc.to_string();
-};
+}
 
 #include "VClock.tcc"
 

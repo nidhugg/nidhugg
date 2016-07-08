@@ -32,10 +32,10 @@ TSOTraceBuilder::TSOTraceBuilder(const Configuration &conf) : TSOPSOTraceBuilder
   replay = false;
   last_full_memory_conflict = -1;
   last_md = 0;
-};
+}
 
 TSOTraceBuilder::~TSOTraceBuilder(){
-};
+}
 
 bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   *dryrun = false;
@@ -136,7 +136,7 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   }
 
   return false; // No available threads
-};
+}
 
 void TSOTraceBuilder::refuse_schedule(){
   assert(prefix_idx == int(prefix.size())-1);
@@ -150,29 +150,29 @@ void TSOTraceBuilder::refuse_schedule(){
   --prefix_idx;
   --threads[last_pid].clock[last_pid];
   mark_unavailable(last_pid/2,last_pid % 2 - 1);
-};
+}
 
 void TSOTraceBuilder::mark_available(int proc, int aux){
   threads[ipid(proc,aux)].available = true;
-};
+}
 
 void TSOTraceBuilder::mark_unavailable(int proc, int aux){
   threads[ipid(proc,aux)].available = false;
-};
+}
 
 void TSOTraceBuilder::metadata(const llvm::MDNode *md){
   if(!dryrun && curnode().md == 0){
     curnode().md = md;
   }
   last_md = md;
-};
+}
 
 bool TSOTraceBuilder::sleepset_is_empty() const{
   for(unsigned i = 0; i < threads.size(); ++i){
     if(threads[i].sleeping) return false;
   }
   return true;
-};
+}
 
 bool TSOTraceBuilder::check_for_cycles(){
   IID<IPid> i_iid;
@@ -186,7 +186,7 @@ bool TSOTraceBuilder::check_for_cycles(){
   }
 
   return true;
-};
+}
 
 Trace *TSOTraceBuilder::get_trace() const{
   std::vector<IID<CPid> > cmp;
@@ -202,7 +202,7 @@ Trace *TSOTraceBuilder::get_trace() const{
   Trace *t = new IIDSeqTrace(cmp,cmp_md,errs);
   t->set_blocked(!sleepset_is_empty());
   return t;
-};
+}
 
 bool TSOTraceBuilder::reset(){
   if(conf.debug_print_on_reset){
@@ -268,18 +268,18 @@ bool TSOTraceBuilder::reset(){
   last_md = 0;
 
   return true;
-};
+}
 
 IID<CPid> TSOTraceBuilder::get_iid() const{
   IPid pid = curnode().iid.get_pid();
   int idx = curnode().iid.get_index();
   return IID<CPid>(threads[pid].cpid,idx);
-};
+}
 
 static std::string rpad(std::string s, int n){
   while(int(s.size()) < n) s += " ";
   return s;
-};
+}
 
 std::string TSOTraceBuilder::iid_string(const Event &evt) const{
   std::stringstream ss;
@@ -292,7 +292,7 @@ std::string TSOTraceBuilder::iid_string(const Event &evt) const{
     ss << "-alt:" << evt.alt;
   }
   return ss.str();
-};
+}
 
 void TSOTraceBuilder::debug_print() const {
   llvm::dbgs() << "TSOTraceBuilder (debug print):\n";
@@ -338,7 +338,7 @@ void TSOTraceBuilder::debug_print() const {
                    << errors[i]->to_string() << "\n";
     }
   }
-};
+}
 
 void TSOTraceBuilder::spawn(){
   IPid parent_ipid = curnode().iid.get_pid();
@@ -346,14 +346,14 @@ void TSOTraceBuilder::spawn(){
   threads.push_back(Thread(child_cpid,threads[parent_ipid].clock));
   threads.push_back(Thread(CPS.new_aux(child_cpid),threads[parent_ipid].clock));
   threads.back().available = false; // Empty store buffer
-};
+}
 
 void TSOTraceBuilder::store(const ConstMRef &ml){
   if(dryrun) return;
   IPid ipid = curnode().iid.get_pid();
   threads[ipid].store_buffer.push_back(PendingStore(ml,threads[ipid].clock,last_md));
   threads[ipid+1].available = true;
-};
+}
 
 void TSOTraceBuilder::atomic_store(const ConstMRef &ml){
   if(dryrun){
@@ -428,7 +428,7 @@ void TSOTraceBuilder::atomic_store(const ConstMRef &ml){
       threads[uipid].available = false;
     }
   }
-};
+}
 
 void TSOTraceBuilder::load(const ConstMRef &ml){
   if(dryrun){
@@ -482,7 +482,7 @@ void TSOTraceBuilder::load(const ConstMRef &ml){
     mem[b].last_read[ipid/2] = prefix_idx;
     wakeup(Access::R,b);
   }
-};
+}
 
 void TSOTraceBuilder::full_memory_conflict(){
   if(dryrun){
@@ -514,7 +514,7 @@ void TSOTraceBuilder::full_memory_conflict(){
 
   /* No later access can have a conflict with any earlier access */
   mem.clear();
-};
+}
 
 void TSOTraceBuilder::fence(){
   if(dryrun) return;
@@ -523,7 +523,7 @@ void TSOTraceBuilder::fence(){
   assert(threads[ipid].store_buffer.empty());
   curnode().clock += threads[ipid+1].clock;
   threads[ipid].clock += threads[ipid+1].clock;
-};
+}
 
 void TSOTraceBuilder::join(int tgt_proc){
   if(dryrun) return;
@@ -532,7 +532,7 @@ void TSOTraceBuilder::join(int tgt_proc){
   threads[ipid].clock += threads[tgt_proc*2].clock;
   curnode().clock += threads[tgt_proc*2+1].clock;
   threads[ipid].clock += threads[tgt_proc*2+1].clock;
-};
+}
 
 void TSOTraceBuilder::mutex_lock(const ConstMRef &ml){
   if(dryrun){
@@ -564,7 +564,7 @@ void TSOTraceBuilder::mutex_lock(const ConstMRef &ml){
   }
 
   mutex.last_lock = mutex.last_access = prefix_idx;
-};
+}
 
 void TSOTraceBuilder::mutex_lock_fail(const ConstMRef &ml){
   assert(!dryrun);
@@ -579,7 +579,7 @@ void TSOTraceBuilder::mutex_lock_fail(const ConstMRef &ml){
      !prefix[last_full_memory_conflict].clock.leq(curnode().clock)){
     add_branch(last_full_memory_conflict,prefix_idx);
   }
-};
+}
 
 void TSOTraceBuilder::mutex_trylock(const ConstMRef &ml){
   if(dryrun){
@@ -600,7 +600,7 @@ void TSOTraceBuilder::mutex_trylock(const ConstMRef &ml){
   if(mutex.last_lock < 0){ // Mutex is free
     mutex.last_lock = prefix_idx;
   }
-};
+}
 
 void TSOTraceBuilder::mutex_unlock(const ConstMRef &ml){
   if(dryrun){
@@ -620,7 +620,7 @@ void TSOTraceBuilder::mutex_unlock(const ConstMRef &ml){
   see_events({mutex.last_access,last_full_memory_conflict});
 
   mutex.last_access = prefix_idx;
-};
+}
 
 void TSOTraceBuilder::mutex_init(const ConstMRef &ml){
   if(dryrun){
@@ -635,7 +635,7 @@ void TSOTraceBuilder::mutex_init(const ConstMRef &ml){
   curnode().may_conflict = true;
   mutexes[ml.ref] = Mutex(prefix_idx);
   see_events({last_full_memory_conflict});
-};
+}
 
 void TSOTraceBuilder::mutex_destroy(const ConstMRef &ml){
   if(dryrun){
@@ -654,7 +654,7 @@ void TSOTraceBuilder::mutex_destroy(const ConstMRef &ml){
   see_events({mutex.last_access,last_full_memory_conflict});
 
   mutexes.erase(ml.ref);
-};
+}
 
 bool TSOTraceBuilder::cond_init(const ConstMRef &ml){
   if(dryrun){
@@ -673,7 +673,7 @@ bool TSOTraceBuilder::cond_init(const ConstMRef &ml){
   cond_vars[ml.ref] = CondVar(prefix_idx);
   see_events({last_full_memory_conflict});
   return true;
-};
+}
 
 bool TSOTraceBuilder::cond_signal(const ConstMRef &ml){
   if(dryrun){
@@ -724,7 +724,7 @@ bool TSOTraceBuilder::cond_signal(const ConstMRef &ml){
   see_events(seen_events);
 
   return true;
-};
+}
 
 bool TSOTraceBuilder::cond_broadcast(const ConstMRef &ml){
   if(dryrun){
@@ -762,7 +762,7 @@ bool TSOTraceBuilder::cond_broadcast(const ConstMRef &ml){
   see_events(seen_events);
 
   return true;
-};
+}
 
 bool TSOTraceBuilder::cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex_ml){
   {
@@ -803,7 +803,7 @@ bool TSOTraceBuilder::cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex
   see_events({last_full_memory_conflict,it->second.last_signal});
 
   return true;
-};
+}
 
 int TSOTraceBuilder::cond_destroy(const ConstMRef &ml){
   if(dryrun){
@@ -833,14 +833,14 @@ int TSOTraceBuilder::cond_destroy(const ConstMRef &ml){
   int rv = cond_var.waiters.size() ? EBUSY : 0;
   cond_vars.erase(ml.ref);
   return rv;
-};
+}
 
 void TSOTraceBuilder::register_alternatives(int alt_count){
   curnode().may_conflict = true;
   for(int i = curnode().alt+1; i < alt_count; ++i){
     curnode().branch.insert(Branch({curnode().iid.get_pid(),i}));
   }
-};
+}
 
 VecSet<TSOTraceBuilder::IPid> TSOTraceBuilder::sleep_set_at(int i){
   VecSet<IPid> sleep;
@@ -852,7 +852,7 @@ VecSet<TSOTraceBuilder::IPid> TSOTraceBuilder::sleep_set_at(int i){
   }
   sleep.insert(prefix[i].sleep);
   return sleep;
-};
+}
 
 void TSOTraceBuilder::see_events(const VecSet<int> &seen_accesses){
   /* Register new branches */
@@ -880,7 +880,7 @@ void TSOTraceBuilder::see_events(const VecSet<int> &seen_accesses){
   for(int i : branch){
     add_branch(i,prefix_idx);
   }
-};
+}
 
 void TSOTraceBuilder::add_branch(int i, int j){
   assert(0 <= i);
@@ -934,7 +934,7 @@ void TSOTraceBuilder::add_branch(int i, int j){
 
   assert(0 <= cand.pid);
   prefix[i].branch.insert(cand);
-};
+}
 
 bool TSOTraceBuilder::has_pending_store(IPid pid, void const *ml) const {
   const std::vector<PendingStore> &sb = threads[pid].store_buffer;
@@ -944,7 +944,7 @@ bool TSOTraceBuilder::has_pending_store(IPid pid, void const *ml) const {
     }
   }
   return false;
-};
+}
 
 void TSOTraceBuilder::wakeup(Access::Type type, void const *ml){
   IPid pid = curnode().iid.get_pid();
@@ -1003,7 +1003,7 @@ void TSOTraceBuilder::wakeup(Access::Type type, void const *ml){
     threads[p].sleeping = false;
     curnode().wakeup.insert(p);
   }
-};
+}
 
 bool TSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
   int proc_count = threads.size();
@@ -1139,11 +1139,11 @@ bool TSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
     assert(!has_cycle || 0 <= upd_idx);
     return has_cycle;
   }
-};
+}
 
 int TSOTraceBuilder::estimate_trace_count() const{
   return estimate_trace_count(0);
-};
+}
 
 int TSOTraceBuilder::estimate_trace_count(int idx) const{
   if(idx > int(prefix.size())) return 0;
@@ -1156,4 +1156,4 @@ int TSOTraceBuilder::estimate_trace_count(int idx) const{
   }
 
   return count;
-};
+}

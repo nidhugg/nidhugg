@@ -914,7 +914,7 @@ void POWERInterpreter::fetchThreadExit(){
   std::shared_ptr<FetchedInstruction> st(new FetchedInstruction(*dummy_store));
   st->EventIndex = iid.get_index();
   Threads[CurrentThread].CommittableEvents.insert(st);
-};
+}
 
 void POWERInterpreter::visitReturnInst(llvm::ReturnInst &I) {
   llvm::Type *RetTy = llvm::Type::getVoidTy(I.getContext());
@@ -1123,14 +1123,14 @@ bool POWERInterpreter::isInlineAsm(llvm::CallSite &CS, std::string *asmstr){
     }
   }
   return false;
-};
+}
 
 bool POWERInterpreter::isInlineAsm(llvm::Instruction &I, std::string *asmstr){
   llvm::CallInst *C = llvm::dyn_cast<llvm::CallInst>(&I);
   if(!C) return false;
   llvm::CallSite CS(C);
   return isInlineAsm(CS,asmstr);
-};
+}
 
 void POWERInterpreter::visitInlineAsm(llvm::CallSite &CS, const std::string &asmstr){
   if(asmstr == "DMB" || asmstr == "dmb" ||
@@ -1144,7 +1144,7 @@ void POWERInterpreter::visitInlineAsm(llvm::CallSite &CS, const std::string &asm
   }else{
     throw std::logic_error("Unsupported inline assembly: " + asmstr);
   }
-};
+}
 
 void POWERInterpreter::visitCallSite(llvm::CallSite CS) {
   {
@@ -2289,7 +2289,7 @@ void POWERInterpreter::callMalloc(llvm::Function *F){
   setCurInstrValue(Result);
 
   Threads[CurrentThread].Allocas.add(Memory);
-};
+}
 
 void POWERInterpreter::callPthreadCreate(llvm::Function *F){
   // Return 0 (success)
@@ -2356,22 +2356,22 @@ void POWERInterpreter::callPthreadCreate(llvm::Function *F){
   // Return to caller
   CurrentThread = caller_thread;
   CurInstr = CallFI;
-};
+}
 
 void POWERInterpreter::callPthreadExit(llvm::Function *F){
   fetchThreadExit();
   Threads[CurrentThread].ECStack.clear();
-};
+}
 
 void POWERInterpreter::callPthreadJoin(llvm::Function *F){
-};
+}
 
 void POWERInterpreter::callPutchar(llvm::Function *F){
   llvm::GenericValue C = getOperandValue(0);
   setCurInstrValue(C); // Return the argument value
   unsigned char c = (unsigned char)C.IntVal.getLimitedValue();
   std::cout << c;;
-};
+}
 
 //===----------------------------------------------------------------------===//
 // callFunction - Execute the specified function...
@@ -2393,7 +2393,7 @@ void POWERInterpreter::callFunction(llvm::Function *F,
   }
 
   callFunction(F,FIArgVals);
-};
+}
 
 void POWERInterpreter::callFunction(llvm::Function *F,
                                     const std::vector<llvm::Value*> &ArgVals) {
@@ -2418,7 +2418,7 @@ void POWERInterpreter::callFunction(llvm::Function *F,
   }
 
   callFunction(F,FIArgVals);
-};
+}
 
 void POWERInterpreter::callFunction(llvm::Function *F,
                                     const std::vector<std::shared_ptr<FetchedInstruction> > &ArgVals) {
@@ -2454,7 +2454,7 @@ void POWERInterpreter::callFunction(llvm::Function *F,
   }else if(F->getName().str() == "__VERIFIER_assume"){
     callAssume(F);
     return;
-  };
+  }
   // Make a new stack frame... and fill it in.
   Threads[CurrentThread].ECStack.push_back(ExecutionContext());
   ExecutionContext &StackFrame = Threads[CurrentThread].ECStack.back();
@@ -2499,7 +2499,7 @@ void POWERInterpreter::abort(){
     Threads[p].CommittableEvents.clear();
   }
   TB.abort();
-};
+}
 
 int POWERInterpreter::getAddrOpIdx(const llvm::Instruction &I){
   switch(I.getOpcode()){
@@ -2520,7 +2520,7 @@ int POWERInterpreter::getAddrOpIdx(const llvm::Instruction &I){
   default:
     return -1;
   }
-};
+}
 
 void POWERInterpreter::registerOperand(int proc, FetchedInstruction &FI, int idx){
   if(FI.Operands[idx].isAddr()){
@@ -2561,7 +2561,7 @@ void POWERInterpreter::registerOperand(int proc, FetchedInstruction &FI, int idx
     TB.register_data({proc,FI.EventIndex},FI.Operands[idx].IsDataOf,
                      GetMBlock(0,FI.I.getOperand(idx)->getType(),FI.Operands[idx].Value));
   }
-};
+}
 
 llvm::Function *POWERInterpreter::getCallee(llvm::Instruction &I){
   if(I.getOpcode() != llvm::Instruction::Call &&
@@ -2574,7 +2574,7 @@ llvm::Function *POWERInterpreter::getCallee(llvm::Instruction &I){
     return 0;
   }
   return (llvm::Function*)GVTOP(getConstantOperandValue(fop));
-};
+}
 
 std::shared_ptr<POWERInterpreter::FetchedInstruction> POWERInterpreter::fetch(llvm::Instruction &I){
   ExecutionContext &SF = Threads[CurrentThread].ECStack.back();  // Current stack frame
@@ -2826,7 +2826,7 @@ std::shared_ptr<POWERInterpreter::FetchedInstruction> POWERInterpreter::fetch(ll
   }
 
   return FI;
-};
+}
 
 void POWERInterpreter::fetchAll(){
   while (!Threads[CurrentThread].ECStack.empty()) {

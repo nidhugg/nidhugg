@@ -45,7 +45,7 @@ namespace Transform {
     llvm::Module *mod = StrModule::read_module_src(src);
     transform(*mod,conf);
     return StrModule::write_module_str(mod);
-  };
+  }
 
   void transform(std::string infile, std::string outfile, const Configuration &conf){
     llvm::Module *mod = StrModule::read_module(infile);
@@ -53,7 +53,7 @@ namespace Transform {
     transform(*mod,conf);
 
     StrModule::write_module(mod,outfile);
-  };
+  }
 
   bool transform(llvm::Module &mod, const Configuration &conf){
     llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
@@ -86,6 +86,6 @@ namespace Transform {
     bool modified = PM.run(mod);
     assert(!llvm::verifyModule(mod));
     return modified;
-  };
+  }
 
 }

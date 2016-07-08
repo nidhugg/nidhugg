@@ -36,7 +36,7 @@ static std::vector<std::string> get_indentation(int n_procs, int ind){
     sind += ind1;
   }
   return res;
-};
+}
 
 std::string PATB_impl::PATrace::to_string(int _ind) const{
   if(string_rep.size()){ // There is already a prepared string representation
@@ -49,7 +49,7 @@ std::string PATB_impl::PATrace::to_string(int _ind) const{
     ss << ind[E.iid.get_pid()] << iid << "\n";
   }
   return ss.str();
-};
+}
 
 std::string PATB_impl::TraceRecorder::to_string(int ind) const{
   std::stringstream ss;
@@ -62,7 +62,7 @@ std::string PATB_impl::TraceRecorder::to_string(int ind) const{
     ss << L.ln << "\n";
   }
   return ss.str();
-};
+}
 
 void PATB_impl::TraceRecorder::trace_commit(const IID<int> &iid,
                                             const Param &param,
@@ -75,7 +75,7 @@ void PATB_impl::TraceRecorder::trace_commit(const IID<int> &iid,
   last_committed.accesses = accesses;
   last_committed.baccesses = baccesses;
   last_committed.values = std::move(values);
-};
+}
 
 bool PATB_impl::TraceRecorder::source_line(int proc, const llvm::MDNode *md, std::string *srcln, int *id_len){
   std::string ln;
@@ -104,7 +104,7 @@ bool PATB_impl::TraceRecorder::source_line(int proc, const llvm::MDNode *md, std
   }
   *srcln = ln;
   return success;
-};
+}
 
 void PATB_impl::TraceRecorder::trace_register_metadata(int proc, const llvm::MDNode *md){
   assert(0 <= proc && proc < int(cpids->size()));
@@ -167,10 +167,10 @@ void PATB_impl::TraceRecorder::trace_register_metadata(int proc, const llvm::MDN
       lines.push_back({proc,ln});
     }
   }
-};
+}
 
 void PATB_impl::TraceRecorder::trace_register_external_function_call(int proc, const std::string &fname, const llvm::MDNode *md){
-};
+}
 
 void PATB_impl::TraceRecorder::trace_register_function_entry(int proc, const std::string &fname, const llvm::MDNode *md){
   assert(last_committed.consumed);
@@ -190,7 +190,7 @@ void PATB_impl::TraceRecorder::trace_register_function_entry(int proc, const std
   }else{
     lines.push_back({proc,ln+"Entering function "+fname});
   }
-};
+}
 
 void PATB_impl::TraceRecorder::trace_register_function_exit(int proc){
   assert(last_committed.consumed);
@@ -201,8 +201,8 @@ void PATB_impl::TraceRecorder::trace_register_function_exit(int proc){
   source_line(proc,0,&ln,&cpid_len);
   lines.push_back({proc,ln+"Returning from "+fun_call_stack[proc].back()});
   fun_call_stack[proc].pop_back();
-};
+}
 
 void PATB_impl::TraceRecorder::trace_register_error(int proc, const std::string &err_msg){
   lines.push_back({proc,"Error: "+err_msg});
-};
+}

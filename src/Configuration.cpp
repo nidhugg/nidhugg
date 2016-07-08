@@ -87,7 +87,7 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "print-progress-estimate"
   };
   return opts;
-};
+}
 
 const Configuration Configuration::default_conf;
 
@@ -104,7 +104,7 @@ void Configuration::assign_by_commandline(){
   transform_loop_unroll = cl_transform_loop_unroll;
   print_progress = cl_print_progress || cl_print_progress_estimate;
   print_progress_estimate = cl_print_progress_estimate;
-};
+}
 
 void Configuration::check_commandline(){
   /* Check commandline switch compatibility with --transform. */
@@ -174,4 +174,4 @@ void Configuration::check_commandline(){
       }
     }
   }
-};
+}

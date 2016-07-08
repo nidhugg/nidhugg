@@ -51,7 +51,7 @@ namespace StrModule {
    * compiled.
    */
   std::string portasm(std::string s);
-};
+}
 
 #endif
 

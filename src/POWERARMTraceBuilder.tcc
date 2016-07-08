@@ -36,11 +36,11 @@ namespace PATB_impl{
     fch.emplace_back();
     threads.emplace_back();
     cpids.emplace_back();
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   TB<MemMod,CB,Event>::~TB(){
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   Trace *TB<MemMod,CB,Event>::get_trace() const{
@@ -58,7 +58,7 @@ namespace PATB_impl{
     }
     return new PATrace(evts, cpids, conf, errs, TRec.to_string(2),
                        !sleepset_is_empty());
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   int TB<MemMod,CB,Event>::spawn(int proc){
@@ -67,12 +67,12 @@ namespace PATB_impl{
     threads.emplace_back();
     cpids.push_back(CPS.spawn(cpids[proc]));
     return int(fch.size())-1;
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::abort(){
     is_aborted = true;
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   IID<int> TB<MemMod,CB,Event>::fetch(int proc,
@@ -162,7 +162,7 @@ namespace PATB_impl{
     evt->ctrl_isync_deps = T.ctrl_isync_deps;
     update_addr_known_prefix(proc);
     return evt->iid;
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::register_addr(const IID<int> &iid, Accid a, const MRef &addr){
@@ -220,7 +220,7 @@ namespace PATB_impl{
       }
     }
     update_addr_known_prefix(iid.get_pid());
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::register_data(const IID<int> &iid, Staccid a, const MBlock &data){
@@ -256,7 +256,7 @@ namespace PATB_impl{
       }
       assert(data_written);
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::register_load_requirement(const IID<int> &iid, Ldaccid a, ldreqfun_t *f){
@@ -268,13 +268,13 @@ namespace PATB_impl{
       --uncommitted_nonblocking_count;
     }
     evt.accesses[a].load_req = f;
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::fetch_ctrl(int proc, const VecSet<int> &deps){
     assert(0 <= proc && proc < int(threads.size()));
     threads[proc].ctrl_deps.insert(deps);
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::fetch_fence(int proc, FenceType type){
@@ -305,7 +305,7 @@ namespace PATB_impl{
     default:
       throw std::logic_error("POWERARMTraceBuilder::fetch_fence: Unknown type of fence.");
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   bool TB<MemMod,CB,Event>::committable(Event &evt){
@@ -344,7 +344,7 @@ namespace PATB_impl{
       }
     }
     return true;
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::update_committed_prefix(int proc){
@@ -352,7 +352,7 @@ namespace PATB_impl{
           fch[proc][threads[proc].committed_prefix].committed){
       ++threads[proc].committed_prefix;
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::update_addr_known_prefix(int proc){
@@ -360,7 +360,7 @@ namespace PATB_impl{
           fch[proc][threads[proc].addr_known_prefix].unknown_addr_count == 0){
       ++threads[proc].addr_known_prefix;
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   bool TB<MemMod,CB,Event>::schedule(IID<int> *iid, std::vector<MBlock> *values){
@@ -405,7 +405,7 @@ namespace PATB_impl{
       }
     }
     return false;
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   bool TB<MemMod,CB,Event>::commit(Event &evt, std::vector<MBlock> *values, bool replay){
@@ -471,7 +471,7 @@ namespace PATB_impl{
       --uncommitted_nonblocking_count; // ... but no longer uncommitted
     }
     return true;
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::setup_relations_cur_param(Event &evt){
@@ -509,7 +509,7 @@ namespace PATB_impl{
     }
     /* cb */
     evt.cb_bwd = compute_cb(evt);
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   BVClock TB<MemMod,CB,Event>::compute_cb(const Event &evt, bool include_rf){
@@ -550,7 +550,7 @@ namespace PATB_impl{
       }
     }
     return cb;
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::return_relations(Event &evt){
@@ -608,7 +608,7 @@ namespace PATB_impl{
     for(const IID<int> &iid : evt.rel.prop.bwd){
       get_evt(iid).rel.prop.fwd.insert(evt.iid);
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void Mem<MemMod,CB,Event>::commit(Event &evt, const ByteAccess &A, const Param::Choice &C){
@@ -631,12 +631,12 @@ namespace PATB_impl{
         loads[l].insert(evt.iid);
       }
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::get_cur_load_values(Event &evt, std::vector<MBlock> *values){
     get_load_values(evt,values,evt.cur_param);
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::get_load_values(Event &evt, std::vector<MBlock> *values, const Param &B){
@@ -663,7 +663,7 @@ namespace PATB_impl{
         }
       }
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::detect_rw_conflicts(Event &w_evt){
@@ -772,7 +772,7 @@ namespace PATB_impl{
         get_evt(prefix[bnc_start]).new_branches.insert(bnc);
       }
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::normalise_branch(Branch &B){
@@ -831,7 +831,7 @@ namespace PATB_impl{
         --j;
       }
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::populate_parameters(Event &evt){
@@ -926,7 +926,7 @@ namespace PATB_impl{
       if(!ok_load_reqs) continue;
       evt.new_params.push_back(B);
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::populate_parameters_store(Event &evt,int stidx,const ByteAccess &S,
@@ -1028,7 +1028,7 @@ namespace PATB_impl{
       }
       B2.rel.cc0 = cc0;
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::populate_parameters_load(Event &evt,int ldidx,const ByteAccess &L,
@@ -1141,7 +1141,7 @@ namespace PATB_impl{
       B2.rel.poloc = poloc;
       B2.rel.cc0 = cc0;
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::fences_to_hb(Event &evt, Rel &hb){
@@ -1179,7 +1179,7 @@ namespace PATB_impl{
         }
       }
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::compute_poloc_bwd(Event &evt){
@@ -1194,7 +1194,7 @@ namespace PATB_impl{
       }
     }
     evt.poloc_bwd_computed = true;
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::find_poloc(Event &evt, Mem<MemMod,CB,Event> &m,
@@ -1255,7 +1255,7 @@ namespace PATB_impl{
     }else{
       after_iid = IID<int>();
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   IID<CPid> TB<MemMod,CB,Event>::get_iid() const{
@@ -1264,12 +1264,12 @@ namespace PATB_impl{
     }
     return IID<CPid>(cpids[prefix[sched_count-1].get_pid()],
                      prefix[sched_count-1].get_index());
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   bool TB<MemMod,CB,Event>::sleepset_is_empty() const{
     return uncommitted_nonblocking_count == 0;
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::clear_event_colour(){
@@ -1278,7 +1278,7 @@ namespace PATB_impl{
         fch[p][i].colour = 0;
       }
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   bool TB<MemMod,CB,Event>::com_poloc_bwd_search(const VecSet<IID<int> > &inits,
@@ -1306,7 +1306,7 @@ namespace PATB_impl{
       }
     }
     return false;
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::ppo_to_hb(Event &evt, Relations &rel, ExtraHB &EHB){
@@ -1442,7 +1442,7 @@ namespace PATB_impl{
         }
       }
     }
-  };
+  }
 
   /* Add to new_prop a set of events which includes all events which
    * may have gained a new forward prop edge by the addition of the
@@ -1527,7 +1527,7 @@ namespace PATB_impl{
         }
       }
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::calc_prop(Event &new_evt, Relations &rel, ExtraRel &ER){
@@ -1669,7 +1669,7 @@ namespace PATB_impl{
         }
       }
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   bool TB<MemMod,CB,Event>::no_thin_air(Event &evt, Relations &rel, ExtraHB &EHB){
@@ -1750,7 +1750,7 @@ namespace PATB_impl{
     }
     assert(done_count == sched_count+1);
     return true;
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   bool TB<MemMod,CB,Event>::propagation(Event &new_evt, Relations &rel, ExtraRel &ER){
@@ -1810,7 +1810,7 @@ namespace PATB_impl{
       }
     }
     return true;
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   bool TB<MemMod,CB,Event>::observation(Event &new_evt, Relations &rel, ExtraHB &EHB){
@@ -1957,7 +1957,7 @@ namespace PATB_impl{
     }
 
     return true;
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::observation_get_fre(Event &r_evt, Event &new_evt, Relations &rel,
@@ -1976,7 +1976,7 @@ namespace PATB_impl{
         }
       }
     }
-  };
+  }
 
   /* Search forward from new_evt and EHB.after_I and EHB.after_C for
    * load events.
@@ -2082,7 +2082,7 @@ namespace PATB_impl{
         }
       }
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::debug_print() const{
@@ -2101,7 +2101,7 @@ namespace PATB_impl{
     if(!sleepset_is_empty()){
       llvm::dbgs() << "BRANCH BLOCKED\n";
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::union_except_one(VecSet<Branch> &tgt, const VecSet<Branch> &B){
@@ -2132,42 +2132,42 @@ namespace PATB_impl{
       ++b;
     }
     tgt = VecSet<Branch>(std::move(AB));
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::trace_register_metadata(int proc, const llvm::MDNode *md){
     if(TRec.is_active()){
       TRec.trace_register_metadata(proc,md);
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::trace_register_external_function_call(int proc, const std::string &fname, const llvm::MDNode *md){
     if(TRec.is_active()){
       TRec.trace_register_external_function_call(proc,fname,md);
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::trace_register_function_entry(int proc, const std::string &fname, const llvm::MDNode *md){
     if(TRec.is_active()){
       TRec.trace_register_function_entry(proc,fname,md);
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::trace_register_function_exit(int proc){
     if(TRec.is_active()){
       TRec.trace_register_function_exit(proc);
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB, class Event>
   void TB<MemMod,CB,Event>::trace_register_error(int proc, const std::string &err_msg){
     if(TRec.is_active()){
       TRec.trace_register_error(proc,err_msg);
     }
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::replay(){    /* Clear events from this computation */
@@ -2204,7 +2204,7 @@ namespace PATB_impl{
     errors.clear();
     TRec.clear();
     TRec.activate();
-  };
+  }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   bool TB<MemMod,CB,Event>::reset(){
@@ -2336,6 +2336,6 @@ namespace PATB_impl{
     TRec.deactivate();
 
     return true;
-  };
+  }
 
-}; // End namespace PATB_impl
+} // End namespace PATB_impl

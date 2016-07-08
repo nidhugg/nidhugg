@@ -34,10 +34,10 @@ TSOInterpreter::TSOInterpreter(llvm::Module *M, TSOTraceBuilder &TB,
                                const Configuration &conf)
   : Interpreter(M,TB,conf) {
   tso_threads.push_back(TSOThread());
-};
+}
 
 TSOInterpreter::~TSOInterpreter(){
-};
+}
 
 llvm::ExecutionEngine *TSOInterpreter::create(llvm::Module *M, TSOTraceBuilder &TB,
                                               const Configuration &conf,
@@ -62,7 +62,7 @@ llvm::ExecutionEngine *TSOInterpreter::create(llvm::Module *M, TSOTraceBuilder &
 #endif
 
   return new TSOInterpreter(M,TB,conf);
-};
+}
 
 void TSOInterpreter::runAux(int proc, int aux){
   /* Perform an update from store buffer to memory. */
@@ -104,12 +104,12 @@ void TSOInterpreter::runAux(int proc, int aux){
       }
     }
   }
-};
+}
 
 int TSOInterpreter::newThread(const CPid &cpid){
   tso_threads.push_back(TSOThread());
   return Interpreter::newThread(cpid);
-};
+}
 
 bool TSOInterpreter::isFence(llvm::Instruction &I){
   if(llvm::isa<llvm::CallInst>(I)){
@@ -147,7 +147,7 @@ bool TSOInterpreter::isFence(llvm::Instruction &I){
     return true;
   }
   return false;
-};
+}
 
 void TSOInterpreter::terminate(llvm::Type *RetTy, llvm::GenericValue Result){
   if(CurrentThread != 0){
@@ -159,7 +159,7 @@ void TSOInterpreter::terminate(llvm::Type *RetTy, llvm::GenericValue Result){
       TB.mark_available(p);
     }
   }
-};
+}
 
 bool TSOInterpreter::checkRefuse(llvm::Instruction &I){
   int tid;
@@ -210,7 +210,7 @@ bool TSOInterpreter::checkRefuse(llvm::Instruction &I){
     }
   }
   return Interpreter::checkRefuse(I);
-};
+}
 
 void TSOInterpreter::visitLoadInst(llvm::LoadInst &I){
   llvm::ExecutionContext &SF = ECStack()->back();
@@ -241,7 +241,7 @@ void TSOInterpreter::visitLoadInst(llvm::LoadInst &I){
   /* Load from memory */
   if(!CheckedLoadValueFromMemory(Result, Ptr, I.getType())) return;
   SetValue(&I, Result, SF);
-};
+}
 
 void TSOInterpreter::visitStoreInst(llvm::StoreInst &I){
   llvm::ExecutionContext &SF = ECStack()->back();
@@ -267,23 +267,23 @@ void TSOInterpreter::visitStoreInst(llvm::StoreInst &I){
     }
     tso_threads[CurrentThread].store_buffer.push_back(GetMBlock(Ptr, I.getOperand(0)->getType(), Val));
   }
-};
+}
 
 void TSOInterpreter::visitFenceInst(llvm::FenceInst &I){
   if(I.getOrdering() == llvm::SequentiallyConsistent){
     TB.fence();
   }
-};
+}
 
 void TSOInterpreter::visitAtomicCmpXchgInst(llvm::AtomicCmpXchgInst &I){
   assert(tso_threads[CurrentThread].store_buffer.empty());
   Interpreter::visitAtomicCmpXchgInst(I);
-};
+}
 
 void TSOInterpreter::visitAtomicRMWInst(llvm::AtomicRMWInst &I){
   assert(tso_threads[CurrentThread].store_buffer.empty());
   Interpreter::visitAtomicRMWInst(I);
-};
+}
 
 void TSOInterpreter::visitInlineAsm(llvm::CallSite &CS, const std::string &asmstr){
   if(asmstr == "mfence"){
@@ -292,4 +292,4 @@ void TSOInterpreter::visitInlineAsm(llvm::CallSite &CS, const std::string &asmst
   }else{
     throw std::logic_error("Unsupported inline assembly: "+asmstr);
   }
-};
+}

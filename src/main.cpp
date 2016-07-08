@@ -47,7 +47,7 @@ void print_version(){
             << "Release"
 #endif
             << ", with LLVM-" << LLVM_VERSION << ":" << LLVM_BUILDMODE << ")\n";
-};
+}
 
 int main(int argc, char *argv[]){
   /* Command line options */

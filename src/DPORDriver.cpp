@@ -49,7 +49,7 @@ DPORDriver::DPORDriver(const Configuration &C) :
   conf(C), mod(0) {
   std::string ErrorMsg;
   llvm::sys::DynamicLibrary::LoadLibraryPermanently(0,&ErrorMsg);
-};
+}
 
 DPORDriver *DPORDriver::parseIRFile(const std::string &filename,
                                     const Configuration &C){
@@ -59,7 +59,7 @@ DPORDriver *DPORDriver::parseIRFile(const std::string &filename,
   driver->reparse();
   CheckModule::check_functions(driver->mod);
   return driver;
-};
+}
 
 DPORDriver *DPORDriver::parseIR(const std::string &llvm_asm,
                                 const Configuration &C){
@@ -69,11 +69,11 @@ DPORDriver *DPORDriver::parseIR(const std::string &llvm_asm,
   driver->reparse();
   CheckModule::check_functions(driver->mod);
   return driver;
-};
+}
 
 DPORDriver::~DPORDriver(){
   delete mod;
-};
+}
 
 void DPORDriver::read_file(const std::string &filename, std::string &tgt){
   std::ifstream is(filename);
@@ -85,7 +85,7 @@ void DPORDriver::read_file(const std::string &filename, std::string &tgt){
   is.seekg(0,std::ios::beg);
   is.read(&tgt[0],tgt.size());
   is.close();
-};
+}
 
 void DPORDriver::reparse(){
   delete mod;
@@ -97,7 +97,7 @@ void DPORDriver::reparse(){
       mod->setDataLayout("E");
     }
   }
-};
+}
 
 llvm::ExecutionEngine *DPORDriver::create_execution_engine(TraceBuilder &TB, const Configuration &conf) const {
   std::string ErrorMsg;
@@ -146,7 +146,7 @@ llvm::ExecutionEngine *DPORDriver::create_execution_engine(TraceBuilder &TB, con
   (void)EE->getPointerToFunction(EntryFn);
 
   return EE;
-};
+}
 
 Trace *DPORDriver::run_once(TraceBuilder &TB) const{
   std::shared_ptr<llvm::ExecutionEngine> EE(create_execution_engine(TB,conf));
@@ -185,7 +185,7 @@ Trace *DPORDriver::run_once(TraceBuilder &TB) const{
   }// else avoid computing trace
 
   return t;
-};
+}
 
 DPORDriver::Result DPORDriver::run(){
   Result res;
@@ -275,4 +275,4 @@ DPORDriver::Result DPORDriver::run(){
   delete TB;
 
   return res;
-};
+}
