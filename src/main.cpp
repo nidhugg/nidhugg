@@ -49,6 +49,9 @@ void print_version(){
             << ", with LLVM-" << LLVM_VERSION << ":" << LLVM_BUILDMODE << ")\n";
 }
 
+#define VERIFICATION_SUCCESS 0
+#define VERIFICATION_FAILURE 42
+
 int main(int argc, char *argv[]){
   /* Command line options */
   llvm::cl::SetVersionPrinter(print_version);
@@ -79,6 +82,7 @@ int main(int argc, char *argv[]){
              llvm::cl::init("-"));
   llvm::cl::ParseCommandLineOptions(argc, argv);
 
+  bool errors_detected = false;
   try{
     Configuration conf;
     conf.assign_by_commandline();
@@ -96,6 +100,7 @@ int main(int argc, char *argv[]){
                 << " (also " << res.sleepset_blocked_trace_count
                 << " sleepset blocked)" << std::endl; 
       if(res.has_errors()){
+	errors_detected = true;
         std::cout << "\n Error detected:\n"
                   << res.error_trace->to_string(2);
       }else{
@@ -115,5 +120,5 @@ int main(int argc, char *argv[]){
     return 1;
   }
 
-  return 0;
+  return (errors_detected ? VERIFICATION_FAILURE : VERIFICATION_SUCCESS);
 }
