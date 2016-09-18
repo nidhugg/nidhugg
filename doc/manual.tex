@@ -342,6 +342,17 @@ int main(int argc, char *argv[]){
   high-level language.
 \end{description}
 
+\subsubsection{Exit Status}
+
+Exit status for Nidhugg.
+
+\begin{itemize}
+\item 0: Successful termination. If Nidhugg was run in analysis mode,
+  the analysis completed without finding any errors.
+\item 42: Error detected. Analysis completed after finding an error in the analysed program.
+\item Other: Nidhugg failed to complete its task for some reason.
+\end{itemize}
+
 \subsection{Using Nidhuggc for Single-File C Programs}\label{sec:using:nidhuggc}
 
 In order to simplify the case where a test case consists of only a

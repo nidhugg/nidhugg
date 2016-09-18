@@ -49,7 +49,9 @@ void print_version(){
             << ", with LLVM-" << LLVM_VERSION << ":" << LLVM_BUILDMODE << ")\n";
 }
 
-#define VERIFICATION_SUCCESS 0
+// Normal exit code
+#define EXIT_OK 0
+// Exit code when verification failed (an error was detected)
 #define VERIFICATION_FAILURE 42
 
 int main(int argc, char *argv[]){
@@ -120,5 +122,5 @@ int main(int argc, char *argv[]){
     return 1;
   }
 
-  return (errors_detected ? VERIFICATION_FAILURE : VERIFICATION_SUCCESS);
+  return (errors_detected ? VERIFICATION_FAILURE : EXIT_OK);
 }
