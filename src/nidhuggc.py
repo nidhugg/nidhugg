@@ -61,13 +61,15 @@ def destroy_tmpdir():
 atexit.register(destroy_tmpdir)
 
 def run(cmd,ignoreret=False):
+    return_codes = [0, 42]
     cmdstr=''
     for s in cmd:
         cmdstr = cmdstr+('' if cmdstr=='' else ' ')+s
     print("* Nidhuggc: $ "+cmdstr)
     retval = subprocess.call(cmd)
-    if not(ignoreret) and retval != 0:
-        raise Exception('Command ({1}) returned non-zero exit code ({0}).'.format(retval,cmd[0]))
+    if not(ignoreret) and retval not in return_codes:
+        raise Exception('Command ({1}) returned an error exit code ({0}).'.format(retval,cmd[0]))
+    return retval
 
 # Read arguments from sys.argv. Return a tuple (A,B,C) of disjunct
 # argument lists A, B, C, together containing precisely the arguments
@@ -204,7 +206,7 @@ def transform(nidhuggcargs,transformargs,irfname):
 
 def run_nidhugg(nidhuggcargs,nidhuggargs,irfname):
     cmd = [NIDHUGG]+nidhuggargs+[irfname]
-    run(cmd)
+    return run(cmd)
 
 def main():
     try:
@@ -242,8 +244,9 @@ def main():
         # Transform
         irfname = transform(nidhuggcargs,transformargs,irfname)
         # Run stateless model-checker
-        run_nidhugg(nidhuggcargs,nidhuggargs,irfname)
+        ret = run_nidhugg(nidhuggcargs,nidhuggargs,irfname)
         print('Total wall-clock time: {0:.2f} s'.format(time.time()-t0))
+        exit(ret)
     except Exception as e:
         print("\nNidhuggc Error: {0}".format(str(e)))
         exit(1)
