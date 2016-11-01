@@ -27,6 +27,7 @@
 #include <map>
 #include <ostream>
 #include <string>
+#include <vector>
 
 #include <llvm/Support/raw_ostream.h>
 
