@@ -36,7 +36,7 @@ struct Fixture{
   };
 };
 
-BOOST_GLOBAL_FIXTURE(Fixture)
+BOOST_GLOBAL_FIXTURE(Fixture);
 
 BOOST_AUTO_TEST_CASE(Testing_testing){
   BOOST_CHECK_MESSAGE(true,"Testing testing.");
