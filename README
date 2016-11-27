@@ -90,7 +90,7 @@ Basic Installation
       $ ./configure
       $ make
 
-   3. Optionally install:
+   3. Install:
 
       $ make install
 
