@@ -9,7 +9,6 @@ src/nidhugg
 src/nidhuggc
 src/unittest
 src/libnidhugg.a
-doc/manual.pdf
 Makefile
 Makefile.in
 aclocal.m4

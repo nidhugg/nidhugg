@@ -7,6 +7,14 @@ Currently Nidhugg supports the SC, TSO, PSO, POWER and ARM memory
 models. Target programs should use pthreads for concurrency, and each
 thread should be deterministic when run in isolation.
 
+Documentation
+*************
+
+The main documentation can be found in the git repository at
+https://github.com/nidhugg/nidhugg/blob/master/doc/manual.pdf , or in
+the source at doc/manual.pdf, or if installed at
+PREFIX/share/doc/nidhugg/manual.pdf .
+
 Installation
 ************
 
@@ -38,7 +46,8 @@ Requirements
 
    (9). Optional: Valgrind
 
-   (10). Optional: pdflatex for documentation.
+   (10). Optional: For documentation: pdflatex
+         (with packages article, inputenc, amssymb)
 
 For Users of Debian-like Systems
 --------------------------------
@@ -51,7 +60,7 @@ For Users of Debian-like Systems
    llvm, llvm-dev, libffi-dev
 
    Optional:
-   libboost-test-dev, valgrind
+   libboost-test-dev, valgrind, texlive-latex-base, texlive-base
 
 Getting Nidhugg
 ===============
@@ -134,6 +143,17 @@ Specifying LLVM Installation
    contains bin/llvm-config and lib/libllvm.a .
 
    $ ./configure --with-llvm='/path/to/llvm'
+
+(Re)building PDF Documentation
+------------------------------
+
+  By default, make will not rebuild the documentation from LaTeX
+  sources. This allows the typical user to simply use the latest PDF
+  pushed to the git repository. In order to force (re)building of the
+  documentation, configure with the switch
+  --enable-build-documentation . This requires LaTeX to be installed.
+
+  $ ./configure --enable-build-documentation
 
 Compiling LLVM
 ==============

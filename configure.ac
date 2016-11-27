@@ -65,6 +65,21 @@ AC_ARG_ENABLE([asserts],
   fi
 ],[CXXFLAGS="$CXXFLAGS -DNDEBUG"])
 
+# Enable (re)building documentation?
+AC_ARG_ENABLE([build-documentation],
+              [AS_HELP_STRING([--enable-build-documentation],[Enable (re)building of the pdf documentation. (Requires pdflatex.)])],
+  [if test "x$enableval" = "xyes"; then
+     AC_MSG_NOTICE([Enabling building pdf documentation.])
+     BUILDPDFDOCUMENTATION='yes'
+   else
+     AC_MSG_NOTICE([Disabling building pdf documentation.])
+     BUILDPDFDOCUMENTATION='no'
+   fi
+  ],
+  [AC_MSG_NOTICE([Disabling building pdf documentation (default).])
+   BUILDPDFDOCUMENTATION='no']
+  )
+
 # Checks for header files
 AC_DEFUN([AC_CHECK_HEADERS_ALT],
 [
@@ -867,6 +882,7 @@ else
 fi
 
 AC_SUBST(NIDHUGGCBIN)
+AM_CONDITIONAL([BUILDPDFDOCUMENTATION],[test "x$BUILDPDFDOCUMENTATION" = "xyes"])
 
 # Checks for library functions.
 AC_FUNC_MALLOC
