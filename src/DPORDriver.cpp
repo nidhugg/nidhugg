@@ -229,11 +229,11 @@ DPORDriver::Result DPORDriver::run(){
       llvm::dbgs() << esc << "[u" // Restore cursor position
                    << esc << "[s" // Save cursor position
                    << esc << "[K" // Erase the line
-                   << "Computation #" << computation_count+1;
+                   << "Trace #" << computation_count+1;
       if(conf.print_progress_estimate){
         llvm::dbgs() << " ("
                      << int(100.0*float(computation_count+1)/float(estimate))
-                     << "% of total estimate: "
+                     << "% of current estimate: "
                      << estimate << ")";
       }
     }
