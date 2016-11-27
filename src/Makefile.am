@@ -68,13 +68,19 @@ unittest_SOURCES = \
   unittest.cpp
 unittest_LDADD=@BOOST_UNIT_TEST_FRAMEWORK_LIB@ libnidhugg.a
 
+
+## Run only the tests matching UTEST. Default: all.
+## Override by a make command like
+## $ make test UTEST='some filter'
+UTEST ?= *
+
 .PHONY: test valtest
 BOOSTTESTFLAGS=--report_level=short --log_level=warning
 test: unittest
-	./unittest $(BOOSTTESTFLAGS) --run_test="$(UTEST)"
+	./unittest $(BOOSTTESTFLAGS) --run_test='$(UTEST)'
 
 valtest: unittest
-	valgrind --leak-check=full ./unittest $(BOOSTTESTFLAGS) --show_progress --run_test="$(UTEST)"
+	valgrind --leak-check=full ./unittest $(BOOSTTESTFLAGS) --show_progress --run_test='$(UTEST)'
 
 nidhuggc$(EXEEXT): $(srcdir)/nidhuggc.py
 	cat nidhuggc.py \
