@@ -23,6 +23,7 @@
 #ifdef HAVE_VALGRIND_VALGRIND_H
 #include <valgrind/valgrind.h>
 #endif
+#include "Debug.h"
 #include "DPORDriver.h"
 #include "DPORDriver_test.h"
 #include "StrModule.h"
@@ -2291,7 +2292,8 @@ declare void @__assert_fail()
 }
 
 BOOST_AUTO_TEST_CASE(Atexit_multithreaded){
-  BOOST_WARN_MESSAGE(false,"Missing support for multithreaded atexit.");
+  Debug::warn("sctestatexitmultithreaded")
+    << "WARNING: Missing support for multithreaded atexit.\n";
 }
 
 BOOST_AUTO_TEST_SUITE_END()
