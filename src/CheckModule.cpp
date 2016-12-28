@@ -98,7 +98,7 @@ void CheckModule::check_pthread_create(const llvm::Module *M){
           << *ty0e;
       throw CheckModuleError(err.str());
     }
-    llvm::Type *vpty = llvm::Type::getInt8PtrTy(llvm::getGlobalContext());
+    llvm::Type *vpty = llvm::Type::getInt8PtrTy(M->getContext());
     llvm::Type *fty = llvm::FunctionType::get(vpty,{vpty},false)->getPointerTo();
     llvm::Type *arg2_ty, *arg3_ty;
     {
@@ -145,7 +145,7 @@ void CheckModule::check_pthread_join(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
     llvm::Type *arg1_ty_expected =
-      llvm::Type::getInt8PtrTy(llvm::getGlobalContext())->getPointerTo();
+      llvm::Type::getInt8PtrTy(M->getContext())->getPointerTo();
     if(arg1_ty != arg1_ty_expected){
       err << "Second argument of pthread_join has wrong type: "
           << *arg1_ty << ", should be " << *arg1_ty_expected;
@@ -188,7 +188,7 @@ void CheckModule::check_pthread_exit(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
     llvm::Type *ty = pthread_exit->arg_begin()->getType(),
-      *ty_expected = llvm::Type::getInt8PtrTy(llvm::getGlobalContext());
+      *ty_expected = llvm::Type::getInt8PtrTy(M->getContext());
     if(ty != ty_expected){
       err << "Argument of pthread_exit has wrong type: "
           << *ty << ", should be " << *ty_expected;

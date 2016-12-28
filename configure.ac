@@ -196,8 +196,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <llvm/IR/LLVMContext.h>
 #endif
 ]],[[
-          llvm::Module M("",llvm::getGlobalContext());
-          std::string s = M.getDataLayoutStr();
+          llvm::Module *M = 0;
+          std::string s = M->getDataLayoutStr();
         ]])],
         [AC_DEFINE([LLVM_MODULE_GET_DATA_LAYOUT_STRING],[getDataLayoutStr],
             [The name of the method in llvm::Module which returns the data layout string.])
@@ -222,8 +222,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <llvm/IR/LLVMContext.h>
 #endif
 ]],[[
-  llvm::Module M("",llvm::getGlobalContext());
-  std::error_code ec = M.materializeAllPermanently();
+  llvm::Module *M = 0;
+  std::error_code ec = M->materializeAllPermanently();
 ]])],
            [AC_DEFINE([LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL],[1],
             [Define if Module::materializeAllPermanently accepts zero arguments and returns an error_code.])

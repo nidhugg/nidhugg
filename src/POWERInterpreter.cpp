@@ -97,10 +97,10 @@ POWERInterpreter::POWERInterpreter(llvm::Module *M, POWERARMTraceBuilder &TB, co
 
   IL = new llvm::IntrinsicLowering(TD);
 
-  static llvm::Value *V0 = llvm::ConstantInt::get(llvm::Type::getInt32Ty(llvm::getGlobalContext()),0);
-  static llvm::Value *P0_32 = llvm::ConstantPointerNull::get(llvm::Type::getInt32PtrTy(llvm::getGlobalContext()));
+  static llvm::Value *V0 = llvm::ConstantInt::get(llvm::Type::getInt32Ty(M->getContext()),0);
+  static llvm::Value *P0_32 = llvm::ConstantPointerNull::get(llvm::Type::getInt32PtrTy(M->getContext()));
   dummy_store = new llvm::StoreInst(V0,P0_32);
-  static llvm::Value *P0_8 = llvm::ConstantPointerNull::get(llvm::Type::getInt8PtrTy(llvm::getGlobalContext()));
+  static llvm::Value *P0_8 = llvm::ConstantPointerNull::get(llvm::Type::getInt8PtrTy(M->getContext()));
   dummy_load8 = new llvm::LoadInst(P0_8);
 }
 

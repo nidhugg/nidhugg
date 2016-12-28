@@ -2322,11 +2322,11 @@ void POWERInterpreter::callPthreadCreate(llvm::Function *F){
   // Build stack frame for the call
   llvm::Function *F_inner = (llvm::Function*)GVTOP(getOperandValue(2));
   std::vector<llvm::Value*> ArgVals_inner;
-  llvm::Type *i8ptr = llvm::Type::getInt8PtrTy(llvm::getGlobalContext());
+  llvm::Type *i8ptr = llvm::Type::getInt8PtrTy(F->getContext());
   if(F_inner->getArgumentList().size() == 1 &&
      F_inner->arg_begin()->getType() == i8ptr){
     void *opval = llvm::GVTOP(getOperandValue(3));
-    llvm::Type *i64 = llvm::Type::getInt64Ty(llvm::getGlobalContext());
+    llvm::Type *i64 = llvm::Type::getInt64Ty(F->getContext());
     llvm::Constant *opval_int = llvm::ConstantInt::get(i64,uint64_t(opval));
     llvm::Value *opval_ptr = llvm::ConstantExpr::getIntToPtr(opval_int,i8ptr);
     ArgVals_inner.push_back(opval_ptr);
