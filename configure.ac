@@ -770,6 +770,11 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check the signature of Linker::linkInModule
 AC_MSG_CHECKING([the signature of Linker::linkInModule])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_MODULE_H)
+#include <llvm/Module.h>
+#elif defined(HAVE_LLVM_IR_MODULE_H)
+#include <llvm/IR/Module.h>
+#endif
 #if defined(HAVE_LLVM_LINKER_H)
 #include <llvm/Linker.h>
 #elif defined(HAVE_LLVM_LINKER_LINKER_H)
@@ -788,6 +793,11 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 
 if test "x$LLVM_LINKER_LINKINMODULE_PTR_BOOL" != 'xyes'; then
    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_MODULE_H)
+#include <llvm/Module.h>
+#elif defined(HAVE_LLVM_IR_MODULE_H)
+#include <llvm/IR/Module.h>
+#endif
 #if defined(HAVE_LLVM_LINKER_H)
 #include <llvm/Linker.h>
 #elif defined(HAVE_LLVM_LINKER_LINKER_H)
