@@ -14,7 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-/* Copyright (C) 2014-2016 Carl Leonardsson
+/* Copyright (C) 2014-2017 Carl Leonardsson
  * (For the modifications made in this file to the code from LLVM.)
  *
  * This file is part of Nidhugg.

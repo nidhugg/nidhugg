@@ -1,4 +1,4 @@
-/* Copyright (C) 2016 Carl Leonardsson
+/* Copyright (C) 2016-2017 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
