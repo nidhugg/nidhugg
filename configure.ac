@@ -384,9 +384,10 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #endif
 ]],[[
   llvm::SMDiagnostic err;
+  llvm::LLVMContext ctx;
   llvm::ParseIR((llvm::MemoryBuffer*)0,
                 err,
-                llvm::getGlobalContext());
+                ctx);
 ]])],
         [AC_DEFINE([LLVM_PARSE_IR_MEMBUF_PTR],[1],
          [Define if llvm::ParseIR takes a MemoryBuffer pointer as argument.])
@@ -464,10 +465,11 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[
 #else
       llvm::MemoryBuffer::getMemBuffer("","",false).release();
 #endif
+    llvm::LLVMContext ctx;
 #ifdef LLVM_PARSE_IR_MEMBUF_PTR
-    mod = llvm::ParseIR(buf,err,llvm::getGlobalContext());
+    mod = llvm::ParseIR(buf,err,ctx);
 #else
-    mod = llvm::parseIR(buf->getMemBufferRef(),err,llvm::getGlobalContext()).release();
+    mod = llvm::parseIR(buf->getMemBufferRef(),err,ctx).release();
 #endif
     delete buf;
     delete mod;
@@ -572,10 +574,11 @@ declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
 #else
   llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
 #endif
+  llvm::LLVMContext ctx;
 #ifdef LLVM_PARSE_IR_MEMBUF_PTR
-  mod = llvm::ParseIR(buf,err,llvm::getGlobalContext());
+  mod = llvm::ParseIR(buf,err,ctx);
 #else
-  mod = llvm::parseIR(buf->getMemBufferRef(),err,llvm::getGlobalContext()).release();
+  mod = llvm::parseIR(buf->getMemBufferRef(),err,ctx).release();
 #endif
   if(!mod) return 1;
 ]])],
@@ -758,10 +761,11 @@ define i8* @p(i8* %arg){
 #else
   llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
 #endif
+  llvm::LLVMContext ctx;
 #ifdef LLVM_PARSE_IR_MEMBUF_PTR
-  mod = llvm::ParseIR(buf,err,llvm::getGlobalContext());
+  mod = llvm::ParseIR(buf,err,ctx);
 #else
-  mod = llvm::parseIR(buf->getMemBufferRef(),err,llvm::getGlobalContext()).release();
+  mod = llvm::parseIR(buf->getMemBufferRef(),err,ctx).release();
 #endif
   if(!mod) return 1;
 ]])],
