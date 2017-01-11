@@ -247,23 +247,23 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
            [AC_MSG_RESULT([use materializeAll instead])])
 ])
 
-## Check if AtomicOrdering is a enum class
-AC_MSG_CHECKING([whether AtomicOrdering is a enum class])
+## Check if AtomicOrdering is an enum class
+AC_MSG_CHECKING([whether AtomicOrdering is an enum class])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #if defined(HAVE_LLVM_INSTRUCTIONS_H)
 #include <llvm/Instructions.h>
-#elif defined(HAVE_LLVM_INSTRUCTIONS_H)
+#elif defined(HAVE_LLVM_IR_INSTRUCTIONS_H)
 #include <llvm/IR/Instructions.h>
 #endif
 ]],[[
   llvm::AtomicOrdering o = llvm::SequentiallyConsistent;
 ]])],
            [AC_DEFINE([LLVM_ATOMIC_ORDERING_SCOPE],[llvm],
-            [The scope name for AtomicOrdering enum iterms])
+            [The scope name for AtomicOrdering enumerators])
             AC_MSG_RESULT([no])
            ],
            [AC_DEFINE([LLVM_ATOMIC_ORDERING_SCOPE],[llvm::AtomicOrdering],
-            [The scope name for AtomicOrdering enum iterms])
+            [The scope name for AtomicOrdering enumerators])
             AC_MSG_RESULT([yes])])
 
 ## Check if AtomicCmpXchg has separate success and failure orderings
