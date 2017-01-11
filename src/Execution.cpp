@@ -3301,7 +3301,7 @@ bool Interpreter::checkRefuse(Instruction &I){
 
 void Interpreter::terminate(Type *RetTy, GenericValue Result){
   if(CurrentThread != 0){
-    assert(RetTy == Type::getInt8PtrTy(F->getContext()));
+    assert(RetTy == Type::getInt8PtrTy(RetTy->getContext()));
     Threads[CurrentThread].RetVal = Result;
   }
   for(int p : Threads[CurrentThread].AwaitingJoin){

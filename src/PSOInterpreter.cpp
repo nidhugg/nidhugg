@@ -191,7 +191,7 @@ bool PSOInterpreter::isFence(llvm::Instruction &I){
 
 void PSOInterpreter::terminate(llvm::Type *RetTy, llvm::GenericValue Result){
   if(CurrentThread != 0){
-    assert(RetTy == llvm::Type::getInt8PtrTy(llvm::getGlobalContext()));
+    assert(RetTy == llvm::Type::getInt8PtrTy(RetTy->getContext()));
     Threads[CurrentThread].RetVal = Result;
   }
   if(pso_threads[CurrentThread].all_buffers_empty()){

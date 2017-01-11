@@ -151,7 +151,7 @@ bool TSOInterpreter::isFence(llvm::Instruction &I){
 
 void TSOInterpreter::terminate(llvm::Type *RetTy, llvm::GenericValue Result){
   if(CurrentThread != 0){
-    assert(RetTy == llvm::Type::getInt8PtrTy(llvm::getGlobalContext()));
+    assert(RetTy == llvm::Type::getInt8PtrTy(RetTy->getContext()));
     Threads[CurrentThread].RetVal = Result;
   }
   if(tso_threads[CurrentThread].store_buffer.empty()){
