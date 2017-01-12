@@ -921,6 +921,18 @@ AM_CONDITIONAL([BUILDPDFDOCUMENTATION],[test "x$BUILDPDFDOCUMENTATION" = "xyes"]
 AC_FUNC_MALLOC
 AC_CHECK_FUNCS([atexit memset setenv])
 
+# Warn about compiling with clang++ for llvm version >= 3.9
+if test "x$CXX" = "xclang" || test "x$CXX" = "xclang++" ; then
+  # Version comparison using sort -V
+  if test "$(printf '%s\n' '3.9' "$LLVMVERSION" | sort -V | head -n 1)" = '3.9'; then
+    AC_MSG_WARN([])
+    AC_MSG_WARN([Trying to compile with $CXX against LLVM version >= 3.9.])
+    AC_MSG_WARN([This has been known to cause problems. (Segmentation faults on execution of nidhugg.)])
+    AC_MSG_WARN([It is recommended to use g++ instead of $CXX.])
+    AC_MSG_WARN([])
+  fi
+fi
+
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
   Makefile
