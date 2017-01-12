@@ -64,6 +64,20 @@ AC_DEFUN([AX_LLVM],
     LDFLAGS="$LDFLAGS $LLVMLDFLAGS"
     LIBS="$LIBS $LLVMLIBS"
 
+    # Get rid of -Wno-maybe-uninitialized from CXXFLAGS, in case it is not accepted by compiler
+    if test "x`echo $CXXFLAGS | grep -e -Wno-maybe-uninitialized`" != "x"; then
+      OLDCXXFLAGS="$CXXFLAGS"
+      CXXFLAGS="-Wno-maybe-uninitialized -Wall -Werror"
+      AC_MSG_CHECKING([if compiler accepts -Wno-maybe-uninitialized switch])
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[[]])],
+        [AC_MSG_RESULT([yes])
+         CXXFLAGS="$OLDCXXFLAGS"
+        ],
+        [AC_MSG_RESULT([no])
+         CXXFLAGS=`echo "$OLDCXXFLAGS" | sed 's/-Wno-maybe-uninitialized//g'`
+        ])
+    fi
+
   fi
 
   if test "x$ax_llvm_ok" = "xyes"; then
