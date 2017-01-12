@@ -12,6 +12,7 @@ libnidhugg_a_SOURCES = \
   Execution.cpp \
   ExternalFunctions.cpp \
   FBVClock.cpp FBVClock.h \
+  GlobalContext.cpp GlobalContext.h \
   IID.h IID.tcc \
   Interpreter.cpp Interpreter.h \
   LoopUnrollPass.cpp LoopUnrollPass.h \

@@ -21,6 +21,7 @@
 
 #include "Configuration.h"
 #include "DPORDriver.h"
+#include "GlobalContext.h"
 #include "Transform.h"
 
 #include <llvm/Support/CommandLine.h>
@@ -79,9 +80,9 @@ int main(int argc, char *argv[]){
     }
   }
   llvm::cl::opt<std::string>
-  input_file(llvm::cl::desc("<input bitcode or assembly>"),
-             llvm::cl::Positional,
-             llvm::cl::init("-"));
+    input_file(llvm::cl::desc("<input bitcode or assembly>"),
+               llvm::cl::Positional,
+               llvm::cl::init("-"));
   llvm::cl::ParseCommandLineOptions(argc, argv);
 
   bool errors_detected = false;
@@ -100,9 +101,9 @@ int main(int argc, char *argv[]){
       DPORDriver::Result res = driver->run();
       std::cout << "Trace count: " << res.trace_count
                 << " (also " << res.sleepset_blocked_trace_count
-                << " sleepset blocked)" << std::endl; 
+                << " sleepset blocked)" << std::endl;
       if(res.has_errors()){
-	errors_detected = true;
+        errors_detected = true;
         std::cout << "\n Error detected:\n"
                   << res.error_trace->to_string(2);
       }else{
@@ -111,13 +112,16 @@ int main(int argc, char *argv[]){
 
       delete driver;
     }
+    GlobalContext::destroy();
     llvm::llvm_shutdown();
   }catch(std::exception *exc){
     std::cerr << "Error: " << exc->what() << "\n";
+    GlobalContext::destroy();
     llvm::llvm_shutdown();
     return 1;
   }catch(std::exception &exc){
     std::cerr << "Error: " << exc.what() << "\n";
+    GlobalContext::destroy();
     llvm::llvm_shutdown();
     return 1;
   }
