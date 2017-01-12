@@ -42,10 +42,24 @@ AC_DEFUN([AX_LLVM],
 
     LLVMVERSION=`$LLVMCONFIG --version`
     LLVMBUILDMODE=`$LLVMCONFIG --build-mode`
-    if test "x`echo $LLVMBUILDMODE | grep 'Asserts'`" = "x"; then
-        LLVM_NDEBUG='yes'
-    else
+
+    # Is LLVM compiled with NDEBUG?
+    LLVMASSERTIONMODE=`$LLVMCONFIG --assertion-mode 2>/dev/null`
+    if test "x$?" = "x0"; then
+      # Query to llvm-config was successful, assign LLVM_NDEBUG accordingly
+      if test "x$LLVMASSERTIONMODE" = "xON" ; then
         LLVM_NDEBUG='no'
+      else
+        LLVM_NDEBUG='yes'
+      fi
+    else
+      # Query to llvm-config failed (probably too old version)
+      # Check it the version string reveals assertions
+      if test "x`echo $LLVMBUILDMODE | grep 'Asserts'`" = "x"; then
+        LLVM_NDEBUG='yes'
+      else
+        LLVM_NDEBUG='no'
+      fi
     fi
 
     CXXFLAGS="$CXXFLAGS `$LLVMCONFIG --cxxflags`"
@@ -63,6 +77,20 @@ AC_DEFUN([AX_LLVM],
     done
     LDFLAGS="$LDFLAGS $LLVMLDFLAGS"
     LIBS="$LIBS $LLVMLIBS"
+
+    # Get rid of -Wno-maybe-uninitialized from CXXFLAGS, in case it is not accepted by compiler
+    if test "x`echo $CXXFLAGS | grep -e -Wno-maybe-uninitialized`" != "x"; then
+      OLDCXXFLAGS="$CXXFLAGS"
+      CXXFLAGS="-Wno-maybe-uninitialized -Wall -Werror"
+      AC_MSG_CHECKING([if compiler accepts -Wno-maybe-uninitialized switch])
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[[]])],
+        [AC_MSG_RESULT([yes])
+         CXXFLAGS="$OLDCXXFLAGS"
+        ],
+        [AC_MSG_RESULT([no])
+         CXXFLAGS=`echo "$OLDCXXFLAGS" | sed 's/-Wno-maybe-uninitialized//g'`
+        ])
+    fi
 
   fi
 

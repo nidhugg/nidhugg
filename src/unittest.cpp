@@ -1,4 +1,4 @@
-/* Copyright (C) 2014-2016 Carl Leonardsson
+/* Copyright (C) 2014-2017 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -18,6 +18,9 @@
  */
 
 #include <config.h>
+
+#include "GlobalContext.h"
+
 #ifdef HAVE_BOOST_UNIT_TEST_FRAMEWORK
 
 #include <llvm/Support/ManagedStatic.h>
@@ -32,6 +35,7 @@ struct Fixture{
   };
   ~Fixture(){
     // Global destruction
+    GlobalContext::destroy();
     llvm::llvm_shutdown();
   };
 };

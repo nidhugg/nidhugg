@@ -1,4 +1,4 @@
-/* Copyright (C) 2014-2017 Carl Leonardsson
+/* Copyright (C) 2017 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -17,15 +17,23 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#include <sstream>
+#include "GlobalContext.h"
 
-template<typename Pid_t>
-std::string IID<Pid_t>::to_string() const{
-  if(is_null()){
-    return "null";
-  }else{
-    std::stringstream ss;
-    ss << "(" << pid << "," << idx << ")";
-    return ss.str();
+namespace GlobalContext {
+
+  namespace {
+    llvm::LLVMContext *theContext = 0;
   }
+
+  llvm::LLVMContext &get(){
+    if(theContext == 0){
+      theContext = new llvm::LLVMContext();
+    }
+    return *theContext;
+  }
+
+  void destroy(){
+    delete theContext;
+  }
+
 }

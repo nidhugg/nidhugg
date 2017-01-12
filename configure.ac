@@ -1,4 +1,4 @@
-AC_INIT([Nidhugg], [0.2], [carl.leonardsson@it.uu.se])
+AC_INIT([Nidhugg], [0.2], [carl.leonardsson@gmail.com])
 m4_include([m4/ax_cxx_compile_stdcxx_11.m4])
 m4_include([m4/ax_boost_base.m4])
 m4_include([m4/ax_boost_unit_test_framework.m4])
@@ -196,8 +196,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <llvm/IR/LLVMContext.h>
 #endif
 ]],[[
-          llvm::Module M("",llvm::getGlobalContext());
-          std::string s = M.getDataLayoutStr();
+          llvm::Module *M = 0;
+          std::string s = M->getDataLayoutStr();
         ]])],
         [AC_DEFINE([LLVM_MODULE_GET_DATA_LAYOUT_STRING],[getDataLayoutStr],
             [The name of the method in llvm::Module which returns the data layout string.])
@@ -222,8 +222,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <llvm/IR/LLVMContext.h>
 #endif
 ]],[[
-  llvm::Module M("",llvm::getGlobalContext());
-  std::error_code ec = M.materializeAllPermanently();
+  llvm::Module *M = 0;
+  std::error_code ec = M->materializeAllPermanently();
 ]])],
            [AC_DEFINE([LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL],[1],
             [Define if Module::materializeAllPermanently accepts zero arguments and returns an error_code.])
@@ -247,6 +247,25 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
            [AC_MSG_RESULT([use materializeAll instead])])
 ])
 
+## Check if AtomicOrdering is an enum class
+AC_MSG_CHECKING([whether AtomicOrdering is an enum class])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_INSTRUCTIONS_H)
+#include <llvm/Instructions.h>
+#elif defined(HAVE_LLVM_IR_INSTRUCTIONS_H)
+#include <llvm/IR/Instructions.h>
+#endif
+]],[[
+  llvm::AtomicOrdering o = llvm::SequentiallyConsistent;
+]])],
+           [AC_DEFINE([LLVM_ATOMIC_ORDERING_SCOPE],[llvm],
+            [The scope name for AtomicOrdering enumerators])
+            AC_MSG_RESULT([no])
+           ],
+           [AC_DEFINE([LLVM_ATOMIC_ORDERING_SCOPE],[llvm::AtomicOrdering],
+            [The scope name for AtomicOrdering enumerators])
+            AC_MSG_RESULT([yes])])
+
 ## Check if AtomicCmpXchg has separate success and failure orderings
 AC_MSG_CHECKING([for success/failure orderings of llvm::AtomicCmpXchgInst])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -257,8 +276,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #endif
 ]],[[
   llvm::AtomicCmpXchgInst I((llvm::Value*)0,(llvm::Value*)0,(llvm::Value*)0,
-                            llvm::AtomicOrdering(llvm::SequentiallyConsistent),
-                            llvm::AtomicOrdering(llvm::SequentiallyConsistent),
+                            (llvm::AtomicOrdering)0,
+                            (llvm::AtomicOrdering)0,
                             llvm::SynchronizationScope(llvm::CrossThread),
                             (llvm::Instruction*)0);
 ]])],
@@ -365,9 +384,10 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #endif
 ]],[[
   llvm::SMDiagnostic err;
+  llvm::LLVMContext ctx;
   llvm::ParseIR((llvm::MemoryBuffer*)0,
                 err,
-                llvm::getGlobalContext());
+                ctx);
 ]])],
         [AC_DEFINE([LLVM_PARSE_IR_MEMBUF_PTR],[1],
          [Define if llvm::ParseIR takes a MemoryBuffer pointer as argument.])
@@ -445,10 +465,11 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[
 #else
       llvm::MemoryBuffer::getMemBuffer("","",false).release();
 #endif
+    llvm::LLVMContext ctx;
 #ifdef LLVM_PARSE_IR_MEMBUF_PTR
-    mod = llvm::ParseIR(buf,err,llvm::getGlobalContext());
+    mod = llvm::ParseIR(buf,err,ctx);
 #else
-    mod = llvm::parseIR(buf->getMemBufferRef(),err,llvm::getGlobalContext()).release();
+    mod = llvm::parseIR(buf->getMemBufferRef(),err,ctx).release();
 #endif
     delete buf;
     delete mod;
@@ -553,10 +574,11 @@ declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
 #else
   llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
 #endif
+  llvm::LLVMContext ctx;
 #ifdef LLVM_PARSE_IR_MEMBUF_PTR
-  mod = llvm::ParseIR(buf,err,llvm::getGlobalContext());
+  mod = llvm::ParseIR(buf,err,ctx);
 #else
-  mod = llvm::parseIR(buf->getMemBufferRef(),err,llvm::getGlobalContext()).release();
+  mod = llvm::parseIR(buf->getMemBufferRef(),err,ctx).release();
 #endif
   if(!mod) return 1;
 ]])],
@@ -739,10 +761,11 @@ define i8* @p(i8* %arg){
 #else
   llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
 #endif
+  llvm::LLVMContext ctx;
 #ifdef LLVM_PARSE_IR_MEMBUF_PTR
-  mod = llvm::ParseIR(buf,err,llvm::getGlobalContext());
+  mod = llvm::ParseIR(buf,err,ctx);
 #else
-  mod = llvm::parseIR(buf->getMemBufferRef(),err,llvm::getGlobalContext()).release();
+  mod = llvm::parseIR(buf->getMemBufferRef(),err,ctx).release();
 #endif
   if(!mod) return 1;
 ]])],
@@ -770,6 +793,11 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check the signature of Linker::linkInModule
 AC_MSG_CHECKING([the signature of Linker::linkInModule])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_MODULE_H)
+#include <llvm/Module.h>
+#elif defined(HAVE_LLVM_IR_MODULE_H)
+#include <llvm/IR/Module.h>
+#endif
 #if defined(HAVE_LLVM_LINKER_H)
 #include <llvm/Linker.h>
 #elif defined(HAVE_LLVM_LINKER_LINKER_H)
@@ -788,6 +816,11 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 
 if test "x$LLVM_LINKER_LINKINMODULE_PTR_BOOL" != 'xyes'; then
    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_MODULE_H)
+#include <llvm/Module.h>
+#elif defined(HAVE_LLVM_IR_MODULE_H)
+#include <llvm/IR/Module.h>
+#endif
 #if defined(HAVE_LLVM_LINKER_H)
 #include <llvm/Linker.h>
 #elif defined(HAVE_LLVM_LINKER_LINKER_H)
@@ -887,6 +920,18 @@ AM_CONDITIONAL([BUILDPDFDOCUMENTATION],[test "x$BUILDPDFDOCUMENTATION" = "xyes"]
 # Checks for library functions.
 AC_FUNC_MALLOC
 AC_CHECK_FUNCS([atexit memset setenv])
+
+# Warn about compiling with clang++ for llvm version >= 3.9
+if test "x$CXX" = "xclang" || test "x$CXX" = "xclang++" ; then
+  # Version comparison using sort -V
+  if test "$(printf '%s\n' '3.9' "$LLVMVERSION" | sort -V | head -n 1)" = '3.9'; then
+    AC_MSG_WARN([])
+    AC_MSG_WARN([Trying to compile with $CXX against LLVM version >= 3.9.])
+    AC_MSG_WARN([This has been known to cause problems. (Segmentation faults on execution of nidhugg.)])
+    AC_MSG_WARN([It is recommended to use g++ instead of $CXX.])
+    AC_MSG_WARN([])
+  fi
+fi
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([

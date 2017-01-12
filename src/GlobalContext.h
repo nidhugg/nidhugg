@@ -1,4 +1,4 @@
-/* Copyright (C) 2014-2017 Carl Leonardsson
+/* Copyright (C) 2017 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -17,15 +17,23 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#include <sstream>
+#include <config.h>
 
-template<typename Pid_t>
-std::string IID<Pid_t>::to_string() const{
-  if(is_null()){
-    return "null";
-  }else{
-    std::stringstream ss;
-    ss << "(" << pid << "," << idx << ")";
-    return ss.str();
-  }
+#if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
+#include <llvm/IR/LLVMContext.h>
+#elif defined(HAVE_LLVM_LLVMCONTEXT_H)
+#include <llvm/LLVMContext.h>
+#endif
+
+namespace GlobalContext {
+
+  /* Get a global context. The context is initialized on the first
+   * call to get.
+   */
+  llvm::LLVMContext &get();
+
+  /* Destroy the global context. Does nothing if the global context
+   * has not been created.
+   */
+  void destroy();
 }

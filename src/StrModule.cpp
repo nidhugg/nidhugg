@@ -1,4 +1,4 @@
-/* Copyright (C) 2014-2016 Carl Leonardsson
+/* Copyright (C) 2014-2017 Carl Leonardsson
  *
  * This file is part of Nidhugg.
  *
@@ -17,18 +17,14 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#include "StrModule.h"
+#include "GlobalContext.h"
 #include "nregex.h"
+#include "StrModule.h"
 
 #if defined(HAVE_LLVM_ASSEMBLY_PRINTMODULEPASS_H)
 #include <llvm/Assembly/PrintModulePass.h>
 #elif defined(HAVE_LLVM_IR_IRPRINTINGPASSES_H)
 #include <llvm/IR/IRPrintingPasses.h>
-#endif
-#if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
-#include <llvm/IR/LLVMContext.h>
-#elif defined(HAVE_LLVM_LLVMCONTEXT_H)
-#include <llvm/LLVMContext.h>
 #endif
 #include <llvm/IRReader/IRReader.h>
 #if defined(HAVE_LLVM_PASSMANAGER_H)
@@ -72,9 +68,9 @@ namespace StrModule {
     llvm::MemoryBuffer *mbp = buf.get().release();
 #endif
 #ifdef LLVM_PARSE_IR_MEMBUF_PTR
-    mod = llvm::ParseIR(mbp,err,llvm::getGlobalContext());
+    mod = llvm::ParseIR(mbp,err,GlobalContext::get());
 #else
-    mod = llvm::parseIR(mbp->getMemBufferRef(),err,llvm::getGlobalContext()).release();
+    mod = llvm::parseIR(mbp->getMemBufferRef(),err,GlobalContext::get()).release();
 #endif
 #ifndef LLVM_PARSE_IR_TAKES_OWNERSHIP
     delete mbp;
@@ -96,9 +92,9 @@ namespace StrModule {
       llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
 #endif
 #ifdef LLVM_PARSE_IR_MEMBUF_PTR
-    mod = llvm::ParseIR(buf,err,llvm::getGlobalContext());
+    mod = llvm::ParseIR(buf,err,GlobalContext::get());
 #else
-    mod = llvm::parseIR(buf->getMemBufferRef(),err,llvm::getGlobalContext()).release();
+    mod = llvm::parseIR(buf->getMemBufferRef(),err,GlobalContext::get()).release();
 #endif
 #ifndef LLVM_PARSE_IR_TAKES_OWNERSHIP
     delete buf;
