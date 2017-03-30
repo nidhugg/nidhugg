@@ -10,14 +10,14 @@ EXTRA_DIST = manual.tex
 ## --enable-build-documentation switch.
 if BUILDPDFDOCUMENTATION
 
-manual.pdf: manual.tex
-	cat manual.tex | \
+manual.pdf: $(srcdir)/manual.tex
+	cat $(srcdir)/manual.tex | \
 	sed 's/%%NIDHUGGVERSION%%/@VERSION@/g' | \
 	pdflatex -jobname manual || :
-	cat manual.tex | \
+	cat $(srcdir)/manual.tex | \
 	sed 's/%%NIDHUGGVERSION%%/@VERSION@/g' | \
 	pdflatex -jobname manual || :
-	cat manual.tex | \
+	cat $(srcdir)/manual.tex | \
 	sed 's/%%NIDHUGGVERSION%%/@VERSION@/g' | \
 	pdflatex -jobname manual || \
 	echo -e '\n\n * Failed to build documentation.\n'
