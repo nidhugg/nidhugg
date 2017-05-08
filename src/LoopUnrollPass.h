@@ -17,6 +17,8 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#include <config.h>
+
 #ifndef __LOOP_UNROLL_PASS_H__
 #define __LOOP_UNROLL_PASS_H__
 
@@ -37,7 +39,11 @@ public:
   };
   virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
   virtual bool runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM);
+#ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
+  virtual llvm::StringRef getPassName() const { return "LoopUnrollPass"; };
+#else
   virtual const char *getPassName() const { return "LoopUnrollPass"; };
+#endif
 protected:
   llvm::BasicBlock *make_diverge_block(llvm::Loop *L);
   int unroll_depth;

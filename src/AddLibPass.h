@@ -17,6 +17,8 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#include <config.h>
+
 #ifndef __ADD_LIB_PASS_H__
 #define __ADD_LIB_PASS_H__
 
@@ -37,7 +39,11 @@ public:
   AddLibPass() : llvm::ModulePass(ID) {};
   virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
   virtual bool runOnModule(llvm::Module &M);
+#ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
+  virtual llvm::StringRef getPassName() const { return "AddLibPass"; };
+#else
   virtual const char *getPassName() const { return "AddLibPass"; };
+#endif
 protected:
   /* If a function named name is already defined in M, then return
    * false. Otherwise search for a definition in the LLVM assembly
