@@ -69,13 +69,20 @@ AC_DEFUN([AX_LLVM],
     if test "x$?" = "x0"; then
       LLVMLDFLAGS="$LLVMLDFLAGS $SYSLIBS"
     fi
+    # For each library that LLVM adds to LDFLAGS, check that it is found
+    OLDLDFLAGS="$LDFLAGS"
     for lib in $LLVMLDFLAGS; do
       if test "x`echo $lib | grep '^-l'`" != "x"; then
         lname=`echo "$lib" | sed s/^-l//`
-        AC_CHECK_LIB([$lname],[main],[],[AC_MSG_FAILURE([Failed to find library $lib, required by LLVM.])])
+        LDFLAGS="$OLDLDFLAGS $lib"
+        AC_MSG_CHECKING([for library $lib (required by LLVM)])
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([[]],[[]])],
+          [AC_MSG_RESULT([yes])],
+          [AC_MSG_RESULT([no])
+           AC_MSG_FAILURE([Failed to find library $lib which is required by LLVM.])])
       fi
     done
-    LDFLAGS="$LDFLAGS $LLVMLDFLAGS"
+    LDFLAGS="$OLDLDFLAGS $LLVMLDFLAGS"
     LIBS="$LIBS $LLVMLIBS"
 
     # Get rid of -Wno-maybe-uninitialized from CXXFLAGS, in case it is not accepted by compiler
