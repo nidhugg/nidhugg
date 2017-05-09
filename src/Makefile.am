@@ -84,7 +84,7 @@ valtest: unittest
 	valgrind --leak-check=full ./unittest $(BOOSTTESTFLAGS) --show_progress --run_test='$(UTEST)'
 
 nidhuggc$(EXEEXT): $(srcdir)/nidhuggc.py
-	cat nidhuggc.py \
+	cat $(srcdir)/nidhuggc.py \
 	| sed 's|%%PYTHON%%|@PYTHON@|g' \
 	| sed 's|%%CLANG%%|@CLANG@|g' \
 	| sed 's|%%CLANGXX%%|@CLANGXX@|g' \
