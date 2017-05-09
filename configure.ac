@@ -954,7 +954,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 
 
 # Checks for typedefs, structures, and compiler characteristics.
-AC_CHECK_HEADER_STDBOOL
+AC_CHECK_HEADER_STDBOOL macro is defined with autoconf version >= 2.67
+m4_ifdef([AC_CHECK_HEADER_STDBOOL], [AC_CHECK_HEADER_STDBOOL])
 AC_C_INLINE
 AC_TYPE_INT16_T
 AC_TYPE_INT32_T
