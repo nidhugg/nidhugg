@@ -1056,7 +1056,11 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
   uint64_t Total = 0;
 
   for (; I != E; ++I) {
+#ifdef LLVM_NEW_GEP_TYPE_ITERATOR_API
+    if (StructType *STy = I.getStructTypeOrNull()) {
+#else
     if (StructType *STy = dyn_cast<StructType>(*I)) {
+#endif
       const StructLayout *SLO = TD.getStructLayout(STy);
 
       const ConstantInt *CPU = cast<ConstantInt>(I.getOperand());
@@ -1064,7 +1068,6 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
 
       Total += SLO->getElementOffset(Index);
     } else {
-      SequentialType *ST = cast<SequentialType>(*I);
       // Get the index number for the array... which must be long type...
       GenericValue IdxGV = getOperandValue(I.getOperand(), SF);
 
@@ -1077,7 +1080,13 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
         assert(BitWidth == 64 && "Invalid index type for getelementptr");
         Idx = (int64_t)IdxGV.IntVal.getZExtValue();
       }
-      Total += TD.getTypeAllocSize(ST->getElementType())*Idx;
+      Total += TD.getTypeAllocSize
+#ifdef LLVM_NEW_GEP_TYPE_ITERATOR_API
+        (I.getIndexedType()
+#else
+        (cast<SequentialType>(*I)->getElementType()
+#endif
+         )*Idx;
     }
   }
 

@@ -64,6 +64,17 @@ llvm::ExecutionEngine *PSOInterpreter::create(llvm::Module *M, PSOTraceBuilder &
     // We got an error, just return 0
     return 0;
   }
+#elif defined LLVM_MODULE_MATERIALIZE_LLVM_ALL_ERROR
+  if (llvm::Error Err = M->materializeAll()) {
+    std::string Msg;
+    handleAllErrors(std::move(Err), [&](llvm::ErrorInfoBase &EIB) {
+      Msg = EIB.message();
+    });
+    if (ErrorStr)
+      *ErrorStr = Msg;
+    // We got an error, just return 0
+    return nullptr;
+  }
 #else
   if(std::error_code EC = M->materializeAll()){
     // We got an error, just return 0

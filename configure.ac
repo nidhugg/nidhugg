@@ -244,8 +244,26 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
            [AC_DEFINE([LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_BOOL_STRPTR],[1],
             [Define if Module::MaterializeAllPermanenty has signature std::string* -> bool])
             AC_MSG_RESULT([string* -> bool])],
-           [AC_MSG_RESULT([use materializeAll instead])])
-])
+           [
+   AC_MSG_RESULT([use materializeAll instead])
+   ## Check the signature of llvm::Module::materializeAll
+   AC_MSG_CHECKING([the signature of llvm::Module::materializeAll])
+   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Support/Error.h>
+#if defined(HAVE_LLVM_MODULE_H)
+#include <llvm/Module.h>
+#elif defined(HAVE_LLVM_IR_MODULE_H)
+#include <llvm/IR/Module.h>
+#endif
+]],[[
+  llvm::Module *M = 0;
+  llvm::Error Err = M->materializeAll();
+]])],
+           [AC_DEFINE([LLVM_MODULE_MATERIALIZE_LLVM_ALL_ERROR],[1],
+            [Define if Module::materializeAll has signature () -> llvm::Error])
+            AC_MSG_RESULT([() -> llvm::Error])],
+           [AC_MSG_RESULT([() -> llvm::error_code])])
+])])
 
 ## Check if AtomicOrdering is an enum class
 AC_MSG_CHECKING([whether AtomicOrdering is an enum class])
@@ -886,6 +904,54 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
    AC_DEFINE([HAVE_LLVM_INITIALIZE_IPA],[1],
    [Define if llvm::initializeIPA exists])],
   [AC_MSG_RESULT([no])])
+
+## Check whether Pass::getPassName() returns a StringRef
+AC_MSG_CHECKING([whether Pass::getPassName() returns a StringRef])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Pass.h>
+]],[[
+  class MyPass : public llvm::Pass {
+  public:
+    virtual llvm::StringRef getPassName() const { return "MyPass"; };
+  };
+]])],
+        [AC_DEFINE([LLVM_PASS_GETPASSNAME_IS_STRINGREF],[1],
+         [Define if Pass::getPassName() returns a StringRef.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
+## Check whether llvm::cl::values needs a sentinel
+AC_MSG_CHECKING([whether whether llvm::cl::values needs a sentinel])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Support/CommandLine.h>
+]],[[
+  enum Unit{
+    UNIT
+  };
+  auto v = llvm::cl::values(clEnumVal(UNIT,"The only option"),clEnumValEnd);
+]])],
+        [AC_DEFINE([LLVM_CL_VALUES_USES_SENTINEL],[1],
+         [Define if llvm::cl::values needs a sentinel.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
+## Check whether llvm:gep_type_iterator uses the new API
+AC_MSG_CHECKING([whether llvm:gep_type_iterator uses the new API])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_SUPPORT_GETELEMENTPTRTYPEITERATOR_H)
+#include <llvm/Support/GetElementPtrTypeIterator.h>
+#elif defined(HAVE_LLVM_IR_GETELEMENTPTRTYPEITERATOR_H)
+#include <llvm/IR/GetElementPtrTypeIterator.h>
+#endif
+]],[[
+  llvm::gep_type_iterator *I = 0;
+  llvm::StructType *STy = I->getStructTypeOrNull();
+]])],
+        [AC_DEFINE([LLVM_NEW_GEP_TYPE_ITERATOR_API],[1],
+         [Define if llvm:gep_type_iterator uses the new API.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_CHECK_HEADER_STDBOOL
