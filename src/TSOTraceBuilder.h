@@ -339,6 +339,35 @@ protected:
    */
   std::vector<Event> prefix;
 
+  struct ReversibleRace {
+  public:
+    enum Kind {
+      /* Any kind of event that does not block any other process */
+      NONBLOCK,
+      /* Attempt to acquire a lock */
+      LOCK,
+    };
+    const Kind kind;
+    const int first_event;
+    const int second_event;
+    const IID<IPid> second_process;
+    const Mutex *mutex;
+    static ReversibleRace Nonblock(int first, int second) {
+      return ReversibleRace(NONBLOCK, first, second, {-1,0}, nullptr);
+    };
+    static ReversibleRace Lock(int first, int second, IID<IPid> process, const Mutex *mutex) {
+      assert(mutex);
+      return ReversibleRace(LOCK, first, second, process, mutex);
+    };
+  private:
+    ReversibleRace(Kind k, int f, int s, IID<IPid> p, const Mutex *m) :
+      kind(k), first_event(f), second_event(s), second_process(p), mutex(m) {}
+  };
+
+  /* Pairs i<j of reversible races found in the current execution.
+   */
+  std::vector<ReversibleRace> reversible_races;
+
   /* The number of threads that have been dry run since the last
    * non-dry run event was scheduled.
    */
@@ -385,7 +414,10 @@ protected:
   };
 
   std::string iid_string(const Event &evt) const;
-  void add_branch(int i, int j);
+  void add_noblock_race(int event);
+  void add_lock_race(const Mutex &m, int event);
+  void do_race_detect();
+  void race_detect(const ReversibleRace&);
   /* Add clocks and branches.
    *
    * All elements e in seen should either be indices into prefix, or

@@ -136,6 +136,8 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
     }
   }
 
+  do_race_detect();
+
   return false; // No available threads
 }
 
@@ -573,7 +575,7 @@ void TSOTraceBuilder::mutex_lock(const ConstMRef &ml){
   }else{
     /* Register conflict with last preceding lock */
     if(!prefix[mutex.last_lock].clock.leq(curnode().clock)){
-      add_branch(mutex.last_lock,prefix_idx);
+      add_noblock_race(mutex.last_lock);
     }
     curnode().clock += prefix[mutex.last_access].clock;
     threads[ipid].clock += prefix[mutex.last_access].clock;
@@ -593,12 +595,12 @@ void TSOTraceBuilder::mutex_lock_fail(const ConstMRef &ml){
   Mutex &mutex = mutexes[ml.ref];
   assert(0 <= mutex.last_lock);
   if(!prefix[mutex.last_lock].clock.leq(curnode().clock)){
-    add_branch(mutex.last_lock,prefix_idx);
+    add_lock_race(mutex, mutex.last_lock);
   }
 
   if(0 <= last_full_memory_conflict &&
      !prefix[last_full_memory_conflict].clock.leq(curnode().clock)){
-    add_branch(last_full_memory_conflict,prefix_idx);
+    add_lock_race(mutex, last_full_memory_conflict);
   }
 }
 
@@ -915,16 +917,40 @@ void TSOTraceBuilder::see_events(const VecSet<int> &seen_accesses){
   }
 
   for(int i : branch){
-    add_branch(i,prefix_idx);
+    add_noblock_race(i);
   }
 }
 
-void TSOTraceBuilder::add_branch(int i, int j){
-  assert(0 <= i);
-  assert(i < j);
-  assert(j <= prefix_idx);
+void TSOTraceBuilder::add_noblock_race(int event){
+  assert(0 <= event);
+  assert(event < prefix_idx);
+
+  reversible_races.push_back(ReversibleRace::Nonblock(event,prefix_idx));
+}
+
+void TSOTraceBuilder::add_lock_race(const Mutex &m, int event){
+  assert(0 <= event);
+  assert(event < prefix_idx);
+
+  reversible_races.push_back
+    (ReversibleRace::Lock(event,prefix_idx,curnode().iid,&m));
+}
+
+void TSOTraceBuilder::do_race_detect() {
+  /* Do race detection */
+  for (const ReversibleRace &race : reversible_races) {
+      race_detect(race);
+  }
+  reversible_races.clear();
+}
+
+void TSOTraceBuilder::race_detect(const ReversibleRace &race){
+  int i = race.first_event;
+  int j = race.second_event;
 
   VecSet<IPid> isleep = sleep_set_at(i);
+
+  VClock<IPid> mutex_clock;
 
   /* candidates is a map from IPid p to event index i such that the
    * IID (p,i) identifies an event between prefix[i] (exclusive) and
@@ -939,16 +965,34 @@ void TSOTraceBuilder::add_branch(int i, int j){
   Branch cand = {-1,0};
   const VClock<IPid> &iclock = prefix[i].clock;
   for(int k = i+1; k <= j; ++k){
-    IPid p = prefix[k].iid.get_pid();
+    const IID<IPid> &iid = k == j && race.kind == ReversibleRace::LOCK
+      ? race.second_process : prefix[k].iid;
+    IPid p = iid.get_pid();
     /* Did we already cover p? */
     if(p < int(candidates.size()) && 0 <= candidates[p]) continue;
-    const VClock<IPid> &pclock = prefix[k].clock;
+    const VClock<IPid> *pclock = &prefix[k].clock;
+    if (k == j && race.kind == ReversibleRace::LOCK) {
+      /* Compute the clock of the locking process (event k in prefix is
+       * something unrelated since this is a lock probe) */
+      /* Find last event of p before this mutex probe */
+      IPid p = race.second_process.get_pid();
+      int last = race.second_event-1;
+      do {
+        if (prefix[last].iid.get_pid() == p) {
+          mutex_clock = prefix[last].clock;
+          break;
+        }
+      } while(last--);
+      /* Recompute the clock of this mutex_lock_fail */
+      ++mutex_clock[p];
+      pclock = &mutex_clock;
+    }
     /* Is p after prefix[i]? */
-    if(k != j && iclock.leq(pclock)) continue;
+    if(k != j && iclock.leq(*pclock)) continue;
     /* Is p after some other candidate? */
     bool is_after = false;
     for(int q = 0; !is_after && q < int(candidates.size()); ++q){
-      if(0 <= candidates[q] && candidates[q] <= pclock[q]){
+      if(0 <= candidates[q] && candidates[q] <= (*pclock)[q]){
         is_after = true;
       }
     }
@@ -956,7 +1000,7 @@ void TSOTraceBuilder::add_branch(int i, int j){
     if(int(candidates.size()) <= p){
       candidates.resize(p+1,-1);
     }
-    candidates[p] = prefix[k].iid.get_index();
+    candidates[p] = iid.get_index();
     cand.pid = p;
     if(prefix[i].branch.count(cand)){
       /* There is already a satisfactory candidate branch */
