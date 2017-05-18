@@ -45,17 +45,17 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   if(replay){
     /* Are we done with the current Event? */
     if(0 <= prefix_idx &&
-       threads[curnode().iid.get_pid()].clock[curnode().iid.get_pid()] <
-       curnode().iid.get_index() + curnode().size - 1){
+       threads[curev().iid.get_pid()].clock[curev().iid.get_pid()] <
+       curev().iid.get_index() + curev().size - 1){
       /* Continue executing the current Event */
-      IPid pid = curnode().iid.get_pid();
+      IPid pid = curev().iid.get_pid();
       *proc = pid/2;
       *aux = pid % 2 - 1;
       *alt = 0;
       assert(threads[pid].available);
       ++threads[pid].clock[pid];
       return true;
-    }else if(prefix_idx + 1 == int(prefix.size())){
+    }else if(prefix_idx + 1 == int(prefix.len())){
       /* We are done replaying. Continue below... */
       replay = false;
     }else if(dry_sleepers < int(prefix[prefix_idx+1].sleep.size())){
@@ -75,13 +75,13 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       /* Go to the next event. */
       dry_sleepers = 0;
       ++prefix_idx;
-      IPid pid = curnode().iid.get_pid();
+      IPid pid = curev().iid.get_pid();
       *proc = pid/2;
       *aux = pid % 2 - 1;
-      *alt = curnode().alt;
+      *alt = curbranch().alt;
       assert(threads[pid].available);
       ++threads[pid].clock[pid];
-      curnode().clock = threads[pid].clock;
+      curev().clock = threads[pid].clock;
       return true;
     }
   }
@@ -90,14 +90,15 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   /* Create a new Event */
 
   /* Should we merge the last two events? */
-  if(prefix.size() > 1 &&
-     prefix[prefix.size()-1].iid.get_pid() == prefix[prefix.size()-2].iid.get_pid() &&
-     !prefix[prefix.size()-1].may_conflict &&
-     prefix[prefix.size()-1].sleep.empty()){
-    assert(prefix[prefix.size()-1].branch.empty());
-    assert(prefix[prefix.size()-1].wakeup.empty());
-    ++prefix[prefix.size()-2].size;
-    prefix.pop_back();
+  if(prefix.len() > 1 &&
+     prefix[prefix.len()-1].iid.get_pid()
+     == prefix[prefix.len()-2].iid.get_pid() &&
+     !prefix[prefix.len()-1].may_conflict &&
+     prefix[prefix.len()-1].sleep.empty()){
+    assert(prefix[prefix.len()-1].size() == 0);
+    assert(prefix[prefix.len()-1].wakeup.empty());
+    ++prefix[prefix.len()-2].size;
+    prefix.delete_last();
     --prefix_idx;
   }
 
@@ -116,8 +117,9 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
     if(threads[p].available && !threads[p].sleeping &&
        (conf.max_search_depth < 0 || threads[p].clock[p] < conf.max_search_depth)){
       ++threads[p].clock[p];
-      prefix.push_back(Event(IID<IPid>(IPid(p),threads[p].clock[p]),
-                             threads[p].clock));
+      prefix.push(Branch(IPid(p)),
+                  Event(IID<IPid>(IPid(p),threads[p].clock[p]),
+                        threads[p].clock));
       *proc = p/2;
       *aux = 0;
       return true;
@@ -128,8 +130,9 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
     if(threads[p].available && !threads[p].sleeping &&
        (conf.max_search_depth < 0 || threads[p].clock[p] < conf.max_search_depth)){
       ++threads[p].clock[p];
-      prefix.push_back(Event(IID<IPid>(IPid(p),threads[p].clock[p]),
-                             threads[p].clock));
+      prefix.push(Branch(IPid(p)),
+                  Event(IID<IPid>(IPid(p),threads[p].clock[p]),
+                        threads[p].clock));
       *proc = p/2;
       *aux = -1;
       return true;
@@ -148,8 +151,8 @@ void TSOTraceBuilder::refuse_schedule(){
   assert(prefix.back().sleep.empty());
   assert(prefix.back().wakeup.empty());
   assert(prefix.back().branch.empty());
-  IPid last_pid = prefix.back().iid.get_pid();
-  prefix.pop_back();
+  IPid last_pid = prefix.last().iid.get_pid();
+  prefix.delete_last();
   --prefix_idx;
   --threads[last_pid].clock[last_pid];
   mark_unavailable(last_pid/2,last_pid % 2 - 1);
@@ -170,12 +173,16 @@ bool TSOTraceBuilder::is_replaying() const {
 void TSOTraceBuilder::cancel_replay(){
   if(!replay) return;
   replay = false;
-  prefix.resize(prefix_idx+1,Event(IID<IPid>(),VClock<IPid>()));
+  while (prefix_idx + 1 < int(prefix.len())) prefix.delete_last();
+  if (prefix.node(prefix_idx).size()) {
+    prefix.enter_first_child(Event(IID<IPid>(), VClock<IPid>()));
+    prefix.delete_last();
+  }
 }
 
 void TSOTraceBuilder::metadata(const llvm::MDNode *md){
-  if(!dryrun && curnode().md == 0){
-    curnode().md = md;
+  if(!dryrun && curev().md == 0){
+    curev().md = md;
   }
   last_md = md;
 }
@@ -205,7 +212,7 @@ Trace *TSOTraceBuilder::get_trace() const{
   std::vector<IID<CPid> > cmp;
   std::vector<const llvm::MDNode*> cmp_md;
   std::vector<Error*> errs;
-  for(unsigned i = 0; i < prefix.size(); ++i){
+  for(unsigned i = 0; i < prefix.len(); ++i){
     cmp.push_back(IID<CPid>(threads[prefix[i].iid.get_pid()].cpid,prefix[i].iid.get_index()));
     cmp_md.push_back(prefix[i].md);
   };
@@ -225,8 +232,8 @@ bool TSOTraceBuilder::reset(){
   }
 
   int i;
-  for(i = int(prefix.size())-1; 0 <= i; --i){
-    if(prefix[i].branch.size()){
+  for(i = int(prefix.len())-1; 0 <= i; --i){
+    if(prefix.children_after(i)){
       break;
     }
   }
@@ -239,7 +246,12 @@ bool TSOTraceBuilder::reset(){
 
   /* Setup the new Event at prefix[i] */
   {
-    Branch br = prefix[i].branch[0];
+    int sleep_branch_trace_count =
+      prefix[i].sleep_branch_trace_count + estimate_trace_count(i+1);
+    Event prev_evt = std::move(prefix[i]);
+    while (ssize_t(prefix.len()) > i) prefix.delete_last();
+
+    Branch br = prefix.first_child();
 
     /* Find the index of br.pid. */
     int br_idx = 1;
@@ -251,19 +263,13 @@ bool TSOTraceBuilder::reset(){
 
     Event evt(IID<IPid>(br.pid,br_idx),{});
 
-    evt.alt = br.alt;
-    evt.branch = prefix[i].branch;
-    evt.branch.erase(br);
-    evt.sleep = prefix[i].sleep;
-    if(br.pid != prefix[i].iid.get_pid()){
-      evt.sleep.insert(prefix[i].iid.get_pid());
+    evt.sleep = prev_evt.sleep;
+    if(br.pid != prev_evt.iid.get_pid()){
+      evt.sleep.insert(prev_evt.iid.get_pid());
     }
-    evt.sleep_branch_trace_count =
-      prefix[i].sleep_branch_trace_count + estimate_trace_count(i+1);
+    evt.sleep_branch_trace_count = sleep_branch_trace_count;
 
-    prefix[i] = evt;
-
-    prefix.resize(i+1,prefix[0]);
+    prefix.enter_first_child(std::move(evt));
   }
 
   CPS = CPidSystem();
@@ -286,8 +292,8 @@ bool TSOTraceBuilder::reset(){
 }
 
 IID<CPid> TSOTraceBuilder::get_iid() const{
-  IPid pid = curnode().iid.get_pid();
-  int idx = curnode().iid.get_index();
+  IPid pid = curev().iid.get_pid();
+  int idx = curev().iid.get_index();
   return IID<CPid>(threads[pid].cpid,idx);
 }
 
@@ -296,15 +302,17 @@ static std::string rpad(std::string s, int n){
   return s;
 }
 
-std::string TSOTraceBuilder::iid_string(const Event &evt) const{
+std::string TSOTraceBuilder::iid_string(std::size_t pos) const{
+  const Event &evt = prefix[pos];
+  const Branch &branch = prefix.branch(pos);
   std::stringstream ss;
   ss << "(" << threads[evt.iid.get_pid()].cpid << "," << evt.iid.get_index();
   if(evt.size > 1){
     ss << "-" << evt.iid.get_index() + evt.size - 1;
   }
   ss << ")";
-  if(evt.alt != 0){
-    ss << "-alt:" << evt.alt;
+  if(branch.alt != 0){
+    ss << "-alt:" << branch.alt;
   }
   return ss.str();
 }
@@ -314,15 +322,15 @@ void TSOTraceBuilder::debug_print() const {
   int iid_offs = 0;
   int clock_offs = 0;
   VecSet<IPid> sleep_set;
-  for(unsigned i = 0; i < prefix.size(); ++i){
+  for(unsigned i = 0; i < prefix.len(); ++i){
     IPid ipid = prefix[i].iid.get_pid();
-    iid_offs = std::max(iid_offs,2*ipid+int(iid_string(prefix[i]).size()));
+    iid_offs = std::max(iid_offs,2*ipid+int(iid_string(i).size()));
     clock_offs = std::max(clock_offs,int(prefix[i].clock.to_string().size()));
   }
-  for(unsigned i = 0; i < prefix.size(); ++i){
+  for(unsigned i = 0; i < prefix.len(); ++i){
     IPid ipid = prefix[i].iid.get_pid();
     llvm::dbgs() << rpad("",2+ipid*2)
-                 << rpad(iid_string(prefix[i]),iid_offs-ipid*2)
+                 << rpad(iid_string(i),iid_offs-ipid*2)
                  << " " << rpad(prefix[i].clock.to_string(),clock_offs);
     sleep_set.insert(prefix[i].sleep);
     llvm::dbgs() << " SLP:{";
@@ -331,15 +339,8 @@ void TSOTraceBuilder::debug_print() const {
       llvm::dbgs() << threads[sleep_set[i]].cpid;
     }
     llvm::dbgs() << "}";
-    if(prefix[i].branch.size()){
-      llvm::dbgs() << " branch: ";
-      for(Branch b : prefix[i].branch){
-        llvm::dbgs() << threads[b.pid].cpid;
-        if(b.alt != 0){
-          llvm::dbgs() << "-alt:" << b.alt;
-        }
-        llvm::dbgs() << " ";
-      }
+    if(prefix.children_after(i)){
+      llvm::dbgs() << " branches scheduled: " << prefix.children_after(i);
     }
     llvm::dbgs() << "\n";
     for(IPid p : prefix[i].wakeup){
@@ -356,7 +357,7 @@ void TSOTraceBuilder::debug_print() const {
 }
 
 void TSOTraceBuilder::spawn(){
-  IPid parent_ipid = curnode().iid.get_pid();
+  IPid parent_ipid = curev().iid.get_pid();
   CPid child_cpid = CPS.spawn(threads[parent_ipid].cpid);
   threads.push_back(Thread(child_cpid,threads[parent_ipid].clock));
   threads.push_back(Thread(CPS.new_aux(child_cpid),threads[parent_ipid].clock));
@@ -365,7 +366,7 @@ void TSOTraceBuilder::spawn(){
 
 void TSOTraceBuilder::store(const ConstMRef &ml){
   if(dryrun) return;
-  IPid ipid = curnode().iid.get_pid();
+  IPid ipid = curev().iid.get_pid();
   threads[ipid].store_buffer.push_back(PendingStore(ml,threads[ipid].clock,last_md));
   threads[ipid+1].available = true;
 }
@@ -381,8 +382,8 @@ void TSOTraceBuilder::atomic_store(const ConstMRef &ml){
     }
     return;
   }
-  IPid ipid = curnode().iid.get_pid();
-  curnode().may_conflict = true;
+  IPid ipid = curev().iid.get_pid();
+  curev().may_conflict = true;
   bool is_update = ipid % 2;
 
   IPid uipid = ipid; // ID of the thread changing the memory
@@ -391,14 +392,14 @@ void TSOTraceBuilder::atomic_store(const ConstMRef &ml){
   if(is_update){ // Add the clock of the store instruction
     assert(threads[tipid].store_buffer.size());
     const PendingStore &pst = threads[tipid].store_buffer.front();
-    curnode().clock += pst.clock;
+    curev().clock += pst.clock;
     threads[uipid].clock += pst.clock;
-    curnode().origin_iid = IID<IPid>(tipid,pst.clock[tipid]);
-    curnode().md = pst.md;
+    curev().origin_iid = IID<IPid>(tipid,pst.clock[tipid]);
+    curev().md = pst.md;
   }else{ // Add the clock of the auxiliary thread (because of fence semantics)
     assert(threads[tipid].store_buffer.empty());
     threads[tipid].clock += threads[tipid+1].clock;
-    curnode().clock += threads[tipid+1].clock;
+    curev().clock += threads[tipid+1].clock;
   }
 
   VecSet<int> seen_accesses;
@@ -456,8 +457,8 @@ void TSOTraceBuilder::load(const ConstMRef &ml){
     }
     return;
   }
-  curnode().may_conflict = true;
-  IPid ipid = curnode().iid.get_pid();
+  curev().may_conflict = true;
+  IPid ipid = curev().iid.get_pid();
 
   /* Check if this is a ROWE */
   for(int i = int(threads[ipid].store_buffer.size())-1; 0 <= i; --i){
@@ -482,7 +483,7 @@ void TSOTraceBuilder::load(const ConstMRef &ml){
         seen_accesses.insert(lu);
       }else if(ml != lu_ml){
         const VClock<IPid> &clk = prefix[lu].clock;
-        curnode().clock += clk;
+        curev().clock += clk;
         threads[ipid].clock += clk;
       }
     }
@@ -507,7 +508,7 @@ void TSOTraceBuilder::full_memory_conflict(){
     threads[pid].sleep_full_memory_conflict = true;
     return;
   }
-  curnode().may_conflict = true;
+  curev().may_conflict = true;
 
   /* See all pervious memory accesses */
   VecSet<int> seen_accesses;
@@ -533,19 +534,19 @@ void TSOTraceBuilder::full_memory_conflict(){
 
 void TSOTraceBuilder::fence(){
   if(dryrun) return;
-  IPid ipid = curnode().iid.get_pid();
+  IPid ipid = curev().iid.get_pid();
   assert(ipid % 2 == 0);
   assert(threads[ipid].store_buffer.empty());
-  curnode().clock += threads[ipid+1].clock;
+  curev().clock += threads[ipid+1].clock;
   threads[ipid].clock += threads[ipid+1].clock;
 }
 
 void TSOTraceBuilder::join(int tgt_proc){
   if(dryrun) return;
-  IPid ipid = curnode().iid.get_pid();
-  curnode().clock += threads[tgt_proc*2].clock;
+  IPid ipid = curev().iid.get_pid();
+  curev().clock += threads[tgt_proc*2].clock;
   threads[ipid].clock += threads[tgt_proc*2].clock;
-  curnode().clock += threads[tgt_proc*2+1].clock;
+  curev().clock += threads[tgt_proc*2+1].clock;
   threads[ipid].clock += threads[tgt_proc*2+1].clock;
 }
 
@@ -563,21 +564,22 @@ void TSOTraceBuilder::mutex_lock(const ConstMRef &ml){
     mutexes[ml.ref] = Mutex();
   }
   assert(mutexes.count(ml.ref));
-  curnode().may_conflict = true;
+  curev().may_conflict = true;
   wakeup(Access::W,ml.ref);
 
   Mutex &mutex = mutexes[ml.ref];
-  IPid ipid = curnode().iid.get_pid();
+  IPid ipid = curev().iid.get_pid();
 
   if(mutex.last_lock < 0){
     /* No previous lock */
     see_events({mutex.last_access,last_full_memory_conflict});
   }else{
     /* Register conflict with last preceding lock */
-    if(!prefix[mutex.last_lock].clock.leq(curnode().clock)){
+    if(!prefix[mutex.last_lock].clock.leq(curev().clock)){
+      /* Aren't these blocking too? */
       add_noblock_race(mutex.last_lock);
     }
-    curnode().clock += prefix[mutex.last_access].clock;
+    curev().clock += prefix[mutex.last_access].clock;
     threads[ipid].clock += prefix[mutex.last_access].clock;
     see_events({last_full_memory_conflict});
   }
@@ -594,12 +596,12 @@ void TSOTraceBuilder::mutex_lock_fail(const ConstMRef &ml){
   assert(mutexes.count(ml.ref));
   Mutex &mutex = mutexes[ml.ref];
   assert(0 <= mutex.last_lock);
-  if(!prefix[mutex.last_lock].clock.leq(curnode().clock)){
+  if(!prefix[mutex.last_lock].clock.leq(curev().clock)){
     add_lock_race(mutex, mutex.last_lock);
   }
 
   if(0 <= last_full_memory_conflict &&
-     !prefix[last_full_memory_conflict].clock.leq(curnode().clock)){
+     !prefix[last_full_memory_conflict].clock.leq(curev().clock)){
     add_lock_race(mutex, last_full_memory_conflict);
   }
 }
@@ -618,7 +620,7 @@ void TSOTraceBuilder::mutex_trylock(const ConstMRef &ml){
     mutexes[ml.ref] = Mutex();
   }
   assert(mutexes.count(ml.ref));
-  curnode().may_conflict = true;
+  curev().may_conflict = true;
   wakeup(Access::W,ml.ref);
   Mutex &mutex = mutexes[ml.ref];
   see_events({mutex.last_access,last_full_memory_conflict});
@@ -644,7 +646,7 @@ void TSOTraceBuilder::mutex_unlock(const ConstMRef &ml){
   }
   assert(mutexes.count(ml.ref));
   Mutex &mutex = mutexes[ml.ref];
-  curnode().may_conflict = true;
+  curev().may_conflict = true;
   wakeup(Access::W,ml.ref);
   assert(0 <= mutex.last_access);
 
@@ -663,7 +665,7 @@ void TSOTraceBuilder::mutex_init(const ConstMRef &ml){
   }
   fence();
   assert(mutexes.count(ml.ref) == 0);
-  curnode().may_conflict = true;
+  curev().may_conflict = true;
   mutexes[ml.ref] = Mutex(prefix_idx);
   see_events({last_full_memory_conflict});
 }
@@ -683,7 +685,7 @@ void TSOTraceBuilder::mutex_destroy(const ConstMRef &ml){
   }
   assert(mutexes.count(ml.ref));
   Mutex &mutex = mutexes[ml.ref];
-  curnode().may_conflict = true;
+  curev().may_conflict = true;
   wakeup(Access::W,ml.ref);
 
   see_events({mutex.last_access,last_full_memory_conflict});
@@ -704,7 +706,7 @@ bool TSOTraceBuilder::cond_init(const ConstMRef &ml){
     pthreads_error("Condition variable initiated twice.");
     return false;
   }
-  curnode().may_conflict = true;
+  curev().may_conflict = true;
   cond_vars[ml.ref] = CondVar(prefix_idx);
   see_events({last_full_memory_conflict});
   return true;
@@ -719,7 +721,7 @@ bool TSOTraceBuilder::cond_signal(const ConstMRef &ml){
     return true;
   }
   fence();
-  curnode().may_conflict = true;
+  curev().may_conflict = true;
   wakeup(Access::W,ml.ref);
 
   auto it = cond_vars.find(ml.ref);
@@ -729,15 +731,15 @@ bool TSOTraceBuilder::cond_signal(const ConstMRef &ml){
   }
   CondVar &cond_var = it->second;
   VecSet<int> seen_events = {last_full_memory_conflict};
-  if(curnode().alt < int(cond_var.waiters.size())-1){
-    assert(curnode().alt == 0);
+  if(curbranch().alt < int(cond_var.waiters.size())-1){
+    assert(curev().alt == 0);
     register_alternatives(cond_var.waiters.size());
   }
-  assert(0 <= curnode().alt);
-  assert(cond_var.waiters.empty() || curnode().alt < int(cond_var.waiters.size()));
+  assert(0 <= curev().alt);
+  assert(cond_var.waiters.empty() || curev().alt < int(cond_var.waiters.size()));
   if(cond_var.waiters.size()){
     /* Wake up the alt:th waiter. */
-    int i = cond_var.waiters[curnode().alt];
+    int i = cond_var.waiters[curbranch().alt];
     assert(0 <= i && i < prefix_idx);
     IPid ipid = prefix[i].iid.get_pid();
     assert(!threads[ipid].available);
@@ -745,11 +747,11 @@ bool TSOTraceBuilder::cond_signal(const ConstMRef &ml){
     /* The next instruction by the thread ipid should be ordered after
      * this signal.
      */
-    threads[ipid].clock += curnode().clock;
+    threads[ipid].clock += curev().clock;
     seen_events.insert(i);
 
     /* Remove waiter from cond_var.waiters */
-    for(int j = curnode().alt; j < int(cond_var.waiters.size())-1; ++j){
+    for(int j = curbranch().alt; j < int(cond_var.waiters.size())-1; ++j){
       cond_var.waiters[j] = cond_var.waiters[j+1];
     }
     cond_var.waiters.pop_back();
@@ -770,7 +772,7 @@ bool TSOTraceBuilder::cond_broadcast(const ConstMRef &ml){
     return true;
   }
   fence();
-  curnode().may_conflict = true;
+  curev().may_conflict = true;
   wakeup(Access::W,ml.ref);
 
   auto it = cond_vars.find(ml.ref);
@@ -788,7 +790,7 @@ bool TSOTraceBuilder::cond_broadcast(const ConstMRef &ml){
     /* The next instruction by the thread ipid should be ordered after
      * this broadcast.
      */
-    threads[ipid].clock += curnode().clock;
+    threads[ipid].clock += curev().clock;
     seen_events.insert(i);
   }
   cond_var.waiters.clear();
@@ -811,7 +813,7 @@ bool TSOTraceBuilder::cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex
       return false;
     }
     Mutex &mtx = it->second;
-    if(!dryrun && (mtx.last_lock < 0 || prefix[mtx.last_lock].iid.get_pid() != curnode().iid.get_pid())){
+    if(!dryrun && (mtx.last_lock < 0 || prefix[mtx.last_lock].iid.get_pid() != curev().iid.get_pid())){
       pthreads_error("cond_wait called with mutex which is not locked by the same thread.");
       return false;
     }
@@ -826,10 +828,10 @@ bool TSOTraceBuilder::cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex
     return true;
   }
   fence();
-  curnode().may_conflict = true;
+  curev().may_conflict = true;
   wakeup(Access::R,cond_ml.ref);
 
-  IPid pid = curnode().iid.get_pid();
+  IPid pid = curev().iid.get_pid();
 
   auto it = cond_vars.find(cond_ml.ref);
   if(it == cond_vars.end()){
@@ -856,7 +858,7 @@ int TSOTraceBuilder::cond_destroy(const ConstMRef &ml){
 
   int err = (EBUSY == 1) ? 2 : 1; // Chose an error value different from EBUSY
 
-  curnode().may_conflict = true;
+  curev().may_conflict = true;
   wakeup(Access::W,ml.ref);
 
   auto it = cond_vars.find(ml.ref);
@@ -875,9 +877,10 @@ int TSOTraceBuilder::cond_destroy(const ConstMRef &ml){
 }
 
 void TSOTraceBuilder::register_alternatives(int alt_count){
-  curnode().may_conflict = true;
-  for(int i = curnode().alt+1; i < alt_count; ++i){
-    curnode().branch.insert(Branch({curnode().iid.get_pid(),i}));
+  curev().may_conflict = true;
+  for(int i = curbranch().alt+1; i < alt_count; ++i){
+    prefix.put_branch(prefix.len()-1,
+                      Branch({curev().iid.get_pid(),i}));
   }
 }
 
@@ -899,7 +902,7 @@ void TSOTraceBuilder::see_events(const VecSet<int> &seen_accesses){
   for(int i : seen_accesses){
     if(i < 0) continue;
     const VClock<IPid> &iclock = prefix[i].clock;
-    if(iclock.leq(curnode().clock)) continue;
+    if(iclock.leq(curev().clock)) continue;
     if(std::any_of(seen_accesses.begin(),seen_accesses.end(),
                    [i,&iclock,this](int j){
                      return 0 <= j && i != j && iclock.leq(this->prefix[j].clock);
@@ -908,11 +911,11 @@ void TSOTraceBuilder::see_events(const VecSet<int> &seen_accesses){
   }
 
   /* Add clocks from seen accesses */
-  IPid ipid = curnode().iid.get_pid();
+  IPid ipid = curev().iid.get_pid();
   for(int i : seen_accesses){
     if(i < 0) continue;
     assert(0 <= i && i <= prefix_idx);
-    curnode().clock += prefix[i].clock;
+    curev().clock += prefix[i].clock;
     threads[ipid].clock += prefix[i].clock;
   }
 
@@ -933,7 +936,7 @@ void TSOTraceBuilder::add_lock_race(const Mutex &m, int event){
   assert(event < prefix_idx);
 
   reversible_races.push_back
-    (ReversibleRace::Lock(event,prefix_idx,curnode().iid,&m));
+    (ReversibleRace::Lock(event,prefix_idx,curev().iid,&m));
 }
 
 void TSOTraceBuilder::do_race_detect() {
@@ -1002,7 +1005,7 @@ void TSOTraceBuilder::race_detect(const ReversibleRace &race){
     }
     candidates[p] = iid.get_index();
     cand.pid = p;
-    if(prefix[i].branch.count(cand)){
+    if(prefix.has_branch(i, cand)){
       /* There is already a satisfactory candidate branch */
       return;
     }
@@ -1014,7 +1017,7 @@ void TSOTraceBuilder::race_detect(const ReversibleRace &race){
   }
 
   assert(0 <= cand.pid);
-  prefix[i].branch.insert(cand);
+  prefix.put_branch(i, cand);
 }
 
 bool TSOTraceBuilder::has_pending_store(IPid pid, void const *ml) const {
@@ -1028,7 +1031,7 @@ bool TSOTraceBuilder::has_pending_store(IPid pid, void const *ml) const {
 }
 
 void TSOTraceBuilder::wakeup(Access::Type type, void const *ml){
-  IPid pid = curnode().iid.get_pid();
+  IPid pid = curev().iid.get_pid();
   std::vector<IPid> wakeup; // Wakeup these
   switch(type){
   case Access::W_ALL_MEMORY:
@@ -1082,13 +1085,13 @@ void TSOTraceBuilder::wakeup(Access::Type type, void const *ml){
     threads[p].sleep_accesses_w.clear();
     threads[p].sleep_full_memory_conflict = false;
     threads[p].sleeping = false;
-    curnode().wakeup.insert(p);
+    curev().wakeup.insert(p);
   }
 }
 
 bool TSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
   int proc_count = threads.size();
-  int pfx_size = prefix.size();
+  int pfx_size = prefix.len();
 
   /* Identify all store events */
   struct stupd_t{
@@ -1103,8 +1106,10 @@ bool TSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
   std::vector<std::vector<stupd_t> > stores(proc_count);
   for(int i = 0; i < pfx_size; ++i){
     if(prefix[i].iid.get_pid() % 2){ // Update
-      assert(prefix[i].origin_iid.get_pid() == prefix[i].iid.get_pid()-1);
-      stores[prefix[i].iid.get_pid() / 2].push_back({prefix[i].origin_iid.get_index(),i});
+      assert(prefix[i].origin_iid.get_pid()
+             == prefix[i].iid.get_pid()-1);
+      stores[prefix[i].iid.get_pid() / 2].push_back
+        ({prefix[i].origin_iid.get_index(),i});
     }
   }
 
@@ -1154,7 +1159,8 @@ bool TSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
       if(procs[proc].store_index < int(stores[proc].size()) &&
          stores[proc][procs[proc].store_index].store == next_pc){
         // This is a store. Also consider the update's clock.
-        procs[proc].block_clock += prefix[stores[proc][procs[proc].store_index].update].clock;
+        procs[proc].block_clock
+          += prefix[stores[proc][procs[proc].store_index].update].clock;
         ++procs[proc].store_index;
       }
     }
@@ -1227,13 +1233,14 @@ int TSOTraceBuilder::estimate_trace_count() const{
 }
 
 int TSOTraceBuilder::estimate_trace_count(int idx) const{
-  if(idx > int(prefix.size())) return 0;
-  if(idx == int(prefix.size())) return 1;
+  if(idx > int(prefix.len())) return 0;
+  if(idx == int(prefix.len())) return 1;
 
   int count = 1;
-  for(int i = int(prefix.size())-1; idx <= i; --i){
+  for(int i = int(prefix.len())-1; idx <= i; --i){
     count += prefix[i].sleep_branch_trace_count;
-    count += prefix[i].branch.size()*(count / (1 + prefix[i].sleep.size()));
+    count += std::max(0, int(prefix.children_after(i)))
+      * (count / (1 + prefix[i].sleep.size()));
   }
 
   return count;

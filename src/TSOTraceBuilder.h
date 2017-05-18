@@ -23,6 +23,7 @@
 
 #include "TSOPSOTraceBuilder.h"
 #include "VClock.h"
+#include "WakeupTrees.h"
 
 class TSOTraceBuilder : public TSOPSOTraceBuilder{
 public:
@@ -264,7 +265,16 @@ protected:
    */
   class Branch{
   public:
+    Branch (IPid pid, int alt = 0) : pid(pid), alt(alt) {}
     IPid pid;
+    /* Some instructions may execute in several alternative ways
+     * nondeterministically. (E.g. malloc may succeed or fail
+     * nondeterministically if Configuration::malloy_may_fail is set.)
+     * Branch::alt is the index of the alternative for the first event
+     * in this event sequence. The default execution alternative has
+     * index 0. All events in this sequence, except the first, are
+     * assumed to run their default execution alternative.
+     */
     int alt;
     bool operator<(const Branch &b) const{
       return pid < b.pid || (pid == b.pid && alt < b.alt);
@@ -283,7 +293,7 @@ protected:
   public:
     Event(const IID<IPid> &iid,
           const VClock<IPid> &clk)
-      : iid(iid), origin_iid(iid), size(1), alt(0), md(0), clock(clk),
+      : iid(iid), origin_iid(iid), size(1), md(0), clock(clk),
         may_conflict(false), sleep_branch_trace_count(0) {};
     /* The identifier for the first event in this event sequence. */
     IID<IPid> iid;
@@ -294,15 +304,6 @@ protected:
     IID<IPid> origin_iid;
     /* The number of events in this sequence. */
     int size;
-    /* Some instructions may execute in several alternative ways
-     * nondeterministically. (E.g. malloc may succeed or fail
-     * nondeterministically if Configuration::malloy_may_fail is set.)
-     * Event::alt is the index of the alternative for the first event
-     * in this event sequence. The default execution alternative has
-     * index 0. All events in this sequence, except the first, are
-     * assumed to run their default execution alternative.
-     */
-    int alt;
     /* Metadata corresponding to the first event in this sequence. */
     const llvm::MDNode *md;
     /* The clock of the first event in this sequence. */
@@ -311,10 +312,6 @@ protected:
      * conflict with another event?
      */
     bool may_conflict;
-    /* Different, yet untried, branches that should be attempted from
-     * this position in prefix.
-     */
-    VecSet<Branch> branch;
     /* The set of threads that go to sleep immediately before this
      * event sequence.
      */
@@ -337,7 +334,7 @@ protected:
    * execution, or the events executed followed by the subsequent
    * events that are determined in advance to be executed.
    */
-  std::vector<Event> prefix;
+  WakeupTreeExplorationBuffer<Branch, Event> prefix;
 
   struct ReversibleRace {
   public:
@@ -401,19 +398,25 @@ protected:
     return aux ? proc*2 : proc*2+1;
   };
 
-  Event &curnode() {
+  Event &curev() {
     assert(0 <= prefix_idx);
     assert(prefix_idx < int(prefix.size()));
     return prefix[prefix_idx];
   };
 
-  const Event &curnode() const {
+  const Event &curev() const {
     assert(0 <= prefix_idx);
     assert(prefix_idx < int(prefix.size()));
     return prefix[prefix_idx];
   };
 
-  std::string iid_string(const Event &evt) const;
+  const Branch &curbranch() const {
+    assert(0 <= prefix_idx);
+    assert(prefix_idx < int(prefix.size()));
+    return prefix.branch(prefix_idx);
+  };
+
+  std::string iid_string(std::size_t pos) const;
   void add_noblock_race(int event);
   void add_lock_race(const Mutex &m, int event);
   void do_race_detect();
