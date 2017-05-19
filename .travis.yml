@@ -1,0 +1,41 @@
+language: C++
+sudo: false
+branches:
+  only:
+    - master
+env:
+  - LLVM_VERSION=3.5.0  # default on Debian jessie
+  - LLVM_VERSION=3.6.2
+  #- LLVM_VERSION=3.8.1  # default on Debian stretch - does NOT work yet
+addons:
+  apt:
+    sources:
+      - boost-latest
+      - ubuntu-toolchain-r-test
+    packages:
+      - g++-4.9         # need at least this version of libstdc++6
+      - libc6
+      - libc6-dev
+      - libstdc++-4.9-dev
+      - autoconf
+      - automake
+      - python3
+      - libffi-dev
+      - libboost-test1.55-dev
+      - valgrind
+      - libedit-dev     # required by LLVM 3.5.0
+before_script:
+  - ./travis/install_deps.sh
+  - export LLVM_DIR=$PWD/cache/clang+llvm-$LLVM_VERSION
+  - export PATH=$LLVM_DIR/bin:$PATH
+  - export LD_LIBRARY_PATH=$LLVM_DIR/lib
+  - export CPATH=/usr/lib/gcc/x86_64-linux-gnu/4.9/include
+  - export CC=gcc-4.9
+  - export CXX=g++-4.9
+  - autoreconf --install
+  - ./configure         # || cat config.log    # left for debugging
+  - make -j6
+script: "make test && make valtest"
+cache:
+  directories:
+    - cache
