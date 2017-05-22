@@ -17,20 +17,16 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-template <typename Branch, typename Event>
-void WakeupTreeExplorationBuffer<Branch,Event>::put_branch
-(std::size_t pos, Branch b) {
-  assert(pos < len());
-  assert(children_at(pos).count(b) == 0);
-  assert(!has_branch(pos, b));
-  children_at(pos).emplace(std::move(b), new WakeupTree<Branch>());
+template <typename Branch>
+WakeupTreeRef<Branch> WakeupTreeRef<Branch>::put_child(Branch b) {
+  auto pair = node->children.emplace(std::move(b), new WakeupTree<Branch>());
+  assert(pair.second);
+  return WakeupTreeRef(*pair.first->second);
 }
 
-template <typename Branch, typename Event>
-bool WakeupTreeExplorationBuffer<Branch,Event>::has_branch
-(std::size_t pos, const Branch &b) const {
-  assert(pos < len());
-  return children_at(pos).count(b);
+template <typename Branch>
+bool WakeupTreeRef<Branch>::has_child(const Branch &b) const {
+  return node->children.count(b);
 }
 
 template <typename Branch, typename Event>
@@ -53,11 +49,9 @@ void WakeupTreeExplorationBuffer<Branch,Event>::enter_first_child(Event event) {
 template <typename Branch, typename Event>
 void WakeupTreeExplorationBuffer<Branch,Event>::push
 (Branch branch, Event event) {
-  WakeupTree<Branch> &node = parent_at(len());
+  WakeupTreeRef<Branch> node = parent_at(len());
   assert(node.size() == 0);
-  WakeupTree<Branch> &new_node =
-    *node.children.emplace(branch,
-                           new WakeupTree<Branch>()).first->second;
+  WakeupTreeRef<Branch> new_node = node.put_child(branch);
   prefix.push_back({std::move(event), std::move(branch),
         WakeupTreeRef<Branch>(new_node)});
 }

@@ -400,19 +400,19 @@ protected:
 
   Event &curev() {
     assert(0 <= prefix_idx);
-    assert(prefix_idx < int(prefix.size()));
+    assert(prefix_idx < int(prefix.len()));
     return prefix[prefix_idx];
   };
 
   const Event &curev() const {
     assert(0 <= prefix_idx);
-    assert(prefix_idx < int(prefix.size()));
+    assert(prefix_idx < int(prefix.len()));
     return prefix[prefix_idx];
   };
 
   const Branch &curbranch() const {
     assert(0 <= prefix_idx);
-    assert(prefix_idx < int(prefix.size()));
+    assert(prefix_idx < int(prefix.len()));
     return prefix.branch(prefix_idx);
   };
 
