@@ -420,7 +420,9 @@ protected:
   void add_noblock_race(int event);
   void add_lock_race(const Mutex &m, int event);
   void do_race_detect();
+  Event reconstruct_lock_event(const ReversibleRace&);
   void race_detect(const ReversibleRace&);
+  void race_detect_optimal(const ReversibleRace&);
   /* Add clocks and branches.
    *
    * All elements e in seen should either be indices into prefix, or

@@ -54,6 +54,16 @@ cl_memory_model(llvm::cl::NotHidden, llvm::cl::init(Configuration::MM_UNDEF),
 #endif
                                  ));
 
+static llvm::cl::opt<Configuration::DPORAlgorithm>
+cl_dpor_algorithm(llvm::cl::NotHidden, llvm::cl::init(Configuration::SOURCE),
+                  llvm::cl::desc("Select DPOR algorithm"),
+                  llvm::cl::values(clEnumValN(Configuration::SOURCE,"source","Source-DPOR"),
+                                   clEnumValN(Configuration::OPTIMAL,"optimal","Optimal-DPOR")
+#ifdef LLVM_CL_VALUES_USES_SENTINEL
+                                  ,clEnumValEnd
+#endif
+                                 ));
+
 static llvm::cl::opt<bool> cl_check_robustness("robustness",llvm::cl::NotHidden,
                                                llvm::cl::desc("Check for robustness as a correctness criterion."));
 
@@ -109,6 +119,7 @@ void Configuration::assign_by_commandline(){
   mutex_require_init = !cl_disable_mutex_init_requirement;
   max_search_depth = cl_max_search_depth;
   memory_model = cl_memory_model;
+  dpor_algorithm = cl_dpor_algorithm;
   check_robustness = cl_check_robustness;
   transform_spin_assume = !cl_transform_no_spin_assume;
   transform_loop_unroll = cl_transform_loop_unroll;
@@ -143,6 +154,10 @@ void Configuration::check_commandline(){
     if(cl_memory_model.getNumOccurrences()){
       Debug::warn("Configuration::check_commandline:transform:memory_model")
         << "WARNING: Given memory model ignored in presence of --transform.\n";
+    }
+    if(cl_dpor_algorithm.getNumOccurrences()){
+      Debug::warn("Configuration::check_commandline:transform:dpor_algorithm")
+        << "WARNING: Given DPOR algorithm ignored in presence of --transform.\n";
     }
     if(cl_print_progress.getNumOccurrences()){
       Debug::warn("Configuration::check_commandline:transform:print-progress")
@@ -195,6 +210,12 @@ void Configuration::check_commandline(){
         Debug::warn("Configuration::check_commandline:mm:robustness")
           << "WARNING: --robustness ignored under memory model " << mm << ".\n";
       }
+    }
+    if (cl_dpor_algorithm == Configuration::OPTIMAL
+        && cl_memory_model != Configuration::SC
+        && cl_memory_model != Configuration::TSO) {
+      Debug::warn("Configuration::check_commandline:dpor:mm")
+        << "WARNING: Optimal-DPOR not implemented for memory model " << mm << ".\n";
     }
   }
 }

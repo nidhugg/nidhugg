@@ -948,12 +948,20 @@ void TSOTraceBuilder::do_race_detect() {
 }
 
 void TSOTraceBuilder::race_detect(const ReversibleRace &race){
+  if (conf.dpor_algorithm == Configuration::OPTIMAL) {
+    race_detect_optimal(race);
+    return;
+  }
+
   int i = race.first_event;
   int j = race.second_event;
 
   VecSet<IPid> isleep = sleep_set_at(i);
 
-  VClock<IPid> mutex_clock;
+  /* In the case that race is a failed mutex probe, there's no Event in prefix
+   * for it, so we'll reconstruct it on demand.
+   */
+  Event mutex_probe_event({},{});
 
   /* candidates is a map from IPid p to event index i such that the
    * IID (p,i) identifies an event between prefix[i] (exclusive) and
@@ -975,20 +983,8 @@ void TSOTraceBuilder::race_detect(const ReversibleRace &race){
     if(p < int(candidates.size()) && 0 <= candidates[p]) continue;
     const VClock<IPid> *pclock = &prefix[k].clock;
     if (k == j && race.kind == ReversibleRace::LOCK) {
-      /* Compute the clock of the locking process (event k in prefix is
-       * something unrelated since this is a lock probe) */
-      /* Find last event of p before this mutex probe */
-      IPid p = race.second_process.get_pid();
-      int last = race.second_event-1;
-      do {
-        if (prefix[last].iid.get_pid() == p) {
-          mutex_clock = prefix[last].clock;
-          break;
-        }
-      } while(last--);
-      /* Recompute the clock of this mutex_lock_fail */
-      ++mutex_clock[p];
-      pclock = &mutex_clock;
+      mutex_probe_event = reconstruct_lock_event(race);
+      pclock = &mutex_probe_event.clock;
     }
     /* Is p after prefix[i]? */
     if(k != j && iclock.leq(*pclock)) continue;
@@ -1018,6 +1014,40 @@ void TSOTraceBuilder::race_detect(const ReversibleRace &race){
 
   assert(0 <= cand.pid);
   prefix.put_branch(i, cand);
+}
+
+void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
+  int i = race.first_event;
+  int j = race.second_event;
+
+  VecSet<IPid> isleep = sleep_set_at(i);
+
+  Event mutex_probe_event({},{});
+  if (race.kind == ReversibleRace::LOCK) {
+    mutex_probe_event = reconstruct_lock_event(race);
+  }
+
+
+}
+
+TSOTraceBuilder::Event TSOTraceBuilder::reconstruct_lock_event
+(const ReversibleRace &race) {
+  assert(race.kind == ReversibleRace::LOCK);
+  VClock<IPid> mutex_clock;
+  /* Compute the clock of the locking process (event k in prefix is
+   * something unrelated since this is a lock probe) */
+  /* Find last event of p before this mutex probe */
+  IPid p = race.second_process.get_pid();
+  int last = race.second_event-1;
+  do {
+    if (prefix[last].iid.get_pid() == p) {
+      mutex_clock = prefix[last].clock;
+      break;
+    }
+  } while(last--);
+  /* Recompute the clock of this mutex_lock_fail */
+  ++mutex_clock[p];
+  return Event(race.second_process, std::move(mutex_clock));
 }
 
 bool TSOTraceBuilder::has_pending_store(IPid pid, void const *ml) const {
