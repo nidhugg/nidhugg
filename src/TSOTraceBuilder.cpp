@@ -44,9 +44,8 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   this->dryrun = false;
   if(replay){
     /* Are we done with the current Event? */
-    if(0 <= prefix_idx &&
-       threads[curev().iid.get_pid()].clock[curev().iid.get_pid()] <
-       curev().iid.get_index() + curev().size - 1){
+    if(0 <= prefix_idx && threads[curev().iid.get_pid()].clock[curev().iid.get_pid()] <
+       curev().iid.get_index() + curbranch().size - 1){
       /* Continue executing the current Event */
       IPid pid = curev().iid.get_pid();
       *proc = pid/2;
@@ -97,9 +96,11 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
      prefix[prefix.len()-1].sleep.empty()){
     assert(prefix.children_after(prefix.len()-1) == 0);
     assert(prefix[prefix.len()-1].wakeup.empty());
-    ++prefix[prefix.len()-2].size;
     prefix.delete_last();
     --prefix_idx;
+    Branch b = curbranch();
+    ++b.size;
+    prefix.set_last_branch(std::move(b));
   }
 
   /* Create a new Event */
@@ -146,7 +147,7 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
 
 void TSOTraceBuilder::refuse_schedule(){
   assert(prefix_idx == int(prefix.len())-1);
-  assert(prefix.last().size == 1);
+  assert(prefix.lastbranch().size == 1);
   assert(!prefix.last().may_conflict);
   assert(prefix.last().sleep.empty());
   assert(prefix.last().wakeup.empty());
@@ -257,7 +258,7 @@ bool TSOTraceBuilder::reset(){
     int br_idx = 1;
     for(int j = i-1; br_idx == 1 && 0 <= j; --j){
       if(prefix[j].iid.get_pid() == br.pid){
-        br_idx = prefix[j].iid.get_index() + prefix[j].size;
+        br_idx = prefix[j].iid.get_index() + prefix.branch(j).size;
       }
     }
 
@@ -307,8 +308,8 @@ std::string TSOTraceBuilder::iid_string(std::size_t pos) const{
   const Branch &branch = prefix.branch(pos);
   std::stringstream ss;
   ss << "(" << threads[evt.iid.get_pid()].cpid << "," << evt.iid.get_index();
-  if(evt.size > 1){
-    ss << "-" << evt.iid.get_index() + evt.size - 1;
+  if(branch.size > 1){
+    ss << "-" << evt.iid.get_index() + branch.size - 1;
   }
   ss << ")";
   if(branch.alt != 0){
@@ -1286,11 +1287,12 @@ bool TSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
 
     int next_pc = procs[proc].pc+1;
     const Event &evt = prefix[procs[proc].pfx_index];
+    const Branch &branch = prefix.branch(procs[proc].pfx_index);
 
     if(!procs[proc].blocked){
       assert(evt.iid.get_pid() == 2*proc);
       assert(evt.iid.get_index() <= next_pc);
-      assert(next_pc < evt.iid.get_index() + evt.size);
+      assert(next_pc < evt.iid.get_index() + branch.size);
       procs[proc].block_clock = evt.clock;
       assert(procs[proc].block_clock[proc*2] <= next_pc);
       procs[proc].block_clock[proc*2] = next_pc;
@@ -1329,7 +1331,7 @@ bool TSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
       assert(next_pc == procs[proc].block_clock[proc*2]);
 
       // Advance pc to next interesting event
-      next_pc = evt.iid.get_index() + evt.size - 1;
+      next_pc = evt.iid.get_index() + branch.size - 1;
       if(procs[proc].store_index < int(stores[proc].size()) &&
          stores[proc][procs[proc].store_index].store-1 < next_pc){
         next_pc = stores[proc][procs[proc].store_index].store-1;
@@ -1337,7 +1339,7 @@ bool TSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
       assert(procs[proc].pc <= next_pc);
       procs[proc].pc = next_pc;
 
-      if(next_pc + 1 == evt.iid.get_index() + evt.size){
+      if(next_pc + 1 == evt.iid.get_index() + branch.size){
         // We are done with this Event
         ++procs[proc].pfx_index;
       }

@@ -265,7 +265,7 @@ protected:
    */
   class Branch{
   public:
-    Branch (IPid pid, int alt = 0) : pid(pid), alt(alt) {}
+    Branch (IPid pid, int alt = 0) : pid(pid), alt(alt), size(1) {}
     IPid pid;
     /* Some instructions may execute in several alternative ways
      * nondeterministically. (E.g. malloc may succeed or fail
@@ -276,6 +276,8 @@ protected:
      * assumed to run their default execution alternative.
      */
     int alt;
+    /* The number of events in this sequence. */
+    int size;
     bool operator<(const Branch &b) const{
       return pid < b.pid || (pid == b.pid && alt < b.alt);
     };
@@ -293,7 +295,7 @@ protected:
   public:
     Event(const IID<IPid> &iid,
           const VClock<IPid> &clk)
-      : iid(iid), origin_iid(iid), size(1), md(0), clock(clk),
+      : iid(iid), origin_iid(iid), md(0), clock(clk),
         may_conflict(false), sleep_branch_trace_count(0) {};
     /* The identifier for the first event in this event sequence. */
     IID<IPid> iid;
@@ -302,8 +304,6 @@ protected:
      * instruction. For other instructions origin_iid == iid.
      */
     IID<IPid> origin_iid;
-    /* The number of events in this sequence. */
-    int size;
     /* Metadata corresponding to the first event in this sequence. */
     const llvm::MDNode *md;
     /* The clock of the first event in this sequence. */

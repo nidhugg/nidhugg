@@ -55,3 +55,16 @@ void WakeupTreeExplorationBuffer<Branch,Event>::push
   prefix.push_back({std::move(event), std::move(branch),
         WakeupTreeRef<Branch>(new_node)});
 }
+
+template <typename Branch, typename Event>
+void WakeupTreeExplorationBuffer<Branch,Event>::set_last_branch(Branch b){
+  WakeupTreeRef<Branch> par = parent_at(len()-1);
+  assert(par.size() == 1 || b == lastbranch());
+  auto iter = par->children.find(prefix.back().branch);
+  prefix.back().branch = b;
+  std::unique_ptr<WakeupTree<Branch>> node = std::move(iter->second);
+  par->children.erase(iter);
+  auto pair = par->children.emplace(std::move(b), std::move(node));
+  assert(pair.second);
+  prefix.back().node = WakeupTreeRef<Branch>(*pair.first->second);
+}

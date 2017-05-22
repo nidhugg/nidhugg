@@ -100,7 +100,7 @@ class WakeupTreeExplorationBuffer {
 private:
   struct ExplorationNode {
     Event event;
-    const Branch branch;
+    Branch branch; /* only change with set_last_branch */
     WakeupTreeRef<Branch> node;
   };
   WakeupTree<Branch> tree;
@@ -131,6 +131,7 @@ public:
   }
   Event &last() { return prefix.back().event; }
   const Branch &lastbranch() { return prefix.back().branch; }
+  void set_last_branch(Branch b);
   WakeupTreeRef<Branch> lastnode() { return prefix.back().node; }
   void delete_last();
   const Branch &first_child() {
