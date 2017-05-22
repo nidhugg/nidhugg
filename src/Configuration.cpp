@@ -57,7 +57,7 @@ cl_memory_model(llvm::cl::NotHidden, llvm::cl::init(Configuration::MM_UNDEF),
 static llvm::cl::opt<Configuration::DPORAlgorithm>
 cl_dpor_algorithm(llvm::cl::NotHidden, llvm::cl::init(Configuration::SOURCE),
                   llvm::cl::desc("Select DPOR algorithm"),
-                  llvm::cl::values(clEnumValN(Configuration::SOURCE,"source","Source-DPOR"),
+                  llvm::cl::values(clEnumValN(Configuration::SOURCE,"source","Source-DPOR (default)"),
                                    clEnumValN(Configuration::OPTIMAL,"optimal","Optimal-DPOR")
 #ifdef LLVM_CL_VALUES_USES_SENTINEL
                                   ,clEnumValEnd
@@ -99,6 +99,7 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "disable-mutex-init-requirement",
     "max-search-depth",
     "sc","tso","pso","power","arm",
+    "source","optimal",
     "robustness",
     "no-spin-assume",
     "unroll",

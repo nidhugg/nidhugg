@@ -1017,17 +1017,125 @@ void TSOTraceBuilder::race_detect(const ReversibleRace &race){
 }
 
 void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
-  int i = race.first_event;
-  int j = race.second_event;
+  const int i = race.first_event;
+  const int j = race.second_event;
 
   VecSet<IPid> isleep = sleep_set_at(i);
+  Event *first = &prefix[i];
 
   Event mutex_probe_event({},{});
+  Event *second = &prefix[j];
+  Branch second_br = prefix.branch(j);
   if (race.kind == ReversibleRace::LOCK) {
     mutex_probe_event = reconstruct_lock_event(race);
+    second = &mutex_probe_event;
+    /* XXX: Lock events don't have alternatives, right? */
+    second_br = Branch(second->iid.get_pid());
   }
 
+  /* v is the subsequence of events in prefix come after prefix[i],
+   * but do not "happen after" (i.e. their vector clocks are not strictly
+   * greater than prefix[i].clock), followed by the second event.
+   *
+   * It is the sequence we want to insert into the wakeup tree.
+   */
+  std::vector<std::pair<Branch,Event*>> v;
+  for (int k = i + 1; k < int(prefix.len()); ++k){
+    if (!first->clock.leq(prefix[k].clock)) {
+      v.push_back({prefix.branch(k), &prefix[k]});
+    }
+  }
+  v.push_back({second_br, second});
 
+  /* TODO: Build a "partial-order heap" of v. The "mins" of the heap
+   * would be the weak initials.
+   */
+
+  /* Check for redundant exploration */
+
+
+  /* iid_map is a map from processes to their next event indices, and is used to
+   * construct the iid of any events we see in the wakeup tree,
+   * which in turn is used to find the corresponding event in prefix.
+   */
+  std::vector<int> iid_map = iid_map_at(i);
+
+  /* Do insertion into the wakeup tree */
+  WakeupTreeRef<Branch> node = prefix.parent_at(i);
+  while(1) {
+    if (!node.size()) {
+      /* node is a leaf. That means that an execution that will explore the
+       * reversal of this race has already been scheduled.
+       */
+      return;
+    }
+
+    /* */
+    enum { NO, RECURSE, NEXT } skip = NO;
+    for (auto child_it = node.begin(); child_it != node.end(); ++child_it) {
+      /* Find this event in prefix */
+      Event *child_ev;
+      IID<IPid> child_iid(child_it.branch().pid,
+                          iid_map[child_it.branch().pid]);
+      for (unsigned k = i;; ++k) {
+        assert(k < prefix.len());
+        if (prefix.branch(k) == child_it.branch()
+            && prefix[k].iid == child_iid) {
+          child_ev = &prefix[k];
+          break;
+        }
+      }
+
+      for (auto vei = v.begin(); skip == NO && vei != v.end(); ++vei) {
+        std::pair<Branch,Event*> &ve = *vei;
+        if (child_it.branch() == ve.first) {
+          assert(!isleep.count(ve.first.pid));
+          isleep.clear();
+          /* Drop ve from v and recurse into this node */
+          ++iid_map[ve.second->iid.get_pid()];
+          node = child_it.node();
+          v.erase(vei);
+          skip = RECURSE;
+          break;
+        }
+
+        if (ve.first.pid == child_it.branch().pid
+            || ve.second->clock.leq(child_ev->clock)) {
+          /* This branch is incompatible, try the next */
+          skip = NEXT;
+        }
+      }
+      if (skip == RECURSE) break;
+      if (skip == NEXT) { skip = NO; continue; }
+
+      if (first->clock.leq(child_ev->clock)) {
+        /* Dependent with the first event; this branch is incompatible */
+        continue;
+      }
+
+      assert(false && "UNREACHABLE");
+      abort();
+    }
+    if (skip == RECURSE) continue;
+
+    /* Have we already explored this? */
+    if (isleep.count(v.front().first.pid)) {
+      /* XXX: NOT OPTIMAL */
+      return;
+    }
+
+    /* No existing child was compatible with v. Insert v as a new sequence. */
+    for (std::pair<Branch,Event*> &ve : v) node = node.put_child(ve.first);
+    return;
+  }
+}
+
+std::vector<int> TSOTraceBuilder::iid_map_at(int event) const{
+  std::vector<int> map(threads.size(), 1);
+  for (int i = 0; i < event; ++i) {
+    ++map[prefix[i].iid.get_pid()];
+  }
+  return map;
 }
 
 TSOTraceBuilder::Event TSOTraceBuilder::reconstruct_lock_event

@@ -422,6 +422,7 @@ protected:
   void do_race_detect();
   Event reconstruct_lock_event(const ReversibleRace&);
   void race_detect(const ReversibleRace&);
+  std::vector<int> iid_map_at(int event) const;
   void race_detect_optimal(const ReversibleRace&);
   /* Add clocks and branches.
    *
