@@ -69,7 +69,7 @@ For Users of openSUSE (RPM-based distribution) Systems
    the requirements by installing the following packages:
 
    Mandatory:
-   llvm, llvm-devel, autoreconf, automake, clang, libffi-devel
+   llvm, llvm-devel, autoconf, automake, clang, libffi-devel
    make, python3
 
    Optional (Not fully tested):
