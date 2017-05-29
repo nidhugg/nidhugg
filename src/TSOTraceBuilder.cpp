@@ -54,10 +54,14 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       assert(threads[pid].available);
       ++threads[pid].clock[pid];
       return true;
-    }else if(prefix_idx + 1 == int(prefix.len())){
+    }else if(prefix_idx + 1 == int(prefix.len()) && prefix.lastnode().size() == 0){
       /* We are done replaying. Continue below... */
       replay = false;
-    }else if(dry_sleepers < int(prefix[prefix_idx+1].sleep.size())){
+      assert(conf.dpor_algorithm != Configuration::OPTIMAL
+            || std::all_of(threads.cbegin(), threads.cend(),
+                           [](const Thread &t) { return !t.sleeping; }));
+    }else if(prefix_idx + 1 != int(prefix.len()) &&
+             dry_sleepers < int(prefix[prefix_idx+1].sleep.size())){
       /* Before going to the next event, dry run the threads that are
        * being put to sleep.
        */
@@ -74,7 +78,16 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       /* Go to the next event. */
       dry_sleepers = 0;
       ++prefix_idx;
-      IPid pid = curev().iid.get_pid();
+      IPid pid;
+      if (prefix_idx < int(prefix.len())) {
+        /* The event is already in prefix */
+        pid = curev().iid.get_pid();
+      } else {
+        /* We are replaying from the wakeup tree */
+        pid = prefix.first_child().pid;
+        prefix.enter_first_child
+          (Event(IID<IPid>(pid,threads[pid].clock[pid] + 1), {}));
+      }
       *proc = pid/2;
       *aux = pid % 2 - 1;
       *alt = curbranch().alt;
@@ -982,11 +995,14 @@ void TSOTraceBuilder::race_detect(const ReversibleRace &race){
     IPid p = iid.get_pid();
     /* Did we already cover p? */
     if(p < int(candidates.size()) && 0 <= candidates[p]) continue;
-    const VClock<IPid> *pclock = &prefix[k].clock;
+    const Event *pevent;
+    int psize = 1;
     if (k == j && race.kind == ReversibleRace::LOCK) {
       mutex_probe_event = reconstruct_lock_event(race);
-      pclock = &mutex_probe_event.clock;
-    }
+      pevent = &mutex_probe_event;
+    } else {pevent = &prefix[k]; psize = prefix.branch(k).size;}
+    if (k == j) psize = 1;
+    const VClock<IPid> *pclock = &pevent->clock;
     /* Is p after prefix[i]? */
     if(k != j && iclock.leq(*pclock)) continue;
     /* Is p after some other candidate? */
@@ -1002,6 +1018,7 @@ void TSOTraceBuilder::race_detect(const ReversibleRace &race){
     }
     candidates[p] = iid.get_index();
     cand.pid = p;
+    cand.size = psize;
     if(prefix.parent_at(i).has_child(cand)){
       /* There is already a satisfactory candidate branch */
       return;
@@ -1024,15 +1041,20 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
   VecSet<IPid> isleep = sleep_set_at(i);
   Event *first = &prefix[i];
 
-  Event mutex_probe_event({},{});
-  Event *second = &prefix[j];
-  Branch second_br = prefix.branch(j);
+  Event second({-1,0},{});
+  Branch second_br(-1);
   if (race.kind == ReversibleRace::LOCK) {
-    mutex_probe_event = reconstruct_lock_event(race);
-    second = &mutex_probe_event;
+    second = reconstruct_lock_event(race);
     /* XXX: Lock events don't have alternatives, right? */
-    second_br = Branch(second->iid.get_pid());
+    second_br = Branch(second.iid.get_pid());
+  } else {
+    second = prefix[j];
+    second.sleep.clear();
+    second.wakeup.clear();
+    second_br = prefix.branch(j);
   }
+  /* Only replay the racy event. */
+  second_br.size = 1;
 
   /* v is the subsequence of events in prefix come after prefix[i],
    * but do not "happen after" (i.e. their vector clocks are not strictly
@@ -1046,20 +1068,41 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
       v.push_back({prefix.branch(k), &prefix[k]});
     }
   }
-  v.push_back({second_br, second});
+  v.push_back({second_br, &second});
 
   /* TODO: Build a "partial-order heap" of v. The "mins" of the heap
    * would be the weak initials.
    */
-
-  /* Check for redundant exploration */
-
 
   /* iid_map is a map from processes to their next event indices, and is used to
    * construct the iid of any events we see in the wakeup tree,
    * which in turn is used to find the corresponding event in prefix.
    */
   std::vector<int> iid_map = iid_map_at(i);
+  std::vector<int> siid_map = iid_map;
+
+  isleep.insert(prefix[i].sleep);
+  if (second.iid.get_pid() != first->iid.get_pid())
+    isleep.insert(first->iid.get_pid());
+
+  /* Check for redundant exploration */
+  for (auto it = v.cbegin(); it != v.cend(); ++it) {
+    /* Check for redundant exploration */
+    if (isleep.count(it->second->iid.get_pid())) {
+      /* Latter events of this process can't be weak initials either, so to
+       * save us from checking, we just delete it from isleep */
+      isleep.erase(it->second->iid.get_pid());
+
+      /* Is this a weak initial of v? */
+      if (!std::any_of(v.cbegin(), it,
+                       [&](const std::pair<Branch,Event*> &e){
+                         return e.second->clock.leq(it->second->clock);
+                       })) {
+        /* Then the reversal of this race has already been explored */
+        return;
+      }
+    }
+  }
 
   /* Do insertion into the wakeup tree */
   WakeupTreeRef<Branch> node = prefix.parent_at(i);
@@ -1076,13 +1119,14 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
     for (auto child_it = node.begin(); child_it != node.end(); ++child_it) {
       /* Find this event in prefix */
       Event *child_ev;
+      VClock<IPid> child_clock;
       IID<IPid> child_iid(child_it.branch().pid,
                           iid_map[child_it.branch().pid]);
       for (unsigned k = i;; ++k) {
         assert(k < prefix.len());
-        if (prefix.branch(k) == child_it.branch()
-            && prefix[k].iid == child_iid) {
+        if (prefix[k].iid == child_iid) {
           child_ev = &prefix[k];
+          child_clock = child_ev->clock;
           break;
         }
       }
@@ -1090,10 +1134,9 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
       for (auto vei = v.begin(); skip == NO && vei != v.end(); ++vei) {
         std::pair<Branch,Event*> &ve = *vei;
         if (child_it.branch() == ve.first) {
-          assert(!isleep.count(ve.first.pid));
-          isleep.clear();
+          assert(child_it.branch().size == ve.first.size);
           /* Drop ve from v and recurse into this node */
-          ++iid_map[ve.second->iid.get_pid()];
+          iid_map[ve.second->iid.get_pid()] += ve.first.size;
           node = child_it.node();
           v.erase(vei);
           skip = RECURSE;
@@ -1101,7 +1144,8 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
         }
 
         if (ve.first.pid == child_it.branch().pid
-            || ve.second->clock.leq(child_ev->clock)) {
+            || ve.second->clock.leq(child_clock)
+            || child_clock.leq(ve.second->clock)) {
           /* This branch is incompatible, try the next */
           skip = NEXT;
         }
@@ -1109,7 +1153,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
       if (skip == RECURSE) break;
       if (skip == NEXT) { skip = NO; continue; }
 
-      if (first->clock.leq(child_ev->clock)) {
+      if (first->clock.leq(child_clock)) {
         /* Dependent with the first event; this branch is incompatible */
         continue;
       }
@@ -1118,12 +1162,6 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
       abort();
     }
     if (skip == RECURSE) continue;
-
-    /* Have we already explored this? */
-    if (isleep.count(v.front().first.pid)) {
-      /* XXX: NOT OPTIMAL */
-      return;
-    }
 
     /* No existing child was compatible with v. Insert v as a new sequence. */
     for (std::pair<Branch,Event*> &ve : v) node = node.put_child(ve.first);
@@ -1134,7 +1172,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
 std::vector<int> TSOTraceBuilder::iid_map_at(int event) const{
   std::vector<int> map(threads.size(), 1);
   for (int i = 0; i < event; ++i) {
-    ++map[prefix[i].iid.get_pid()];
+    map[prefix[i].iid.get_pid()] += prefix.branch(i).size;
   }
   return map;
 }

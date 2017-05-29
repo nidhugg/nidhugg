@@ -49,11 +49,7 @@ class WakeupTreeRef {
   template <typename Branch_, typename Event>
   friend class WakeupTreeExplorationBuffer;
 public:
-  const WakeupTree<Branch> &operator *(void) const { return *node; }
-  WakeupTree<Branch> &operator *(void) { return *node; }
-  const WakeupTree<Branch> *operator->(void) const { return node; }
-  WakeupTree<Branch> *operator->(void) { return node; }
-  std::size_t size() const noexcept { return node->children.size(); }
+  std::size_t size() const noexcept { return (*this)->children.size(); }
 
   WakeupTreeRef(const WakeupTreeRef &) = default;
   WakeupTreeRef &operator=(const WakeupTreeRef&) = default;
@@ -76,8 +72,8 @@ public:
     typename WakeupTree<Branch>::children_type::iterator iter;
   };
 
-  iterator begin() { return iterator(node->children.begin()); }
-  iterator end()   { return iterator(node->children.end()); }
+  iterator begin() { return iterator((*this)->children.begin()); }
+  iterator end()   { return iterator((*this)->children.end()); }
 
   WakeupTreeRef put_child(Branch b);
   bool has_child(const Branch &b) const;
@@ -87,6 +83,8 @@ public:
   }
 
 private:
+  const WakeupTree<Branch> *operator->(void) const { return node; }
+  WakeupTree<Branch> *operator->(void) { return node; }
   WakeupTreeRef(WakeupTree<Branch> &node) : node(&node) {}
   WakeupTree<Branch> *node;
 };
@@ -104,30 +102,28 @@ private:
     WakeupTreeRef<Branch> node;
   };
   WakeupTree<Branch> tree;
+  WakeupTreeRef<Branch> rootref;
   std::vector<ExplorationNode> prefix;
-  typename WakeupTree<Branch>::children_type &children_at(std::size_t pos) {
-    if (pos == 0) return tree.children;
-    return prefix[pos-1].node->children;
-  }
-  const typename WakeupTree<Branch>::children_type &children_at(std::size_t pos)
-    const {
-    if (pos == 0) return tree.children;
-    return prefix[pos-1].node->children;
-  }
 public:
+  WakeupTreeExplorationBuffer() : rootref(tree) {}
   std::size_t len() const noexcept { return prefix.size(); }
-  Event &operator[](std::size_t i) { return prefix[i].event; }
-  const Event &operator[](std::size_t i) const { return prefix[i].event; }
-  const Branch &branch(std::size_t i) const { return prefix[i].branch; }
-  WakeupTreeRef<Branch> node(std::size_t i) { return prefix[i].node; }
+  Event &operator[](std::size_t i) { assert(i < len()); return prefix[i].event; }
+  const Event &operator[](std::size_t i) const { assert(i < len()); return prefix[i].event; }
+  const Branch &branch(std::size_t i) const { assert(i < len()); return prefix[i].branch; }
+  WakeupTreeRef<Branch> node(std::size_t i) { assert(i < len()); return prefix[i].node; }
   WakeupTreeRef<Branch> parent_at(std::size_t i) {
     assert(i <= len());
-    if (i == 0) return {tree};
-    return {*prefix[i-1].node};
+    if (i == 0) return rootref;
+    return prefix[i-1].node;
+  }
+  const WakeupTreeRef<Branch> parent_at(std::size_t i) const {
+    assert(i <= len());
+    if (i == 0) return rootref;
+    return prefix[i-1].node;
   }
   std::size_t children_after(std::size_t pos) const {
     assert(pos < len());
-    return children_at(pos).size() - 1;
+    return parent_at(pos).size() - 1;
   }
   Event &last() { return prefix.back().event; }
   const Branch &lastbranch() { return prefix.back().branch; }
@@ -135,8 +131,8 @@ public:
   WakeupTreeRef<Branch> lastnode() { return prefix.back().node; }
   void delete_last();
   const Branch &first_child() {
-    assert(children_at(len()).size());
-    return children_at(len()).begin()->first;
+    assert(parent_at(len()).size());
+    return parent_at(len()).begin().branch();
   }
   void enter_first_child(Event event);
   void push(Branch branch, Event event);
