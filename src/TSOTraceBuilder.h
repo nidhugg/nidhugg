@@ -417,6 +417,11 @@ protected:
   };
 
   std::string iid_string(std::size_t pos) const;
+  std::string slp_string(const VecSet<IPid> &slp) const;
+  std::string branch_string(const Branch &b) const;
+  void wut_string_add_node(std::vector<std::string> &lines,
+                           unsigned line, Branch branch,
+                           WakeupTreeRef<Branch> node) const;
   void add_noblock_race(int event);
   void add_lock_race(const Mutex &m, int event);
   void do_race_detect();

@@ -331,35 +331,97 @@ std::string TSOTraceBuilder::iid_string(std::size_t pos) const{
   return ss.str();
 }
 
+std::string TSOTraceBuilder::slp_string(const VecSet<IPid> &slp) const {
+  std::string res = "{";
+  for(int i = 0; i < slp.size(); ++i){
+    if(i != 0) res += ", ";
+    res += threads[slp[i]].cpid.to_string();
+  }
+  res += "}";
+  return res;
+}
+
+std::string TSOTraceBuilder::branch_string(const Branch &b) const{
+  std::string ret = threads[b.pid].cpid.to_string();
+  if(b.alt != 0){
+    ret += "-alt:" + std::to_string(b.alt);
+  }
+  if(b.size != 1){
+    ret += "*" + std::to_string(b.size);
+  }
+  return ret;
+}
+
+/* For debug-printing the wakeup tree; adds a node and its children to lines */
+void TSOTraceBuilder::wut_string_add_node
+(std::vector<std::string> &lines, unsigned line, Branch branch,
+ WakeupTreeRef<Branch> node) const{
+  unsigned offset = 2 + ((lines.size() < line)?0:lines[line].size());
+
+  std::vector<std::pair<Branch,WakeupTreeRef<Branch>>> nodes({{branch,node}});
+  unsigned l = line;
+  WakeupTreeRef<Branch> n = node;
+  Branch b = branch;
+  while (n.size()) {
+    b = n.begin().branch();
+    n = n.begin().node();
+    ++l;
+    nodes.push_back({b,n});
+    if (l < lines.size()) offset = std::max(offset, unsigned(lines[l].size()));
+  }
+  if (lines.size() < l+1) lines.resize(l+1, "");
+  /* First node needs different padding, so we do it here*/
+  lines[line] += " ";
+  while(lines[line].size() < offset) lines[line] += "-";
+
+  while(nodes.size()) {
+    l = line+nodes.size()-1;
+    b = nodes.back().first;
+    n = nodes.back().second;
+    while(lines[l].size() < offset) lines[l] += " ";
+    lines[l] += " " + branch_string(b);
+    for (auto ci = n.begin(); ci != n.end(); ++ci) {
+      if (ci == n.begin()) continue;
+      wut_string_add_node(lines, l+1, ci.branch(), ci.node());
+    }
+    nodes.pop_back();
+  }
+}
+
 void TSOTraceBuilder::debug_print() const {
   llvm::dbgs() << "TSOTraceBuilder (debug print):\n";
   int iid_offs = 0;
   int clock_offs = 0;
+  std::vector<std::string> lines;
   VecSet<IPid> sleep_set;
   for(unsigned i = 0; i < prefix.len(); ++i){
     IPid ipid = prefix[i].iid.get_pid();
     iid_offs = std::max(iid_offs,2*ipid+int(iid_string(i).size()));
     clock_offs = std::max(clock_offs,int(prefix[i].clock.to_string().size()));
+    sleep_set.insert(prefix[i].sleep);
+    lines.push_back(" SLP:" + slp_string(sleep_set));
+    sleep_set.erase(prefix[i].wakeup);
   }
+
+  /* Add wakeup tree */
+  for(int i = prefix.len()-1; 0 <= i; --i){
+    auto node = prefix.parent_at(i);
+    for (auto it = node.begin(); it != node.end(); ++it) {
+      Branch b = it.branch();
+      if (b == prefix.branch(i)) continue; /* Only print others */
+      wut_string_add_node(lines, i, it.branch(), it.node());
+    }
+  }
+
   for(unsigned i = 0; i < prefix.len(); ++i){
     IPid ipid = prefix[i].iid.get_pid();
     llvm::dbgs() << rpad("",2+ipid*2)
                  << rpad(iid_string(i),iid_offs-ipid*2)
-                 << " " << rpad(prefix[i].clock.to_string(),clock_offs);
-    sleep_set.insert(prefix[i].sleep);
-    llvm::dbgs() << " SLP:{";
-    for(int i = 0; i < sleep_set.size(); ++i){
-      if(i != 0) llvm::dbgs() << ", ";
-      llvm::dbgs() << threads[sleep_set[i]].cpid;
-    }
-    llvm::dbgs() << "}";
-    if(prefix.children_after(i)){
-      llvm::dbgs() << " branches scheduled: " << prefix.children_after(i);
-    }
-    llvm::dbgs() << "\n";
-    for(IPid p : prefix[i].wakeup){
-      sleep_set.erase(p);
-    }
+                 << " " << rpad(prefix[i].clock.to_string(),clock_offs)
+                 << lines[i] << "\n";
+  }
+  for (unsigned i = prefix.len(); i < lines.size(); ++i){
+    llvm::dbgs() << rpad("", iid_offs + clock_offs) << lines[i] << "\n";
   }
   if(errors.size()){
     llvm::dbgs() << "Errors:\n";
