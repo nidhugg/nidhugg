@@ -417,6 +417,7 @@ protected:
   };
 
   std::string iid_string(std::size_t pos) const;
+  std::string iid_string(const Branch &branch, int index) const;
   std::string slp_string(const VecSet<IPid> &slp) const;
   std::string branch_string(const Branch &b) const;
   void wut_string_add_node(std::vector<std::string> &lines,

@@ -317,12 +317,14 @@ static std::string rpad(std::string s, int n){
 }
 
 std::string TSOTraceBuilder::iid_string(std::size_t pos) const{
-  const Event &evt = prefix[pos];
-  const Branch &branch = prefix.branch(pos);
+  return iid_string(prefix.branch(pos), prefix[pos].iid.get_index());
+}
+
+std::string TSOTraceBuilder::iid_string(const Branch &branch, int index) const{
   std::stringstream ss;
-  ss << "(" << threads[evt.iid.get_pid()].cpid << "," << evt.iid.get_index();
+  ss << "(" << threads[branch.pid].cpid << "," << index;
   if(branch.size > 1){
-    ss << "-" << evt.iid.get_index() + branch.size - 1;
+    ss << "-" << index + branch.size - 1;
   }
   ss << ")";
   if(branch.alt != 0){
@@ -341,24 +343,14 @@ std::string TSOTraceBuilder::slp_string(const VecSet<IPid> &slp) const {
   return res;
 }
 
-std::string TSOTraceBuilder::branch_string(const Branch &b) const{
-  std::string ret = threads[b.pid].cpid.to_string();
-  if(b.alt != 0){
-    ret += "-alt:" + std::to_string(b.alt);
-  }
-  if(b.size != 1){
-    ret += "*" + std::to_string(b.size);
-  }
-  return ret;
-}
-
 /* For debug-printing the wakeup tree; adds a node and its children to lines */
 void TSOTraceBuilder::wut_string_add_node
-(std::vector<std::string> &lines, unsigned line, Branch branch,
- WakeupTreeRef<Branch> node) const{
+(std::vector<std::string> &lines, std::vector<int> &iid_map,
+ unsigned line, Branch branch, WakeupTreeRef<Branch> node) const{
   unsigned offset = 2 + ((lines.size() < line)?0:lines[line].size());
 
   std::vector<std::pair<Branch,WakeupTreeRef<Branch>>> nodes({{branch,node}});
+  iid_map[branch.pid] += branch.size;
   unsigned l = line;
   WakeupTreeRef<Branch> n = node;
   Branch b = branch;
@@ -367,6 +359,7 @@ void TSOTraceBuilder::wut_string_add_node
     n = n.begin().node();
     ++l;
     nodes.push_back({b,n});
+    iid_map[b.pid] += b.size;
     if (l < lines.size()) offset = std::max(offset, unsigned(lines[l].size()));
   }
   if (lines.size() < l+1) lines.resize(l+1, "");
@@ -378,12 +371,13 @@ void TSOTraceBuilder::wut_string_add_node
     l = line+nodes.size()-1;
     b = nodes.back().first;
     n = nodes.back().second;
-    while(lines[l].size() < offset) lines[l] += " ";
-    lines[l] += " " + branch_string(b);
     for (auto ci = n.begin(); ci != n.end(); ++ci) {
       if (ci == n.begin()) continue;
-      wut_string_add_node(lines, l+1, ci.branch(), ci.node());
+      wut_string_add_node(lines, iid_map, l+1, ci.branch(), ci.node());
     }
+    iid_map[b.pid] -= b.size;
+    while(lines[l].size() < offset) lines[l] += " ";
+    lines[l] += " " + iid_string(b, iid_map[b.pid]);
     nodes.pop_back();
   }
 }
@@ -404,12 +398,14 @@ void TSOTraceBuilder::debug_print() const {
   }
 
   /* Add wakeup tree */
+  std::vector<int> iid_map = iid_map_at(prefix.len());
   for(int i = prefix.len()-1; 0 <= i; --i){
     auto node = prefix.parent_at(i);
+    iid_map[prefix.branch(i).pid] -= prefix.branch(i).size;
     for (auto it = node.begin(); it != node.end(); ++it) {
       Branch b = it.branch();
       if (b == prefix.branch(i)) continue; /* Only print others */
-      wut_string_add_node(lines, i, it.branch(), it.node());
+      wut_string_add_node(lines, iid_map, i, it.branch(), it.node());
     }
   }
 
@@ -421,7 +417,7 @@ void TSOTraceBuilder::debug_print() const {
                  << lines[i] << "\n";
   }
   for (unsigned i = prefix.len(); i < lines.size(); ++i){
-    llvm::dbgs() << rpad("", iid_offs + clock_offs) << lines[i] << "\n";
+    llvm::dbgs() << std::string(2+iid_offs + 1+clock_offs, ' ') << lines[i] << "\n";
   }
   if(errors.size()){
     llvm::dbgs() << "Errors:\n";
