@@ -91,6 +91,10 @@ static llvm::cl::list<std::string> cl_extfun_no_race("extfun-no-race",llvm::cl::
                                                                         "does not participate in any races. (See manual.)\n"
                                                                         "May be given multiple times."));
 
+static llvm::cl::opt<bool> cl_debug_print_on_reset
+("debug-print-on-reset",llvm::cl::Hidden,
+ llvm::cl::desc("Print debug info after exploring each trace."));
+
 const std::set<std::string> &Configuration::commandline_opts(){
   static std::set<std::string> opts = {
     "dpor-explore-all",
@@ -126,6 +130,7 @@ void Configuration::assign_by_commandline(){
   transform_loop_unroll = cl_transform_loop_unroll;
   print_progress = cl_print_progress || cl_print_progress_estimate;
   print_progress_estimate = cl_print_progress_estimate;
+  debug_print_on_reset = cl_debug_print_on_reset;
   argv.resize(1);
   argv[0] = get_default_program_name();
   for(std::string a : cl_program_arguments){
