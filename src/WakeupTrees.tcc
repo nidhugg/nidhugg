@@ -42,16 +42,14 @@ void WakeupTreeExplorationBuffer<Branch,Event>::delete_last() {
   assert(child_list.size());
   assert(child_list.front().first == lastbranch());
   child_list.pop_front();
-
   prefix.pop_back();
 }
 
 template <typename Branch, typename Event>
 void WakeupTreeExplorationBuffer<Branch,Event>::enter_first_child(Event event) {
   assert(parent_at(len()).size());
-  const Branch       &branch = parent_at(len()).begin().branch();
   WakeupTreeRef<Branch> node = parent_at(len()).begin().node();
-  prefix.push_back({std::move(event), branch, node});
+  prefix.push_back({std::move(event), node});
 }
 
 template <typename Branch, typename Event>
@@ -59,16 +57,14 @@ void WakeupTreeExplorationBuffer<Branch,Event>::push
 (Branch branch, Event event) {
   WakeupTreeRef<Branch> node = parent_at(len());
   assert(node.size() == 0);
-  WakeupTreeRef<Branch> new_node = node.put_child(branch);
-  prefix.push_back({std::move(event), std::move(branch),
-        WakeupTreeRef<Branch>(new_node)});
+  WakeupTreeRef<Branch> new_node = node.put_child(std::move(branch));
+  prefix.push_back({std::move(event), WakeupTreeRef<Branch>(new_node)});
 }
 
 template <typename Branch, typename Event>
 void WakeupTreeExplorationBuffer<Branch,Event>::set_last_branch(Branch b){
   WakeupTreeRef<Branch> par = parent_at(len()-1);
   assert(par.size() == 1 || b == lastbranch());
-  prefix.back().branch = b;
   assert(par->children.front().first == b);
   par->children.front().first = std::move(b);
 }

@@ -78,10 +78,6 @@ public:
 
   WakeupTreeRef put_child(Branch b);
   bool has_child(const Branch &b) const;
-  WakeupTreeRef child(const Branch &b) {
-    assert(has_child(b));
-    return {node->children[node].second};
-  }
 
 private:
   const WakeupTree<Branch> *operator->(void) const { return node; }
@@ -99,7 +95,6 @@ class WakeupTreeExplorationBuffer {
 private:
   struct ExplorationNode {
     Event event;
-    Branch branch; /* only change with set_last_branch */
     WakeupTreeRef<Branch> node;
   };
   WakeupTree<Branch> tree;
@@ -110,7 +105,9 @@ public:
   std::size_t len() const noexcept { return prefix.size(); }
   Event &operator[](std::size_t i) { assert(i < len()); return prefix[i].event; }
   const Event &operator[](std::size_t i) const { assert(i < len()); return prefix[i].event; }
-  const Branch &branch(std::size_t i) const { assert(i < len()); return prefix[i].branch; }
+  const Branch &branch(std::size_t i) const {
+    return parent_at(i)->children.front().first;
+  }
   WakeupTreeRef<Branch> node(std::size_t i) { assert(i < len()); return prefix[i].node; }
   WakeupTreeRef<Branch> parent_at(std::size_t i) {
     assert(i <= len());
@@ -127,7 +124,7 @@ public:
     return parent_at(pos).size() - 1;
   }
   Event &last() { return prefix.back().event; }
-  const Branch &lastbranch() { return prefix.back().branch; }
+  const Branch &lastbranch() { return parent_at(len()-1)->children.front().first; }
   void set_last_branch(Branch b);
   WakeupTreeRef<Branch> lastnode() { return prefix.back().node; }
   void delete_last();
