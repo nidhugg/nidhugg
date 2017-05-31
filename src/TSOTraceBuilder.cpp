@@ -1012,13 +1012,13 @@ void TSOTraceBuilder::add_lock_race(const Mutex &m, int event){
 }
 
 bool TSOTraceBuilder::are_events_racing
-(const Event &fst, const Event &snd) const{
-  assert(fst.clock != snd.clock);
-  if (snd.clock.leq(fst.clock)) return are_events_racing(snd, fst);
-  if (!fst.clock.lt(snd.clock)) return false;
+(const VClock<int> &fst, const VClock<int> &snd) const{
+  assert(fst != snd);
+  if (snd.leq(fst)) return are_events_racing(snd, fst);
+  if (!fst.lt(snd)) return false;
   for (unsigned k = 0; k < prefix.len(); ++k) {
-    if (fst.clock.lt(prefix[k].clock)
-        && prefix[k].clock.lt(snd.clock)
+    if (fst.lt(prefix[k].clock)
+        && prefix[k].clock.lt(snd)
         && prefix[k].may_conflict)
       return false;
   }
@@ -1189,7 +1189,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
         return;
       }
       if (ve.second->iid.get_pid() == p
-          || are_events_racing(*ve.second, *sleep_ev)) {
+          || are_events_racing(ve.second->clock, sleep_ev->clock)) {
         /* Dependent */
         dependent = true;
         break;
@@ -1217,15 +1217,31 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
     enum { NO, RECURSE, NEXT } skip = NO;
     for (auto child_it = node.begin(); child_it != node.end(); ++child_it) {
       /* Find this event in prefix */
+#ifndef NDEBUG
+      /* The clock might not be right; only use for debug printing! */
       Event *child_ev;
+#endif
       VClock<IPid> child_clock;
       IID<IPid> child_iid(child_it.branch().pid,
                           iid_map[child_it.branch().pid]);
       for (unsigned k = i;; ++k) {
         assert(k < prefix.len());
-        if (prefix[k].iid == child_iid) {
+        assert(prefix.branch(k).size > 0);
+        if (prefix[k].iid.get_pid() == child_iid.get_pid()
+            && prefix[k].iid.get_index() <= child_iid.get_index()
+            && (prefix[k].iid.get_index() + prefix.branch(k).size)
+               > child_iid.get_index()) {
+#ifndef NDEBUG
           child_ev = &prefix[k];
-          child_clock = child_ev->clock;
+#endif
+          child_clock = prefix[k].clock;
+          /* If the indices of prefix[k].iid and child_iid differ, then the
+           * child event must be an event without global operations. We can
+           * thus compute its vector clock by just increasing the component
+           * for itself.
+           */
+          child_clock[child_it.branch().pid]
+            += prefix[k].iid.get_index() - child_iid.get_index();
           break;
         }
       }
@@ -1233,18 +1249,21 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
       for (auto vei = v.begin(); skip == NO && vei != v.end(); ++vei) {
         std::pair<Branch,Event*> &ve = *vei;
         if (child_it.branch() == ve.first) {
-          assert(child_it.branch().size == ve.first.size);
+          assert(child_it.branch().size >= ve.first.size
+                 || !child_it.node().size());
+          if (v.size() == 1 && child_it.node().size()) {
+            return;
+          }
           /* Drop ve from v and recurse into this node */
-          iid_map[ve.second->iid.get_pid()] += ve.first.size;
-          node = child_it.node();
           v.erase(vei);
+          iid_map[child_it.branch().pid] += child_it.branch().size;
+          node = child_it.node();
           skip = RECURSE;
           break;
         }
 
         if (ve.first.pid == child_it.branch().pid
-            || ve.second->clock.leq(child_clock)
-            || child_clock.leq(ve.second->clock)) {
+            || are_events_racing(ve.second->clock, child_clock)) {
           /* This branch is incompatible, try the next */
           skip = NEXT;
         }
@@ -1252,10 +1271,10 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
       if (skip == RECURSE) break;
       if (skip == NEXT) { skip = NO; continue; }
 
-      if (first->clock.leq(child_clock)) {
-        /* Dependent with the first event; this branch is incompatible */
-        continue;
-      }
+      iid_map[child_it.branch().pid] += child_it.branch().size;
+      node = child_it.node();
+      skip = RECURSE;
+      break;
 
       assert(false && "UNREACHABLE");
       abort();

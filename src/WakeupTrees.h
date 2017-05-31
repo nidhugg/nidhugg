@@ -22,6 +22,7 @@
 
 #include <memory>
 #include <vector>
+#include <deque>
 #include <map>
 #include "Debug.h"
 
@@ -40,7 +41,7 @@ class WakeupTree {
   template <typename Branch_, typename Event>
   friend class WakeupTreeExplorationBuffer;
 private:
-  typedef std::map<Branch,std::unique_ptr<WakeupTree>> children_type;
+  typedef std::deque<std::pair<Branch,std::unique_ptr<WakeupTree>>> children_type;
   children_type children;
 };
 
