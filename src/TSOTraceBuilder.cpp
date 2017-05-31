@@ -649,7 +649,7 @@ void TSOTraceBuilder::mutex_lock(const ConstMRef &ml){
     /* Register conflict with last preceding lock */
     if(!prefix[mutex.last_lock].clock.leq(curev().clock)){
       /* Aren't these blocking too? */
-      add_noblock_race(mutex.last_lock);
+      add_lock_race(mutex, mutex.last_lock);
     }
     curev().clock += prefix[mutex.last_access].clock;
     threads[ipid].clock += prefix[mutex.last_access].clock;
@@ -1011,10 +1011,24 @@ void TSOTraceBuilder::add_lock_race(const Mutex &m, int event){
     (ReversibleRace::Lock(event,prefix_idx,curev().iid,&m));
 }
 
+bool TSOTraceBuilder::are_events_racing
+(const Event &fst, const Event &snd) const{
+  assert(fst.clock != snd.clock);
+  if (snd.clock.leq(fst.clock)) return are_events_racing(snd, fst);
+  if (!fst.clock.lt(snd.clock)) return false;
+  for (unsigned k = 0; k < prefix.len(); ++k) {
+    if (fst.clock.lt(prefix[k].clock)
+        && prefix[k].clock.lt(snd.clock)
+        && prefix[k].may_conflict)
+      return false;
+  }
+  return true;
+}
+
 void TSOTraceBuilder::do_race_detect() {
   /* Do race detection */
   for (const ReversibleRace &race : reversible_races) {
-      race_detect(race);
+    race_detect(race);
   }
   reversible_races.clear();
 }
@@ -1139,9 +1153,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
   std::vector<int> iid_map = iid_map_at(i);
   std::vector<int> siid_map = iid_map;
 
-  isleep.insert(prefix[i].sleep);
-  if (second.iid.get_pid() != first->iid.get_pid())
-    isleep.insert(first->iid.get_pid());
+  isleep.insert(first->sleep);
 
   /* Check for redundant exploration */
   for (auto it = v.cbegin(); it != v.cend(); ++it) {
@@ -1159,6 +1171,35 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
         /* Then the reversal of this race has already been explored */
         return;
       }
+
+  for (IPid p : isleep) {
+    /* Find the next event of the sleeper in prefix */
+    const Event *sleep_ev;
+    const Branch *sleep_br;
+    for (unsigned k = i;; ++k)
+      if (prefix[k].iid.get_pid() == p) {
+        sleep_ev = &prefix[k];
+        sleep_br = &prefix.branch(k);
+        break;
+      }
+    bool dependent = false;
+    for (std::pair<Branch,Event*> ve : v) {
+      if (*sleep_br == ve.first) {
+        assert(false && "Already checked");
+        return;
+      }
+      if (ve.second->iid.get_pid() == p
+          || are_events_racing(*ve.second, *sleep_ev)) {
+        /* Dependent */
+        dependent = true;
+        break;
+      }
+    }
+    if (!dependent) {
+      return;
+    }
+  }
+
     }
   }
 

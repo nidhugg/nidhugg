@@ -419,12 +419,13 @@ protected:
   std::string iid_string(std::size_t pos) const;
   std::string iid_string(const Branch &branch, int index) const;
   std::string slp_string(const VecSet<IPid> &slp) const;
-  std::string branch_string(const Branch &b) const;
   void wut_string_add_node(std::vector<std::string> &lines,
+                           std::vector<int> &iid_map,
                            unsigned line, Branch branch,
                            WakeupTreeRef<Branch> node) const;
   void add_noblock_race(int event);
   void add_lock_race(const Mutex &m, int event);
+  bool are_events_racing(const Event &fst, const Event &snd) const;
   void do_race_detect();
   Event reconstruct_lock_event(const ReversibleRace&);
   void race_detect(const ReversibleRace&);
