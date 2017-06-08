@@ -429,6 +429,65 @@ declare i8* @memcpy(i8*, i8*, i64)
   BOOST_CHECK(opt_res.has_errors());
 }
 
+BOOST_AUTO_TEST_CASE(lastzero_4){
+  Configuration conf = DPORDriver_test::get_sc_conf();
+  std::string module = StrModule::portasm(R"(
+%arr_t = type [5 x i32]
+@array = global %arr_t zeroinitializer, align 16
+
+define i8* @reader(i8*) {
+  br label %2
+
+; <label>:2:                                      ; preds = %2, %1
+  %3 = phi i64 [ %7, %2 ], [ 4, %1 ]
+  %4 = getelementptr inbounds %arr_t, %arr_t* @array, i64 0, i64 %3
+  %5 = load i32, i32* %4, align 4
+  %6 = icmp eq i32 %5, 0
+  %7 = add i64 %3, -1
+  br i1 %6, label %8, label %2
+
+; <label>:8:                                      ; preds = %2
+  ret i8* null
+}
+
+define i8* @writer(i8* %arg) {
+  %j = ptrtoint i8* %arg to i64
+  %jm1 = add i64 %j, -1
+  %p1 = getelementptr inbounds %arr_t, %arr_t* @array, i64 0, i64 %jm1
+  %t1 = load i32, i32* %p1, align 4
+  %t2 = add nsw i32 %t1, 1
+  %p2 = getelementptr inbounds %arr_t, %arr_t* @array, i64 0, i64 %j
+  store i32 %t2, i32* %p2, align 4
+  ret i8* null
+}
+
+define i32 @main() {
+  call i32 @pthread_create(i64* null, %attr_t* null, i8* (i8*)* @reader, i8* null)
+  call i32 @pthread_create(i64* null, %attr_t* null, i8* (i8*)* @writer, i8* inttoptr (i64 1 to i8*))
+  call i32 @pthread_create(i64* null, %attr_t* null, i8* (i8*)* @writer, i8* inttoptr (i64 2 to i8*))
+  call i32 @pthread_create(i64* null, %attr_t* null, i8* (i8*)* @writer, i8* inttoptr (i64 3 to i8*))
+  call i32 @pthread_create(i64* null, %attr_t* null, i8* (i8*)* @writer, i8* inttoptr (i64 4 to i8*))
+  ret i32 0
+}
+
+%attr_t = type { i64, [48 x i8] }
+declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*) nounwind
+)");
+
+  DPORDriver *driver = DPORDriver::parseIR(module, conf);
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module, conf);
+  DPORDriver::Result opt_res = driver->run();
+  delete driver;
+
+  BOOST_CHECK(res.trace_count == 28);
+  BOOST_CHECK(!res.has_errors());
+  BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif
