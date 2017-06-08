@@ -36,6 +36,7 @@ namespace DPORDriver_test {
     static Configuration conf;
     conf.memory_model = Configuration::TSO;
     conf.debug_collect_all_traces = true;
+    conf.explore_all_traces = true;
     return conf;
   }
 
@@ -43,6 +44,7 @@ namespace DPORDriver_test {
     static Configuration conf;
     conf.memory_model = Configuration::SC;
     conf.debug_collect_all_traces = true;
+    conf.explore_all_traces = true;
     return conf;
   }
 
@@ -115,7 +117,8 @@ namespace DPORDriver_test {
 
   bool check_all_traces(const DPORDriver::Result &res,
                         const trace_set_spec &spec,
-                        const Configuration &conf){
+                        const Configuration &conf,
+                        const DPORDriver::Result *optimal){
     if(!conf.debug_collect_all_traces){
       BOOST_WARN_MESSAGE(false,"DPORDriver_test::check_all_traces requires debug_collect_all_traces.");
       return true;
@@ -181,6 +184,89 @@ namespace DPORDriver_test {
         retval = false;
       }
     }
+    if (optimal) {
+      if (!check_optimal_equiv(res, *optimal, conf)) retval = false;
+      if (!check_all_traces(*optimal, spec, conf)) retval = false;
+    }
+    return retval;
+  }
+
+  static bool error_equiv(const Error *a, const Error *b){
+    return a->get_location() == b->get_location()
+      && a->to_string() == b->to_string();
+  }
+
+  static bool trace_equiv(const Trace *a, const Trace *b){
+    if (a->get_errors().size() != b->get_errors().size()) return false;
+    std::list<Error*> bes(b->get_errors().begin(), b->get_errors().end());
+    for (const Error *ae : a->get_errors()) {
+      auto bei = std::find_if(bes.begin(), bes.end(), [ae](Error *be){
+          return error_equiv(ae, be);
+        });
+      if (bei == bes.end()) return false;
+      bei = bes.erase(bei);
+    }
+    return true;
+  }
+
+  bool check_optimal_equiv(const DPORDriver::Result &source,
+                           const DPORDriver::Result &optimal,
+                           const Configuration &conf){
+    bool retval = true;
+    if (optimal.trace_count != source.trace_count) {
+      llvm::dbgs() << "DPORDriver_test::check_optimal_equiv: "
+                   << "Mismatching Source and Optimal trace counts; "
+                   << source.trace_count << " and " << optimal.trace_count
+                   << ".\n";
+      retval = false;
+    }
+    if (optimal.sleepset_blocked_trace_count != 0) {
+      llvm::dbgs() << "DPORDriver_test::check_optimal_equiv: "
+                   << optimal.sleepset_blocked_trace_count
+                   << " sleepset blocked executions in Optimal.\n";
+      retval = false;
+    }
+    if (optimal.has_errors() != source.has_errors()) {
+      llvm::dbgs() << "DPORDriver_test::check_optimal_equiv: "
+                   << "Only " << (optimal.has_errors() ? "Optimal" : "Source")
+                   << "-DPOR reported an error.\n";
+      retval = false;
+    }
+
+    if(!conf.explore_all_traces){
+      BOOST_WARN_MESSAGE(false,"DPORDriver_test::check_optimal_equiv requires debug_collect_all_traces and explore_all_traces.");
+      return retval;
+    }
+
+    std::list<const Trace*> sts, ots;
+    for (const Trace *t : source.all_traces) if(t->has_errors()) sts.push_back(t);
+    for (const Trace *t : optimal.all_traces) if(t->has_errors()) ots.push_back(t);
+
+    for (auto sti = sts.begin(); sti != sts.end();) {
+      auto oti = std::find_if(ots.begin(), ots.end(), [&sti](const Trace *ot){
+          return trace_equiv(*sti, ot);
+        });
+      if (oti == ots.end()) {
+        ++sti;
+        continue;
+      }
+      sti = sts.erase(sti);
+      oti = ots.erase(oti);
+    }
+
+    if (sts.size()) {
+      llvm::dbgs() << "DPORDriver_test::check_optimal_equiv: "
+                   << sts.size() << " traces found by Source-DPOR does not have"
+                   << " any error-equivalents found by Optimal-DPOR.\n";
+      retval = false;
+    }
+    if (ots.size()) {
+      llvm::dbgs() << "DPORDriver_test::check_optimal_equiv: "
+                   << ots.size() << " traces found by Optimal-DPOR does not have"
+                   << " any error-equivalents found by Source-DPOR.\n";
+      retval = false;
+    }
+
     return retval;
   }
 }

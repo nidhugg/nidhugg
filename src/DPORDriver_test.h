@@ -73,10 +73,32 @@ namespace DPORDriver_test {
    * If conf.debug_collect_all_traces == false, then this function
    * returns true without performing any tests, and emits a warning
    * using BOOST_WARN_MESSAGE.
+   *
+   * If optimal != nullptr, also checks that the traces in optimal->all_traces
+   * satisfies spec, and that the results res and *optimal are equivalent using
+   * check_optimal_equiv(). However, if conf.explore_all_traces == false, some
+   * equivalence tests are omitted and a warning is printed using
+   * BOOST_WARN_MESSAGE instead.
    */
   bool check_all_traces(const DPORDriver::Result &res,
                         const trace_set_spec &spec,
-                        const Configuration &conf);
+                        const Configuration &conf,
+                        const DPORDriver::Result *optimal = nullptr);
+
+  /* Sanity-checks a pair of results from Source-DPOR and Optimal-DPOR.
+   * Checks that the number of non-sleepset-blocked executions are the same,
+   * that there is no sleepset blocking in the Optimal-DPOR result, and that the
+   * found error sets are equivalent.
+   *
+   * Returns true iff all checks pass.
+   *
+   * If conf.debug_collect_all_traces == false or conf.explore_all_traces ==
+   * false, then this function returns performs only a basic subset of the
+   * tests, and emits a warning using BOOST_WARN_MESSAGE.
+   */
+  bool check_optimal_equiv(const DPORDriver::Result &source_res,
+                           const DPORDriver::Result &optimal_res,
+                           const Configuration &conf);
 
 }
 
