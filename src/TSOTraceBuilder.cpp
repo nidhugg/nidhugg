@@ -1053,18 +1053,48 @@ void TSOTraceBuilder::record_symbolic(SymEv event){
   }
 }
 
-bool TSOTraceBuilder::are_events_racing
-(const VClock<int> &fst, const VClock<int> &snd) const{
-  assert(fst != snd);
-  if (snd.leq(fst)) return are_events_racing(snd, fst);
-  if (!fst.lt(snd)) return false;
-  for (unsigned k = 0; k < prefix.len(); ++k) {
-    if (fst.lt(prefix[k].clock)
-        && prefix[k].clock.lt(snd)
-        && prefix[k].may_conflict)
+static bool do_events_conflict_(const SymEv &fst, const SymEv &snd) {
+  if (fst.kind == SymEv::NONDET || snd.kind == SymEv::NONDET) return false;
+  if (fst.kind == SymEv::FULLMEM || snd.kind == SymEv::FULLMEM) return true;
+  if (fst.kind == SymEv::LOAD && snd.kind == SymEv::LOAD) return false;
+
+  /* Really crude. Is it enough? */
+  if (fst.has_addr()) {
+    if (snd.has_addr()) {
+      return fst.addr().overlaps(snd.addr());
+    } else if (snd.has_apair()) {
+      return fst.addr().overlaps(snd.apair1())
+        || fst.addr().overlaps(snd.apair2());
+    } else {
       return false;
+    }
+  } else if (fst.has_apair()) {
+    if (snd.has_addr()) {
+      return fst.apair1().overlaps(snd.addr())
+        || fst.apair1().overlaps(snd.addr());
+    } else if (snd.has_apair()) {
+      return fst.apair1().overlaps(snd.apair1())
+        || fst.apair1().overlaps(snd.apair2())
+        || fst.apair2().overlaps(snd.apair1())
+        || fst.apair2().overlaps(snd.apair2());
+    } else {
+      return false;
+    }
+  } else {
+    return false;
   }
-  return true;
+}
+
+bool TSOTraceBuilder::do_events_conflict
+(const Event::sym_ty &fst, const Event::sym_ty &snd) const{
+  for (const SymEv &fe : fst) {
+    for (const SymEv &se : snd) {
+      if (do_events_conflict_(fe, se)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 void TSOTraceBuilder::do_race_detect() {
@@ -1231,7 +1261,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
         return;
       }
       if (ve.second->iid.get_pid() == p
-          || are_events_racing(ve.second->clock, sleep_ev->clock)) {
+          || do_events_conflict(ve.second->sym, sleep_ev->sym)) {
         /* Dependent */
         dependent = true;
         break;
@@ -1263,7 +1293,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
       /* The clock might not be right; only use for debug printing! */
       Event *child_ev;
 #endif
-      VClock<IPid> child_clock;
+      Event::sym_ty child_sym;
       IID<IPid> child_iid(child_it.branch().pid,
                           iid_map[child_it.branch().pid]);
       for (unsigned k = i;; ++k) {
@@ -1276,14 +1306,13 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
 #ifndef NDEBUG
           child_ev = &prefix[k];
 #endif
-          child_clock = prefix[k].clock;
-          /* If the indices of prefix[k].iid and child_iid differ, then the
-           * child event must be an event without global operations. We can
-           * thus compute its vector clock by just increasing the component
-           * for itself.
-           */
-          child_clock[child_it.branch().pid]
-            += prefix[k].iid.get_index() - child_iid.get_index();
+          child_sym = prefix[k].sym;
+          if (prefix[k].iid.get_index() != child_iid.get_index()) {
+            /* If the indices of prefix[k].iid and child_iid differ, then the
+             * child event must be an event without global operations.
+             */
+            child_sym.clear();
+          }
           break;
         }
       }
@@ -1305,7 +1334,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
         }
 
         if (ve.first.pid == child_it.branch().pid
-            || are_events_racing(ve.second->clock, child_clock)) {
+            || do_events_conflict(ve.second->sym, child_sym)) {
           /* This branch is incompatible, try the next */
           skip = NEXT;
         }

@@ -437,7 +437,8 @@ protected:
                            WakeupTreeRef<Branch> node) const;
   void add_noblock_race(int event);
   void add_lock_race(const Mutex &m, int event);
-  bool are_events_racing(const VClock<int> &fst, const VClock<int> &snd) const;
+  bool do_events_conflict(const Event::sym_ty &fst,
+                          const Event::sym_ty &snd) const;
   void do_race_detect();
   Event reconstruct_lock_event(const ReversibleRace&);
   void race_detect(const ReversibleRace&);
