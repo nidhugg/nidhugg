@@ -23,6 +23,7 @@
 
 #include "TSOPSOTraceBuilder.h"
 #include "VClock.h"
+#include "SymEv.h"
 #include "WakeupTrees.h"
 
 class TSOTraceBuilder : public TSOPSOTraceBuilder{
@@ -295,8 +296,8 @@ protected:
   public:
     Event(const IID<IPid> &iid,
           const VClock<IPid> &clk)
-      : iid(iid), origin_iid(iid), md(0), clock(clk),
-        may_conflict(false), sleep_branch_trace_count(0) {};
+      : iid(iid), origin_iid(iid), md(0), clock(clk), may_conflict(false),
+        sym(), sleep_branch_trace_count(0) {};
     /* The identifier for the first event in this event sequence. */
     IID<IPid> iid;
     /* The IID of the program instruction which is the origin of this
@@ -312,6 +313,11 @@ protected:
      * conflict with another event?
      */
     bool may_conflict;
+    /* Symbolic representation of the globally visible operation of this event.
+     * Empty iff !may_conflict
+     */
+    typedef llvm::SmallVector<SymEv,1> sym_ty;
+    sym_ty sym;
     /* The set of threads that go to sleep immediately before this
      * event sequence.
      */
@@ -375,6 +381,12 @@ protected:
    */
   int prefix_idx;
 
+  /* The index of the currently expected symbolic event, as an index into
+   * curev().sym. Equal to curev().sym.size() (or 0 when prefix_idx == -1) when
+   * not replaying.
+   */
+  unsigned sym_idx;
+
   /* Are we currently executing an event in dry run mode? */
   bool dryrun;
 
@@ -437,6 +449,9 @@ protected:
    * be negative. In the latter case they are ignored.
    */
   void see_events(const VecSet<int> &seen);
+  /* Records a symbolic representation of the current event.
+   */
+  void record_symbolic(SymEv event);
   /* Traverses prefix to compute the set of threads that were sleeping
    * as the first event of prefix[i] started executing. Returns that
    * set.

@@ -27,6 +27,7 @@ libnidhugg_a_SOURCES = \
   SigSegvHandler.cpp SigSegvHandler.h \
   SpinAssumePass.cpp SpinAssumePass.h \
   StrModule.cpp StrModule.h \
+  SymEv.cpp SymEv.h \
   Trace.cpp Trace.h \
   TraceBuilder.cpp TraceBuilder.h \
   Transform.cpp Transform.h \
