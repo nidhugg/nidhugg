@@ -53,12 +53,15 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       *alt = 0;
       assert(threads[pid].available);
       ++threads[pid].clock[pid];
+      threads[pid].event_indices.push_back(prefix_idx);
       return true;
     }else if(prefix_idx + 1 == int(prefix.len()) && prefix.lastnode().size() == 0){
       /* We are done replaying. Continue below... */
       assert(prefix_idx < 0 || curev().sym.size() == sym_idx);
       replay = false;
       assert(conf.dpor_algorithm != Configuration::OPTIMAL
+            || (errors.size() && errors.back()->get_location()
+                == IID<CPid>(threads[curev().iid.get_pid()].cpid, curev().iid.get_index()))
             || std::all_of(threads.cbegin(), threads.cend(),
                            [](const Thread &t) { return !t.sleeping; }));
     }else if(prefix_idx + 1 != int(prefix.len()) &&
@@ -96,6 +99,7 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       *alt = curbranch().alt;
       assert(threads[pid].available);
       ++threads[pid].clock[pid];
+      threads[pid].event_indices.push_back(prefix_idx);
       curev().clock = threads[pid].clock;
       return true;
     }
@@ -119,6 +123,7 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
     Branch b = curbranch();
     ++b.size;
     prefix.set_last_branch(std::move(b));
+    threads[curev().iid.get_pid()].event_indices.back() = prefix_idx;
   }
 
   /* Create a new Event */
@@ -137,6 +142,7 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
     if(threads[p].available && !threads[p].sleeping &&
        (conf.max_search_depth < 0 || threads[p].clock[p] < conf.max_search_depth)){
       ++threads[p].clock[p];
+      threads[p].event_indices.push_back(prefix_idx);
       prefix.push(Branch(IPid(p)),
                   Event(IID<IPid>(IPid(p),threads[p].clock[p]),
                         threads[p].clock));
@@ -150,6 +156,7 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
     if(threads[p].available && !threads[p].sleeping &&
        (conf.max_search_depth < 0 || threads[p].clock[p] < conf.max_search_depth)){
       ++threads[p].clock[p];
+      threads[p].event_indices.push_back(prefix_idx);
       prefix.push(Branch(IPid(p)),
                   Event(IID<IPid>(IPid(p),threads[p].clock[p]),
                         threads[p].clock));
@@ -173,6 +180,7 @@ void TSOTraceBuilder::refuse_schedule(){
   assert(prefix.children_after(prefix_idx) == 0);
   IPid last_pid = prefix.last().iid.get_pid();
   prefix.delete_last();
+  threads[last_pid].event_indices.pop_back();
   --prefix_idx;
   --threads[last_pid].clock[last_pid];
   mark_unavailable(last_pid/2,last_pid % 2 - 1);
@@ -250,6 +258,68 @@ bool TSOTraceBuilder::reset(){
     debug_print();
     llvm::dbgs() << " =============================\n";
   }
+
+#ifndef NDEBUG
+  /* The if-statement is just so we can control which test cases need to
+   *  satisfy this assertion for now. Eventually, all should.
+   */
+  if (conf.dpor_algorithm == Configuration::OPTIMAL)
+  {
+    /* Check for SymEv<->VClock equivalence
+     * SymEv considers that event i happens after event j iff there is a
+     * subsequence s of i..j including i and j s.t.
+     *   forall 0 <= k < len(s)-1. do_events_conflict(s[k], s[k+1])
+     * As checking all possible subseqences is exponential, we instead rely on
+     * the fact that we've already verified the SymEv<->VClock equivalence of
+     * any pair in 0..i-1. Thus, it is sufficient to check whether i has a
+     * conflict with some event k which has a vector clock strictly greater than
+     * j.
+     */
+    /* The frontier is the set of events such that e is the first event of pid
+     * that happen after the event.
+     */
+    std::vector<unsigned> frontier;
+    for (unsigned i = 0; i < prefix.len(); ++i) {
+      const Event &e = prefix[i];
+      const IPid pid = e.iid.get_pid();
+      const Event *prev
+        = (e.iid.get_index() == 1 ? nullptr
+           : &prefix[find_process_event(pid, e.iid.get_index()-1)]);
+      if (i == prefix.len() - 1 && errors.size() &&
+          errors.back()->get_location()
+          == IID<CPid>(threads[pid].cpid, e.iid.get_index())) {
+        /* Ignore dependency differences with the errored event in aborted
+         * executions
+         */
+        break;
+      }
+      for (unsigned j = i-1; j != unsigned(-1); --j) {
+        bool iafterj = false;
+        if (prefix[j].iid.get_pid() == pid
+            || do_events_conflict(e, prefix[j])) {
+          iafterj = true;
+          if (!prev || !prefix[j].clock.leq(prev->clock)) {
+            frontier.push_back(j);
+          }
+        } else if (prev && prefix[j].clock.leq(prev->clock)) {
+          iafterj = true;
+        } else {
+          for (unsigned k : frontier) {
+            if (prefix[j].clock.leq(prefix[k].clock)) {
+              iafterj = true;
+              break;
+            }
+          }
+        }
+
+        assert(iafterj == prefix[j].clock.leq(e.clock));
+      }
+
+      /* Cleanup */
+      frontier.clear();
+    }
+  }
+#endif
 
   int i;
   for(i = int(prefix.len())-1; 0 <= i; --i){
@@ -1068,6 +1138,12 @@ void TSOTraceBuilder::record_symbolic(SymEv event){
   }
 }
 
+bool TSOTraceBuilder::do_events_conflict
+(const Event &fst, const Event &snd) const{
+  return do_events_conflict(fst.iid.get_pid(), fst.sym,
+                            snd.iid.get_pid(), snd.sym);
+}
+
 bool TSOTraceBuilder::do_symevs_conflict
 (IPid fst_pid, const SymEv &fst,
  IPid snd_pid, const SymEv &snd) const {
@@ -1246,30 +1322,27 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
       /* Is this a weak initial of v? */
       if (!std::any_of(v.cbegin(), it,
                        [&](const std::pair<Branch,Event*> &e){
-                         return e.second->clock.leq(it->second->clock);
+                         return do_events_conflict(*e.second, *it->second);
                        })) {
         /* Then the reversal of this race has already been explored */
         return;
       }
+    }
+  }
 
   for (IPid p : isleep) {
     /* Find the next event of the sleeper in prefix */
-    const Event *sleep_ev;
-    const Branch *sleep_br;
-    for (unsigned k = i;; ++k)
-      if (prefix[k].iid.get_pid() == p) {
-        sleep_ev = &prefix[k];
-        sleep_br = &prefix.branch(k);
-        break;
-      }
+    unsigned k = find_process_event(p, iid_map[p]);
+    assert(int(k) >= i);
+    const Event *sleep_ev = &prefix[k];
+    const Branch *sleep_br = &prefix.branch(k);
     bool dependent = false;
     for (std::pair<Branch,Event*> ve : v) {
       if (*sleep_br == ve.first) {
         assert(false && "Already checked");
         return;
       }
-      if (do_events_conflict(ve.second->iid.get_pid(), ve.second->sym,
-                             p, sleep_ev->sym)) {
+      if (do_events_conflict(*ve.second, *sleep_ev)) {
         /* Dependent */
         dependent = true;
         break;
@@ -1277,9 +1350,6 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
     }
     if (!dependent) {
       return;
-    }
-  }
-
     }
   }
 
@@ -1297,32 +1367,20 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
     enum { NO, RECURSE, NEXT } skip = NO;
     for (auto child_it = node.begin(); child_it != node.end(); ++child_it) {
       /* Find this event in prefix */
-#ifndef NDEBUG
-      /* The clock might not be right; only use for debug printing! */
-      Event *child_ev;
-#endif
       Event::sym_ty child_sym;
       IID<IPid> child_iid(child_it.branch().pid,
                           iid_map[child_it.branch().pid]);
-      for (unsigned k = i;; ++k) {
-        assert(k < prefix.len());
-        assert(prefix.branch(k).size > 0);
-        if (prefix[k].iid.get_pid() == child_iid.get_pid()
-            && prefix[k].iid.get_index() <= child_iid.get_index()
-            && (prefix[k].iid.get_index() + prefix.branch(k).size)
-               > child_iid.get_index()) {
+      unsigned k = find_process_event(child_iid.get_pid(), child_iid.get_index());
 #ifndef NDEBUG
-          child_ev = &prefix[k];
+      /* The clock and sym might not be right; only use for debug printing! */
+      Event *child_ev = &prefix[k];
 #endif
-          child_sym = prefix[k].sym;
-          if (prefix[k].iid.get_index() != child_iid.get_index()) {
-            /* If the indices of prefix[k].iid and child_iid differ, then the
-             * child event must be an event without global operations.
-             */
-            child_sym.clear();
-          }
-          break;
-        }
+      child_sym = prefix[k].sym;
+      if (prefix[k].iid.get_index() != child_iid.get_index()) {
+        /* If the indices of prefix[k].iid and child_iid differ, then the
+         * child event must be an event without global operations.
+         */
+        child_sym.clear();
       }
 
       for (auto vei = v.begin(); skip == NO && vei != v.end(); ++vei) {
@@ -1391,7 +1449,26 @@ TSOTraceBuilder::Event TSOTraceBuilder::reconstruct_lock_event
   } while(last--);
   /* Recompute the clock of this mutex_lock_fail */
   ++mutex_clock[p];
-  return Event(race.second_process, std::move(mutex_clock));
+  Event ret(race.second_process, std::move(mutex_clock));
+
+  assert(std::any_of(prefix[race.first_event].sym.begin(),
+                     prefix[race.first_event].sym.end(),
+                     [](SymEv &e){ return e.kind == SymEv::M_LOCK; }));
+  ret.sym = prefix[race.first_event].sym;
+  return ret;
+}
+
+unsigned TSOTraceBuilder::find_process_event(IPid pid, int index){
+  assert(pid >= 0 && pid < int(threads.size()));
+  assert(index >= 1 && index <= int(threads[pid].event_indices.size()));
+  unsigned k = threads[pid].event_indices[index-1];
+  assert(k < prefix.len());
+  assert(prefix.branch(k).size > 0);
+  assert(prefix[k].iid.get_pid() == pid
+         && prefix[k].iid.get_index() <= index
+         && (prefix[k].iid.get_index() + prefix.branch(k).size) > index);
+
+  return k;
 }
 
 bool TSOTraceBuilder::has_pending_store(IPid pid, void const *ml) const {

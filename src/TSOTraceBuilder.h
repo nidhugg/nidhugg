@@ -134,6 +134,9 @@ protected:
      * thread.
      */
     VClock<IPid> clock;
+    /* Indices in prefix of the events of this process.
+     */
+    std::vector<unsigned> event_indices;
     /* The store buffer of this thread. The store buffer is kept in
      * the Thread object for the real thread, not for the auxiliary.
      *
@@ -429,6 +432,11 @@ protected:
     return prefix.branch(prefix_idx);
   };
 
+  /* Finds the index in prefix of the event of process pid that has iid-index
+   * index.
+   */
+  unsigned find_process_event(IPid pid, int index);
+
   std::string iid_string(std::size_t pos) const;
   std::string iid_string(const Branch &branch, int index) const;
   std::string slp_string(const VecSet<IPid> &slp) const;
@@ -438,6 +446,7 @@ protected:
                            WakeupTreeRef<Branch> node) const;
   void add_noblock_race(int event);
   void add_lock_race(const Mutex &m, int event);
+  bool do_events_conflict(const Event &fst, const Event &snd) const;
   bool do_events_conflict(IPid fst_pid, const Event::sym_ty &fst,
                           IPid snd_pid, const Event::sym_ty &snd) const;
   bool do_symevs_conflict(IPid fst_pid, const SymEv &fst,
