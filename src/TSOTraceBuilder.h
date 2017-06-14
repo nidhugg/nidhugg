@@ -62,6 +62,7 @@ public:
   virtual bool cond_signal(const ConstMRef &ml);
   virtual bool cond_broadcast(const ConstMRef &ml);
   virtual bool cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex_ml);
+  virtual bool cond_awake(const ConstMRef &cond_ml, const ConstMRef &mutex_ml);
   virtual int cond_destroy(const ConstMRef &ml);
   virtual void register_alternatives(int alt_count);
   virtual int estimate_trace_count() const;
@@ -437,8 +438,10 @@ protected:
                            WakeupTreeRef<Branch> node) const;
   void add_noblock_race(int event);
   void add_lock_race(const Mutex &m, int event);
-  bool do_events_conflict(const Event::sym_ty &fst,
-                          const Event::sym_ty &snd) const;
+  bool do_events_conflict(IPid fst_pid, const Event::sym_ty &fst,
+                          IPid snd_pid, const Event::sym_ty &snd) const;
+  bool do_symevs_conflict(IPid fst_pid, const SymEv &fst,
+                          IPid snd_pid, const SymEv &snd) const;
   void do_race_detect();
   Event reconstruct_lock_event(const ReversibleRace&);
   void race_detect(const ReversibleRace&);

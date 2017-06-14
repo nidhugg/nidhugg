@@ -113,7 +113,7 @@ protected:
   /* A Thread object keeps track of each running thread. */
   class Thread{
   public:
-    Thread() : RandEng(42), pending_mutex_lock(0) {};
+    Thread() : RandEng(42), pending_mutex_lock(0), pending_condvar_awake(0) {};
     /* The complex thread identifier of this thread. */
     CPid cpid;
     /* The runtime stack of executing code. The top of the stack is the
@@ -134,16 +134,15 @@ protected:
      * will be the same (per thread) in every execution.
      */
     std::minstd_rand RandEng;
-    /* If it is the case that the next instruction should lock a mutex
-     * lock (in particular this happens immediately after a
-     * pthread_cond_wait) then pending_mutex_lock is a pointer to that
-     * pthread mutex object. The next instruction will then act as a
-     * pthread_mutex_lock(pending_mutex_lock) in addition to its
-     * normal semantics.
+    /* If this thread was suspended by calling pthread_cond_wait(cnd, lck),
+     * then pendinc_condvar_awake == cnd and pending_mutex_lock == lck.
+     * The next instruction will then do a pthread_cond_awake(cnd, lck)
+     * (which reacquires lck) in addition to its normal semantics.
      *
-     * pending_mutex_lock == 0 otherwise.
+     * pending_mutex_lock == 0 and pending_condvar_awake == 0 otherwise.
      */
     void *pending_mutex_lock;
+    void *pending_condvar_awake;
     /* Thread local global values are stored here. */
     std::map<GlobalValue*,GenericValue> ThreadLocalValues;
   };
@@ -573,6 +572,7 @@ protected:  // Helper functions
   virtual void callPthreadCondSignal(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callPthreadCondBroadcast(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callPthreadCondWait(Function *F, const std::vector<GenericValue> &ArgVals);
+  virtual void doPthreadCondAwake(void *cnd, void *lck);
   virtual void callPthreadCondDestroy(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callAssume(Function *F, const std::vector<GenericValue> &ArgVals);

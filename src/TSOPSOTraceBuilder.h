@@ -184,6 +184,14 @@ public:
    * generated.
    */
   virtual bool cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex_ml) = 0;
+  /* Get awoken after waiting for a condition variable at cond_ml.
+   *
+   * The mutex at mutex_ml is used as the mutex for pthread_cond_wait.
+   *
+   * Returns true on success, false if a pthreads_error has been
+   * generated.
+   */
+  virtual bool cond_awake(const ConstMRef &cond_ml, const ConstMRef &mutex_ml) = 0;
   /* Destroy a pthread condition variable at ml.
    *
    * Returns 0 on success, EBUSY if some thread was waiting for the

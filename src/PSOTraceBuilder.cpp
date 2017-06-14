@@ -908,6 +908,11 @@ bool PSOTraceBuilder::cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex
   return true;
 }
 
+bool PSOTraceBuilder::cond_awake(const ConstMRef &cond_ml, const ConstMRef &mutex_ml){
+  mutex_lock(mutex_ml);
+  return true;
+}
+
 int PSOTraceBuilder::cond_destroy(const ConstMRef &ml){
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.size()));

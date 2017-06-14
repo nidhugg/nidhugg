@@ -60,6 +60,7 @@ public:
   virtual bool cond_signal(const ConstMRef &ml);
   virtual bool cond_broadcast(const ConstMRef &ml);
   virtual bool cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex_ml);
+  virtual bool cond_awake(const ConstMRef &cond_ml, const ConstMRef &mutex_ml);
   virtual int cond_destroy(const ConstMRef &ml);
   virtual void register_alternatives(int alt_count);
   virtual int estimate_trace_count() const;

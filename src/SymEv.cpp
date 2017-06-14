@@ -34,6 +34,7 @@ void SymEv::set(SymEv other) {
     case LOAD: case STORE:
     case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
     case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
+    case C_WAIT: case C_AWAKE:
       /* Without stable symbolic addresses, this is all we can check, I think */
       // assert(arg.addr.size == other.arg.addr.size);
       if(arg.addr.size != other.arg.addr.size) {
@@ -42,9 +43,8 @@ void SymEv::set(SymEv other) {
         assert(false);
       }
       break;
-    case C_WAIT:
-      assert(arg.apair.first.size  == other.arg.apair.first.size
-          && arg.apair.second.size == other.arg.apair.second.size);
+    case SPAWN: case JOIN:
+      assert(arg.num = other.arg.num);
       break;
     case FULLMEM: case NONDET:
       break;
@@ -78,9 +78,12 @@ std::string SymEv::to_string() const {
     case C_INIT:   return "CInit("   + mref_to_string(arg.addr) + ")";
     case C_SIGNAL: return "CSignal(" + mref_to_string(arg.addr) + ")";
     case C_BRDCST: return "CBrdcst(" + mref_to_string(arg.addr) + ")";
-    case C_WAIT:   return "CWait("   + mref_to_string(arg.apair.first)
-        + "," + mref_to_string(arg.apair.second) + ")";
+    case C_WAIT:   return "CWait("   + mref_to_string(arg.addr) + ")";
+    case C_AWAKE:  return "CAwake("  + mref_to_string(arg.addr) + ")";
     case C_DELETE: return "CDelete(" + mref_to_string(arg.addr) + ")";
+
+    case SPAWN: return "Spawn(" + std::to_string(arg.num) + ")";
+    case JOIN:  return "Join("  + std::to_string(arg.num) + ")";
 
     default:
       abort();
@@ -92,23 +95,25 @@ bool SymEv::has_addr() const {
   case LOAD: case STORE:
   case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
+  case C_WAIT: case C_AWAKE:
     return true;
-  case C_WAIT:
   case FULLMEM: case NONDET:
+  case SPAWN: case JOIN:
     return false;
   default:
     abort();
   }
 }
 
-bool SymEv::has_apair() const {
+bool SymEv::has_num() const {
   switch(kind) {
-  case C_WAIT:
+  case SPAWN: case JOIN:
     return true;
+  case C_WAIT: case C_AWAKE:
+  case FULLMEM: case NONDET:
   case LOAD: case STORE:
   case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
-  case FULLMEM: case NONDET:
     return false;
   default:
     abort();

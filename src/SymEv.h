@@ -32,6 +32,7 @@ struct SymEv {
   public:
   enum kind {
     // EMPTY,
+    NONDET,
 
     LOAD,
     STORE,
@@ -46,24 +47,28 @@ struct SymEv {
     C_SIGNAL,
     C_BRDCST,
     C_WAIT,
+    C_AWAKE,
     C_DELETE,
 
-    NONDET,
+    SPAWN,
+    JOIN,
   } kind;
   union arg {
   public:
     SymAddr addr;
-    struct apair { SymAddr first; SymAddr second; } apair;
+    int num;
 
     arg() {}
     arg(SymAddr addr) : addr(addr) {}
-    arg(struct apair apair) : apair(apair) {}
+    arg(int num) : num(num) {}
     // ~arg_union() {}
   } arg;
 
   SymEv() = delete;
   // SymEv() : kind(EMPTY) {};
   // static SymEv Empty() { return {EMPTY, {}}; }
+  static SymEv Nondet() { return {NONDET, {}}; }
+
   static SymEv Load(SymAddr addr) { return {LOAD, addr}; }
   static SymEv Store(SymAddr addr) { return {STORE, addr}; }
   static SymEv Fullmem() { return {FULLMEM, {}}; }
@@ -75,23 +80,21 @@ struct SymEv {
 
   static SymEv CInit(SymAddr addr) { return {C_INIT, addr}; }
   static SymEv CSignal(SymAddr addr) { return {C_SIGNAL, addr}; }
-  static SymEv CBrdcst(SymAddr addr) { return {C_SIGNAL, addr}; }
-  static SymEv CWait(SymAddr cond, SymAddr mutex) {
-    return {C_WAIT, {{cond, mutex}}};
-  }
+  static SymEv CBrdcst(SymAddr addr) { return {C_BRDCST, addr}; }
+  static SymEv CWait(SymAddr cond) { return {C_WAIT, cond}; }
+  static SymEv CAwake(SymAddr cond) { return {C_AWAKE, cond}; }
   static SymEv CDelete(SymAddr addr) { return {C_DELETE, addr}; }
 
-  static SymEv Nondet() { return {NONDET, {}}; }
+  static SymEv Spawn(int proc) { return {SPAWN, proc}; }
+  static SymEv Join(int proc) { return {JOIN, proc}; }
 
   void set(SymEv other);
   std::string to_string() const;
 
   bool has_addr() const;
-  bool has_apair() const;
-  /* TODO: kind assertions */
+  bool has_num() const;
   const SymAddr &addr()   const { assert(has_addr()); return arg.addr; }
-  const SymAddr &apair1() const { assert(has_apair()); return arg.apair.first; }
-  const SymAddr &apair2() const { assert(has_apair()); return arg.apair.second; }
+        int      num()    const { assert(has_num()); return arg.num; }
 
 private:
   SymEv(enum kind kind, union arg arg) : kind(kind), arg(arg) {};

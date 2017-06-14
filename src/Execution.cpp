@@ -2983,6 +2983,27 @@ void Interpreter::callPthreadCondWait(Function *F,
   PthreadMutexes[lck].waiting.clear();
 
   Threads[CurrentThread].pending_mutex_lock = lck;
+  Threads[CurrentThread].pending_condvar_awake = cnd;
+}
+
+void Interpreter::doPthreadCondAwake(void *cnd, void *lck){
+  assert(lck);
+
+  if(PthreadMutexes.count(lck) == 0){
+    /* We don't need to check conf.mutex_require_init as the mutex is always
+     * initialised during callPthreadCondWait().
+     */
+    TB.pthreads_error("mutex destroyed during pthread_cond_wait.");
+    abort();
+    return;
+  }
+
+  assert(PthreadMutexes.count(lck) == 0 || PthreadMutexes[lck].isUnlocked());
+
+  TB.cond_awake({cnd,1},{lck,1}); // also acts as a fence
+
+  if(DryRun) return;
+  PthreadMutexes[lck].lock(CurrentThread);
 }
 
 void Interpreter::callPthreadCondDestroy(Function *F,
@@ -3392,8 +3413,12 @@ void Interpreter::run() {
     }
 
     if(Threads[CurrentThread].pending_mutex_lock){
-      callPthreadMutexLock(Threads[CurrentThread].pending_mutex_lock);
-      if(!DryRun) Threads[CurrentThread].pending_mutex_lock = 0;
+      doPthreadCondAwake(Threads[CurrentThread].pending_condvar_awake,
+                         Threads[CurrentThread].pending_mutex_lock);
+      if(!DryRun) {
+        Threads[CurrentThread].pending_mutex_lock = 0;
+        Threads[CurrentThread].pending_condvar_awake = 0;
+      }
     }
 
     TB.metadata(I.getMetadata("dbg"));
