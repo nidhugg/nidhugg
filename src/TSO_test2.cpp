@@ -67,10 +67,11 @@ declare i32 @pthread_mutex_unlock(i32*) nounwind
   DPORDriver::Result res = driver->run();
   delete driver;
 
-  conf.dpor_algorithm = Configuration::OPTIMAL;
-  driver = DPORDriver::parseIR(module,conf);
-  DPORDriver::Result opt_res = driver->run();
-  delete driver;
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0, P1 = P0.spawn(0);
   IID<CPid> lck0(P0,4), ulck0(P0,11), lck1(P1,1), ulck1(P1,8);
@@ -81,7 +82,8 @@ declare i32 @pthread_mutex_unlock(i32*) nounwind
      {{lck1,lck0},{lck0,ulck1}} // P1 first, P0 fails at trylock
     };
   BOOST_CHECK(!res.has_errors());
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf,&opt_res));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Condvar_1){
@@ -1091,9 +1093,10 @@ declare i32 @pthread_create(i64*,%union.pthread_attr_t*,i8*(i8*)*,i8*) nounwind
   DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
 
-  conf.dpor_algorithm = Configuration::OPTIMAL;
-  std::unique_ptr<DPORDriver> opt_driver(DPORDriver::parseIR(module,conf));
-  DPORDriver::Result opt_res = opt_driver->run();
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // std::unique_ptr<DPORDriver> opt_driver(DPORDriver::parseIR(module,conf));
+  // DPORDriver::Result opt_res = opt_driver->run();
 
   CPid P0;
   CPid U0 = P0.aux(0);
@@ -1111,7 +1114,8 @@ declare i32 @pthread_create(i64*,%union.pthread_attr_t*,i8*(i8*)*,i8*) nounwind
      {{ux0,rx1},{ry0,uy1}},
      {{rx1,ux0},{uy1,ry0}},
      {{rx1,ux0},{ry0,uy1}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,spec,conf,&opt_res));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,spec,conf// ,&opt_res
+                                                ));
 
   delete driver;
 }
