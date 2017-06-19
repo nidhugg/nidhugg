@@ -26,6 +26,8 @@
 #include "SymEv.h"
 #include "WakeupTrees.h"
 
+typedef llvm::SmallVector<SymEv,1> sym_ty;
+
 class TSOTraceBuilder : public TSOPSOTraceBuilder{
 public:
   TSOTraceBuilder(const Configuration &conf = Configuration::default_conf);
@@ -126,7 +128,8 @@ protected:
   class Thread{
   public:
     Thread(const CPid &cpid, const VClock<IPid> &clk)
-      : cpid(cpid), available(true), clock(clk), sleeping(false), sleep_full_memory_conflict(false) {};
+      : cpid(cpid), available(true), clock(clk), sleeping(false),
+        sleep_full_memory_conflict(false), sleep_sym(nullptr) {};
     CPid cpid;
     /* Is the thread available for scheduling? */
     bool available;
@@ -164,6 +167,13 @@ protected:
      * determined by dry running).
      */
     bool sleep_full_memory_conflict;
+    /* sleep_sym is the set of globally visible actions that the next
+     * event to be executed by this thread will do (as determined by
+     * dry running).
+     *
+     * NULL if !sleeping.
+     */
+    sym_ty *sleep_sym;
   };
   /* The threads in the current execution, in the order they were
    * created. Threads on even indexes are real, threads on odd indexes
@@ -320,12 +330,12 @@ protected:
     /* Symbolic representation of the globally visible operation of this event.
      * Empty iff !may_conflict
      */
-    typedef llvm::SmallVector<SymEv,1> sym_ty;
     sym_ty sym;
     /* The set of threads that go to sleep immediately before this
      * event sequence.
      */
     VecSet<IPid> sleep;
+    std::vector<sym_ty> sleep_evs;
     /* The set of sleeping threads that wake up during or after this
      * event sequence.
      */
@@ -447,8 +457,8 @@ protected:
   void add_noblock_race(int event);
   void add_lock_race(const Mutex &m, int event);
   bool do_events_conflict(const Event &fst, const Event &snd) const;
-  bool do_events_conflict(IPid fst_pid, const Event::sym_ty &fst,
-                          IPid snd_pid, const Event::sym_ty &snd) const;
+  bool do_events_conflict(IPid fst_pid, const sym_ty &fst,
+                          IPid snd_pid, const sym_ty &snd) const;
   bool do_symevs_conflict(IPid fst_pid, const SymEv &fst,
                           IPid snd_pid, const SymEv &snd) const;
   void do_race_detect();
@@ -470,6 +480,7 @@ protected:
    * set.
    */
   VecSet<IPid> sleep_set_at(int i);
+  VecSet<IPid> opt_sleep_set_at(int i);
   /* Wake up all threads which are sleeping, waiting for an access
    * (type,ml). */
   void wakeup(Access::Type type, void const *ml);
