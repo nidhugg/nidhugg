@@ -1069,9 +1069,7 @@ VecSet<TSOTraceBuilder::IPid> TSOTraceBuilder::sleep_set_at(int i){
   VecSet<IPid> sleep;
   for(int j = 0; j < i; ++j){
     sleep.insert(prefix[j].sleep);
-    for(auto it = prefix[j].wakeup.begin(); it != prefix[j].wakeup.end(); ++it){
-      sleep.erase(*it);
-    }
+    sleep.erase(prefix[j].wakeup);
   }
   sleep.insert(prefix[i].sleep);
   return sleep;
