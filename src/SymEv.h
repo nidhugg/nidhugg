@@ -52,6 +52,8 @@ struct SymEv {
 
     SPAWN,
     JOIN,
+
+    UNOBS_STORE,
   } kind;
   union arg {
   public:
@@ -88,8 +90,11 @@ struct SymEv {
   static SymEv Spawn(int proc) { return {SPAWN, proc}; }
   static SymEv Join(int proc) { return {JOIN, proc}; }
 
+  static SymEv UnobsStore(SymAddr addr) { return {UNOBS_STORE, addr}; }
+
   void set(SymEv other);
-  std::string to_string() const;
+  std::string to_string(std::function<std::string(int)> pid_str
+                        = (std::string(&)(int))std::to_string) const;
 
   bool has_addr() const;
   bool has_num() const;

@@ -24,7 +24,8 @@
 
 void SymEv::set(SymEv other) {
   // if (kind != EMPTY) {
-    if(kind != other.kind) {
+    if(kind != other.kind
+       && !(kind == STORE && other.kind == UNOBS_STORE)) {
       llvm::dbgs() << "Merging incompatible events " << *this << " and "
                    << other << "\n";
       assert(false);
@@ -35,6 +36,7 @@ void SymEv::set(SymEv other) {
     case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
     case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
     case C_WAIT: case C_AWAKE:
+    case UNOBS_STORE:
       /* Without stable symbolic addresses, this is all we can check, I think */
       // assert(arg.addr.size == other.arg.addr.size);
       if(arg.addr.size != other.arg.addr.size) {
@@ -63,7 +65,7 @@ static std::string mref_to_string(ConstMRef mref) {
   return out.str();
 }
 
-std::string SymEv::to_string() const {
+std::string SymEv::to_string(std::function<std::string(int)> pid_str) const {
     switch(kind) {
     // case EMPTY:    return "Empty()";
     case LOAD:     return "Load("    + mref_to_string(arg.addr) + ")";
@@ -82,8 +84,10 @@ std::string SymEv::to_string() const {
     case C_AWAKE:  return "CAwake("  + mref_to_string(arg.addr) + ")";
     case C_DELETE: return "CDelete(" + mref_to_string(arg.addr) + ")";
 
-    case SPAWN: return "Spawn(" + std::to_string(arg.num) + ")";
-    case JOIN:  return "Join("  + std::to_string(arg.num) + ")";
+    case SPAWN: return "Spawn(" + pid_str(arg.num) + ")";
+    case JOIN:  return "Join("  + pid_str(arg.num) + ")";
+
+    case UNOBS_STORE: return "UnobsStore(" + mref_to_string(arg.addr) + ")";
 
     default:
       abort();
@@ -96,6 +100,7 @@ bool SymEv::has_addr() const {
   case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
   case C_WAIT: case C_AWAKE:
+  case UNOBS_STORE:
     return true;
   case FULLMEM: case NONDET:
   case SPAWN: case JOIN:
@@ -114,6 +119,7 @@ bool SymEv::has_num() const {
   case LOAD: case STORE:
   case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
+  case UNOBS_STORE:
     return false;
   default:
     abort();

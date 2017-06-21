@@ -267,7 +267,9 @@ bool TSOTraceBuilder::reset(){
   /* The if-statement is just so we can control which test cases need to
    *  satisfy this assertion for now. Eventually, all should.
    */
-  if (conf.dpor_algorithm == Configuration::OPTIMAL)
+  if (conf.dpor_algorithm == Configuration::OPTIMAL
+      && !conf.observers /* Temporary */
+      )
   {
     /* Check for SymEv<->VClock equivalence
      * SymEv considers that event i happens after event j iff there is a
@@ -520,13 +522,17 @@ void TSOTraceBuilder::spawn(){
 
 void TSOTraceBuilder::store(const ConstMRef &ml){
   if(dryrun) return;
+  // curev().may_conflict = true; /* XXX */
   IPid ipid = curev().iid.get_pid();
   threads[ipid].store_buffer.push_back(PendingStore(ml,threads[ipid].clock,last_md));
   threads[ipid+1].available = true;
 }
 
 void TSOTraceBuilder::atomic_store(const ConstMRef &ml){
-  record_symbolic(SymEv::Store(ml));
+  if (conf.observers)
+    record_symbolic(SymEv::UnobsStore(ml));
+  else
+    record_symbolic(SymEv::Store(ml));
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.len()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
@@ -567,7 +573,9 @@ void TSOTraceBuilder::atomic_store(const ConstMRef &ml){
     if(0 <= lu){
       IPid lu_tipid = 2*(prefix[lu].iid.get_pid() / 2);
       if(lu_tipid != tipid){
-        seen_accesses.insert(bi.last_update);
+        if (!conf.observers){
+          seen_accesses.insert(bi.last_update);
+        }
       }
     }
     for(int i : bi.last_read){
@@ -582,6 +590,9 @@ void TSOTraceBuilder::atomic_store(const ConstMRef &ml){
   /* Register in memory */
   for(void const *b : ml){
     ByteInfo &bi = mem[b];
+    if (conf.observers) {
+      bi.unordered_updates.insert_geq(prefix_idx);
+    }
     bi.last_update = prefix_idx;
     bi.last_update_ml = ml;
     if(is_update && threads[tipid].store_buffer.front().last_rowe >= 0){
@@ -628,6 +639,7 @@ void TSOTraceBuilder::load(const ConstMRef &ml){
   /* Load from memory */
 
   VecSet<int> seen_accesses;
+  VecSet<std::pair<int,int>> seen_pairs;
 
   /* See all updates to the read bytes. */
   for(void const *b : ml){
@@ -642,12 +654,32 @@ void TSOTraceBuilder::load(const ConstMRef &ml){
         curev().clock += clk;
         threads[ipid].clock += clk;
       }
+      if (conf.observers) {
+        /* Update last_update to be an observed store */
+        for (auto it = prefix[lu].sym.begin();;++it){
+          assert(it != prefix[lu].sym.end());
+          if(it->kind == SymEv::STORE && it->addr() == lu_ml) break;
+          if (it->kind == SymEv::UNOBS_STORE && it->addr() == lu_ml) {
+            *it = SymEv::Store(lu_ml);
+            break;
+          }
+        }
+        /* Add races */
+        for (int u : mem[b].unordered_updates){
+          if (prefix[lu].iid != prefix[u].iid) {
+            seen_pairs.insert(std::pair<int,int>(u, lu));
+          }
+        }
+        mem[b].unordered_updates.clear();
+      }
     }
+    assert(mem[b].unordered_updates.size() == 0);
   }
 
   seen_accesses.insert(last_full_memory_conflict);
 
   see_events(seen_accesses);
+  see_event_pairs(seen_pairs);
 
   /* Register load in memory */
   for(void const *b : ml){
@@ -666,6 +698,7 @@ void TSOTraceBuilder::full_memory_conflict(){
     return;
   }
   curev().may_conflict = true;
+  assert(!conf.observers);
 
   /* See all pervious memory accesses */
   VecSet<int> seen_accesses;
@@ -1075,13 +1108,16 @@ VecSet<TSOTraceBuilder::IPid> TSOTraceBuilder::sleep_set_at(int i){
   return sleep;
 }
 
-VecSet<TSOTraceBuilder::IPid> TSOTraceBuilder::opt_sleep_set_at(int i){
+std::map<TSOTraceBuilder::IPid,const sym_ty*>
+TSOTraceBuilder::opt_sleep_set_at(int i){
+  assert(i >= 0);
   std::map<IPid,const sym_ty*> sleep;
-  for(int j = 0; j < i; ++j){
+  for(int j = 0;; ++j){
     for (int k = 0; k < prefix[j].sleep.size(); ++k){
       sleep.emplace(prefix[j].sleep[k],
                     &prefix[j].sleep_evs[k]);
     }
+    if (j == i) break;
     for (auto it = sleep.begin(); it != sleep.end();) {
       if (do_events_conflict(prefix[j].iid.get_pid(), prefix[j].sym,
                              it->first, *it->second))
@@ -1091,13 +1127,7 @@ VecSet<TSOTraceBuilder::IPid> TSOTraceBuilder::opt_sleep_set_at(int i){
     }
   }
 
-  /* Efficiently make a VecSet */
-  std::vector<IPid> keys(sleep.size());
-  std::transform(sleep.begin(), sleep.end(), keys.begin(),
-                 [](std::pair<const IPid,const sym_ty*> &r){return r.first;});
-  VecSet<IPid> vsleep(std::move(keys));
-  vsleep.insert(prefix[i].sleep);
-  return vsleep;
+  return sleep;
 }
 
 void TSOTraceBuilder::see_events(const VecSet<int> &seen_accesses){
@@ -1128,6 +1158,34 @@ void TSOTraceBuilder::see_events(const VecSet<int> &seen_accesses){
   }
 }
 
+void TSOTraceBuilder::see_event_pairs
+(const VecSet<std::pair<int,int>> &seen_accesses){
+  VecSet<std::pair<int,int>> branch;
+  for (std::pair<int,int> p : seen_accesses){
+    const VClock<IPid> &fclock = prefix[p.first].clock;
+    const VClock<IPid> &sclock = prefix[p.second].clock;
+    if(fclock.leq(sclock)) continue;
+    if(std::any_of(seen_accesses.begin(),seen_accesses.end(),
+                   [p,&fclock,this](std::pair<int,int> j){
+                     return p.first == j.first && p.second != j.second
+                       && fclock.leq(this->prefix[j.second].clock);
+                   })) continue;
+    branch.insert_gt(p);
+  }
+
+  /* XXX: We can't just sclock += fclock. Is it OK that the vclocks are wrong? */
+  IPid ipid = curev().iid.get_pid();
+  for (std::pair<int,int> p : seen_accesses){
+    assert(0 <= p.first && p.first < p.second && p.second < int(prefix.len()));
+    curev().clock += prefix[p.second].clock;
+    threads[ipid].clock += prefix[p.second].clock;
+  }
+
+  for (std::pair<int,int> p : branch){
+    add_observed_race(p.first, p.second);
+  }
+}
+
 void TSOTraceBuilder::add_noblock_race(int event){
   assert(0 <= event);
   assert(event < prefix_idx);
@@ -1141,6 +1199,15 @@ void TSOTraceBuilder::add_lock_race(const Mutex &m, int event){
 
   reversible_races.push_back
     (ReversibleRace::Lock(event,prefix_idx,curev().iid,&m));
+}
+
+void TSOTraceBuilder::add_observed_race(int first, int second){
+  assert(0 <= first);
+  assert(first < second);
+  assert(second < prefix_idx);
+
+  reversible_races.push_back
+    (ReversibleRace::Observed(first,second,prefix_idx));
 }
 
 void TSOTraceBuilder::record_symbolic(SymEv event){
@@ -1180,10 +1247,14 @@ bool TSOTraceBuilder::do_events_conflict
 
 bool TSOTraceBuilder::do_symevs_conflict
 (IPid fst_pid, const SymEv &fst,
- IPid snd_pid, const SymEv &snd) const {
+ IPid snd_pid, const SymEv &snd,
+ bool ignore_snd_obs) const {
   if (fst.kind == SymEv::NONDET || snd.kind == SymEv::NONDET) return false;
   if (fst.kind == SymEv::FULLMEM || snd.kind == SymEv::FULLMEM) return true;
   if (fst.kind == SymEv::LOAD && snd.kind == SymEv::LOAD) return false;
+  if (fst.kind == SymEv::UNOBS_STORE
+      && (snd.kind == SymEv::UNOBS_STORE || (ignore_snd_obs && snd.kind == SymEv::STORE)))
+    return false;
 
   /* Really crude. Is it enough? */
   if (fst.has_addr()) {
@@ -1199,12 +1270,13 @@ bool TSOTraceBuilder::do_symevs_conflict
 
 bool TSOTraceBuilder::do_events_conflict
 (IPid fst_pid, const sym_ty &fst,
- IPid snd_pid, const sym_ty &snd) const{
+ IPid snd_pid, const sym_ty &snd,
+ bool ignore_snd_obs) const{
   if (fst_pid == snd_pid) return true;
   for (const SymEv &fe : fst) {
     if (fe.has_num() && fe.num() == (snd_pid / 2)) return true;
     for (const SymEv &se : snd) {
-      if (do_symevs_conflict(fst_pid, fe, snd_pid, se)) {
+      if (do_symevs_conflict(fst_pid, fe, snd_pid, se, ignore_snd_obs)) {
         return true;
       }
     }
@@ -1213,6 +1285,45 @@ bool TSOTraceBuilder::do_events_conflict
     if (se.has_num() && se.num() == (fst_pid / 2)) return true;
   }
   return false;
+}
+
+bool TSOTraceBuilder::is_observed_conflict
+(const Event &fst, const Event &snd, const Event &thd) const{
+  return is_observed_conflict(fst.iid.get_pid(), fst.sym,
+                              snd.iid.get_pid(), snd.sym,
+                              thd.iid.get_pid(), thd.sym);
+}
+
+bool TSOTraceBuilder::is_observed_conflict
+(IPid fst_pid, const sym_ty &fst,
+ IPid snd_pid, const sym_ty &snd,
+ IPid thd_pid, const sym_ty &thd) const{
+  if (fst_pid == snd_pid) return false;
+  for (const SymEv &fe : fst) {
+    if (fe.kind != SymEv::UNOBS_STORE) continue;
+    for (const SymEv &se : snd) {
+      if (se.kind != SymEv::STORE
+          || !fe.addr().overlaps(se.addr())) continue;
+      for (const SymEv &te : thd) {
+        if (is_observed_conflict(fst_pid, fe, snd_pid, se, thd_pid, te)) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+bool TSOTraceBuilder::is_observed_conflict
+(IPid fst_pid, const SymEv &fst,
+ IPid snd_pid, const SymEv &snd,
+ IPid thd_pid, const SymEv &thd) const {
+  assert(fst_pid != snd_pid);
+  assert(fst.kind == SymEv::UNOBS_STORE);
+  assert(snd.kind == SymEv::STORE);
+  assert(fst.addr().overlaps(snd.addr()));
+  if (thd.kind == SymEv::FULLMEM) return true;
+  return thd.kind == SymEv::LOAD && thd.addr().overlaps(snd.addr());
 }
 
 void TSOTraceBuilder::do_race_detect() {
@@ -1300,7 +1411,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
   const int i = race.first_event;
   const int j = race.second_event;
 
-  VecSet<IPid> isleep = opt_sleep_set_at(i);
+  std::map<IPid,const sym_ty*> isleep = opt_sleep_set_at(i);
   Event *first = &prefix[i];
 
   Event second({-1,0},{});
@@ -1315,8 +1426,11 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
     second.wakeup.clear();
     second_br = prefix.branch(j);
   }
-  /* Only replay the racy event. */
-  second_br.size = 1;
+  if (race.kind == ReversibleRace::OBSERVED) {
+  } else {
+    /* Only replay the racy event. */
+    second_br.size = 1;
+  }
 
   /* v is the subsequence of events in prefix come after prefix[i],
    * but do not "happen after" (i.e. their vector clocks are not strictly
@@ -1325,15 +1439,39 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
    * It is the sequence we want to insert into the wakeup tree.
    */
   std::vector<std::pair<Branch,Event*>> v;
+  std::vector<Event*> observers;
+  std::vector<std::pair<Branch,Event*>> notobs;
   for (int k = i + 1; k < int(prefix.len()); ++k){
-    if (!first->clock.leq(prefix[k].clock)) {
+    if (!first->clock.leq(prefix[k].clock)
+        && (race.kind != ReversibleRace::OBSERVED
+            ||!second.clock.leq(prefix[k].clock))) {
       v.push_back({prefix.branch(k), &prefix[k]});
+    } else if (race.kind == ReversibleRace::OBSERVED && k != j) {
+      if (is_observed_conflict(*first, second, prefix[k])){
+        observers.push_back(&prefix[k]);
+      } else if (!std::any_of(observers.begin(), observers.end(),
+                              [this,k](Event*o){
+                                return o->clock.leq(prefix[k].clock); })) {
+        notobs.push_back({prefix.branch(k), &prefix[k]});
+      }
     }
   }
   v.push_back({second_br, &second});
+  if (race.kind == ReversibleRace::OBSERVED) {
+    int k = race.witness_event;
+    const Branch &first_br = prefix.branch(i);
+    Event *witness = &prefix[k];
+    Branch witness_br = prefix.branch(k);
+    /* Only replay the racy event. */
+    witness_br.size = 1;
+
+    v.push_back({first_br, first});
+    v.insert(v.end(), notobs.begin(), notobs.end());
+    v.push_back({witness_br, witness});
+  }
 
   /* TODO: Build a "partial-order heap" of v. The "mins" of the heap
-   * would be the weak initials.
+   * would be the initials.
    */
 
   /* iid_map is a map from processes to their next event indices, and is used to
@@ -1341,9 +1479,6 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
    * which in turn is used to find the corresponding event in prefix.
    */
   std::vector<int> iid_map = iid_map_at(i);
-  std::vector<int> siid_map = iid_map;
-
-  isleep.insert(first->sleep);
 
   /* Check for redundant exploration */
   for (auto it = v.cbegin(); it != v.cend(); ++it) {
@@ -1356,7 +1491,11 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
       /* Is this a weak initial of v? */
       if (!std::any_of(v.cbegin(), it,
                        [&](const std::pair<Branch,Event*> &e){
-                         return do_events_conflict(*e.second, *it->second);
+                         return do_events_conflict(e.second->iid.get_pid(),
+                                                   e.second->sym,
+                                                   it->second->iid.get_pid(),
+                                                   it->second->sym,
+                                                   true);
                        })) {
         /* Then the reversal of this race has already been explored */
         return;
@@ -1364,19 +1503,17 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
     }
   }
 
-  for (IPid p : isleep) {
-    /* Find the next event of the sleeper in prefix */
-    unsigned k = find_process_event(p, iid_map[p]);
-    assert(int(k) >= i);
-    const Event *sleep_ev = &prefix[k];
-    const Branch *sleep_br = &prefix.branch(k);
+  for (std::pair<IPid,const sym_ty*> pair : isleep) {
+    const Branch &sleep_br = prefix.branch(find_process_event
+                                           (pair.first, iid_map[pair.first]));
     bool dependent = false;
     for (std::pair<Branch,Event*> ve : v) {
-      if (*sleep_br == ve.first) {
+      if (sleep_br == ve.first) {
         assert(false && "Already checked");
         return;
       }
-      if (do_events_conflict(*ve.second, *sleep_ev)) {
+      if (do_events_conflict(ve.first.pid, ve.second->sym,
+                             pair.first, *pair.second)) {
         /* Dependent */
         dependent = true;
         break;

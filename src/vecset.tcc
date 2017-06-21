@@ -112,6 +112,25 @@ std::pair<int,bool> VecSet<T>::insert(const T &t){
 }
 
 template<class T>
+std::pair<int,bool> VecSet<T>::insert_geq(const T &t){
+  int i = vec.size();
+  assert(!i || vec.back() <= t);
+  if(i && vec.back() == t){
+    /* t is already in the set */
+    return std::pair<int,bool>(i-1,false);
+  }else{
+    vec.push_back(t);
+    return std::pair<int,bool>(i,true);
+  }
+}
+
+template<class T>
+void VecSet<T>::insert_gt(const T &t){
+  assert(vec.size() == 0 || vec.back() < t);
+  vec.push_back(t);
+}
+
+template<class T>
 int VecSet<T>::insert(const VecSet<T> &s){
   if(s.size() == 0){
     return 0;

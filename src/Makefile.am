@@ -55,6 +55,7 @@ unittest_SOURCES = \
   DryRun_test.cpp \
   FBVClock_test.cpp \
   nregex_test.cpp \
+  Observers_test.cpp \
   POWER_test.cpp \
   POWER_test2.cpp \
   PSO_test.cpp \

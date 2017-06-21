@@ -201,6 +201,11 @@ protected:
      * update to this byte.
      */
     ConstMRef last_update_ml;
+    /* Set of events that updated this byte since it was last read.
+     *
+     * Either contains last_update or is empty.
+     */
+    VecSet<int> unordered_updates;
     /* last_read[tid] is the index in prefix of the latest (visible)
      * read of thread tid to this memory location, or -1 if thread tid
      * has not read this memory location.
@@ -361,6 +366,9 @@ protected:
     enum Kind {
       /* Any kind of event that does not block any other process */
       NONBLOCK,
+      /* A nonblocking race where additionally a third event is
+       * required to observe the race between the first two. */
+      OBSERVED,
       /* Attempt to acquire a lock */
       LOCK,
     };
@@ -368,9 +376,15 @@ protected:
     const int first_event;
     const int second_event;
     const IID<IPid> second_process;
-    const Mutex *mutex;
+    union{
+      const Mutex *mutex;
+      const int witness_event;
+    };
     static ReversibleRace Nonblock(int first, int second) {
       return ReversibleRace(NONBLOCK, first, second, {-1,0}, nullptr);
+    };
+    static ReversibleRace Observed(int first, int second, int witness) {
+      return ReversibleRace(OBSERVED, first, second, {-1,0}, witness);
     };
     static ReversibleRace Lock(int first, int second, IID<IPid> process, const Mutex *mutex) {
       assert(mutex);
@@ -379,6 +393,9 @@ protected:
   private:
     ReversibleRace(Kind k, int f, int s, IID<IPid> p, const Mutex *m) :
       kind(k), first_event(f), second_event(s), second_process(p), mutex(m) {}
+    ReversibleRace(Kind k, int f, int s, IID<IPid> p, int w) :
+      kind(k), first_event(f), second_event(s), second_process(p),
+      witness_event(w) {}
   };
 
   /* Pairs i<j of reversible races found in the current execution.
@@ -455,13 +472,24 @@ protected:
                            unsigned line, Branch branch,
                            WakeupTreeRef<Branch> node) const;
   void add_noblock_race(int event);
+  void add_observed_race(int first, int second);
   void add_lock_race(const Mutex &m, int event);
   bool do_events_conflict(const Event &fst, const Event &snd) const;
   bool do_events_conflict(IPid fst_pid, const sym_ty &fst,
-                          IPid snd_pid, const sym_ty &snd) const;
+                          IPid snd_pid, const sym_ty &snd,
+                          bool ignore_snd_obs = false) const;
   bool do_symevs_conflict(IPid fst_pid, const SymEv &fst,
-                          IPid snd_pid, const SymEv &snd) const;
+                          IPid snd_pid, const SymEv &snd,
+                          bool ignore_snd_obs = false) const;
   void do_race_detect();
+  bool is_observed_conflict(const Event &fst, const Event &snd,
+                            const Event &thd) const;
+  bool is_observed_conflict(IPid fst_pid, const sym_ty &fst,
+                            IPid snd_pid, const sym_ty &snd,
+                            IPid thd_pid, const sym_ty &thd) const;
+  bool is_observed_conflict(IPid fst_pid, const SymEv &fst,
+                            IPid snd_pid, const SymEv &snd,
+                            IPid thd_pid, const SymEv &thd) const;
   Event reconstruct_lock_event(const ReversibleRace&);
   void race_detect(const ReversibleRace&);
   std::vector<int> iid_map_at(int event) const;
@@ -472,6 +500,11 @@ protected:
    * be negative. In the latter case they are ignored.
    */
   void see_events(const VecSet<int> &seen);
+  /* Add clocks and branches.
+   *
+   * All pairs in seen should be increasing indices into prefix.
+   */
+  void see_event_pairs(const VecSet<std::pair<int,int>> &seen);
   /* Records a symbolic representation of the current event.
    */
   void record_symbolic(SymEv event);
@@ -480,7 +513,7 @@ protected:
    * set.
    */
   VecSet<IPid> sleep_set_at(int i);
-  VecSet<IPid> opt_sleep_set_at(int i);
+  std::map<IPid,const sym_ty*> opt_sleep_set_at(int i);
   /* Wake up all threads which are sleeping, waiting for an access
    * (type,ml). */
   void wakeup(Access::Type type, void const *ml);
