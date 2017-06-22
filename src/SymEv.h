@@ -96,6 +96,9 @@ struct SymEv {
   std::string to_string(std::function<std::string(int)> pid_str
                         = (std::string(&)(int))std::to_string) const;
 
+  bool operator==(const SymEv &s) const;
+  bool operator!=(const SymEv &s) const { return !(*this == s); };
+
   bool has_addr() const;
   bool has_num() const;
   const SymAddr &addr()   const { assert(has_addr()); return arg.addr; }

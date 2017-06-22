@@ -1412,7 +1412,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
   const int j = race.second_event;
 
   std::map<IPid,const sym_ty*> isleep = opt_sleep_set_at(i);
-  Event *first = &prefix[i];
+  Event first = prefix[i];
 
   Event second({-1,0},{});
   Branch second_br(-1);
@@ -1442,12 +1442,12 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
   std::vector<Event*> observers;
   std::vector<std::pair<Branch,Event*>> notobs;
   for (int k = i + 1; k < int(prefix.len()); ++k){
-    if (!first->clock.leq(prefix[k].clock)
+    if (!first.clock.leq(prefix[k].clock)
         && (race.kind != ReversibleRace::OBSERVED
             ||!second.clock.leq(prefix[k].clock))) {
       v.push_back({prefix.branch(k), &prefix[k]});
     } else if (race.kind == ReversibleRace::OBSERVED && k != j) {
-      if (is_observed_conflict(*first, second, prefix[k])){
+      if (is_observed_conflict(first, second, prefix[k])){
         observers.push_back(&prefix[k]);
       } else if (!std::any_of(observers.begin(), observers.end(),
                               [this,k](Event*o){
@@ -1465,7 +1465,42 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
     /* Only replay the racy event. */
     witness_br.size = 1;
 
-    v.push_back({first_br, first});
+    /* Switch observed flags on first and second */
+    VecSet<const void *> fst_mls, tmp_mls;
+    for (const SymEv &e : first.sym){
+      if (e.kind == SymEv::UNOBS_STORE)
+        fst_mls.insert(VecSet<const void*>(e.addr().begin(), e.addr().end()));
+    }
+    for (const SymEv &e : second.sym){
+      if (e.kind == SymEv::STORE)
+        tmp_mls.insert(VecSet<const void*>(e.addr().begin(), e.addr().end()));
+    }
+    fst_mls.intersect_with(tmp_mls);
+    tmp_mls.clear();
+    for (const SymEv &e : witness->sym){
+      if (e.kind == SymEv::LOAD)
+        tmp_mls.insert(VecSet<const void*>(e.addr().begin(), e.addr().end()));
+      if (e.kind == SymEv::FULLMEM) {
+        /* All memory is observed */
+        goto rest;
+      }
+    }
+    fst_mls.intersect_with(tmp_mls);
+  rest:
+    for (SymEv &e : first.sym){
+      if (e.kind == SymEv::UNOBS_STORE
+          && fst_mls.intersects(VecSet<const void*>(e.addr().begin(), e.addr().end()))){
+        e = SymEv::Store(e.addr());
+      }
+    }
+    for (SymEv &e : second.sym){
+      if (e.kind == SymEv::STORE
+          && (VecSet<const void*>(e.addr().begin(), e.addr().end())).subset_of(fst_mls)){
+        e = SymEv::UnobsStore(e.addr());
+      }
+    }
+
+    v.push_back({first_br, &first});
     v.insert(v.end(), notobs.begin(), notobs.end());
     v.push_back({witness_br, witness});
   }
@@ -1494,8 +1529,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
                          return do_events_conflict(e.second->iid.get_pid(),
                                                    e.second->sym,
                                                    it->second->iid.get_pid(),
-                                                   it->second->sym,
-                                                   true);
+                                                   it->second->sym);
                        })) {
         /* Then the reversal of this race has already been explored */
         return;
@@ -1559,6 +1593,20 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
         if (child_it.branch() == ve.first) {
           assert(child_it.branch().size >= ve.first.size
                  || !child_it.node().size());
+          if (child_sym != ve.second->sym) {
+            /* This can happen due to observer effects. We must now make sure
+             * ve.second->sym does not have any conflicts with any previous
+             * event in v; i.e. wether it actually is a weak initial of v. */
+            for (auto pei = v.begin(); skip == NO && pei != vei; ++pei){
+              const std::pair<Branch,Event*> &pe = *pei;
+              if (do_events_conflict(ve.second->iid.get_pid(), ve.second->sym,
+                                     pe.second->iid.get_pid(), pe.second->sym)){
+                skip = NEXT;
+              }
+            }
+            if (skip == NEXT) break;
+          }
+
           if (v.size() == 1 && child_it.node().size()) {
             return;
           }

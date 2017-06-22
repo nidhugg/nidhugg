@@ -290,3 +290,21 @@ bool VecSet<T>::intersects(const VecSet<T> &s) const{
   }
   return false;
 }
+
+template<class T>
+void VecSet<T>::intersect_with(const VecSet<T> &s){
+  int a = 0; // read pointer into vec
+  int w = 0; // write pointer into vec
+  int b = 0; // read pointer into s.vec
+  while(a < int(vec.size()) && b < int(s.vec.size())){
+    if(vec[a] < s.vec[b]){
+      ++a;
+    }else if(vec[a] == s.vec[b]){
+      vec[w++] = vec[a++];
+      ++b;
+    }else{
+      ++b;
+    }
+  }
+  vec.resize(w);
+}

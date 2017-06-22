@@ -125,3 +125,10 @@ bool SymEv::has_num() const {
     abort();
   }
 }
+
+bool SymEv::operator==(const SymEv &s) const{
+  if (kind != s.kind) return false;
+  if (has_addr() && addr() != s.addr()) return false;
+  if (has_num() && num() != s.num()) return false;
+  return true;
+}

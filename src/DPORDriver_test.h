@@ -64,6 +64,9 @@ namespace DPORDriver_test {
    */
   typedef std::vector<trace_spec> trace_set_spec;
 
+  /* Returns the cross product of specs. */
+  trace_set_spec spec_xprod(const std::vector<trace_set_spec> &specs);
+
   /* Returns true iff t satisfies spec. */
   bool check_trace(const Trace &t, const trace_spec &spec);
 
