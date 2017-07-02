@@ -476,11 +476,9 @@ protected:
   void add_lock_race(const Mutex &m, int event);
   bool do_events_conflict(const Event &fst, const Event &snd) const;
   bool do_events_conflict(IPid fst_pid, const sym_ty &fst,
-                          IPid snd_pid, const sym_ty &snd,
-                          bool ignore_snd_obs = false) const;
+                          IPid snd_pid, const sym_ty &snd) const;
   bool do_symevs_conflict(IPid fst_pid, const SymEv &fst,
-                          IPid snd_pid, const SymEv &snd,
-                          bool ignore_snd_obs = false) const;
+                          IPid snd_pid, const SymEv &snd) const;
   void do_race_detect();
   bool is_observed_conflict(const Event &fst, const Event &snd,
                             const Event &thd) const;
