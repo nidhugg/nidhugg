@@ -269,6 +269,411 @@ declare i32 @pthread_join(i64, i8**)
   BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
 }
 
+BOOST_AUTO_TEST_CASE(condtree_2_3r){
+  Configuration conf = sc_obs_conf();
+  std::string module = R"(
+@var_a = global i64 0, align 8
+@var_b = global i64 0, align 8
+
+define i8* @writer_a(i8* %arg) {
+  %i = ptrtoint i8* %arg to i64
+  store i64 %i, i64* @var_a, align 8
+  ret i8* null
+}
+
+define i8* @writer_b(i8* %arg) {
+  %i = ptrtoint i8* %arg to i64
+  store i64 %i, i64* @var_b, align 8
+  ret i8* null
+}
+
+define i32 @main() {
+  %a0 = alloca i64
+  %a1 = alloca i64
+  %a2 = alloca i64
+  %b0 = alloca i64
+  %b1 = alloca i64
+  %b2 = alloca i64
+  call i32 @pthread_create(i64* %a0, %attr_t* null, i8* (i8*)* @writer_a, i8* null)
+  call i32 @pthread_create(i64* %a1, %attr_t* null, i8* (i8*)* @writer_a, i8* inttoptr (i64 1 to i8*))
+  call i32 @pthread_create(i64* %a2, %attr_t* null, i8* (i8*)* @writer_a, i8* inttoptr (i64 2 to i8*))
+  call i32 @pthread_create(i64* %b0, %attr_t* null, i8* (i8*)* @writer_b, i8* null)
+  call i32 @pthread_create(i64* %b1, %attr_t* null, i8* (i8*)* @writer_b, i8* inttoptr (i64 1 to i8*))
+  call i32 @pthread_create(i64* %b2, %attr_t* null, i8* (i8*)* @writer_b, i8* inttoptr (i64 2 to i8*))
+  %a0val = load i64, i64* %a0
+  %a1val = load i64, i64* %a1
+  %a2val = load i64, i64* %a2
+  %b0val = load i64, i64* %b0
+  %b1val = load i64, i64* %b1
+  %b2val = load i64, i64* %b2
+  call i32 @pthread_join(i64 %a0val, i8** null)
+  call i32 @pthread_join(i64 %a1val, i8** null)
+  call i32 @pthread_join(i64 %a2val, i8** null)
+  call i32 @pthread_join(i64 %b0val, i8** null)
+  call i32 @pthread_join(i64 %b1val, i8** null)
+  call i32 @pthread_join(i64 %b2val, i8** null)
+  %bv = load i64, i64* @var_b, align 8
+  %bz = icmp eq i64 %bv, 0
+  br i1 %bz, label %bzl, label %bnzl
+
+bzl:
+  ret i32 1
+
+bnzl:
+  %av = load i64, i64* @var_a, align 8
+  %anz = icmp ne i64 %av, 0
+  %anze = sext i1 %anz to i32
+  ret i32 %anze
+}
+
+%attr_t = type { i64, [48 x i8] }
+declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*)
+declare i32 @pthread_join(i64, i8**)
+)";
+  std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
+  DPORDriver::Result res = driver->run();
+
+  CPid P;
+  CPid A0 = P.spawn(0), A1 = P.spawn(1), A2 = P.spawn(2);
+  CPid B0 = P.spawn(3), B1 = P.spawn(4), B2 = P.spawn(5);
+  IID<CPid>
+    WA0(A0,2),WA1(A1,2),WA2(A2,2),
+    WB0(B0,2),WB1(B1,2),WB2(B2,2),
+    RA(P,28),RB(P,25);
+  DPORDriver_test::trace_set_spec expected =
+    DPORDriver_test::spec_xprod
+    ({{{{WB0,WB1},{WB2,WB1}},                     // 01: WB1 last
+       {{WB0,WB2},{WB1,WB2}}},                    // 03: WB2 last
+      {{{WA1,WA0},{WA2,WA0}},                     // 01: WA0 last
+       {{WA0,WA1},{WA2,WA1}},                     // 02: WA1 last
+       {{WA0,WA2},{WA1,WA2}}},                    // 03: WA2 last
+     });
+  expected.push_back({{WB1,WB0},{WB2,WB0}});      // WB0 last
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+}
+
+BOOST_AUTO_TEST_CASE(condtree_2_3f){
+  Configuration conf = sc_obs_conf();
+  std::string module = R"(
+@var_a = global i64 0, align 8
+@var_b = global i64 0, align 8
+
+define i8* @writer_a(i8* %arg) {
+  %i = ptrtoint i8* %arg to i64
+  store i64 %i, i64* @var_a, align 8
+  ret i8* null
+}
+
+define i8* @writer_b(i8* %arg) {
+  %i = ptrtoint i8* %arg to i64
+  store i64 %i, i64* @var_b, align 8
+  ret i8* null
+}
+
+define i32 @main() {
+  %a0 = alloca i64
+  %a1 = alloca i64
+  %a2 = alloca i64
+  %b0 = alloca i64
+  %b1 = alloca i64
+  %b2 = alloca i64
+  call i32 @pthread_create(i64* %a0, %attr_t* null, i8* (i8*)* @writer_a, i8* null)
+  call i32 @pthread_create(i64* %a1, %attr_t* null, i8* (i8*)* @writer_a, i8* inttoptr (i64 1 to i8*))
+  call i32 @pthread_create(i64* %a2, %attr_t* null, i8* (i8*)* @writer_a, i8* inttoptr (i64 2 to i8*))
+  call i32 @pthread_create(i64* %b0, %attr_t* null, i8* (i8*)* @writer_b, i8* null)
+  call i32 @pthread_create(i64* %b1, %attr_t* null, i8* (i8*)* @writer_b, i8* inttoptr (i64 1 to i8*))
+  call i32 @pthread_create(i64* %b2, %attr_t* null, i8* (i8*)* @writer_b, i8* inttoptr (i64 2 to i8*))
+  %a0val = load i64, i64* %a0
+  %a1val = load i64, i64* %a1
+  %a2val = load i64, i64* %a2
+  %b0val = load i64, i64* %b0
+  %b1val = load i64, i64* %b1
+  %b2val = load i64, i64* %b2
+  call i32 @pthread_join(i64 %a0val, i8** null)
+  call i32 @pthread_join(i64 %a1val, i8** null)
+  call i32 @pthread_join(i64 %a2val, i8** null)
+  call i32 @pthread_join(i64 %b0val, i8** null)
+  call i32 @pthread_join(i64 %b1val, i8** null)
+  call i32 @pthread_join(i64 %b2val, i8** null)
+  %av = load i64, i64* @var_a, align 8
+  %az = icmp eq i64 %av, 0
+  br i1 %az, label %azl, label %anzl
+
+azl:
+  ret i32 0
+
+anzl:
+  %bv = load i64, i64* @var_b, align 8
+  %bz = icmp eq i64 %bv, 0
+  %ret = select i1 %bz, i32 1, i32 2
+  ret i32 %ret
+}
+
+%attr_t = type { i64, [48 x i8] }
+declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*)
+declare i32 @pthread_join(i64, i8**)
+)";
+  std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
+  DPORDriver::Result res = driver->run();
+
+  CPid P;
+  CPid A0 = P.spawn(0), A1 = P.spawn(1), A2 = P.spawn(2);
+  CPid B0 = P.spawn(3), B1 = P.spawn(4), B2 = P.spawn(5);
+  IID<CPid>
+    WA0(A0,2),WA1(A1,2),WA2(A2,2),
+    WB0(B0,2),WB1(B1,2),WB2(B2,2);
+  DPORDriver_test::trace_set_spec expected =
+    DPORDriver_test::spec_xprod
+    ({{{{WA0,WA1},{WA2,WA1}},                     // 01: WA1 last
+       {{WA0,WA2},{WA1,WA2}}},                    // 03: WA2 last
+      {{{WB1,WB0},{WB2,WB0}},                     // 01: WB0 last
+       {{WB0,WB1},{WB2,WB1}},                     // 02: WB1 last
+       {{WB0,WB2},{WB1,WB2}}},                    // 03: WB2 last
+     });
+  expected.push_back({{WA1,WA0},{WA2,WA0}});      // WA0 last
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+}
+
+BOOST_AUTO_TEST_CASE(condtree_3_3f){
+  Configuration conf = sc_obs_conf();
+  std::string module = R"(
+@var_a = global i64 0, align 8
+@var_b = global i64 0, align 8
+@var_c = global i64 0, align 8
+
+define i8* @writer_a(i8* %arg) {
+  %i = ptrtoint i8* %arg to i64
+  store i64 %i, i64* @var_a, align 8
+  ret i8* null
+}
+
+define i8* @writer_b(i8* %arg) {
+  %i = ptrtoint i8* %arg to i64
+  store i64 %i, i64* @var_b, align 8
+  ret i8* null
+}
+
+define i8* @writer_c(i8* %arg) {
+  %i = ptrtoint i8* %arg to i64
+  store i64 %i, i64* @var_c, align 8
+  ret i8* null
+}
+
+define i32 @main() {
+  %a0 = alloca i64
+  %a1 = alloca i64
+  %a2 = alloca i64
+  %b0 = alloca i64
+  %b1 = alloca i64
+  %b2 = alloca i64
+  %c0 = alloca i64
+  %c1 = alloca i64
+  %c2 = alloca i64
+  call i32 @pthread_create(i64* %a0, %attr_t* null, i8* (i8*)* @writer_a, i8* null)
+  call i32 @pthread_create(i64* %a1, %attr_t* null, i8* (i8*)* @writer_a, i8* inttoptr (i64 1 to i8*))
+  call i32 @pthread_create(i64* %a2, %attr_t* null, i8* (i8*)* @writer_a, i8* inttoptr (i64 2 to i8*))
+  call i32 @pthread_create(i64* %b0, %attr_t* null, i8* (i8*)* @writer_b, i8* null)
+  call i32 @pthread_create(i64* %b1, %attr_t* null, i8* (i8*)* @writer_b, i8* inttoptr (i64 1 to i8*))
+  call i32 @pthread_create(i64* %b2, %attr_t* null, i8* (i8*)* @writer_b, i8* inttoptr (i64 2 to i8*))
+  call i32 @pthread_create(i64* %c0, %attr_t* null, i8* (i8*)* @writer_c, i8* null)
+  call i32 @pthread_create(i64* %c1, %attr_t* null, i8* (i8*)* @writer_c, i8* inttoptr (i64 1 to i8*))
+  call i32 @pthread_create(i64* %c2, %attr_t* null, i8* (i8*)* @writer_c, i8* inttoptr (i64 2 to i8*))
+  %a0val = load i64, i64* %a0
+  %a1val = load i64, i64* %a1
+  %a2val = load i64, i64* %a2
+  %b0val = load i64, i64* %b0
+  %b1val = load i64, i64* %b1
+  %b2val = load i64, i64* %b2
+  %c0val = load i64, i64* %c0
+  %c1val = load i64, i64* %c1
+  %c2val = load i64, i64* %c2
+  call i32 @pthread_join(i64 %a0val, i8** null)
+  call i32 @pthread_join(i64 %a1val, i8** null)
+  call i32 @pthread_join(i64 %a2val, i8** null)
+  call i32 @pthread_join(i64 %b0val, i8** null)
+  call i32 @pthread_join(i64 %b1val, i8** null)
+  call i32 @pthread_join(i64 %b2val, i8** null)
+  call i32 @pthread_join(i64 %c0val, i8** null)
+  call i32 @pthread_join(i64 %c1val, i8** null)
+  call i32 @pthread_join(i64 %c2val, i8** null)
+  %av = load i64, i64* @var_a, align 8
+  %az = icmp eq i64 %av, 0
+  br i1 %az, label %azl, label %anzl
+
+azl:
+  ret i32 0
+
+anzl:
+  %bv = load i64, i64* @var_b, align 8
+  %bz = icmp eq i64 %bv, 0
+  br i1 %bz, label %bzl, label %bnzl
+
+bzl:
+  ret i32 1
+
+bnzl:
+  %cv = load i64, i64* @var_c, align 8
+  %cz = icmp eq i64 %cv, 0
+  %ret = select i1 %cz, i32 2, i32 3
+  ret i32 %ret
+}
+
+%attr_t = type { i64, [48 x i8] }
+declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*)
+declare i32 @pthread_join(i64, i8**)
+)";
+  std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
+  DPORDriver::Result res = driver->run();
+
+  CPid P;
+  CPid A0 = P.spawn(0), A1 = P.spawn(1), A2 = P.spawn(2);
+  CPid B0 = P.spawn(3), B1 = P.spawn(4), B2 = P.spawn(5);
+  CPid C0 = P.spawn(6), C1 = P.spawn(7), C2 = P.spawn(8);
+  IID<CPid>
+    WA0(A0,2),WA1(A1,2),WA2(A2,2),
+    WB0(B0,2),WB1(B1,2),WB2(B2,2),
+    WC0(C0,2),WC1(C1,2),WC2(C2,2);
+  DPORDriver_test::trace_set_spec expected =
+    DPORDriver_test::spec_xprod
+    ({{{{WA0,WA1},{WA2,WA1}},                     // 01: WA1 last
+       {{WA0,WA2},{WA1,WA2}}},                    // 02: WA2 last
+      {{{WB0,WB1},{WB2,WB1}},                     // 01: WB1 last
+       {{WB0,WB2},{WB1,WB2}}},                    // 02: WB2 last
+      {{{WC1,WC0},{WC2,WC0}},                     // 01: WC0 last
+       {{WC0,WC1},{WC2,WC1}},                     // 02: WC1 last
+       {{WC0,WC2},{WC1,WC2}}},                    // 03: WC2 last
+     });
+  DPORDriver_test::trace_set_spec more_expected =
+    DPORDriver_test::spec_xprod
+    ({{{{WA0,WA1},{WA2,WA1}},                     // 01: WA1 last
+       {{WA0,WA2},{WA1,WA2}}},                    // 02: WA2 last
+      {{{WB1,WB0},{WB2,WB0}}},                    // 01: WB0 last
+     });
+  expected.insert(expected.end(), more_expected.begin(), more_expected.end());
+  expected.push_back({{WA1,WA0},{WA2,WA0}});      // WA0 last
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+}
+
+BOOST_AUTO_TEST_CASE(condtree_3_3r){
+  Configuration conf = sc_obs_conf();
+  std::string module = R"(
+@var_a = global i64 0, align 8
+@var_b = global i64 0, align 8
+@var_c = global i64 0, align 8
+
+define i8* @writer_a(i8* %arg) {
+  %i = ptrtoint i8* %arg to i64
+  store i64 %i, i64* @var_a, align 8
+  ret i8* null
+}
+
+define i8* @writer_b(i8* %arg) {
+  %i = ptrtoint i8* %arg to i64
+  store i64 %i, i64* @var_b, align 8
+  ret i8* null
+}
+
+define i8* @writer_c(i8* %arg) {
+  %i = ptrtoint i8* %arg to i64
+  store i64 %i, i64* @var_c, align 8
+  ret i8* null
+}
+
+define i32 @main() {
+  %a0 = alloca i64
+  %a1 = alloca i64
+  %a2 = alloca i64
+  %b0 = alloca i64
+  %b1 = alloca i64
+  %b2 = alloca i64
+  %c0 = alloca i64
+  %c1 = alloca i64
+  %c2 = alloca i64
+  call i32 @pthread_create(i64* %a0, %attr_t* null, i8* (i8*)* @writer_a, i8* null)
+  call i32 @pthread_create(i64* %a1, %attr_t* null, i8* (i8*)* @writer_a, i8* inttoptr (i64 1 to i8*))
+  call i32 @pthread_create(i64* %a2, %attr_t* null, i8* (i8*)* @writer_a, i8* inttoptr (i64 2 to i8*))
+  call i32 @pthread_create(i64* %b0, %attr_t* null, i8* (i8*)* @writer_b, i8* null)
+  call i32 @pthread_create(i64* %b1, %attr_t* null, i8* (i8*)* @writer_b, i8* inttoptr (i64 1 to i8*))
+  call i32 @pthread_create(i64* %b2, %attr_t* null, i8* (i8*)* @writer_b, i8* inttoptr (i64 2 to i8*))
+  call i32 @pthread_create(i64* %c0, %attr_t* null, i8* (i8*)* @writer_c, i8* null)
+  call i32 @pthread_create(i64* %c1, %attr_t* null, i8* (i8*)* @writer_c, i8* inttoptr (i64 1 to i8*))
+  call i32 @pthread_create(i64* %c2, %attr_t* null, i8* (i8*)* @writer_c, i8* inttoptr (i64 2 to i8*))
+  %a0val = load i64, i64* %a0
+  %a1val = load i64, i64* %a1
+  %a2val = load i64, i64* %a2
+  %b0val = load i64, i64* %b0
+  %b1val = load i64, i64* %b1
+  %b2val = load i64, i64* %b2
+  %c0val = load i64, i64* %c0
+  %c1val = load i64, i64* %c1
+  %c2val = load i64, i64* %c2
+  call i32 @pthread_join(i64 %a0val, i8** null)
+  call i32 @pthread_join(i64 %a1val, i8** null)
+  call i32 @pthread_join(i64 %a2val, i8** null)
+  call i32 @pthread_join(i64 %b0val, i8** null)
+  call i32 @pthread_join(i64 %b1val, i8** null)
+  call i32 @pthread_join(i64 %b2val, i8** null)
+  call i32 @pthread_join(i64 %c0val, i8** null)
+  call i32 @pthread_join(i64 %c1val, i8** null)
+  call i32 @pthread_join(i64 %c2val, i8** null)
+  %cv = load i64, i64* @var_c, align 8
+  %cz = icmp eq i64 %cv, 0
+  br i1 %cz, label %czl, label %cnzl
+
+czl:
+  ret i32 2
+
+cnzl:
+  %bv = load i64, i64* @var_b, align 8
+  %bz = icmp eq i64 %bv, 0
+  br i1 %bz, label %bzl, label %bnzl
+
+bzl:
+  ret i32 1
+
+bnzl:
+  %av = load i64, i64* @var_a, align 8
+  %anz = icmp ne i64 %av, 0
+  %anze = sext i1 %anz to i32
+  ret i32 %anze
+}
+
+%attr_t = type { i64, [48 x i8] }
+declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*)
+declare i32 @pthread_join(i64, i8**)
+)";
+  std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
+  DPORDriver::Result res = driver->run();
+
+  CPid P;
+  CPid A0 = P.spawn(0), A1 = P.spawn(1), A2 = P.spawn(2);
+  CPid B0 = P.spawn(3), B1 = P.spawn(4), B2 = P.spawn(5);
+  CPid C0 = P.spawn(6), C1 = P.spawn(7), C2 = P.spawn(8);
+  IID<CPid>
+    WA0(A0,2),WA1(A1,2),WA2(A2,2),
+    WB0(B0,2),WB1(B1,2),WB2(B2,2),
+    WC0(C0,2),WC1(C1,2),WC2(C2,2);
+  DPORDriver_test::trace_set_spec expected =
+    DPORDriver_test::spec_xprod
+    ({{{{WC0,WC1},{WC2,WC1}},                     // 01: WC1 last
+       {{WC0,WC2},{WC1,WC2}}},                    // 02: WC2 last
+      {{{WB0,WB1},{WB2,WB1}},                     // 01: WB1 last
+       {{WB0,WB2},{WB1,WB2}}},                    // 02: WB2 last
+      {{{WA1,WA0},{WA2,WA0}},                     // 01: WA0 last
+       {{WA0,WA1},{WA2,WA1}},                     // 02: WA1 last
+       {{WA0,WA2},{WA1,WA2}}},                    // 03: WA2 last
+     });
+  DPORDriver_test::trace_set_spec more_expected =
+    DPORDriver_test::spec_xprod
+    ({{{{WC0,WC1},{WC2,WC1}},                     // 01: WC1 last
+       {{WC0,WC2},{WC1,WC2}}},                    // 02: WC2 last
+      {{{WB1,WB0},{WB2,WB0}}},                    // 01: WB0 last
+     });
+  expected.insert(expected.end(), more_expected.begin(), more_expected.end());
+  expected.push_back({{WC1,WC0},{WC2,WC0}});      // WC0 last
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif
