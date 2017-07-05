@@ -1422,7 +1422,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
 
   std::map<IPid,const sym_ty*> isleep = opt_sleep_set_at(i);
 
-  Event first = prefix[i];
+  const Event &first = prefix[i];
   Event second({-1,0},{});
   Branch second_br(-1);
   if (race.kind == ReversibleRace::LOCK) {
@@ -1447,40 +1447,40 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
    *
    * It is the sequence we want to insert into the wakeup tree.
    */
-  std::vector<std::pair<Branch,Event>> v;
+  std::vector<std::pair<Branch,sym_ty>> v;
   std::vector<const Event*> observers;
-  std::vector<std::pair<Branch,const Event&>> notobs;
+  std::vector<std::pair<Branch,const sym_ty&>> notobs;
   for (int k = i + 1; k < int(prefix.len()); ++k){
     if (!first.clock.leq(prefix[k].clock)
         && (race.kind != ReversibleRace::OBSERVED
             ||!second.clock.leq(prefix[k].clock))) {
-      v.emplace_back(prefix.branch(k), prefix[k]);
+      v.emplace_back(prefix.branch(k), prefix[k].sym);
     } else if (race.kind == ReversibleRace::OBSERVED && k != j) {
       if (is_observed_conflict(first, second, prefix[k])){
         observers.push_back(&prefix[k]);
       } else if (!std::any_of(observers.begin(), observers.end(),
                               [this,k](const Event* o){
                                 return o->clock.leq(prefix[k].clock); })) {
-        notobs.emplace_back(prefix.branch(k), prefix[k]);
+        notobs.emplace_back(prefix.branch(k), prefix[k].sym);
       }
     }
   }
-  v.emplace_back(second_br, std::move(second));
+  v.emplace_back(second_br, std::move(second.sym));
   if (race.kind == ReversibleRace::OBSERVED) {
     int k = race.witness_event;
     const Branch &first_br = prefix.branch(i);
-    const Event *witness = &prefix[k];
+    const Event &witness = prefix[k];
     Branch witness_br = prefix.branch(k);
     /* Only replay the racy event. */
     witness_br.size = 1;
 
-    v.emplace_back(first_br, std::move(first));
+    v.emplace_back(first_br, first.sym);
     v.insert(v.end(), notobs.begin(), notobs.end());
-    v.emplace_back(witness_br, *witness);
+    v.emplace_back(witness_br, witness.sym);
 
     /* Recompute observed states on events in v */
-    for (std::pair<Branch,Event> &pair : v) {
-      clear_observed(pair.second.sym);
+    for (std::pair<Branch,sym_ty> &pair : v) {
+      clear_observed(pair.second);
     }
 
     /* When !read_all, last_reads is the set of addresses that have been read
@@ -1492,8 +1492,8 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
     bool read_all = false;
 
     for (auto vi = v.end(); vi != v.begin();){
-      std::pair<Branch,Event> &vp = *(--vi);
-      for (auto ei = vp.second.sym.end(); ei != vp.second.sym.begin();){
+      std::pair<Branch,sym_ty> &vp = *(--vi);
+      for (auto ei = vp.second.end(); ei != vp.second.begin();){
         SymEv &e = *(--ei);
         switch(e.kind){
         case SymEv::LOAD:
@@ -1536,18 +1536,16 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
   /* Check for redundant exploration */
   for (auto it = v.cbegin(); it != v.cend(); ++it) {
     /* Check for redundant exploration */
-    if (isleep.count(it->second.iid.get_pid())) {
+    if (isleep.count(it->first.pid)) {
       /* Latter events of this process can't be weak initials either, so to
        * save us from checking, we just delete it from isleep */
-      isleep.erase(it->second.iid.get_pid());
+      isleep.erase(it->first.pid);
 
       /* Is this a weak initial of v? */
       if (!std::any_of(v.cbegin(), it,
-                       [&](const std::pair<Branch,Event> &e){
-                         return do_events_conflict(e.second.iid.get_pid(),
-                                                   e.second.sym,
-                                                   it->second.iid.get_pid(),
-                                                   it->second.sym);
+                       [&](const std::pair<Branch,sym_ty> &e){
+                         return do_events_conflict(e.first.pid, e.second,
+                                                   it->first.pid, it->second);
                        })) {
         /* Then the reversal of this race has already been explored */
         return;
@@ -1559,12 +1557,13 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
     const Branch &sleep_br = prefix.branch(find_process_event
                                            (pair.first, iid_map[pair.first]));
     bool dependent = false;
-    for (const std::pair<Branch,Event> &ve : v) {
+    std::vector<int> dbgp_iid_map = iid_map;
+    for (const std::pair<Branch,sym_ty> &ve : v) {
       if (sleep_br == ve.first) {
         assert(false && "Already checked");
         return;
       }
-      if (do_events_conflict(ve.first.pid, ve.second.sym,
+      if (do_events_conflict(ve.first.pid, ve.second,
                              pair.first, *pair.second)) {
         /* Dependent */
         dependent = true;
@@ -1604,16 +1603,16 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
       }
 
       for (auto vei = v.begin(); skip == NO && vei != v.end(); ++vei) {
-        std::pair<Branch,Event> &ve = *vei;
+        std::pair<Branch,sym_ty> &ve = *vei;
         if (child_it.branch() == ve.first) {
-          if (child_sym != ve.second.sym) {
+          if (child_sym != ve.second) {
             /* This can happen due to observer effects. We must now make sure
              * ve.second->sym does not have any conflicts with any previous
              * event in v; i.e. wether it actually is a weak initial of v. */
             for (auto pei = v.begin(); skip == NO && pei != vei; ++pei){
-              const std::pair<Branch,Event> &pe = *pei;
-              if (do_events_conflict(ve.second.iid.get_pid(), ve.second.sym,
-                                     pe.second.iid.get_pid(), pe.second.sym)){
+              const std::pair<Branch,sym_ty> &pe = *pei;
+              if (do_events_conflict(ve.first.pid, ve.second,
+                                     pe.first.pid, pe.second)){
                 skip = NEXT;
               }
             }
@@ -1631,7 +1630,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
           break;
         }
 
-        if (do_events_conflict(ve.first.pid, ve.second.sym,
+        if (do_events_conflict(ve.first.pid, ve.second,
                                child_it.branch().pid, child_sym)) {
           /* This branch is incompatible, try the next */
           skip = NEXT;
@@ -1651,7 +1650,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
     if (skip == RECURSE) continue;
 
     /* No existing child was compatible with v. Insert v as a new sequence. */
-    for (const std::pair<Branch,Event> &ve : v) node = node.put_child(ve.first);
+    for (const std::pair<Branch,sym_ty> &ve : v) node = node.put_child(ve.first);
     return;
   }
 }
