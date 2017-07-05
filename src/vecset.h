@@ -113,8 +113,6 @@ public:
   bool subset_of(const VecSet<T> &s) const;
   /* Returns true iff there is some element that occurs both in this set and in s. */
   bool intersects(const VecSet<T> &s) const;
-  /* Sets this set to the intersection of this set and s. */
-  void intersect_with(const VecSet<T> &s);
   /* Returns the i:th smallest element in the set. */
   const T &operator[](int i) const { return vec[i]; };
   /* Returns the largest element in the set. */
