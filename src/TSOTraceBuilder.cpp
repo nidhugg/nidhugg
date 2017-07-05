@@ -1672,13 +1672,10 @@ TSOTraceBuilder::Event TSOTraceBuilder::reconstruct_lock_event
    * something unrelated since this is a lock probe) */
   /* Find last event of p before this mutex probe */
   IPid p = race.second_process.get_pid();
-  int last = race.second_event-1;
-  do {
-    if (prefix[last].iid.get_pid() == p) {
-      mutex_clock = prefix[last].clock;
-      break;
-    }
-  } while(last--);
+  if (race.second_process.get_index() != 1) {
+    int last = find_process_event(p, race.second_process.get_index()-1);
+    mutex_clock = prefix[last].clock;
+  }
   /* Recompute the clock of this mutex_lock_fail */
   ++mutex_clock[p];
   Event ret(race.second_process, std::move(mutex_clock));
