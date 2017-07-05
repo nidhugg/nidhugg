@@ -1449,7 +1449,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
    */
   std::vector<std::pair<Branch,Event>> v;
   std::vector<const Event*> observers;
-  std::vector<std::pair<Branch,Event>> notobs;
+  std::vector<std::pair<Branch,const Event&>> notobs;
   for (int k = i + 1; k < int(prefix.len()); ++k){
     if (!first.clock.leq(prefix[k].clock)
         && (race.kind != ReversibleRace::OBSERVED
@@ -1483,6 +1483,11 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
       clear_observed(pair.second.sym);
     }
 
+    /* When !read_all, last_reads is the set of addresses that have been read
+     * (or "are live", if comparing to a liveness analysis).
+     * When read_all, last_reads is instead the set of addresses that have *not*
+     * been read. All addresses that are not in last_reads are read.
+     */
     VecSet<const void*> last_reads;
     bool read_all = false;
 
