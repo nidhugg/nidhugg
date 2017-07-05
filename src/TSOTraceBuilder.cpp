@@ -432,7 +432,7 @@ void TSOTraceBuilder::wut_string_add_node
   unsigned offset = 2 + ((lines.size() < line)?0:lines[line].size());
 
   std::vector<std::pair<Branch,WakeupTreeRef<Branch>>> nodes({{branch,node}});
-  iid_map[branch.pid] += branch.size;
+  iid_map_step(iid_map, branch);
   unsigned l = line;
   WakeupTreeRef<Branch> n = node;
   Branch b = branch;
@@ -441,7 +441,7 @@ void TSOTraceBuilder::wut_string_add_node
     n = n.begin().node();
     ++l;
     nodes.push_back({b,n});
-    iid_map[b.pid] += b.size;
+    iid_map_step(iid_map, b);
     if (l < lines.size()) offset = std::max(offset, unsigned(lines[l].size()));
   }
   if (lines.size() < l+1) lines.resize(l+1, "");
@@ -457,7 +457,7 @@ void TSOTraceBuilder::wut_string_add_node
       if (ci == n.begin()) continue;
       wut_string_add_node(lines, iid_map, l+1, ci.branch(), ci.node());
     }
-    iid_map[b.pid] -= b.size;
+    iid_map_step_rev(iid_map, b);
     while(lines[l].size() < offset) lines[l] += " ";
     lines[l] += " " + iid_string(b, iid_map[b.pid]);
     nodes.pop_back();
@@ -483,7 +483,7 @@ void TSOTraceBuilder::debug_print() const {
   std::vector<int> iid_map = iid_map_at(prefix.len());
   for(int i = prefix.len()-1; 0 <= i; --i){
     auto node = prefix.parent_at(i);
-    iid_map[prefix.branch(i).pid] -= prefix.branch(i).size;
+    iid_map_step_rev(iid_map, prefix.branch(i));
     for (auto it = node.begin(); it != node.end(); ++it) {
       Branch b = it.branch();
       if (b == prefix.branch(i)) continue; /* Only print others */
@@ -1625,7 +1625,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
           }
           /* Drop ve from v and recurse into this node */
           v.erase(vei);
-          iid_map[child_it.branch().pid] += child_it.branch().size;
+          iid_map_step(iid_map, child_it.branch());
           node = child_it.node();
           skip = RECURSE;
           break;
@@ -1640,7 +1640,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
       if (skip == RECURSE) break;
       if (skip == NEXT) { skip = NO; continue; }
 
-      iid_map[child_it.branch().pid] += child_it.branch().size;
+      iid_map_step(iid_map, child_it.branch());
       node = child_it.node();
       skip = RECURSE;
       break;
@@ -1659,9 +1659,17 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
 std::vector<int> TSOTraceBuilder::iid_map_at(int event) const{
   std::vector<int> map(threads.size(), 1);
   for (int i = 0; i < event; ++i) {
-    map[prefix[i].iid.get_pid()] += prefix.branch(i).size;
+    iid_map_step(map, prefix.branch(i));
   }
   return map;
+}
+
+void TSOTraceBuilder::iid_map_step(std::vector<int> &iid_map, const Branch &event) const{
+  iid_map[event.pid] += event.size;
+}
+
+void TSOTraceBuilder::iid_map_step_rev(std::vector<int> &iid_map, const Branch &event) const{
+  iid_map[event.pid] -= event.size;
 }
 
 TSOTraceBuilder::Event TSOTraceBuilder::reconstruct_lock_event
