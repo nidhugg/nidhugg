@@ -1098,7 +1098,7 @@ void TSOTraceBuilder::register_alternatives(int alt_count){
   }
 }
 
-VecSet<TSOTraceBuilder::IPid> TSOTraceBuilder::sleep_set_at(int i){
+VecSet<TSOTraceBuilder::IPid> TSOTraceBuilder::sleep_set_at(int i) const{
   VecSet<IPid> sleep;
   for(int j = 0; j < i; ++j){
     sleep.insert(prefix[j].sleep);
@@ -1109,25 +1109,34 @@ VecSet<TSOTraceBuilder::IPid> TSOTraceBuilder::sleep_set_at(int i){
 }
 
 std::map<TSOTraceBuilder::IPid,const sym_ty*>
-TSOTraceBuilder::opt_sleep_set_at(int i){
+TSOTraceBuilder::opt_sleep_set_at(int i) const{
   assert(i >= 0);
   std::map<IPid,const sym_ty*> sleep;
   for(int j = 0;; ++j){
-    for (int k = 0; k < prefix[j].sleep.size(); ++k){
-      sleep.emplace(prefix[j].sleep[k],
-                    &prefix[j].sleep_evs[k]);
-    }
+    opt_sleep_set_add(sleep, prefix[j]);
     if (j == i) break;
-    for (auto it = sleep.begin(); it != sleep.end();) {
-      if (do_events_conflict(prefix[j].iid.get_pid(), prefix[j].sym,
-                             it->first, *it->second))
-        it = sleep.erase(it);
-      else
-        ++it;
-    }
+    opt_sleep_set_wake(sleep, prefix[j].iid.get_pid(), prefix[j].sym);
   }
 
   return sleep;
+}
+
+void TSOTraceBuilder::opt_sleep_set_add(std::map<IPid,const sym_ty*> &sleep,
+                                        const Event &e) const{
+  for (int k = 0; k < e.sleep.size(); ++k){
+    sleep.emplace(e.sleep[k], &e.sleep_evs[k]);
+  }
+}
+
+void TSOTraceBuilder::opt_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
+                                         IPid p, const sym_ty &sym) const{
+  for (auto it = sleep.begin(); it != sleep.end();) {
+    if (do_events_conflict(p, sym, it->first, *it->second)){
+      it = sleep.erase(it);
+    }else{
+      ++it;
+    }
+  }
 }
 
 void TSOTraceBuilder::see_events(const VecSet<int> &seen_accesses){

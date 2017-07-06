@@ -512,8 +512,12 @@ protected:
    * as the first event of prefix[i] started executing. Returns that
    * set.
    */
-  VecSet<IPid> sleep_set_at(int i);
-  std::map<IPid,const sym_ty*> opt_sleep_set_at(int i);
+  VecSet<IPid> sleep_set_at(int i) const;
+  std::map<IPid,const sym_ty*> opt_sleep_set_at(int i) const;
+  void opt_sleep_set_add(std::map<IPid,const sym_ty*> &sleep,
+                         const Event &e) const;
+  void opt_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
+                          IPid p, const sym_ty &sym) const;
   /* Wake up all threads which are sleeping, waiting for an access
    * (type,ml). */
   void wakeup(Access::Type type, void const *ml);
