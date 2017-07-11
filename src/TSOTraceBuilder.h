@@ -340,6 +340,10 @@ protected:
      * event sequence.
      */
     VecSet<IPid> sleep;
+    /* The events that the threads in sleep will perform as their next step,
+     * as determined by dry running.
+     * sleep and sleep_evs are of the same size and correspond pairwise.
+     */
     std::vector<sym_ty> sleep_evs;
     /* The set of sleeping threads that wake up during or after this
      * event sequence.
@@ -462,7 +466,8 @@ protected:
   /* Finds the index in prefix of the event of process pid that has iid-index
    * index.
    */
-  unsigned find_process_event(IPid pid, int index);
+  std::pair<bool,unsigned> try_find_process_event(IPid pid, int index) const;
+  unsigned find_process_event(IPid pid, int index) const;
 
   std::string iid_string(std::size_t pos) const;
   std::string iid_string(const Branch &branch, int index) const;
@@ -513,11 +518,32 @@ protected:
    * set.
    */
   VecSet<IPid> sleep_set_at(int i) const;
-  std::map<IPid,const sym_ty*> opt_sleep_set_at(int i) const;
-  void opt_sleep_set_add(std::map<IPid,const sym_ty*> &sleep,
-                         const Event &e) const;
-  void opt_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
-                          IPid p, const sym_ty &sym) const;
+  /* Traverses prefix to compute the "wakeup" sets accounting for observer
+   * effects, allowing efficient walks over observer-correct sleep sets.
+   */
+  std::vector<VecSet<IPid>> compute_observers_wakeup_sets() const;
+  /* Computes the sleepset at position i, additionally returning the symbolic
+   * events that the sleeper would do (as determined by dry running).
+   *
+   * When config.observers, these sleepsets are overapproximated by not
+   * considering observer flags on sleeping events. This results in the sleepset
+   * for the prefix that ends after event i, as if the trace ended there.
+   *
+   * This overapproximation is critical to efficiently and correctly
+   * implementing Optimal-DPOR (which is the only sound DPOR for observers), as
+   * these overapproximated sleepsets do not depend on the contents of the
+   * wakeup sequence, and can yet be used to implement the redundancy check
+   * correctly.
+   */
+  std::map<IPid,const sym_ty*> noobs_sleep_set_at(int i) const;
+  /* Performs the first half of a sleep set step, adding new sleepers from e. */
+  void noobs_sleep_set_add(std::map<IPid,const sym_ty*> &sleep,
+                           const Event &e) const;
+  /* Performs the second half of a sleep set step, removing sleepers that
+   * conflict with (p, sym).
+   */
+  void noobs_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
+                            IPid p, const sym_ty &sym) const;
   /* Wake up all threads which are sleeping, waiting for an access
    * (type,ml). */
   void wakeup(Access::Type type, void const *ml);

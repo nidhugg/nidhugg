@@ -470,13 +470,21 @@ void TSOTraceBuilder::debug_print() const {
   int clock_offs = 0;
   std::vector<std::string> lines;
   VecSet<IPid> sleep_set;
+
+  std::vector<VecSet<IPid>> wakeup_sets;
+  if (conf.observers) wakeup_sets = compute_observers_wakeup_sets();
+
   for(unsigned i = 0; i < prefix.len(); ++i){
     IPid ipid = prefix[i].iid.get_pid();
     iid_offs = std::max(iid_offs,2*ipid+int(iid_string(i).size()));
     clock_offs = std::max(clock_offs,int(prefix[i].clock.to_string().size()));
     sleep_set.insert(prefix[i].sleep);
     lines.push_back(" SLP:" + slp_string(sleep_set));
-    sleep_set.erase(prefix[i].wakeup);
+    if (conf.observers){
+      sleep_set.erase(wakeup_sets[i]);
+    }else{
+      sleep_set.erase(prefix[i].wakeup);
+    }
   }
 
   /* Add wakeup tree */
@@ -1108,28 +1116,97 @@ VecSet<TSOTraceBuilder::IPid> TSOTraceBuilder::sleep_set_at(int i) const{
   return sleep;
 }
 
+std::vector<VecSet<TSOTraceBuilder::IPid>> TSOTraceBuilder::
+compute_observers_wakeup_sets() const{
+  std::vector<VecSet<IPid>> wakeup_sets(prefix.len());
+
+  std::vector<int> iid_map = iid_map_at(0);
+  for (unsigned i = 0; i < prefix.len(); ++i){
+    const Event &e = prefix[i];
+    for (int j = 0; j < e.sleep.size(); ++j){
+      /* In order to wake processes at the right point when observer effects are
+       * possible, in case the sleeping event does appear in the current
+       * execution sequence, we must use the symbolic event with the observer
+       * flags from where the event was executed, and additionally check for the
+       * first conflict in reverse from there. Otherwise we will compute
+       * incorrect sleep sets for the case when we have a trio of writes from
+       * different processes before a read of the same variable. In particular,
+       * after executing w1-w2-w3-r we will schedule w2-w3-w1-r. During this
+       * trace, w1 will be in the sleep set before the first event. The place
+       * where w1 should leave the sleep set is after w3, as w1 and w3 conflicts
+       * in this trace. However, if doing wakeup top-down, we would either do it
+       * with the observer flag set, which would have it conflict with w2 and
+       * leave the sleepset prematurely (note that w2-w1-w3-r is equivalent to
+       * w1-w2-w3-r), or we would do it without the observer flag set, which
+       * would not have it leave the sleepset at all until it is executed.
+       */
+      bool found; unsigned p = e.sleep[j], k;
+      std::tie(found, k) = try_find_process_event(p, iid_map[p]);
+      if (found){
+        const sym_ty &sym = prefix[k].sym;
+        for (unsigned l = k-1;; --l){
+          if (do_events_conflict(p,                    sym,
+                                 prefix.branch(l).pid, prefix[l].sym)){
+            wakeup_sets[l].insert(p);
+            break;
+          }
+
+          assert(l != i && "An event was executed while in the sleepset");
+        }
+      }else{
+        const sym_ty &sym = e.sleep_evs[j];
+        for (unsigned l = i; l < prefix.len(); ++l){
+          if (do_events_conflict(p,                    sym,
+                                 prefix.branch(l).pid, prefix[l].sym)){
+            wakeup_sets[l].insert(p);
+            break;
+          }
+        }
+      }
+    }
+
+    iid_map_step(iid_map, prefix.branch(i));
+  }
+
+  return wakeup_sets;
+}
+
 std::map<TSOTraceBuilder::IPid,const sym_ty*>
-TSOTraceBuilder::opt_sleep_set_at(int i) const{
+TSOTraceBuilder::noobs_sleep_set_at(int i) const{
   assert(i >= 0);
+  std::vector<int> iid_map = iid_map_at(0);
   std::map<IPid,const sym_ty*> sleep;
   for(int j = 0;; ++j){
-    opt_sleep_set_add(sleep, prefix[j]);
+    const Event &e = prefix[j];
+    for (int k = 0; k < e.sleep.size(); ++k){
+      /* If the sleeping event occurs in prefix before i, then we know that it
+       * will also be awoken before that. Thus, as an optimisation, we kan skip
+       * putting it in sleep to begin with.
+       */
+      bool found; unsigned l;
+      std::tie(found, l) = try_find_process_event
+        (e.sleep[k], iid_map[e.sleep[k]]);
+      if (!found || int(l) >= i) {
+        sleep.emplace(e.sleep[k], &e.sleep_evs[k]);
+      }
+    }
     if (j == i) break;
-    opt_sleep_set_wake(sleep, prefix[j].iid.get_pid(), prefix[j].sym);
+    noobs_sleep_set_wake(sleep, prefix[j].iid.get_pid(), prefix[j].sym);
+    iid_map_step(iid_map, prefix.branch(j));
   }
 
   return sleep;
 }
 
-void TSOTraceBuilder::opt_sleep_set_add(std::map<IPid,const sym_ty*> &sleep,
-                                        const Event &e) const{
+void TSOTraceBuilder::noobs_sleep_set_add(std::map<IPid,const sym_ty*> &sleep,
+                                          const Event &e) const{
   for (int k = 0; k < e.sleep.size(); ++k){
     sleep.emplace(e.sleep[k], &e.sleep_evs[k]);
   }
 }
 
-void TSOTraceBuilder::opt_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
-                                         IPid p, const sym_ty &sym) const{
+void TSOTraceBuilder::noobs_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
+                                           IPid p, const sym_ty &sym) const{
   for (auto it = sleep.begin(); it != sleep.end();) {
     if (do_events_conflict(p, sym, it->first, *it->second)){
       it = sleep.erase(it);
@@ -1429,7 +1506,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
   const int i = race.first_event;
   const int j = race.second_event;
 
-  std::map<IPid,const sym_ty*> isleep = opt_sleep_set_at(i);
+  std::map<IPid,const sym_ty*> isleep = noobs_sleep_set_at(i);
 
   const Event &first = prefix[i];
   Event second({-1,0},{});
@@ -1703,7 +1780,25 @@ TSOTraceBuilder::Event TSOTraceBuilder::reconstruct_lock_event
   return ret;
 }
 
-unsigned TSOTraceBuilder::find_process_event(IPid pid, int index){
+inline std::pair<bool,unsigned> TSOTraceBuilder::
+try_find_process_event(IPid pid, int index) const{
+  assert(pid >= 0 && pid < int(threads.size()));
+  assert(index >= 1);
+  if (index > int(threads[pid].event_indices.size())){
+    return {false, ~0};
+  }
+
+  unsigned k = threads[pid].event_indices[index-1];
+  assert(k < prefix.len());
+  assert(prefix.branch(k).size > 0);
+  assert(prefix[k].iid.get_pid() == pid
+         && prefix[k].iid.get_index() <= index
+         && (prefix[k].iid.get_index() + prefix.branch(k).size) > index);
+
+  return {true, k};
+}
+
+inline unsigned TSOTraceBuilder::find_process_event(IPid pid, int index) const{
   assert(pid >= 0 && pid < int(threads.size()));
   assert(index >= 1 && index <= int(threads[pid].event_indices.size()));
   unsigned k = threads[pid].event_indices[index-1];
