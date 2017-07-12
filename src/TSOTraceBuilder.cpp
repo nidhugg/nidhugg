@@ -416,13 +416,7 @@ std::string TSOTraceBuilder::iid_string(const Branch &branch, int index) const{
 }
 
 std::string TSOTraceBuilder::slp_string(const VecSet<IPid> &slp) const {
-  std::string res = "{";
-  for(int i = 0; i < slp.size(); ++i){
-    if(i != 0) res += ", ";
-    res += threads[slp[i]].cpid.to_string();
-  }
-  res += "}";
-  return res;
+  return slp.to_string_one_line([this](IPid p) { return threads[p].cpid.to_string(); });
 }
 
 /* For debug-printing the wakeup tree; adds a node and its children to lines */

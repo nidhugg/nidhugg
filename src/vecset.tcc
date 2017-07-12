@@ -242,7 +242,7 @@ bool VecSet<T>::check_invariant() const{
 }
 
 template<class T>
-std::string VecSet<T>::to_string_one_line(std::function<std::string(const T&)> &f) const{
+std::string VecSet<T>::to_string_one_line(std::function<std::string(const T&)> f) const{
   std::string s = "{";
   for(unsigned i = 0; i < vec.size(); ++i){
     if(i != 0) s += ", ";

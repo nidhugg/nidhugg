@@ -187,7 +187,7 @@ public:
   /* Produces a string representation of the set with each element t
    * represented as f(t) without any new lines between the elements.
    */
-  std::string to_string_one_line(std::function<std::string(const T&)> &f) const;
+  std::string to_string_one_line(std::function<std::string(const T&)> f) const;
 private:
   /* The set consists of the elements in vec.
    *
