@@ -1542,12 +1542,14 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
             ||!second.clock.leq(prefix[k].clock))) {
       v.emplace_back(prefix.branch(k), prefix[k].sym);
     } else if (race.kind == ReversibleRace::OBSERVED && k != j) {
-      if (is_observed_conflict(first, second, prefix[k])){
-        observers.push_back(&prefix[k]);
-      } else if (!std::any_of(observers.begin(), observers.end(),
-                              [this,k](const Event* o){
-                                return o->clock.leq(prefix[k].clock); })) {
-        notobs.emplace_back(prefix.branch(k), prefix[k].sym);
+      if (!std::any_of(observers.begin(), observers.end(),
+                       [this,k](const Event* o){
+                         return o->clock.leq(prefix[k].clock); })){
+        if (is_observed_conflict(first, second, prefix[k])){
+          observers.push_back(&prefix[k]);
+        } else {
+          notobs.emplace_back(prefix.branch(k), prefix[k].sym);
+        }
       }
     }
   }
@@ -1628,11 +1630,16 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
       isleep.erase(it->first.pid);
 
       /* Is this a weak initial of v? */
-      if (!std::any_of(v.cbegin(), it,
-                       [&](const std::pair<Branch,sym_ty> &e){
-                         return do_events_conflict(e.first.pid, e.second,
-                                                   it->first.pid, it->second);
-                       })) {
+      bool initial = true;
+      for (auto prev = it; prev != v.cbegin();){
+        --prev;
+        if (do_events_conflict(prev->first.pid, prev->second,
+                               it  ->first.pid, it  ->second)){
+          initial = false;
+          break;
+        }
+      }
+      if (initial){
         /* Then the reversal of this race has already been explored */
         return;
       }
