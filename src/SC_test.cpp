@@ -1891,11 +1891,10 @@ declare void @__assert_fail()
   DPORDriver::Result res = driver->run();
   delete driver;
 
-  /* TODO: Optimal-DPOR */
-  // conf.dpor_algorithm = Configuration::OPTIMAL;
-  // driver = DPORDriver::parseIR(module, conf);
-  // DPORDriver::Result opt_res = driver->run();
-  // delete driver;
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module, conf);
+  DPORDriver::Result opt_res = driver->run();
+  delete driver;
 
   BOOST_CHECK(!res.has_errors());
 
@@ -1915,8 +1914,7 @@ declare void @__assert_fail()
      {{cndwtW1,lckW0},{cndwtW0,lckB},{ulckB,lckW0b}}, // Both wait, W1 before W0, W0 wakes up
      {{cndwtW1,lckW0},{cndwtW0,lckB},{ulckB,lckW1b}}  // Both wait, W1 before W0, W1 wakes up
     };
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
-                                                ));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf,&opt_res));
 }
 
 BOOST_AUTO_TEST_CASE(Condvar_12){

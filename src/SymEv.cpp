@@ -68,6 +68,8 @@ static std::string mref_to_string(ConstMRef mref) {
 std::string SymEv::to_string(std::function<std::string(int)> pid_str) const {
     switch(kind) {
     // case EMPTY:    return "Empty()";
+    case NONDET:   return "Nondet()";
+
     case LOAD:     return "Load("    + mref_to_string(arg.addr) + ")";
     case STORE:    return "Store("   + mref_to_string(arg.addr) + ")";
     case FULLMEM:  return "Fullmem()";

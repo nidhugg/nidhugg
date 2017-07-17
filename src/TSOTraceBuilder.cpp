@@ -1095,8 +1095,7 @@ void TSOTraceBuilder::register_alternatives(int alt_count){
   curev().may_conflict = true;
   record_symbolic(SymEv::Nondet());
   for(int i = curbranch().alt+1; i < alt_count; ++i){
-    prefix.parent_at(prefix.len()-1)
-      .put_child(Branch({curev().iid.get_pid(),i}));
+    reversible_races.push_back(ReversibleRace::Nondet(prefix_idx, i));
   }
 }
 
@@ -1420,6 +1419,13 @@ void TSOTraceBuilder::race_detect(const ReversibleRace &race){
   int i = race.first_event;
   int j = race.second_event;
 
+  if (race.kind == ReversibleRace::NONDET){
+    assert(race.alternative > prefix.branch(i).alt);
+    prefix.parent_at(i)
+      .put_child(Branch({prefix[i].iid.get_pid(),race.alternative}));
+    return;
+  }
+
   VecSet<IPid> isleep = sleep_set_at(i);
 
   /* In the case that race is a failed mutex probe, there's no Event in prefix
@@ -1509,6 +1515,10 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
     second = reconstruct_lock_event(race);
     /* XXX: Lock events don't have alternatives, right? */
     second_br = Branch(second.iid.get_pid());
+  } else if (race.kind == ReversibleRace::NONDET) {
+    second = first;
+    second_br = prefix.branch(i);
+    second_br.alt = race.alternative;
   } else {
     second = prefix[j];
     second.sleep.clear();

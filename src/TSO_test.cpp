@@ -2852,14 +2852,13 @@ declare void @__assert_fail() noreturn nounwind
   DPORDriver::Result res = driver->run();
   delete driver;
 
-  /* TODO: Optimal-DPOR */
-  // conf.dpor_algorithm = Configuration::OPTIMAL;
-  // driver = DPORDriver::parseIR(module,conf);
-  // DPORDriver::Result opt_res = driver->run();
-  // delete driver;
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
+  delete driver;
 
   BOOST_CHECK(res.has_errors());
-  // BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
+  BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Malloc_2){
@@ -2886,14 +2885,13 @@ declare void @__assert_fail() noreturn nounwind
   DPORDriver::Result res = driver->run();
   delete driver;
 
-  /* TODO: Optimal-DPOR */
-  // conf.dpor_algorithm = Configuration::OPTIMAL;
-  // driver = DPORDriver::parseIR(module,conf);
-  // DPORDriver::Result opt_res = driver->run();
-  // delete driver;
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
+  delete driver;
 
   BOOST_CHECK(res.has_errors());
-  // BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
+  BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Assume_1){
@@ -2949,12 +2947,11 @@ declare void @__VERIFIER_assume(i32)
   delete driver;
   BOOST_CHECK(res.has_errors());
 
-  /* TODO: Optimal-DPOR */
-  // conf.dpor_algorithm = Configuration::OPTIMAL;
-  // driver = DPORDriver::parseIR(module,conf);
-  // DPORDriver::Result opt_res = driver->run();
-  // delete driver;
-  // BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
+  delete driver;
+  BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Nasty_bitcast){

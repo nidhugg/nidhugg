@@ -375,6 +375,8 @@ protected:
       OBSERVED,
       /* Attempt to acquire a lock */
       LOCK,
+      /* A nondeterministic event that can be performed differently */
+      NONDET,
     };
     const Kind kind;
     const int first_event;
@@ -383,6 +385,7 @@ protected:
     union{
       const Mutex *mutex;
       const int witness_event;
+      const int alternative;
     };
     static ReversibleRace Nonblock(int first, int second) {
       return ReversibleRace(NONBLOCK, first, second, {-1,0}, nullptr);
@@ -393,6 +396,9 @@ protected:
     static ReversibleRace Lock(int first, int second, IID<IPid> process, const Mutex *mutex) {
       assert(mutex);
       return ReversibleRace(LOCK, first, second, process, mutex);
+    };
+    static ReversibleRace Nondet(int event, int alt) {
+      return ReversibleRace(NONDET, event, -1, {-1,0}, alt);
     };
   private:
     ReversibleRace(Kind k, int f, int s, IID<IPid> p, const Mutex *m) :
