@@ -103,14 +103,15 @@ protected:
   /* A store pending in a store buffer. */
   class PendingStore{
   public:
-    PendingStore(const ConstMRef &ml, const VClock<IPid> &clk, const llvm::MDNode *md)
-      : ml(ml), clock(clk), last_rowe(-1), md(md) {};
+    PendingStore(const ConstMRef &ml, unsigned store_event,
+                 const llvm::MDNode *md)
+      : ml(ml), store_event(store_event), last_rowe(-1), md(md) {};
     /* The memory location that is being written to. */
     ConstMRef ml;
-    /* The clock of the store event which produced this store buffer
-     * entry.
+    /* The index into prefix of the store event that produced this store
+     * buffer entry.
      */
-    VClock<IPid> clock;
+    unsigned store_event;
     /* An index into prefix to the event of the last load that fetched
      * its value from this store buffer entry by Read-Own-Write-Early.
      *
@@ -127,16 +128,17 @@ protected:
    */
   class Thread{
   public:
-    Thread(const CPid &cpid, const VClock<IPid> &clk)
-      : cpid(cpid), available(true), clock(clk), sleeping(false),
+    Thread(const CPid &cpid, int spawn_event
+           )
+      : cpid(cpid), available(true), spawn_event(spawn_event), sleeping(false),
         sleep_full_memory_conflict(false), sleep_sym(nullptr) {};
     CPid cpid;
     /* Is the thread available for scheduling? */
     bool available;
-    /* The clock containing all events that have been seen by this
-     * thread.
+    /* The index of the spawn event that created this thread, or -1 if
+     * this is the main thread or one of its auxiliaries.
      */
-    VClock<IPid> clock;
+    int spawn_event;
     /* Indices in prefix of the events of this process.
      */
     std::vector<unsigned> event_indices;
@@ -174,6 +176,11 @@ protected:
      * NULL if !sleeping.
      */
     sym_ty *sleep_sym;
+
+    /* The iid-index of the last event of this thread, or 0 if it has not
+     * executed any events yet.
+     */
+    int last_event_index() const { return event_indices.size(); }
   };
   /* The threads in the current execution, in the order they were
    * created. Threads on even indexes are real, threads on odd indexes
@@ -306,6 +313,59 @@ protected:
     };
   };
 
+  struct Race {
+  public:
+    enum Kind {
+      /* Any kind of event that does not block any other process */
+      NONBLOCK,
+      /* A nonblocking race where additionally a third event is
+       * required to observe the race between the first two. */
+      OBSERVED,
+      /* Attempt to acquire a lock that is already locked */
+      LOCK_FAIL,
+      /* Race between two successful blocking lock aquisitions (with an
+       * unlock event in between) */
+      LOCK_SUC,
+      /* A nondeterministic event that can be performed differently */
+      NONDET,
+    };
+    Kind kind;
+    int first_event;
+    int second_event;
+    IID<IPid> second_process;
+    union{
+      const Mutex *mutex;
+      int witness_event;
+      int alternative;
+      int unlock_event;
+    };
+    static Race Nonblock(int first, int second) {
+      return Race(NONBLOCK, first, second, {-1,0}, nullptr);
+    };
+    static Race Observed(int first, int second, int witness) {
+      return Race(OBSERVED, first, second, {-1,0}, witness);
+    };
+    static Race LockFail(int first, int second, IID<IPid> process,
+                         const Mutex *mutex) {
+      assert(mutex);
+      return Race(LOCK_FAIL, first, second, process, mutex);
+    };
+    static Race LockSuc(int first, int second, int unlock) {
+      return Race(LOCK_SUC, first, second, {-1,0}, unlock);
+    };
+    static Race Nondet(int event, int alt) {
+      return Race(NONDET, event, -1, {-1,0}, alt);
+    };
+  private:
+    Race(Kind k, int f, int s, IID<IPid> p, const Mutex *m) :
+      kind(k), first_event(f), second_event(s), second_process(p), mutex(m) {}
+    Race(Kind k, int f, int s, IID<IPid> p, int w) :
+      kind(k), first_event(f), second_event(s), second_process(p),
+      witness_event(w) {}
+  };
+
+  std::vector<Race> lock_fail_races;
+
   /* Information about a (short) sequence of consecutive events by the
    * same thread. At most one event in the sequence may have conflicts
    * with other events, and if the sequence has a conflicting event,
@@ -313,9 +373,10 @@ protected:
    */
   class Event{
   public:
-    Event(const IID<IPid> &iid,
-          const VClock<IPid> &clk)
-      : iid(iid), origin_iid(iid), md(0), clock(clk), may_conflict(false),
+    Event(const IID<IPid> &iid
+          //,const VClock<IPid> &clk
+          )
+      : iid(iid), origin_iid(iid), md(0), clock(/*clk*/), may_conflict(false),
         sym(), sleep_branch_trace_count(0) {};
     /* The identifier for the first event in this event sequence. */
     IID<IPid> iid;
@@ -326,8 +387,16 @@ protected:
     IID<IPid> origin_iid;
     /* Metadata corresponding to the first event in this sequence. */
     const llvm::MDNode *md;
-    /* The clock of the first event in this sequence. */
+    /* The clock of the first event in this sequence. Only computed
+     * after a full execution sequence has been explored.
+     */
     VClock<IPid> clock;
+    /* Indices into prefix of events that happen before this one. */
+    std::vector<unsigned> happens_after;
+    /* Possibly reversible races found in the current execution
+     * involving this event as the main event.
+     */
+    std::vector<Race> races;
     /* Is it possible for any event in this sequence to have a
      * conflict with another event?
      */
@@ -364,53 +433,6 @@ protected:
    * events that are determined in advance to be executed.
    */
   WakeupTreeExplorationBuffer<Branch, Event> prefix;
-
-  struct ReversibleRace {
-  public:
-    enum Kind {
-      /* Any kind of event that does not block any other process */
-      NONBLOCK,
-      /* A nonblocking race where additionally a third event is
-       * required to observe the race between the first two. */
-      OBSERVED,
-      /* Attempt to acquire a lock */
-      LOCK,
-      /* A nondeterministic event that can be performed differently */
-      NONDET,
-    };
-    const Kind kind;
-    const int first_event;
-    const int second_event;
-    const IID<IPid> second_process;
-    union{
-      const Mutex *mutex;
-      const int witness_event;
-      const int alternative;
-    };
-    static ReversibleRace Nonblock(int first, int second) {
-      return ReversibleRace(NONBLOCK, first, second, {-1,0}, nullptr);
-    };
-    static ReversibleRace Observed(int first, int second, int witness) {
-      return ReversibleRace(OBSERVED, first, second, {-1,0}, witness);
-    };
-    static ReversibleRace Lock(int first, int second, IID<IPid> process, const Mutex *mutex) {
-      assert(mutex);
-      return ReversibleRace(LOCK, first, second, process, mutex);
-    };
-    static ReversibleRace Nondet(int event, int alt) {
-      return ReversibleRace(NONDET, event, -1, {-1,0}, alt);
-    };
-  private:
-    ReversibleRace(Kind k, int f, int s, IID<IPid> p, const Mutex *m) :
-      kind(k), first_event(f), second_event(s), second_process(p), mutex(m) {}
-    ReversibleRace(Kind k, int f, int s, IID<IPid> p, int w) :
-      kind(k), first_event(f), second_event(s), second_process(p),
-      witness_event(w) {}
-  };
-
-  /* Pairs i<j of reversible races found in the current execution.
-   */
-  std::vector<ReversibleRace> reversible_races;
 
   /* The number of threads that have been dry run since the last
    * non-dry run event was scheduled.
@@ -484,7 +506,8 @@ protected:
                            WakeupTreeRef<Branch> node) const;
   void add_noblock_race(int event);
   void add_observed_race(int first, int second);
-  void add_lock_race(const Mutex &m, int event);
+  void add_lock_suc_race(int lock, int unlock);
+  void add_lock_fail_race(const Mutex &m, int event);
   bool do_events_conflict(const Event &fst, const Event &snd) const;
   bool do_events_conflict(IPid fst_pid, const sym_ty &fst,
                           IPid snd_pid, const sym_ty &snd) const;
@@ -499,12 +522,12 @@ protected:
   bool is_observed_conflict(IPid fst_pid, const SymEv &fst,
                             IPid snd_pid, const SymEv &snd,
                             IPid thd_pid, const SymEv &thd) const;
-  Event reconstruct_lock_event(const ReversibleRace&);
-  void race_detect(const ReversibleRace&);
+  Event reconstruct_lock_event(const Race&);
+  void race_detect(const Race&);
   std::vector<int> iid_map_at(int event) const;
   void iid_map_step(std::vector<int> &iid_map, const Branch &event) const;
   void iid_map_step_rev(std::vector<int> &iid_map, const Branch &event) const;
-  void race_detect_optimal(const ReversibleRace&);
+  void race_detect_optimal(const Race&);
   /* Add clocks and branches.
    *
    * All elements e in seen should either be indices into prefix, or
@@ -516,6 +539,12 @@ protected:
    * All pairs in seen should be increasing indices into prefix.
    */
   void see_event_pairs(const VecSet<std::pair<int,int>> &seen);
+  void add_happens_after(unsigned second, unsigned first);
+  void add_happens_after_thread(unsigned second, IPid thread);
+  /* Computes the vector clocks of all events in a complete execution
+   * sequence from happens_after and race edges.
+   */
+  void compute_vclocks();
   /* Records a symbolic representation of the current event.
    */
   void record_symbolic(SymEv event);

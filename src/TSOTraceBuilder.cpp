@@ -24,8 +24,8 @@
 #include <stdexcept>
 
 TSOTraceBuilder::TSOTraceBuilder(const Configuration &conf) : TSOPSOTraceBuilder(conf) {
-  threads.push_back(Thread(CPid(),{}));
-  threads.push_back(Thread(CPS.new_aux(CPid()),{}));
+  threads.push_back(Thread(CPid(), -1));
+  threads.push_back(Thread(CPS.new_aux(CPid()), -1));
   threads[1].available = false; // Store buffer is empty.
   prefix_idx = -1;
   dryrun = false;
@@ -44,7 +44,7 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   this->dryrun = false;
   if(replay){
     /* Are we done with the current Event? */
-    if(0 <= prefix_idx && threads[curev().iid.get_pid()].clock[curev().iid.get_pid()] <
+    if(0 <= prefix_idx && threads[curev().iid.get_pid()].last_event_index() <
        curev().iid.get_index() + curbranch().size - 1){
       /* Continue executing the current Event */
       IPid pid = curev().iid.get_pid();
@@ -52,7 +52,6 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       *aux = pid % 2 - 1;
       *alt = 0;
       assert(threads[pid].available);
-      ++threads[pid].clock[pid];
       threads[pid].event_indices.push_back(prefix_idx);
       return true;
     }else if(prefix_idx + 1 == int(prefix.len()) && prefix.lastnode().size() == 0){
@@ -96,15 +95,13 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
         /* We are replaying from the wakeup tree */
         pid = prefix.first_child().pid;
         prefix.enter_first_child
-          (Event(IID<IPid>(pid,threads[pid].clock[pid] + 1), {}));
+          (Event(IID<IPid>(pid,threads[pid].last_event_index() + 1)));
       }
       *proc = pid/2;
       *aux = pid % 2 - 1;
       *alt = curbranch().alt;
       assert(threads[pid].available);
-      ++threads[pid].clock[pid];
       threads[pid].event_indices.push_back(prefix_idx);
-      curev().clock = threads[pid].clock;
       return true;
     }
   }
@@ -112,7 +109,8 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   assert(!replay);
   /* Create a new Event */
 
-  assert(prefix_idx < 0 || !!curev().sym.size() == curev().may_conflict);
+  // TEMP: Until we have a SymEv for store()
+  // assert(prefix_idx < 0 || !!curev().sym.size() == curev().may_conflict);
 
   /* Should we merge the last two events? */
   if(prefix.len() > 1 &&
@@ -144,12 +142,10 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   unsigned p;
   for(p = 1; p < sz; p += 2){ // Loop through auxiliary threads
     if(threads[p].available && !threads[p].sleeping &&
-       (conf.max_search_depth < 0 || threads[p].clock[p] < conf.max_search_depth)){
-      ++threads[p].clock[p];
+       (conf.max_search_depth < 0 || threads[p].last_event_index() < conf.max_search_depth)){
       threads[p].event_indices.push_back(prefix_idx);
       prefix.push(Branch(IPid(p)),
-                  Event(IID<IPid>(IPid(p),threads[p].clock[p]),
-                        threads[p].clock));
+                  Event(IID<IPid>(IPid(p),threads[p].last_event_index())));
       *proc = p/2;
       *aux = 0;
       return true;
@@ -158,17 +154,17 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
 
   for(p = 0; p < sz; p += 2){ // Loop through real threads
     if(threads[p].available && !threads[p].sleeping &&
-       (conf.max_search_depth < 0 || threads[p].clock[p] < conf.max_search_depth)){
-      ++threads[p].clock[p];
+       (conf.max_search_depth < 0 || threads[p].last_event_index() < conf.max_search_depth)){
       threads[p].event_indices.push_back(prefix_idx);
       prefix.push(Branch(IPid(p)),
-                  Event(IID<IPid>(IPid(p),threads[p].clock[p]),
-                        threads[p].clock));
+                  Event(IID<IPid>(IPid(p),threads[p].last_event_index())));
       *proc = p/2;
       *aux = -1;
       return true;
     }
   }
+
+  compute_vclocks();
 
   do_race_detect();
 
@@ -186,7 +182,6 @@ void TSOTraceBuilder::refuse_schedule(){
   prefix.delete_last();
   threads[last_pid].event_indices.pop_back();
   --prefix_idx;
-  --threads[last_pid].clock[last_pid];
   mark_unavailable(last_pid/2,last_pid % 2 - 1);
 }
 
@@ -207,7 +202,7 @@ void TSOTraceBuilder::cancel_replay(){
   replay = false;
   while (prefix_idx + 1 < int(prefix.len())) prefix.delete_last();
   if (prefix.node(prefix_idx).size()) {
-    prefix.enter_first_child(Event(IID<IPid>(), VClock<IPid>()));
+    prefix.enter_first_child(Event(IID<IPid>()));
     prefix.delete_last();
   }
 }
@@ -357,7 +352,7 @@ bool TSOTraceBuilder::reset(){
       }
     }
 
-    Event evt(IID<IPid>(br.pid,br_idx),{});
+    Event evt(IID<IPid>(br.pid,br_idx));
 
     evt.sleep = prev_evt.sleep;
     if(br.pid != prev_evt.iid.get_pid()){
@@ -370,8 +365,8 @@ bool TSOTraceBuilder::reset(){
 
   CPS = CPidSystem();
   threads.clear();
-  threads.push_back(Thread(CPid(),{}));
-  threads.push_back(Thread(CPS.new_aux(CPid()),{}));
+  threads.push_back(Thread(CPid(),-1));
+  threads.push_back(Thread(CPS.new_aux(CPid()),-1));
   threads[1].available = false; // Store buffer is empty.
   mutexes.clear();
   cond_vars.clear();
@@ -515,8 +510,9 @@ void TSOTraceBuilder::debug_print() const {
 void TSOTraceBuilder::spawn(){
   IPid parent_ipid = curev().iid.get_pid();
   CPid child_cpid = CPS.spawn(threads[parent_ipid].cpid);
-  threads.push_back(Thread(child_cpid,threads[parent_ipid].clock));
-  threads.push_back(Thread(CPS.new_aux(child_cpid),threads[parent_ipid].clock));
+  /* TODO: First event of thread happens before parents spawn */
+  threads.push_back(Thread(child_cpid,prefix_idx));
+  threads.push_back(Thread(CPS.new_aux(child_cpid),prefix_idx));
   threads.back().available = false; // Empty store buffer
   curev().may_conflict = true;
   record_symbolic(SymEv::Spawn(threads.size() / 2 - 1));
@@ -524,9 +520,9 @@ void TSOTraceBuilder::spawn(){
 
 void TSOTraceBuilder::store(const ConstMRef &ml){
   if(dryrun) return;
-  // curev().may_conflict = true; /* XXX */
+  curev().may_conflict = true; /* prefix_idx might become bad otherwise */
   IPid ipid = curev().iid.get_pid();
-  threads[ipid].store_buffer.push_back(PendingStore(ml,threads[ipid].clock,last_md));
+  threads[ipid].store_buffer.push_back(PendingStore(ml,prefix_idx,last_md));
   threads[ipid+1].available = true;
 }
 
@@ -555,14 +551,12 @@ void TSOTraceBuilder::atomic_store(const ConstMRef &ml){
   if(is_update){ // Add the clock of the store instruction
     assert(threads[tipid].store_buffer.size());
     const PendingStore &pst = threads[tipid].store_buffer.front();
-    curev().clock += pst.clock;
-    threads[uipid].clock += pst.clock;
-    curev().origin_iid = IID<IPid>(tipid,pst.clock[tipid]);
+    add_happens_after(prefix_idx, pst.store_event);
+    curev().origin_iid = prefix[pst.store_event].iid;
     curev().md = pst.md;
   }else{ // Add the clock of the auxiliary thread (because of fence semantics)
     assert(threads[tipid].store_buffer.empty());
-    threads[tipid].clock += threads[tipid+1].clock;
-    curev().clock += threads[tipid+1].clock;
+    add_happens_after_thread(prefix_idx, tipid+1);
   }
 
   VecSet<int> seen_accesses;
@@ -652,9 +646,8 @@ void TSOTraceBuilder::load(const ConstMRef &ml){
       if(lu_tipid != ipid){
         seen_accesses.insert(lu);
       }else if(ml != lu_ml){
-        const VClock<IPid> &clk = prefix[lu].clock;
-        curev().clock += clk;
-        threads[ipid].clock += clk;
+        if (lu != prefix_idx)
+          add_happens_after(prefix_idx, lu);
       }
       if (conf.observers) {
         /* Update last_update to be an observed store */
@@ -730,8 +723,7 @@ void TSOTraceBuilder::fence(){
   IPid ipid = curev().iid.get_pid();
   assert(ipid % 2 == 0);
   assert(threads[ipid].store_buffer.empty());
-  curev().clock += threads[ipid+1].clock;
-  threads[ipid].clock += threads[ipid+1].clock;
+  add_happens_after_thread(prefix_idx, ipid+1);
 }
 
 void TSOTraceBuilder::join(int tgt_proc){
@@ -739,10 +731,9 @@ void TSOTraceBuilder::join(int tgt_proc){
   if(dryrun) return;
   curev().may_conflict = true;
   IPid ipid = curev().iid.get_pid();
-  curev().clock += threads[tgt_proc*2].clock;
-  threads[ipid].clock += threads[tgt_proc*2].clock;
-  curev().clock += threads[tgt_proc*2+1].clock;
-  threads[ipid].clock += threads[tgt_proc*2+1].clock;
+  assert(threads[tgt_proc*2].store_buffer.empty());
+  add_happens_after_thread(prefix_idx, tgt_proc*2);
+  add_happens_after_thread(prefix_idx, tgt_proc*2+1);
 }
 
 void TSOTraceBuilder::mutex_lock(const ConstMRef &ml){
@@ -770,13 +761,7 @@ void TSOTraceBuilder::mutex_lock(const ConstMRef &ml){
     /* No previous lock */
     see_events({mutex.last_access,last_full_memory_conflict});
   }else{
-    /* Register conflict with last preceding lock */
-    if(!prefix[mutex.last_lock].clock.leq(curev().clock)){
-      /* Aren't these blocking too? */
-      add_lock_race(mutex, mutex.last_lock);
-    }
-    curev().clock += prefix[mutex.last_access].clock;
-    threads[ipid].clock += prefix[mutex.last_access].clock;
+    add_lock_suc_race(mutex.last_lock, mutex.last_access);
     see_events({last_full_memory_conflict});
   }
 
@@ -792,13 +777,10 @@ void TSOTraceBuilder::mutex_lock_fail(const ConstMRef &ml){
   assert(mutexes.count(ml.ref));
   Mutex &mutex = mutexes[ml.ref];
   assert(0 <= mutex.last_lock);
-  if(!prefix[mutex.last_lock].clock.leq(curev().clock)){
-    add_lock_race(mutex, mutex.last_lock);
-  }
+  add_lock_fail_race(mutex, mutex.last_lock);
 
-  if(0 <= last_full_memory_conflict &&
-     !prefix[last_full_memory_conflict].clock.leq(curev().clock)){
-    add_lock_race(mutex, last_full_memory_conflict);
+  if(0 <= last_full_memory_conflict){
+    add_lock_fail_race(mutex, last_full_memory_conflict);
   }
 }
 
@@ -1044,11 +1026,9 @@ bool TSOTraceBuilder::cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex
 
 bool TSOTraceBuilder::cond_awake(const ConstMRef &cond_ml, const ConstMRef &mutex_ml){
   if (!dryrun){
-    IPid pid = curev().iid.get_pid();
     assert(cond_vars.count(cond_ml.ref));
     CondVar &cond_var = cond_vars[cond_ml.ref];
-    curev().clock += prefix[cond_var.last_signal].clock;
-    threads[pid].clock += prefix[cond_var.last_signal].clock;
+    add_happens_after(prefix_idx, cond_var.last_signal);
   }
 
   mutex_lock(mutex_ml);
@@ -1096,7 +1076,7 @@ void TSOTraceBuilder::register_alternatives(int alt_count){
   curev().may_conflict = true;
   record_symbolic(SymEv::Nondet());
   for(int i = curbranch().alt+1; i < alt_count; ++i){
-    reversible_races.push_back(ReversibleRace::Nondet(prefix_idx, i));
+    curev().races.push_back(Race::Nondet(prefix_idx, i));
   }
 }
 
@@ -1211,57 +1191,16 @@ void TSOTraceBuilder::noobs_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
 }
 
 void TSOTraceBuilder::see_events(const VecSet<int> &seen_accesses){
-  /* Register new branches */
-  std::vector<int> branch;
   for(int i : seen_accesses){
     if(i < 0) continue;
-    const VClock<IPid> &iclock = prefix[i].clock;
-    if(iclock.leq(curev().clock)) continue;
-    if(std::any_of(seen_accesses.begin(),seen_accesses.end(),
-                   [i,&iclock,this](int j){
-                     return 0 <= j && i != j && iclock.leq(this->prefix[j].clock);
-                   })) continue;
-    branch.push_back(i);
-  }
-
-  /* Add clocks from seen accesses */
-  IPid ipid = curev().iid.get_pid();
-  for(int i : seen_accesses){
-    if(i < 0) continue;
-    assert(0 <= i && i <= prefix_idx);
-    curev().clock += prefix[i].clock;
-    threads[ipid].clock += prefix[i].clock;
-  }
-
-  for(int i : branch){
+    if (i == prefix_idx) continue;
     add_noblock_race(i);
   }
 }
 
 void TSOTraceBuilder::see_event_pairs
 (const VecSet<std::pair<int,int>> &seen_accesses){
-  VecSet<std::pair<int,int>> branch;
   for (std::pair<int,int> p : seen_accesses){
-    const VClock<IPid> &fclock = prefix[p.first].clock;
-    const VClock<IPid> &sclock = prefix[p.second].clock;
-    if(fclock.leq(sclock)) continue;
-    if(std::any_of(seen_accesses.begin(),seen_accesses.end(),
-                   [p,&fclock,this](std::pair<int,int> j){
-                     return p.first == j.first && p.second != j.second
-                       && fclock.leq(this->prefix[j.second].clock);
-                   })) continue;
-    branch.insert_gt(p);
-  }
-
-  /* XXX: We can't just sclock += fclock. Is it OK that the vclocks are wrong? */
-  IPid ipid = curev().iid.get_pid();
-  for (std::pair<int,int> p : seen_accesses){
-    assert(0 <= p.first && p.first < p.second && p.second < int(prefix.len()));
-    curev().clock += prefix[p.second].clock;
-    threads[ipid].clock += prefix[p.second].clock;
-  }
-
-  for (std::pair<int,int> p : branch){
     add_observed_race(p.first, p.second);
   }
 }
@@ -1270,15 +1209,23 @@ void TSOTraceBuilder::add_noblock_race(int event){
   assert(0 <= event);
   assert(event < prefix_idx);
 
-  reversible_races.push_back(ReversibleRace::Nonblock(event,prefix_idx));
+  curev().races.push_back(Race::Nonblock(event,prefix_idx));
 }
 
-void TSOTraceBuilder::add_lock_race(const Mutex &m, int event){
+void TSOTraceBuilder::add_lock_suc_race(int lock, int unlock){
+  assert(0 <= lock);
+  assert(lock < unlock);
+  assert(unlock < prefix_idx);
+
+  curev().races.push_back(Race::LockSuc(lock,prefix_idx,unlock));
+}
+
+void TSOTraceBuilder::add_lock_fail_race(const Mutex &m, int event){
   assert(0 <= event);
   assert(event < prefix_idx);
+  llvm::dbgs() << "LockFail after " << prefix_idx << "\n";
 
-  reversible_races.push_back
-    (ReversibleRace::Lock(event,prefix_idx,curev().iid,&m));
+  lock_fail_races.push_back(Race::LockFail(event,prefix_idx,curev().iid,&m));
 }
 
 void TSOTraceBuilder::add_observed_race(int first, int second){
@@ -1286,8 +1233,150 @@ void TSOTraceBuilder::add_observed_race(int first, int second){
   assert(first < second);
   assert(second < prefix_idx);
 
-  reversible_races.push_back
-    (ReversibleRace::Observed(first,second,prefix_idx));
+  prefix[second].races.push_back(Race::Observed(first,second,prefix_idx));
+}
+
+void TSOTraceBuilder::add_happens_after(unsigned second, unsigned first){
+  assert(first != ~0u);
+  assert(second != ~0u);
+  assert(first != second);
+  assert(first < second);
+  assert((long long)second <= prefix_idx);
+
+  prefix[second].happens_after.push_back(first);
+}
+
+void TSOTraceBuilder::add_happens_after_thread(unsigned second, IPid thread){
+  assert((int)second == prefix_idx);
+  if (threads[thread].event_indices.empty()) return;
+  add_happens_after(second, threads[thread].event_indices.back());
+}
+
+/* Filter the sequence first..last from all elements that are less than
+ * any other item. The sequence is modified in place and an iterator to
+ * the position beyond the last included element is returned.
+ *
+ * Assumes less is transitive and asymetric (a strict partial order)
+ */
+template< class It, class LessFn >
+static It frontier_filter(It first, It last, LessFn less){
+  It fill = first;
+  for (It current = first; current != last; ++current){
+    bool include = true;
+    for (It check = first; include && check != fill;){
+      if (less(*current, *check)){
+        include = false;
+        break;
+      }
+      if (less(*check, *current)){
+        /* Drop check from fill set */
+        --fill;
+        std::swap(*check, *fill);
+      }else{
+        ++check;
+      }
+    }
+    if (include){
+      /* Add current to fill set */
+      if (fill != current) *fill = std::move(*current);
+      ++fill;
+    }
+  }
+  return fill;
+}
+
+void TSOTraceBuilder::compute_vclocks(){
+  /* The first event of a thread happens after the spawn event that
+   * created it.
+   */
+  for (const Thread &t : threads) {
+    if (t.spawn_event >= 0 && t.event_indices.size() > 0){
+      add_happens_after(t.event_indices[0], t.spawn_event);
+    }
+  }
+
+  /* Move LockFail races into the right event */
+  std::vector<Race> final_lock_fail_races;
+  for (Race &r : lock_fail_races){
+    if (r.second_event < int(prefix.len())) {
+      prefix[r.second_event].races.emplace_back(std::move(r));
+    } else {
+      assert(r.second_event == int(prefix.len()));
+      final_lock_fail_races.emplace_back(std::move(r));
+    }
+  }
+  lock_fail_races = std::move(final_lock_fail_races);
+
+  for (unsigned i = 0; i < prefix.len(); i++){
+    IPid ipid = prefix[i].iid.get_pid();
+    if (prefix[i].iid.get_index() > 1) {
+      unsigned last = find_process_event(prefix[i].iid.get_pid(), prefix[i].iid.get_index()-1);
+      prefix[i].clock = prefix[last].clock;
+    }
+    prefix[i].clock[ipid] = prefix[i].iid.get_index();
+
+    /* First add the non-reversible edges */
+    for (unsigned j : prefix[i].happens_after){
+      assert(j < i);
+      prefix[i].clock += prefix[j].clock;
+    }
+
+    /* Now we want add the possibly reversible edges, but first we must
+     * check for reversibility, since this information is lost (more
+     * accurately less easy to compute) once we add them to the clock.
+     */
+    std::vector<Race> &races = prefix[i].races;
+
+    /* First move all races that are not pairs (and thus cannot be
+     * subsumed by other events) to the front.
+     */
+    auto first_pair = partition(races.begin(), races.end(),
+                                [](const Race &r){
+                                  return r.kind == Race::NONDET;
+                                });
+
+    auto end = races.end();
+    bool changed;
+    do {
+      auto oldend = end;
+      changed = false;
+      end = partition
+        (first_pair, end,
+         [this,i](const Race &r){
+          return !prefix[r.first_event].clock.leq(prefix[i].clock);
+         });
+      for (auto it = end; it != oldend; ++it){
+        if (it->kind == Race::LOCK_SUC){
+          prefix[i].clock += prefix[it->unlock_event].clock;
+          changed = true;
+        }
+      }
+    } while (changed);
+    /* Then filter out subsumed */
+    /* TODO: LOCK type events need different logic! */
+    auto fill = frontier_filter
+      (first_pair, end,
+       [this](const Race &f, const Race &s){
+        int se = s.kind == Race::LOCK_SUC ? s.unlock_event : s.first_event;
+        return prefix[f.first_event].clock.leq(prefix[se].clock);
+       });
+    /* Add clocks of remaining (reversible) races */
+    for (auto it = first_pair; it != fill; ++it){
+      /* TODO_HERE successful lock events have entries in happens_after!
+                 * That needs adjusting, or all successful locks will be
+                 * filtered above! */
+      if (it->kind == Race::LOCK_SUC){
+        assert(prefix[it->first_event].clock.leq
+               (prefix[it->unlock_event].clock));
+        prefix[i].clock += prefix[it->unlock_event].clock;
+      }else if (it->kind != Race::LOCK_FAIL){
+        prefix[i].clock += prefix[it->first_event].clock;
+      }
+    }
+    /* Now delete the subsumed races. We delayed doing this to avoid
+     * iterator invalidation. */
+    races.resize(fill - races.begin(), races[0]);
+  }
 }
 
 void TSOTraceBuilder::record_symbolic(SymEv event){
@@ -1405,13 +1494,19 @@ bool TSOTraceBuilder::is_observed_conflict
 
 void TSOTraceBuilder::do_race_detect() {
   /* Do race detection */
-  for (const ReversibleRace &race : reversible_races) {
+  for (unsigned i = 0; i < prefix.len(); ++i){
+    for (const Race &race : prefix[i].races) {
+      race_detect(race);
+    }
+    prefix[i].races.clear();
+  }
+  for (const Race &race : lock_fail_races) {
     race_detect(race);
   }
-  reversible_races.clear();
+  lock_fail_races.clear();
 }
 
-void TSOTraceBuilder::race_detect(const ReversibleRace &race){
+void TSOTraceBuilder::race_detect(const Race &race){
   if (conf.dpor_algorithm == Configuration::OPTIMAL) {
     race_detect_optimal(race);
     return;
@@ -1420,7 +1515,7 @@ void TSOTraceBuilder::race_detect(const ReversibleRace &race){
   int i = race.first_event;
   int j = race.second_event;
 
-  if (race.kind == ReversibleRace::NONDET){
+  if (race.kind == Race::NONDET){
     assert(race.alternative > prefix.branch(i).alt);
     prefix.parent_at(i)
       .put_child(Branch({prefix[i].iid.get_pid(),race.alternative}));
@@ -1432,7 +1527,7 @@ void TSOTraceBuilder::race_detect(const ReversibleRace &race){
   /* In the case that race is a failed mutex probe, there's no Event in prefix
    * for it, so we'll reconstruct it on demand.
    */
-  Event mutex_probe_event({},{});
+  Event mutex_probe_event({-1,0});
 
   /* candidates is a map from IPid p to event index i such that the
    * IID (p,i) identifies an event between prefix[i] (exclusive) and
@@ -1447,14 +1542,14 @@ void TSOTraceBuilder::race_detect(const ReversibleRace &race){
   Branch cand = {-1,0};
   const VClock<IPid> &iclock = prefix[i].clock;
   for(int k = i+1; k <= j; ++k){
-    const IID<IPid> &iid = k == j && race.kind == ReversibleRace::LOCK
+    const IID<IPid> &iid = k == j && race.kind == Race::LOCK_FAIL
       ? race.second_process : prefix[k].iid;
     IPid p = iid.get_pid();
     /* Did we already cover p? */
     if(p < int(candidates.size()) && 0 <= candidates[p]) continue;
     const Event *pevent;
     int psize = 1;
-    if (k == j && race.kind == ReversibleRace::LOCK) {
+    if (k == j && race.kind == Race::LOCK_FAIL) {
       mutex_probe_event = reconstruct_lock_event(race);
       pevent = &mutex_probe_event;
     } else {pevent = &prefix[k]; psize = prefix.branch(k).size;}
@@ -1503,20 +1598,20 @@ static void clear_observed(sym_ty &syms){
   }
 }
 
-void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
+void TSOTraceBuilder::race_detect_optimal(const Race &race){
   const int i = race.first_event;
   const int j = race.second_event;
 
   std::map<IPid,const sym_ty*> isleep = noobs_sleep_set_at(i);
 
   const Event &first = prefix[i];
-  Event second({-1,0},{});
+  Event second({-1,0});
   Branch second_br(-1);
-  if (race.kind == ReversibleRace::LOCK) {
+  if (race.kind == Race::LOCK_FAIL) {
     second = reconstruct_lock_event(race);
     /* XXX: Lock events don't have alternatives, right? */
     second_br = Branch(second.iid.get_pid());
-  } else if (race.kind == ReversibleRace::NONDET) {
+  } else if (race.kind == Race::NONDET) {
     second = first;
     second_br = prefix.branch(i);
     second_br.alt = race.alternative;
@@ -1526,7 +1621,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
     second.wakeup.clear();
     second_br = prefix.branch(j);
   }
-  if (race.kind == ReversibleRace::OBSERVED) {
+  if (race.kind == Race::OBSERVED) {
   } else {
     /* Only replay the racy event. */
     second_br.size = 1;
@@ -1543,10 +1638,10 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
   std::vector<std::pair<Branch,const sym_ty&>> notobs;
   for (int k = i + 1; k < int(prefix.len()); ++k){
     if (!first.clock.leq(prefix[k].clock)
-        && (race.kind != ReversibleRace::OBSERVED
+        && (race.kind != Race::OBSERVED
             ||!second.clock.leq(prefix[k].clock))) {
       v.emplace_back(prefix.branch(k), prefix[k].sym);
-    } else if (race.kind == ReversibleRace::OBSERVED && k != j) {
+    } else if (race.kind == Race::OBSERVED && k != j) {
       if (!std::any_of(observers.begin(), observers.end(),
                        [this,k](const Event* o){
                          return o->clock.leq(prefix[k].clock); })){
@@ -1559,7 +1654,7 @@ void TSOTraceBuilder::race_detect_optimal(const ReversibleRace &race){
     }
   }
   v.emplace_back(second_br, std::move(second.sym));
-  if (race.kind == ReversibleRace::OBSERVED) {
+  if (race.kind == Race::OBSERVED) {
     int k = race.witness_event;
     const Branch &first_br = prefix.branch(i);
     const Event &witness = prefix[k];
@@ -1770,20 +1865,19 @@ void TSOTraceBuilder::iid_map_step_rev(std::vector<int> &iid_map, const Branch &
 }
 
 TSOTraceBuilder::Event TSOTraceBuilder::reconstruct_lock_event
-(const ReversibleRace &race) {
-  assert(race.kind == ReversibleRace::LOCK);
-  VClock<IPid> mutex_clock;
+(const Race &race) {
+  assert(race.kind == Race::LOCK_FAIL);
+  Event ret(race.second_process);
   /* Compute the clock of the locking process (event k in prefix is
    * something unrelated since this is a lock probe) */
   /* Find last event of p before this mutex probe */
   IPid p = race.second_process.get_pid();
   if (race.second_process.get_index() != 1) {
     int last = find_process_event(p, race.second_process.get_index()-1);
-    mutex_clock = prefix[last].clock;
+    ret.clock = prefix[last].clock;
   }
   /* Recompute the clock of this mutex_lock_fail */
-  ++mutex_clock[p];
-  Event ret(race.second_process, std::move(mutex_clock));
+  ++ret.clock[p];
 
   assert(std::any_of(prefix[race.first_event].sym.begin(),
                      prefix[race.first_event].sym.end(),
