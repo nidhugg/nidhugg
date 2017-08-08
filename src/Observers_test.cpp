@@ -935,6 +935,158 @@ attributes #4 = { nounwind }
   BOOST_CHECK(res.trace_count == 2);
 }
 
+BOOST_AUTO_TEST_CASE(lamport){
+  Configuration conf = sc_obs_conf();
+  std::string module = R"(
+%union.pthread_attr_t = type { i64, [48 x i8] }
+
+@b = common global [2 x i64] zeroinitializer, align 16
+@x = common global i64 0, align 8
+@y = common global i64 0, align 8
+@in_critical = common global i64 0, align 8
+@.str = private unnamed_addr constant [22 x i8] c"in_critical == thread\00", align 1
+@.str.1 = private unnamed_addr constant [10 x i8] c"lamport.c\00", align 1
+@__PRETTY_FUNCTION__.thread = private unnamed_addr constant [21 x i8] c"void *thread(void *)\00", align 1
+
+; Function Attrs: nounwind sspstrong uwtable
+define i32 @main() {
+  %1 = alloca i64, align 8
+  %2 = alloca i64, align 8
+  %3 = bitcast i64* %1 to i8*
+  call void @llvm.lifetime.start(i64 8, i8* nonnull %3)
+  %4 = bitcast i64* %2 to i8*
+  call void @llvm.lifetime.start(i64 8, i8* nonnull %4)
+  %5 = call i32 @pthread_create(i64* nonnull %1, %union.pthread_attr_t* null, i8* (i8*)* nonnull @thread, i8* inttoptr (i64 1 to i8*))
+  %6 = call i32 @pthread_create(i64* nonnull %2, %union.pthread_attr_t* null, i8* (i8*)* nonnull @thread, i8* inttoptr (i64 2 to i8*))
+  %7 = load i64, i64* %1, align 8
+  %8 = call i32 @pthread_join(i64 %7, i8** null)
+  %9 = load i64, i64* %2, align 8
+  %10 = call i32 @pthread_join(i64 %9, i8** null)
+  call void @llvm.lifetime.end(i64 8, i8* nonnull %4)
+  call void @llvm.lifetime.end(i64 8, i8* nonnull %3)
+  ret i32 0
+}
+
+; Function Attrs: argmemonly nounwind
+declare void @llvm.lifetime.start(i64, i8* nocapture)
+
+; Function Attrs: nounwind
+declare i32 @pthread_create(i64*, %union.pthread_attr_t*, i8* (i8*)*, i8*)
+
+; Function Attrs: nounwind sspstrong uwtable
+define internal noalias i8* @thread(i8*) {
+  %2 = ptrtoint i8* %0 to i64
+  %3 = add nsw i64 %2, -1
+  %4 = getelementptr inbounds [2 x i64], [2 x i64]* @b, i64 0, i64 %3
+  %5 = sub i64 2, %2
+  %6 = getelementptr inbounds [2 x i64], [2 x i64]* @b, i64 0, i64 %5
+  br label %7
+
+; <label>:7:                                      ; preds = %14, %1
+  store volatile i64 1, i64* %4, align 8          ; WF
+  store volatile i64 %2, i64* @x, align 8         ; WX
+  %8 = load volatile i64, i64* @y, align 8        ; NY
+  %9 = icmp eq i64 %8, 0
+  br i1 %9, label %15, label %10
+
+; <label>:10:                                     ; preds = %7
+  store volatile i64 0, i64* %4, align 8          ; CF
+  %11 = load volatile i64, i64* @y, align 8       ; RY
+  %12 = icmp eq i64 %11, 0
+  %13 = zext i1 %12 to i64
+  tail call void @__VERIFIER_assume(i64 %13)
+  br label %14
+
+; <label>:14:                                     ; preds = %10, %24
+  br label %7
+
+; <label>:15:                                     ; preds = %7
+  store volatile i64 %2, i64* @y, align 8         ; WY
+  %16 = load volatile i64, i64* @x, align 8       ; SX
+  %17 = icmp eq i64 %16, %2
+  br i1 %17, label %28, label %18
+
+; <label>:18:                                     ; preds = %15
+  store volatile i64 0, i64* %4, align 8          ; DF
+  %19 = load volatile i64, i64* %6, align 8       ; RF
+  %20 = icmp eq i64 %19, 0
+  %21 = zext i1 %20 to i64
+  tail call void @__VERIFIER_assume(i64 %21)
+  %22 = load volatile i64, i64* @y, align 8       ; SY
+  %23 = icmp eq i64 %22, %2
+  br i1 %23, label %28, label %24
+
+; <label>:24:                                     ; preds = %18
+  %25 = load volatile i64, i64* @y, align 8       ; ZY
+  %26 = icmp eq i64 %25, 0
+  %27 = zext i1 %26 to i64
+  tail call void @__VERIFIER_assume(i64 %27)
+  br label %14
+
+; <label>:28:                                     ; preds = %15, %18
+  store volatile i64 %2, i64* @in_critical, align 8 ; WA
+  %29 = load volatile i64, i64* @in_critical, align 8 ; RA
+  %30 = icmp eq i64 %29, %2
+  br i1 %30, label %32, label %31
+
+; <label>:31:                                     ; preds = %28
+  tail call void @__assert_fail(i8* getelementptr inbounds ([22 x i8], [22 x i8]* @.str, i64 0, i64 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i64 0, i64 0), i32 50, i8* getelementptr inbounds ([21 x i8], [21 x i8]* @__PRETTY_FUNCTION__.thread, i64 0, i64 0))
+  unreachable
+
+; <label>:32:                                     ; preds = %28
+  store volatile i64 0, i64* @y, align 8          ; CY
+  store volatile i64 0, i64* %4, align 8          ; UF
+  ret i8* null
+}
+
+declare i32 @pthread_join(i64, i8**)
+
+; Function Attrs: argmemonly nounwind
+declare void @llvm.lifetime.end(i64, i8* nocapture)
+
+; Function Attrs: noreturn nounwind
+declare void @__assert_fail(i8*, i8*, i32, i8*)
+
+declare void @__VERIFIER_assume(i64)
+
+)";
+  std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
+  DPORDriver::Result res = driver->run();
+
+  CPid P;
+  CPid P0 = P.spawn(0), P1 = P.spawn(1);
+  DPORDriver_test::trace_set_spec expected = {
+    {{{P0,13},{P1,8}},{{P0,20},{P1,9}}},
+    {{{P0,13},{P1,8}},{{P1,33},{P,10}}},
+    {{{P0,13},{P1,8}},{{P1,13},{P0,20}}},
+    {{{P0,8},{P1,8}},{{P1,8},{P0,13}},{{P0,12},{P1,9}},{{P0,17},{P1,12}}},
+    {{{P0,28},{P1,13}}},
+    {{{P0,12},{P1,9}},{{P1,13},{P0,28}}},
+    {{{P0,8},{P1,8}},{{P1,9},{P0,12}},{{P0,9},{P1,12}},{{P0,17},{P1,21}}},
+    {{{P0,44},{P,8}}},
+    {{{P0,9},{P1,12}},{{P0,29},{P,8}},{{P1,22},{P,10}}},
+    {{{P0,8},{P1,8}},{{P1,12},{P0,9}},{{P0,13},{P1,20}}},
+    {{{P0,8},{P1,8}},{{P0,33},{P,8}}},
+    {{{P0,8},{P1,8}},{{P1,20},{P0,9}},{{P0,17},{P1,21}}},
+    {{{P1,20},{P0,9}},{{P1,22},{P,10}}},
+    {{{P1,8},{P0,8}},{{P1,33},{P,10}}},
+    {{{P1,8},{P0,8}},{{P0,12},{P1,9}},{{P1,13},{P0,20}}},
+    {{{P0,20},{P1,9}},{{P1,29},{P,10}}},
+    {{{P1,8},{P0,8}},{{P0,20},{P1,9}},{{P1,17},{P0,21}}},
+    {{{P1,44},{P,10}}},
+    {{{P1,8},{P0,8}},{{P1,9},{P0,12}},{{P0,9},{P1,12}},{{P1,17},{P0,21}}},
+    {{{P1,9},{P0,12}},{{P0,21},{P1,17}},{{P1,29},{P,10}}},
+    {{{P1,12},{P0,9}},{{P0,13},{P1,28}}},
+    {{{P0,33},{P,8}},{{P1,29},{P,10}}},
+    {{{P1,8},{P0,8}},{{P1,12},{P0,9}},{{P0,8},{P1,13}},{{P1,17},{P0,12}}},
+    {{{P1,13},{P0,8}},{{P0,13},{P1,20}}},
+    {{{P1,13},{P0,8}},{{P0,33},{P,8}}},
+    {{{P1,13},{P0,8}},{{P1,20},{P0,9}}},
+  };
+  BOOST_CHECK_EQUAL(res.trace_count, 26);
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif
