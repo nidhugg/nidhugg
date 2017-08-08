@@ -945,10 +945,6 @@ bool TSOTraceBuilder::cond_signal(const ConstMRef &ml){
     IPid ipid = prefix[i].iid.get_pid();
     assert(!threads[ipid].available);
     threads[ipid].available = true;
-    /* The next instruction by the thread ipid should be ordered after
-     * this signal.
-     */
-    threads[ipid].clock += curev().clock;
     seen_events.insert(i);
 
     /* Remove waiter from cond_var.waiters */
@@ -989,10 +985,6 @@ bool TSOTraceBuilder::cond_broadcast(const ConstMRef &ml){
     IPid ipid = prefix[i].iid.get_pid();
     assert(!threads[ipid].available);
     threads[ipid].available = true;
-    /* The next instruction by the thread ipid should be ordered after
-     * this broadcast.
-     */
-    threads[ipid].clock += curev().clock;
     seen_events.insert(i);
   }
   cond_var.waiters.clear();
@@ -1050,6 +1042,14 @@ bool TSOTraceBuilder::cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex
 }
 
 bool TSOTraceBuilder::cond_awake(const ConstMRef &cond_ml, const ConstMRef &mutex_ml){
+  if (!dryrun){
+    IPid pid = curev().iid.get_pid();
+    assert(cond_vars.count(cond_ml.ref));
+    CondVar &cond_var = cond_vars[cond_ml.ref];
+    curev().clock += prefix[cond_var.last_signal].clock;
+    threads[pid].clock += prefix[cond_var.last_signal].clock;
+  }
+
   mutex_lock(mutex_ml);
   record_symbolic(SymEv::CAwake(cond_ml));
   if(dryrun){
