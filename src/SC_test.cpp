@@ -2554,6 +2554,35 @@ declare void @__assert_fail()
   BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
+BOOST_AUTO_TEST_CASE(Assume_1){
+  Configuration conf = DPORDriver_test::get_sc_conf();
+  conf.malloc_may_fail = true;
+  std::string module = StrModule::portasm(R"(
+define i32 @main(){
+  %p = call i8* @malloc(i32 10)
+  %pi = ptrtoint i8* %p to i32
+  call void @__VERIFIER_assume(i32 %pi)
+  store i8 1, i8* %p, align 1
+  call void @free(i8* %p)
+  ret i32 0
+}
+
+declare i8* @malloc(i32) nounwind
+declare void @free(i8*) nounwind
+declare void @__VERIFIER_assume(i32)
+)");
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result res = driver->run();
+  delete driver;
+  BOOST_CHECK(!res.has_errors());
+
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
+  delete driver;
+  BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
+}
+
 BOOST_AUTO_TEST_CASE(Atexit_multithreaded){
   Debug::warn("sctestatexitmultithreaded")
     << "WARNING: Missing support for multithreaded atexit.\n";
