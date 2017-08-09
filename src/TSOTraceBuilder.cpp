@@ -658,8 +658,9 @@ void TSOTraceBuilder::load(const ConstMRef &ml){
       }
       if (conf.observers) {
         /* Update last_update to be an observed store */
-        for (auto it = prefix[lu].sym.begin();;++it){
-          assert(it != prefix[lu].sym.end());
+        for (auto it = prefix[lu].sym.end();;){
+          assert(it != prefix[lu].sym.begin());
+          --it;
           if(it->kind == SymEv::STORE && it->addr() == lu_ml) break;
           if (it->kind == SymEv::UNOBS_STORE && it->addr() == lu_ml) {
             *it = SymEv::Store(lu_ml);
