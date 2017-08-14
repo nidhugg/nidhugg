@@ -262,9 +262,7 @@ bool TSOTraceBuilder::reset(){
   /* The if-statement is just so we can control which test cases need to
    *  satisfy this assertion for now. Eventually, all should.
    */
-  if (conf.dpor_algorithm == Configuration::OPTIMAL
-      && !conf.observers /* Temporary */
-      )
+  if (conf.dpor_algorithm == Configuration::OPTIMAL)
   {
     /* Check for SymEv<->VClock equivalence
      * SymEv considers that event i happens after event j iff there is a
@@ -551,6 +549,7 @@ void TSOTraceBuilder::atomic_store(const ConstMRef &ml){
   if(is_update){ // Add the clock of the store instruction
     assert(threads[tipid].store_buffer.size());
     const PendingStore &pst = threads[tipid].store_buffer.front();
+    assert(pst.store_event != (unsigned)prefix_idx);
     add_happens_after(prefix_idx, pst.store_event);
     curev().origin_iid = prefix[pst.store_event].iid;
     curev().md = pst.md;
@@ -1179,8 +1178,21 @@ void TSOTraceBuilder::noobs_sleep_set_add(std::map<IPid,const sym_ty*> &sleep,
   }
 }
 
+static void clear_observed(SymEv &e){
+  if (e.kind == SymEv::STORE){
+    e = SymEv::UnobsStore(e.addr());
+  }
+}
+
+static void clear_observed(sym_ty &syms){
+  for (SymEv &e : syms){
+    clear_observed(e);
+  }
+}
+
 void TSOTraceBuilder::noobs_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
-                                           IPid p, const sym_ty &sym) const{
+                                           IPid p, sym_ty sym) const{
+  clear_observed(sym);
   for (auto it = sleep.begin(); it != sleep.end();) {
     if (do_events_conflict(p, sym, it->first, *it->second)){
       it = sleep.erase(it);
@@ -1278,7 +1290,7 @@ static It frontier_filter(It first, It last, LessFn less){
     }
     if (include){
       /* Add current to fill set */
-      if (fill != current) *fill = std::move(*current);
+      if (fill != current) std::swap(*fill, *current);
       ++fill;
     }
   }
@@ -1353,7 +1365,6 @@ void TSOTraceBuilder::compute_vclocks(){
       }
     } while (changed);
     /* Then filter out subsumed */
-    /* TODO: LOCK type events need different logic! */
     auto fill = frontier_filter
       (first_pair, end,
        [this](const Race &f, const Race &s){
@@ -1362,9 +1373,6 @@ void TSOTraceBuilder::compute_vclocks(){
        });
     /* Add clocks of remaining (reversible) races */
     for (auto it = first_pair; it != fill; ++it){
-      /* TODO_HERE successful lock events have entries in happens_after!
-                 * That needs adjusting, or all successful locks will be
-                 * filtered above! */
       if (it->kind == Race::LOCK_SUC){
         assert(prefix[it->first_event].clock.leq
                (prefix[it->unlock_event].clock));
@@ -1373,6 +1381,7 @@ void TSOTraceBuilder::compute_vclocks(){
         prefix[i].clock += prefix[it->first_event].clock;
       }
     }
+
     /* Now delete the subsumed races. We delayed doing this to avoid
      * iterator invalidation. */
     races.resize(fill - races.begin(), races[0]);
@@ -1586,23 +1595,12 @@ void TSOTraceBuilder::race_detect(const Race &race){
   prefix.parent_at(i).put_child(cand);
 }
 
-static void clear_observed(SymEv &e){
-  if (e.kind == SymEv::STORE){
-    e = SymEv::UnobsStore(e.addr());
-  }
-}
-
-static void clear_observed(sym_ty &syms){
-  for (SymEv &e : syms){
-    clear_observed(e);
-  }
-}
-
 void TSOTraceBuilder::race_detect_optimal(const Race &race){
   const int i = race.first_event;
   const int j = race.second_event;
 
-  std::map<IPid,const sym_ty*> isleep = noobs_sleep_set_at(i);
+  std::map<IPid,const sym_ty*> isleep;
+  if (!conf.observers) isleep = noobs_sleep_set_at(i);
 
   const Event &first = prefix[i];
   Event second({-1,0});
@@ -1636,10 +1634,18 @@ void TSOTraceBuilder::race_detect_optimal(const Race &race){
   std::vector<std::pair<Branch,sym_ty>> v;
   std::vector<const Event*> observers;
   std::vector<std::pair<Branch,const sym_ty&>> notobs;
+
+  if (conf.observers) {
+    /* Start v with the entire prefix before e, for the
+     * observers-compatible redundancy check.
+     */
+    for (int k = 0; k < i; ++k) {
+      v.emplace_back(prefix.branch(k), prefix[k].sym);
+    }
+  }
+
   for (int k = i + 1; k < int(prefix.len()); ++k){
-    if (!first.clock.leq(prefix[k].clock)
-        && (race.kind != Race::OBSERVED
-            ||!second.clock.leq(prefix[k].clock))) {
+    if (!first.clock.leq(prefix[k].clock)) {
       v.emplace_back(prefix.branch(k), prefix[k].sym);
     } else if (race.kind == Race::OBSERVED && k != j) {
       if (!std::any_of(observers.begin(), observers.end(),
@@ -1665,7 +1671,9 @@ void TSOTraceBuilder::race_detect_optimal(const Race &race){
     v.emplace_back(first_br, first.sym);
     v.insert(v.end(), notobs.begin(), notobs.end());
     v.emplace_back(witness_br, witness.sym);
+  }
 
+  if (conf.observers) {
     /* Recompute observed states on events in v */
     for (std::pair<Branch,sym_ty> &pair : v) {
       clear_observed(pair.second);
@@ -1719,9 +1727,12 @@ void TSOTraceBuilder::race_detect_optimal(const Race &race){
    * construct the iid of any events we see in the wakeup tree,
    * which in turn is used to find the corresponding event in prefix.
    */
-  std::vector<int> iid_map = iid_map_at(i);
+  std::vector<int> iid_map;
+  if (conf.observers) iid_map = iid_map_at(0);
+  else iid_map = iid_map_at(i);
 
   /* Check for redundant exploration */
+  if (!conf.observers) {
   for (auto it = v.cbegin(); it != v.cend(); ++it) {
     /* Check for redundant exploration */
     if (isleep.count(it->first.pid)) {
@@ -1745,7 +1756,68 @@ void TSOTraceBuilder::race_detect_optimal(const Race &race){
       }
     }
   }
+  } else {
+    /* Observer-compatible redundancy check. Note the similarity to
+     * wakeup tree insertion. */
+    /* Conceptually, we want to pop_front() on v after each iteration;
+     * but since that's expensive on vectors, we instead keep a pointer
+     * vf to where v "should" start, and then erase() all the elements
+     * in one batch afterwards.
+     */
+    auto vf = v.begin();
+    for (int l = 0;; l++, ++vf) {
+      for (IPid p : prefix[l].sleep) {
+        /* Find this event in prefix */
+        IID<IPid> sleep_iid(p, iid_map[p]);
+        unsigned k = find_process_event(p, sleep_iid.get_index());
+        Branch sleep_br = prefix.branch(k);
+        sym_ty sleep_sym = prefix[k].sym;
+        clear_observed(sleep_sym);
+        assert(prefix[k].iid.get_index() == sleep_iid.get_index()
+               && "Sleepers cannot be truncated");
+        /* As an optimisation, when l < i, we could go directly to the event in
+         * v */
+        bool skip = false;
+        for (auto vei = vf; !skip && vei != v.end(); ++vei) {
+          std::pair<Branch,sym_ty> &ve = *vei;
+          if (sleep_br == ve.first) {
+            if (sleep_sym != ve.second) {
+              /* This can happen due to observer effects. We must now make sure
+               * ve.second->sym does not have any conflicts with any previous
+               * event in v; i.e. wether it actually is a weak initial of v. */
+              for (auto pei = vf; !skip && pei != vei; ++pei) {
+                const std::pair<Branch,sym_ty> &pe = *pei;
+                if (do_events_conflict(ve.first.pid, ve.second,
+                                       pe.first.pid, pe.second)) {
+                  /* We're not redundant with p, try next sleeper */
+                  skip = true;
+                }
+              }
+              if (skip) break;
+            }
 
+            /* p is an initial of v; this insertion is redundant */
+            return;
+          }
+          if (ve.first.pid == p
+              || do_events_conflict(ve.first.pid, ve.second,
+                                    p, sleep_sym)) {
+            /* We're not redundant with p, try next sleeper */
+            skip = true;
+          }
+        }
+        if (!skip) {
+          /* p is an initial of v; this insertion is redundant */
+          return;
+        }
+      }
+      if (l >= i) break;
+      iid_map_step(iid_map, vf->first);
+    }
+    v.erase(v.begin(), vf);
+  }
+
+  if (!conf.observers){
   for (std::pair<IPid,const sym_ty*> pair : isleep) {
     const Branch &sleep_br = prefix.branch(find_process_event
                                            (pair.first, iid_map[pair.first]));
@@ -1766,6 +1838,7 @@ void TSOTraceBuilder::race_detect_optimal(const Race &race){
     if (!dependent) {
       return;
     }
+  }
   }
 
   /* Do insertion into the wakeup tree */

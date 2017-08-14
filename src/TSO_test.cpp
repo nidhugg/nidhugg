@@ -1134,10 +1134,11 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
   DPORDriver::Result res = driver->run();
   delete driver;
 
-  conf.dpor_algorithm = Configuration::OPTIMAL;
-  driver = DPORDriver::parseIR(module,conf);
-  DPORDriver::Result opt_res = driver->run();
-  delete driver;
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0; CPid U0 = P0.aux(0);
   CPid P1 = P0.spawn(0); CPid U1 = P1.aux(0);
@@ -1157,7 +1158,8 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
      */
     };
 
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf,&opt_res));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(own_black_read_2){
@@ -1505,10 +1507,11 @@ declare void @__assert_fail() noreturn nounwind
   DPORDriver::Result res = driver->run();
   delete driver;
 
-  conf.dpor_algorithm = Configuration::OPTIMAL;
-  driver = DPORDriver::parseIR(module,conf);
-  DPORDriver::Result opt_res = driver->run();
-  delete driver;
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   BOOST_CHECK(!res.has_errors());
 
@@ -1521,7 +1524,8 @@ declare void @__assert_fail() noreturn nounwind
     {{{ux0,rx1},{ry0,uy1}},
      {{ux0,rx1},{uy1,ry0}},
      {{rx1,ux0},{uy1,ry0}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf,&opt_res));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Atomic_store_2){
@@ -1743,10 +1747,11 @@ declare void @__assert_fail() noreturn nounwind
   DPORDriver::Result res = driver->run();
   delete driver;
 
-  conf.dpor_algorithm = Configuration::OPTIMAL;
-  driver = DPORDriver::parseIR(module,conf);
-  DPORDriver::Result opt_res = driver->run();
-  delete driver;
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   BOOST_CHECK(!res.has_errors());
 
@@ -1759,7 +1764,8 @@ declare void @__assert_fail() noreturn nounwind
     {{{ux0,rx1},{ry0,uy1}},
      {{ux0,rx1},{uy1,ry0}},
      {{rx1,ux0},{uy1,ry0}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf,&opt_res));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(CMPXCHG_2){

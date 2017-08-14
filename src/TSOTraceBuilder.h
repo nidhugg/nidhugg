@@ -578,7 +578,7 @@ protected:
    * conflict with (p, sym).
    */
   void noobs_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
-                            IPid p, const sym_ty &sym) const;
+                            IPid p, sym_ty sym) const;
   /* Wake up all threads which are sleeping, waiting for an access
    * (type,ml). */
   void wakeup(Access::Type type, void const *ml);
