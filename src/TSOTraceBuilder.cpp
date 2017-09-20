@@ -1145,7 +1145,7 @@ compute_observers_wakeup_sets() const{
 }
 
 std::map<TSOTraceBuilder::IPid,const sym_ty*>
-TSOTraceBuilder::noobs_sleep_set_at(int i) const{
+TSOTraceBuilder::sym_sleep_set_at(int i) const{
   assert(i >= 0);
   std::vector<int> iid_map = iid_map_at(0);
   std::map<IPid,const sym_ty*> sleep;
@@ -1164,14 +1164,14 @@ TSOTraceBuilder::noobs_sleep_set_at(int i) const{
       }
     }
     if (j == i) break;
-    noobs_sleep_set_wake(sleep, prefix[j].iid.get_pid(), prefix[j].sym);
+    sym_sleep_set_wake(sleep, prefix[j].iid.get_pid(), prefix[j].sym);
     iid_map_step(iid_map, prefix.branch(j));
   }
 
   return sleep;
 }
 
-void TSOTraceBuilder::noobs_sleep_set_add(std::map<IPid,const sym_ty*> &sleep,
+void TSOTraceBuilder::sym_sleep_set_add(std::map<IPid,const sym_ty*> &sleep,
                                           const Event &e) const{
   for (int k = 0; k < e.sleep.size(); ++k){
     sleep.emplace(e.sleep[k], &e.sleep_evs[k]);
@@ -1190,14 +1190,29 @@ static void clear_observed(sym_ty &syms){
   }
 }
 
-void TSOTraceBuilder::noobs_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
-                                           IPid p, sym_ty sym) const{
-  clear_observed(sym);
+void TSOTraceBuilder::sym_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
+                                           IPid p, const sym_ty &sym) const{
   for (auto it = sleep.begin(); it != sleep.end();) {
     if (do_events_conflict(p, sym, it->first, *it->second)){
       it = sleep.erase(it);
     }else{
       ++it;
+    }
+  }
+}
+
+void TSOTraceBuilder::sym_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
+                                           const Event &e) const{
+  auto si = sleep.begin();
+  auto wi = e.wakeup.begin();
+  while (si != sleep.end() && wi != e.wakeup.end()) {
+    if (si->first < *wi) {
+      ++si;
+    } else if (si->first == *wi){
+      si = sleep.erase(si);
+      ++wi;
+    } else {
+      ++wi;
     }
   }
 }
@@ -1502,22 +1517,32 @@ bool TSOTraceBuilder::is_observed_conflict
 }
 
 void TSOTraceBuilder::do_race_detect() {
-  /* Do race detection */
+  /* Bucket sort races by first_event index */
+  std::vector<std::vector<const Race*>> races(prefix.len());
+  for (const Race &r : lock_fail_races) races[r.first_event].push_back(&r);
   for (unsigned i = 0; i < prefix.len(); ++i){
-    for (const Race &race : prefix[i].races) {
-      race_detect(race);
+    for (const Race &r : prefix[i].races) races[r.first_event].push_back(&r);
+  }
+
+  /* Do race detection */
+  std::map<IPid,const sym_ty*> sleep;
+  for (unsigned i = 0; i < races.size(); ++i){
+    sym_sleep_set_add(sleep, prefix[i]);
+    for (const Race *race : races[i]) {
+      assert(race->first_event == int(i));
+      race_detect(*race, (const std::map<IPid,const sym_ty*>&)sleep);
     }
-    prefix[i].races.clear();
+    sym_sleep_set_wake(sleep, prefix[i]);
   }
-  for (const Race &race : lock_fail_races) {
-    race_detect(race);
-  }
+
+  for (unsigned i = 0; i < prefix.len(); ++i) prefix[i].races.clear();
   lock_fail_races.clear();
 }
 
-void TSOTraceBuilder::race_detect(const Race &race){
+void TSOTraceBuilder::race_detect
+(const Race &race, const std::map<TSOTraceBuilder::IPid,const sym_ty*> &isleep){
   if (conf.dpor_algorithm == Configuration::OPTIMAL) {
-    race_detect_optimal(race);
+    race_detect_optimal(race, isleep);
     return;
   }
 
@@ -1530,8 +1555,6 @@ void TSOTraceBuilder::race_detect(const Race &race){
       .put_child(Branch({prefix[i].iid.get_pid(),race.alternative}));
     return;
   }
-
-  VecSet<IPid> isleep = sleep_set_at(i);
 
   /* In the case that race is a failed mutex probe, there's no Event in prefix
    * for it, so we'll reconstruct it on demand.
@@ -1595,12 +1618,14 @@ void TSOTraceBuilder::race_detect(const Race &race){
   prefix.parent_at(i).put_child(cand);
 }
 
-void TSOTraceBuilder::race_detect_optimal(const Race &race){
+void TSOTraceBuilder::race_detect_optimal
+(const Race &race, const std::map<TSOTraceBuilder::IPid,const sym_ty*> &isleep_const){
   const int i = race.first_event;
   const int j = race.second_event;
 
+  /* We need a writable copy */
   std::map<IPid,const sym_ty*> isleep;
-  if (!conf.observers) isleep = noobs_sleep_set_at(i);
+  if (!conf.observers) isleep = isleep_const;
 
   const Event &first = prefix[i];
   Event second({-1,0});

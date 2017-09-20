@@ -523,11 +523,11 @@ protected:
                             IPid snd_pid, const SymEv &snd,
                             IPid thd_pid, const SymEv &thd) const;
   Event reconstruct_lock_event(const Race&);
-  void race_detect(const Race&);
+  void race_detect(const Race&, const std::map<IPid,const sym_ty*>&);
   std::vector<int> iid_map_at(int event) const;
   void iid_map_step(std::vector<int> &iid_map, const Branch &event) const;
   void iid_map_step_rev(std::vector<int> &iid_map, const Branch &event) const;
-  void race_detect_optimal(const Race&);
+  void race_detect_optimal(const Race&, const std::map<IPid,const sym_ty*>&);
   /* Add clocks and branches.
    *
    * All elements e in seen should either be indices into prefix, or
@@ -559,26 +559,26 @@ protected:
   std::vector<VecSet<IPid>> compute_observers_wakeup_sets() const;
   /* Computes the sleepset at position i, additionally returning the symbolic
    * events that the sleeper would do (as determined by dry running).
-   *
-   * When config.observers, these sleepsets are overapproximated by not
-   * considering observer flags on sleeping events. This results in the sleepset
-   * for the prefix that ends after event i, as if the trace ended there.
-   *
-   * This overapproximation is critical to efficiently and correctly
-   * implementing Optimal-DPOR (which is the only sound DPOR for observers), as
-   * these overapproximated sleepsets do not depend on the contents of the
-   * wakeup sequence, and can yet be used to implement the redundancy check
-   * correctly.
    */
-  std::map<IPid,const sym_ty*> noobs_sleep_set_at(int i) const;
+  std::map<IPid,const sym_ty*> sym_sleep_set_at(int i) const;
   /* Performs the first half of a sleep set step, adding new sleepers from e. */
-  void noobs_sleep_set_add(std::map<IPid,const sym_ty*> &sleep,
-                           const Event &e) const;
+  void sym_sleep_set_add(std::map<IPid,const sym_ty*> &sleep,
+                         const Event &e) const;
   /* Performs the second half of a sleep set step, removing sleepers that
    * conflict with (p, sym).
    */
-  void noobs_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
-                            IPid p, sym_ty sym) const;
+  void sym_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
+                          IPid p, const sym_ty &sym) const;
+  /* Performs the second half of a sleep set step, removing sleepers that
+   * were identified as waking after event e.
+   *
+   * This overload is a workaround for having the sym_sleep sets work
+   * correctly under TSO without a full symbolic conflict detection
+   * implementation (as required for Optimal-DPOR), as sym_sleep now is
+   * used even for Source-DPOR.
+   */
+  void sym_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
+                          const Event &e) const;
   /* Wake up all threads which are sleeping, waiting for an access
    * (type,ml). */
   void wakeup(Access::Type type, void const *ml);
