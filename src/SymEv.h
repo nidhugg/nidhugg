@@ -20,6 +20,8 @@
 #ifndef __SYM_EV_H__
 #define __SYM_EV_H__
 
+#include <functional>
+
 #include <llvm/Support/raw_ostream.h>
 
 #include "MRef.h"
