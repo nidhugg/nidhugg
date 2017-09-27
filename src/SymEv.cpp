@@ -37,13 +37,7 @@ void SymEv::set(SymEv other) {
     case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
     case C_WAIT: case C_AWAKE:
     case UNOBS_STORE:
-      /* Without stable symbolic addresses, this is all we can check, I think */
-      // assert(arg.addr.size == other.arg.addr.size);
-      if(arg.addr.size != other.arg.addr.size) {
-        llvm::dbgs() << "Merging incompatible events " << *this << " and "
-                     << other << "\n";
-        assert(false);
-      }
+      assert(arg.addr == other.arg.addr);
       break;
     case SPAWN: case JOIN:
       assert(arg.num = other.arg.num);
@@ -58,38 +52,31 @@ void SymEv::set(SymEv other) {
   *this = other;
 }
 
-static std::string mref_to_string(ConstMRef mref) {
-  std::stringstream out;
-  out << "*" << std::hex << mref.ref << std::dec;
-  out << "(" << mref.size << ")";
-  return out.str();
-}
-
 std::string SymEv::to_string(std::function<std::string(int)> pid_str) const {
     switch(kind) {
     // case EMPTY:    return "Empty()";
     case NONDET:   return "Nondet()";
 
-    case LOAD:     return "Load("    + mref_to_string(arg.addr) + ")";
-    case STORE:    return "Store("   + mref_to_string(arg.addr) + ")";
+    case LOAD:     return "Load("    + arg.addr.to_string(pid_str) + ")";
+    case STORE:    return "Store("   + arg.addr.to_string(pid_str) + ")";
     case FULLMEM:  return "Fullmem()";
 
-    case M_INIT:   return "MInit("   + mref_to_string(arg.addr) + ")";
-    case M_LOCK:   return "MLock("   + mref_to_string(arg.addr) + ")";
-    case M_UNLOCK: return "MUnlock(" + mref_to_string(arg.addr) + ")";
-    case M_DELETE: return "MDelete(" + mref_to_string(arg.addr) + ")";
+    case M_INIT:   return "MInit("   + arg.addr.to_string(pid_str) + ")";
+    case M_LOCK:   return "MLock("   + arg.addr.to_string(pid_str) + ")";
+    case M_UNLOCK: return "MUnlock(" + arg.addr.to_string(pid_str) + ")";
+    case M_DELETE: return "MDelete(" + arg.addr.to_string(pid_str) + ")";
 
-    case C_INIT:   return "CInit("   + mref_to_string(arg.addr) + ")";
-    case C_SIGNAL: return "CSignal(" + mref_to_string(arg.addr) + ")";
-    case C_BRDCST: return "CBrdcst(" + mref_to_string(arg.addr) + ")";
-    case C_WAIT:   return "CWait("   + mref_to_string(arg.addr) + ")";
-    case C_AWAKE:  return "CAwake("  + mref_to_string(arg.addr) + ")";
-    case C_DELETE: return "CDelete(" + mref_to_string(arg.addr) + ")";
+    case C_INIT:   return "CInit("   + arg.addr.to_string(pid_str) + ")";
+    case C_SIGNAL: return "CSignal(" + arg.addr.to_string(pid_str) + ")";
+    case C_BRDCST: return "CBrdcst(" + arg.addr.to_string(pid_str) + ")";
+    case C_WAIT:   return "CWait("   + arg.addr.to_string(pid_str) + ")";
+    case C_AWAKE:  return "CAwake("  + arg.addr.to_string(pid_str) + ")";
+    case C_DELETE: return "CDelete(" + arg.addr.to_string(pid_str) + ")";
 
     case SPAWN: return "Spawn(" + pid_str(arg.num) + ")";
     case JOIN:  return "Join("  + pid_str(arg.num) + ")";
 
-    case UNOBS_STORE: return "UnobsStore(" + mref_to_string(arg.addr) + ")";
+    case UNOBS_STORE: return "UnobsStore(" + arg.addr.to_string(pid_str) + ")";
 
     default:
       abort();

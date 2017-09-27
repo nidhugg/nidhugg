@@ -121,6 +121,18 @@ Interpreter::Interpreter(Module *M, TSOPSOTraceBuilder &TB,
   initializeExternalFunctions();
   emitGlobals();
 
+  // Assign symbolic names to all global variables
+  int glbl_ctr = 0;
+  for (GlobalObject &go : M->global_objects()) {
+    if (GlobalVariable *gv = dyn_cast<GlobalVariable>(&go)) {
+      const DataLayout &DL = getDataLayout();
+      size_t GVSize = (size_t)(DL.getTypeAllocSize(gv->getValueType()));
+      void *GVPtr = getPointerToGlobal(gv);
+      SymMBlock mb = SymMBlock::Global(++glbl_ctr);
+      AllocatedMem.emplace(GVPtr, SymMBlockSize(std::move(mb), GVSize));
+    }
+  }
+
   IL = new IntrinsicLowering(TD);
 }
 

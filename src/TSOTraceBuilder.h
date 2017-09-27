@@ -48,24 +48,24 @@ public:
   virtual void debug_print() const ;
 
   virtual void spawn();
-  virtual void store(const ConstMRef &ml);
-  virtual void atomic_store(const ConstMRef &ml);
-  virtual void load(const ConstMRef &ml);
+  virtual void store(const SymAddrSize &ml);
+  virtual void atomic_store(const SymAddrSize &ml);
+  virtual void load(const SymAddrSize &ml);
   virtual void full_memory_conflict();
   virtual void fence();
   virtual void join(int tgt_proc);
-  virtual void mutex_lock(const ConstMRef &ml);
-  virtual void mutex_lock_fail(const ConstMRef &ml);
-  virtual void mutex_trylock(const ConstMRef &ml);
-  virtual void mutex_unlock(const ConstMRef &ml);
-  virtual void mutex_init(const ConstMRef &ml);
-  virtual void mutex_destroy(const ConstMRef &ml);
-  virtual bool cond_init(const ConstMRef &ml);
-  virtual bool cond_signal(const ConstMRef &ml);
-  virtual bool cond_broadcast(const ConstMRef &ml);
-  virtual bool cond_wait(const ConstMRef &cond_ml, const ConstMRef &mutex_ml);
-  virtual bool cond_awake(const ConstMRef &cond_ml, const ConstMRef &mutex_ml);
-  virtual int cond_destroy(const ConstMRef &ml);
+  virtual void mutex_lock(const SymAddrSize &ml);
+  virtual void mutex_lock_fail(const SymAddrSize &ml);
+  virtual void mutex_trylock(const SymAddrSize &ml);
+  virtual void mutex_unlock(const SymAddrSize &ml);
+  virtual void mutex_init(const SymAddrSize &ml);
+  virtual void mutex_destroy(const SymAddrSize &ml);
+  virtual bool cond_init(const SymAddrSize &ml);
+  virtual bool cond_signal(const SymAddrSize &ml);
+  virtual bool cond_broadcast(const SymAddrSize &ml);
+  virtual bool cond_wait(const SymAddrSize &cond_ml, const SymAddrSize &mutex_ml);
+  virtual bool cond_awake(const SymAddrSize &cond_ml, const SymAddrSize &mutex_ml);
+  virtual int cond_destroy(const SymAddrSize &ml);
   virtual void register_alternatives(int alt_count);
   virtual int estimate_trace_count() const;
 protected:
@@ -103,11 +103,11 @@ protected:
   /* A store pending in a store buffer. */
   class PendingStore{
   public:
-    PendingStore(const ConstMRef &ml, unsigned store_event,
+    PendingStore(const SymAddrSize &ml, unsigned store_event,
                  const llvm::MDNode *md)
       : ml(ml), store_event(store_event), last_rowe(-1), md(md) {};
     /* The memory location that is being written to. */
-    ConstMRef ml;
+    SymAddrSize ml;
     /* The index into prefix of the store event that produced this store
      * buffer entry.
      */
@@ -156,14 +156,14 @@ protected:
      *
      * Empty if !sleeping.
      */
-    VecSet<void const *> sleep_accesses_r;
+    VecSet<SymAddr> sleep_accesses_r;
     /* sleep_accesses_w is the set of bytes that will be written by
      * the next event to be executed by this thread (as determined by
      * dry running).
      *
      * Empty if !sleeping.
      */
-    VecSet<void const *> sleep_accesses_w;
+    VecSet<SymAddr> sleep_accesses_w;
     /* sleep_full_memory_conflict is set when the next event to be
      * executed by this thread will be a full memory conflict (as
      * determined by dry running).
@@ -197,7 +197,7 @@ protected:
    */
   class ByteInfo{
   public:
-    ByteInfo() : last_update(-1), last_update_ml(0,1) {};
+    ByteInfo() : last_update(-1), last_update_ml({SymMBlock::Global(0),0},1) {};
     /* An index into prefix, to the latest update that accessed this
      * byte. last_update == -1 if there has been no update to this
      * byte.
@@ -207,7 +207,7 @@ protected:
      * accessed by the last update. Undefined if there has been no
      * update to this byte.
      */
-    ConstMRef last_update_ml;
+    SymAddrSize last_update_ml;
     /* Set of events that updated this byte since it was last read.
      *
      * Either contains last_update or is empty.
@@ -239,7 +239,7 @@ protected:
       std::vector<int>::const_iterator end() const { return v.end(); };
     } last_read;
   };
-  std::map<const void*,ByteInfo> mem;
+  std::map<SymAddr,ByteInfo> mem;
   /* Index into prefix pointing to the latest full memory conflict.
    * -1 if there has been no full memory conflict.
    */
@@ -258,7 +258,7 @@ protected:
    * execution. The key is the position in memory of the actual
    * pthread_mutex_t object.
    */
-  std::map<void const*,Mutex> mutexes;
+  std::map<SymAddr,Mutex> mutexes;
 
   /* A CondVar represents a pthread_cond_t object. */
   class CondVar{
@@ -282,7 +282,7 @@ protected:
    * current execution. The key is the position in memory of the
    * actual pthread_cond_t object.
    */
-  std::map<void const*,CondVar> cond_vars;
+  std::map<SymAddr,CondVar> cond_vars;
 
   /* A Branch object is a pair of an IPid p and an alternative index
    * (see Event::alt below) i. It will be tagged on an event in the
@@ -581,11 +581,11 @@ protected:
                           const Event &e) const;
   /* Wake up all threads which are sleeping, waiting for an access
    * (type,ml). */
-  void wakeup(Access::Type type, void const *ml);
+  void wakeup(Access::Type type, SymAddr ml);
   /* Returns true iff the thread pid has a pending store to some
    * memory location including the byte ml.
    */
-  bool has_pending_store(IPid pid, void const *ml) const;
+  bool has_pending_store(IPid pid, SymAddr ml) const;
   /* Helper for check_for_cycles. */
   bool has_cycle(IID<IPid> *loc) const;
   /* Estimate the total number of traces that have the same prefix as

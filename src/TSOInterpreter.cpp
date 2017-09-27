@@ -81,13 +81,14 @@ void TSOInterpreter::runAux(int proc, int aux){
   assert(aux == 0);
   assert(tso_threads[proc].store_buffer.size());
 
-  const MBlock &blk = tso_threads[proc].store_buffer.front();
+  void *ref = tso_threads[proc].store_buffer.front().first;
+  const SymData &blk = tso_threads[proc].store_buffer.front().second;
 
   TB.atomic_store(blk.get_ref());
 
   if(DryRun) return;
 
-  if(!CheckedMemCpy((uint8_t*)blk.get_ref().ref,(uint8_t*)blk.get_block(),blk.get_ref().size)){
+  if(!CheckedMemCpy((uint8_t*)ref,(uint8_t*)blk.get_block(),blk.get_ref().size)){
     return;
   };
 
@@ -204,10 +205,10 @@ bool TSOInterpreter::checkRefuse(llvm::Instruction &I){
     llvm::ExecutionContext &SF = ECStack()->back();
     llvm::GenericValue SRC = getOperandValue(static_cast<llvm::LoadInst&>(I).getPointerOperand(), SF);
     llvm::GenericValue *Ptr = (llvm::GenericValue*)GVTOP(SRC);
-    MRef mr = GetMRef(Ptr,static_cast<llvm::LoadInst&>(I).getType());
+    SymAddrSize mr = GetSymAddrSize(Ptr,static_cast<llvm::LoadInst&>(I).getType());
     for(int i = int(tso_threads[CurrentThread].store_buffer.size())-1; 0 <= i; --i){
-      if(mr.overlaps(tso_threads[CurrentThread].store_buffer[i].get_ref())){
-        if(mr != tso_threads[CurrentThread].store_buffer[i].get_ref()){
+      if(mr.overlaps(tso_threads[CurrentThread].store_buffer[i].second.get_ref())){
+        if(mr != tso_threads[CurrentThread].store_buffer[i].second.get_ref()){
           /* Block until this store buffer entry has disappeared from
            * the buffer.
            */
@@ -229,21 +230,22 @@ void TSOInterpreter::visitLoadInst(llvm::LoadInst &I){
   llvm::GenericValue *Ptr = (llvm::GenericValue*)GVTOP(SRC);
   llvm::GenericValue Result;
 
-  TB.load(GetMRef(Ptr,I.getType()));
+  SymAddrSize Ptr_sas = GetSymAddrSize(Ptr,I.getType());
+  TB.load(Ptr_sas);
 
   if(DryRun && DryRunMem.size()){
     assert(tso_threads[CurrentThread].store_buffer.empty());
-    DryRunLoadValueFromMemory(Result, Ptr, I.getType());
+    DryRunLoadValueFromMemory(Result, Ptr, Ptr_sas, I.getType());
     SetValue(&I, Result, SF);
     return;
   }
 
   /* Check store buffer for ROWE opportunity. */
   for(int i = int(tso_threads[CurrentThread].store_buffer.size())-1; 0 <= i; --i){
-    if(Ptr == tso_threads[CurrentThread].store_buffer[i].get_ref().ref){
+    if(Ptr_sas.addr == tso_threads[CurrentThread].store_buffer[i].second.get_ref().addr){
       /* Read-Own-Write-Early */
-      assert(GetMRef(Ptr,I.getType()).size == tso_threads[CurrentThread].store_buffer[i].get_ref().size);
-      CheckedLoadValueFromMemory(Result,(llvm::GenericValue*)tso_threads[CurrentThread].store_buffer[i].get_block(),I.getType());
+      assert(GetSymAddrSize(Ptr,I.getType()).size == tso_threads[CurrentThread].store_buffer[i].second.get_ref().size);
+      CheckedLoadValueFromMemory(Result,(llvm::GenericValue*)tso_threads[CurrentThread].store_buffer[i].second.get_block(),I.getType());
       SetValue(&I, Result, SF);
       return;
     }
@@ -263,20 +265,20 @@ void TSOInterpreter::visitStoreInst(llvm::StoreInst &I){
      0 <= AtomicFunctionCall){
     /* Atomic store */
     assert(tso_threads[CurrentThread].store_buffer.empty());
-    TB.atomic_store(GetMRef(Ptr,I.getOperand(0)->getType()));
+    TB.atomic_store(GetSymAddrSize(Ptr,I.getOperand(0)->getType()));
     if(DryRun){
-      DryRunMem.push_back(GetMBlock(Ptr, I.getOperand(0)->getType(), Val));
+      DryRunMem.push_back(GetSymData(Ptr, I.getOperand(0)->getType(), Val));
       return;
     }
     CheckedStoreValueToMemory(Val, Ptr, I.getOperand(0)->getType());
   }else{
     /* Store to buffer */
-    TB.store(GetMRef(Ptr,I.getOperand(0)->getType()));
+    TB.store(GetSymAddrSize(Ptr,I.getOperand(0)->getType()));
     if(DryRun){
-      DryRunMem.push_back(GetMBlock(Ptr, I.getOperand(0)->getType(), Val));
+      DryRunMem.push_back(GetSymData(Ptr, I.getOperand(0)->getType(), Val));
       return;
     }
-    tso_threads[CurrentThread].store_buffer.push_back(GetMBlock(Ptr, I.getOperand(0)->getType(), Val));
+    tso_threads[CurrentThread].store_buffer.emplace_back(Ptr, GetSymData(Ptr, I.getOperand(0)->getType(), Val));
   }
 }
 

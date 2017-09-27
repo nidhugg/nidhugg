@@ -39,7 +39,8 @@
 
 #include "Configuration.h"
 #include "CPid.h"
-#include "MRef.h"
+#include "SymAddr.h"
+#include "VClock.h"
 #include "TSOPSOTraceBuilder.h"
 
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
@@ -177,10 +178,10 @@ protected:
    * atomic function call) to check for updates that would have been
    * visible if the event were executing for real.
    *
-   * DryRunMem holds MBlocks corresponding to every store that has
+   * DryRunMem holds SymDatas corresponding to every store that has
    * been performed during this dry run, in order from older to newer.
    */
-  std::vector<MBlock> DryRunMem;
+  std::vector<SymData> DryRunMem;
   /* AtomicFunctionCall usually holds a negative value. However, while
    * we are executing inside an atomic function (one with a name
    * starting with "__VERIFIER_atomic_"), AtomicFunctionCall will hold
@@ -222,6 +223,13 @@ protected:
    */
   std::vector<ExecutionContext> *ECStack() { return &Threads[CurrentThread].ECStack; };
 
+  struct SymMBlockSize {
+    SymMBlockSize(SymMBlock block, uint32_t size) :
+      block(std::move(block)), size(size) {}
+    SymMBlock block;
+    uint32_t size;
+  };
+
   /* Memory that has been allocated, and that should be freed at the
    * end of the execution.
    *
@@ -231,6 +239,9 @@ protected:
    */
   std::set<void*> AllocatedMemHeap;
   std::set<void*> AllocatedMemStack;
+
+  std::map<void*,SymMBlockSize> AllocatedMem;
+  VClock<int> HeapAllocCount, StackAllocCount;
   /* Memory that has been explicitly freed by a call to free.
    *
    * The key is the freed memory. The value is the iid of the event
@@ -454,34 +465,29 @@ protected:  // Helper functions
   /* Empty all stacks. */
   virtual void clearAllStacks();
 
-  /* Get an MRef for the pointer Ptr, with the size given by Ty for
+  /* Get a SymAddr for the pointer Ptr */
+  SymAddr GetSymAddr(void *Ptr);
+  /* Get a SymAddrSize for the pointer Ptr, with the size given by Ty for
    * the current data layout.
    */
-  MRef GetMRef(void *Ptr, Type *Ty){
+  SymAddrSize GetSymAddrSize(void *Ptr, Type *Ty){
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-    return {Ptr,int(getDataLayout()->getTypeStoreSize(Ty))};
+    return {GetSymAddr(Ptr),getDataLayout()->getTypeStoreSize(Ty)};
 #else
-    return {Ptr,int(getDataLayout().getTypeStoreSize(Ty))};
+    return {GetSymAddr(Ptr),getDataLayout().getTypeStoreSize(Ty)};
 #endif
   };
-  ConstMRef GetConstMRef(void const *Ptr, Type *Ty){
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-    return {Ptr,int(getDataLayout()->getTypeStoreSize(Ty))};
-#else
-    return {Ptr,int(getDataLayout().getTypeStoreSize(Ty))};
-#endif
-  };
-  /* Get an MBlock associated with the location Ptr, and holding the
+  /* Get a SymData associated with the location Ptr, and holding the
    * value Val of type Ty. The size of the memory location will be
    * that of Ty.
    */
-  MBlock GetMBlock(void *Ptr, Type *Ty, const GenericValue &Val){
+  SymData GetSymData(void *Ptr, Type *Ty, const GenericValue &Val){
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
     uint64_t alloc_size = getDataLayout()->getTypeAllocSize(Ty);
 #else
     uint64_t alloc_size = getDataLayout().getTypeAllocSize(Ty);
 #endif
-    MBlock B(GetMRef(Ptr,Ty),alloc_size);
+    SymData B(GetSymAddrSize(Ptr,Ty),alloc_size);
     StoreValueToMemory(Val,static_cast<GenericValue*>(B.get_block()),Ty);
     return B;
   };
@@ -492,7 +498,8 @@ protected:  // Helper functions
    * bytes in memory.
    */
   virtual void DryRunLoadValueFromMemory(GenericValue &Val,
-                                         GenericValue *Src, Type *Ty);
+                                         GenericValue *Src,
+                                         SymAddrSize Src_sas, Type *Ty);
 
   /* Same as ExecutionEngine::StoreValueToMemory, but check for
    * segmentation faults, and generate errors as appropriate.

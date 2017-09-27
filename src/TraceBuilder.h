@@ -23,7 +23,6 @@
 #define __TRACE_BUILDER_H__
 
 #include "Configuration.h"
-#include "MRef.h"
 #include "Trace.h"
 
 #include <string>

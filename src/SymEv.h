@@ -25,9 +25,7 @@
 #include <llvm/Support/raw_ostream.h>
 
 #include "MRef.h"
-
-/* For now, addresses are concrete (and thus not stable between executions) */
-typedef ConstMRef SymAddr;
+#include "SymAddr.h"
 
 /* Symbolic representation of an event */
 struct SymEv {
@@ -59,11 +57,11 @@ struct SymEv {
   } kind;
   union arg {
   public:
-    SymAddr addr;
+    SymAddrSize addr;
     int num;
 
     arg() {}
-    arg(SymAddr addr) : addr(addr) {}
+    arg(SymAddrSize addr) : addr(addr) {}
     arg(int num) : num(num) {}
     // ~arg_union() {}
   } arg;
@@ -73,26 +71,26 @@ struct SymEv {
   // static SymEv Empty() { return {EMPTY, {}}; }
   static SymEv Nondet() { return {NONDET, {}}; }
 
-  static SymEv Load(SymAddr addr) { return {LOAD, addr}; }
-  static SymEv Store(SymAddr addr) { return {STORE, addr}; }
+  static SymEv Load(SymAddrSize addr) { return {LOAD, addr}; }
+  static SymEv Store(SymAddrSize addr) { return {STORE, addr}; }
   static SymEv Fullmem() { return {FULLMEM, {}}; }
 
-  static SymEv MInit(SymAddr addr) { return {M_INIT, addr}; }
-  static SymEv MLock(SymAddr addr) { return {M_LOCK, addr}; }
-  static SymEv MUnlock(SymAddr addr) { return {M_UNLOCK, addr}; }
-  static SymEv MDelete(SymAddr addr) { return {M_DELETE, addr}; }
+  static SymEv MInit(SymAddrSize addr) { return {M_INIT, addr}; }
+  static SymEv MLock(SymAddrSize addr) { return {M_LOCK, addr}; }
+  static SymEv MUnlock(SymAddrSize addr) { return {M_UNLOCK, addr}; }
+  static SymEv MDelete(SymAddrSize addr) { return {M_DELETE, addr}; }
 
-  static SymEv CInit(SymAddr addr) { return {C_INIT, addr}; }
-  static SymEv CSignal(SymAddr addr) { return {C_SIGNAL, addr}; }
-  static SymEv CBrdcst(SymAddr addr) { return {C_BRDCST, addr}; }
-  static SymEv CWait(SymAddr cond) { return {C_WAIT, cond}; }
-  static SymEv CAwake(SymAddr cond) { return {C_AWAKE, cond}; }
-  static SymEv CDelete(SymAddr addr) { return {C_DELETE, addr}; }
+  static SymEv CInit(SymAddrSize addr) { return {C_INIT, addr}; }
+  static SymEv CSignal(SymAddrSize addr) { return {C_SIGNAL, addr}; }
+  static SymEv CBrdcst(SymAddrSize addr) { return {C_BRDCST, addr}; }
+  static SymEv CWait(SymAddrSize cond) { return {C_WAIT, cond}; }
+  static SymEv CAwake(SymAddrSize cond) { return {C_AWAKE, cond}; }
+  static SymEv CDelete(SymAddrSize addr) { return {C_DELETE, addr}; }
 
   static SymEv Spawn(int proc) { return {SPAWN, proc}; }
   static SymEv Join(int proc) { return {JOIN, proc}; }
 
-  static SymEv UnobsStore(SymAddr addr) { return {UNOBS_STORE, addr}; }
+  static SymEv UnobsStore(SymAddrSize addr) { return {UNOBS_STORE, addr}; }
 
   void set(SymEv other);
   std::string to_string(std::function<std::string(int)> pid_str
@@ -103,8 +101,8 @@ struct SymEv {
 
   bool has_addr() const;
   bool has_num() const;
-  const SymAddr &addr()   const { assert(has_addr()); return arg.addr; }
-        int      num()    const { assert(has_num()); return arg.num; }
+  const SymAddrSize &addr()   const { assert(has_addr()); return arg.addr; }
+        int          num()    const { assert(has_num()); return arg.num; }
 
 private:
   SymEv(enum kind kind, union arg arg) : kind(kind), arg(arg) {};

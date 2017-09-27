@@ -62,11 +62,11 @@ protected:
    */
   class PendingStoreByte{
   public:
-    PendingStoreByte(const ConstMRef &ml, uint8_t val) : ml(ml), val(val) {};
+    PendingStoreByte(const SymAddrSize &ml, uint8_t val) : ml(ml), val(val) {};
     /* ml is the complete memory location of the pending store of
      * which this byte is part.
      */
-    ConstMRef ml;
+    SymAddrSize ml;
     /* val is the value of this byte in the pending store. */
     uint8_t val;
   };
@@ -76,13 +76,14 @@ protected:
    */
   class PSOThread{
   public:
-    PSOThread() : awaiting_buffer_flush(BFL_NO), buffer_flush_ml(0,1) {};
+    PSOThread() : awaiting_buffer_flush(BFL_NO), buffer_flush_ml({SymMBlock::Global(0),0},1) {};
     /* aux_to_byte and byte_to_aux provide the mapping between
      * auxiliary thread indices and the first byte in the memory
      * locations for which that auxiliary thread is responsible.
      */
-    std::vector<void*> aux_to_byte;
-    std::map<void const*,int> byte_to_aux;
+    std::vector<SymAddr> aux_to_byte;
+    std::vector<uint8_t*> aux_to_addr;
+    std::map<SymAddr,int> byte_to_aux;
     /* Each pending store s is split into PendingStoreBytes (see
      * above) and ordered into store buffers. For each byte b in
      * memory, store_buffers[b] contains precisely all
@@ -90,7 +91,7 @@ protected:
      * in store_buffers[b] are ordered such that newer entries are
      * further to the back.
      */
-    std::map<void const*,std::vector<PendingStoreByte> > store_buffers;
+    std::map<SymAddr,std::vector<PendingStoreByte> > store_buffers;
     /* awaiting_buffer_flush indicates whether this thread is blocked
      * waiting for some store buffer to flush.
      */
@@ -113,10 +114,10 @@ protected:
      * above.) If awaiting_buffer_flush != BFL_PARTIAL, then the value
      * of buffer_flush_ml is undefined.
      */
-    ConstMRef buffer_flush_ml;
+    SymAddrSize buffer_flush_ml;
 
     /* Check if ml is readable, as described above for BFL_PARTIAL. */
-    bool readable(const ConstMRef &ml) const;
+    bool readable(const SymAddrSize &ml) const;
     bool all_buffers_empty() const{
 #ifndef NDEBUG
       /* Empty buffers should be removed from store_buffers. */
