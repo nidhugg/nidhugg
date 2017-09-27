@@ -113,6 +113,7 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       *alt = curbranch().alt;
       assert(threads[pid].available);
       threads[pid].event_indices.push_back(prefix_idx);
+      assert(!threads[pid].sleeping);
       return true;
     }
   }
@@ -138,6 +139,7 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
     Branch b = curbranch();
     ++b.size;
     prefix.set_last_branch(std::move(b));
+    assert(int(threads[curev().iid.get_pid()].event_indices.back()) == prefix_idx + 1);
     threads[curev().iid.get_pid()].event_indices.back() = prefix_idx;
   } else {
     /* Copy symbolic events to wakeup tree */
@@ -209,6 +211,7 @@ void TSOTraceBuilder::refuse_schedule(){
   assert(prefix.children_after(prefix_idx) == 0);
   IPid last_pid = prefix.last().iid.get_pid();
   prefix.delete_last();
+  assert(int(threads[last_pid].event_indices.back()) == prefix_idx);
   threads[last_pid].event_indices.pop_back();
   --prefix_idx;
   mark_unavailable(last_pid/2,last_pid % 2 - 1);
@@ -1277,6 +1280,7 @@ void TSOTraceBuilder::see_event_pairs
 void TSOTraceBuilder::add_noblock_race(int event){
   assert(0 <= event);
   assert(event < prefix_idx);
+  assert(do_events_conflict(event, prefix_idx));
 
   std::vector<Race> &races = curev().races;
   if (races.size()) {
@@ -1308,6 +1312,8 @@ void TSOTraceBuilder::add_observed_race(int first, int second){
   assert(0 <= first);
   assert(first < second);
   assert(second < prefix_idx);
+  assert(do_events_conflict(first, second));
+  assert(do_events_conflict(second, prefix_idx));
 
   std::vector<Race> &races = prefix[second].races;
   if (races.size()) {
@@ -1498,6 +1504,10 @@ void TSOTraceBuilder::record_symbolic(SymEv event){
     assert(sym_idx < curev().sym.size());
     curev().sym[sym_idx++].set(event);
   }
+}
+
+bool TSOTraceBuilder::do_events_conflict(int i, int j) const{
+  return do_events_conflict(prefix[i], prefix[j]);
 }
 
 bool TSOTraceBuilder::do_events_conflict

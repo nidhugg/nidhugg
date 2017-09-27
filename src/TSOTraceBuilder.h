@@ -515,6 +515,7 @@ protected:
   void add_observed_race(int first, int second);
   void add_lock_suc_race(int lock, int unlock);
   void add_lock_fail_race(const Mutex &m, int event);
+  bool do_events_conflict(int i, int j) const;
   bool do_events_conflict(const Event &fst, const Event &snd) const;
   bool do_events_conflict(IPid fst_pid, const sym_ty &fst,
                           IPid snd_pid, const sym_ty &snd) const;
