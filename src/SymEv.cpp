@@ -40,7 +40,7 @@ void SymEv::set(SymEv other) {
       assert(arg.addr == other.arg.addr);
       break;
     case SPAWN: case JOIN:
-      assert(arg.num = other.arg.num);
+      assert(arg.num == other.arg.num);
       break;
     case FULLMEM: case NONDET:
       break;
