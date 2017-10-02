@@ -37,7 +37,8 @@ std::string SymMBlock::to_string(std::function<std::string(int)> pid_str) const 
 }
 
 std::string SymAddr::to_string(std::function<std::string(int)> pid_str) const {
-  return block.to_string(pid_str) + "(" + std::to_string(offset) + ")";
+  if (offset == 0) return block.to_string(pid_str);
+  return "(" + block.to_string(pid_str) + "+" + std::to_string(offset) + ")";
 }
 
 std::string SymAddrSize::to_string(std::function<std::string(int)> pid_str) const {

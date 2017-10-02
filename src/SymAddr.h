@@ -34,7 +34,7 @@ struct SymMBlock {
     return SymMBlock(UINT16_MAX, no);
   }
   static SymMBlock Stack(int pid, unsigned no) {
-    assert(no < INT16_MAX);
+    assert(no <= INT16_MAX);
     return SymMBlock(pid, -1-no);
   }
   static SymMBlock Heap(int pid, unsigned no) {
