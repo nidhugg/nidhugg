@@ -1250,7 +1250,6 @@ void TSOTraceBuilder::add_lock_suc_race(int lock, int unlock){
 void TSOTraceBuilder::add_lock_fail_race(const Mutex &m, int event){
   assert(0 <= event);
   assert(event < prefix_idx);
-  llvm::dbgs() << "LockFail after " << prefix_idx << "\n";
 
   lock_fail_races.push_back(Race::LockFail(event,prefix_idx,curev().iid,&m));
 }
