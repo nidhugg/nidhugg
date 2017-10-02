@@ -914,8 +914,7 @@ bool TSOTraceBuilder::cond_signal(const SymAddrSize &ml){
   }
   CondVar &cond_var = it->second;
   VecSet<int> seen_events = {last_full_memory_conflict};
-  if(curbranch().alt < int(cond_var.waiters.size())-1){
-    assert(curbranch().alt == 0);
+  if(cond_var.waiters.size() > 1){
     register_alternatives(cond_var.waiters.size());
   }
   assert(0 <= curbranch().alt);
@@ -1074,8 +1073,10 @@ int TSOTraceBuilder::cond_destroy(const SymAddrSize &ml){
 void TSOTraceBuilder::register_alternatives(int alt_count){
   curev().may_conflict = true;
   record_symbolic(SymEv::Nondet());
-  for(int i = curbranch().alt+1; i < alt_count; ++i){
-    curev().races.push_back(Race::Nondet(prefix_idx, i));
+  if(curbranch().alt == 0) {
+    for(int i = curbranch().alt+1; i < alt_count; ++i){
+      curev().races.push_back(Race::Nondet(prefix_idx, i));
+    }
   }
 }
 

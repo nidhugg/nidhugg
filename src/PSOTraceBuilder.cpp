@@ -797,8 +797,7 @@ bool PSOTraceBuilder::cond_signal(const SymAddrSize &ml){
   }
   CondVar &cond_var = it->second;
   VecSet<int> seen_events = {last_full_memory_conflict};
-  if(curnode().alt < int(cond_var.waiters.size())-1){
-    assert(curnode().alt == 0);
+  if(cond_var.waiters.size() > 1){
     register_alternatives(cond_var.waiters.size());
   }
   assert(0 <= curnode().alt);
@@ -945,8 +944,10 @@ int PSOTraceBuilder::cond_destroy(const SymAddrSize &ml){
 
 void PSOTraceBuilder::register_alternatives(int alt_count){
   curnode().may_conflict = true;
-  for(int i = curnode().alt+1; i < alt_count; ++i){
-    curnode().branch.insert(Branch({curnode().iid.get_pid(),i}));
+  if(curnode().alt == 0){
+    for(int i = curnode().alt+1; i < alt_count; ++i){
+      curnode().branch.insert(Branch({curnode().iid.get_pid(),i}));
+    }
   }
 }
 

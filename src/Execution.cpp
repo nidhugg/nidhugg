@@ -3067,8 +3067,8 @@ void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVa
 void Interpreter::callMCalloc(Function *F,
                               const std::vector<GenericValue> &ArgVals,
                               bool isCalloc){
+  if(conf.malloc_may_fail) TB.register_alternatives(2);
   if(conf.malloc_may_fail && CurrentAlt == 0){
-    TB.register_alternatives(2);
     GenericValue Result;
     Result.PointerVal = 0; // Return null
     returnValueToCaller(F->getReturnType(),Result);
