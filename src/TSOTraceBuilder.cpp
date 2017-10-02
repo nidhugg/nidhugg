@@ -23,6 +23,8 @@
 #include <sstream>
 #include <stdexcept>
 
+static void clear_observed(sym_ty &syms);
+
 TSOTraceBuilder::TSOTraceBuilder(const Configuration &conf) : TSOPSOTraceBuilder(conf) {
   threads.push_back(Thread(CPid(), -1));
   threads.push_back(Thread(CPS.new_aux(CPid()), -1));
@@ -120,12 +122,30 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
      prefix[prefix.len()-1].sleep.empty()){
     assert(prefix.children_after(prefix.len()-1) == 0);
     assert(prefix[prefix.len()-1].wakeup.empty());
+    assert(curev().sym.empty()); /* Would need to be copied */
+    assert(curbranch().sym.empty()); /* Can't happen */
     prefix.delete_last();
     --prefix_idx;
     Branch b = curbranch();
     ++b.size;
     prefix.set_last_branch(std::move(b));
     threads[curev().iid.get_pid()].event_indices.back() = prefix_idx;
+  } else {
+    /* Copy symbolic events to wakeup tree */
+    if (prefix.len() > 0) {
+      if (!curbranch().sym.empty()) {
+#ifndef NDEBUG
+        sym_ty expected = curev().sym;
+        if (conf.observers) clear_observed(expected);
+        assert(curbranch().sym == expected);
+#endif
+      } else {
+        Branch b = curbranch();
+        b.sym = curev().sym;
+        if (conf.observers) clear_observed(b.sym);
+        prefix.set_last_branch(std::move(b));
+      }
+    }
   }
 
   /* Create a new Event */
@@ -1880,18 +1900,16 @@ void TSOTraceBuilder::race_detect_optimal
     enum { NO, RECURSE, NEXT } skip = NO;
     for (auto child_it = node.begin(); child_it != node.end(); ++child_it) {
       /* Find this event in prefix */
-      sym_ty child_sym;
       IID<IPid> child_iid(child_it.branch().pid,
                           iid_map[child_it.branch().pid]);
       unsigned k = find_process_event(child_iid.get_pid(), child_iid.get_index());
-      child_sym = prefix[k].sym;
-      clear_observed(child_sym);
-      if (prefix[k].iid.get_index() != child_iid.get_index()) {
-        /* If the indices of prefix[k].iid and child_iid differ, then the
-         * child event must be an event without global operations.
-         */
-        child_sym.clear();
-      }
+      /* If the indices of prefix[k].iid and child_iid differ, then the
+       * child event must be an event without global operations.
+       */
+      const sym_ty empty_sym;
+      const sym_ty &child_sym
+        = (prefix[k].iid.get_index() != child_iid.get_index())
+        ? empty_sym : child_it.branch().sym;
 
       for (auto vei = v.begin(); skip == NO && vei != v.end(); ++vei) {
         std::pair<Branch,sym_ty> &ve = *vei;

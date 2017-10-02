@@ -292,7 +292,10 @@ protected:
    */
   class Branch{
   public:
-    Branch (IPid pid, int alt = 0) : pid(pid), alt(alt), size(1) {}
+    Branch (IPid pid, int alt = 0) : sym(), pid(pid), alt(alt), size(1) {}
+    /* Symbolic representation of the globally visible operation of this event.
+     */
+    sym_ty sym;
     IPid pid;
     /* Some instructions may execute in several alternative ways
      * nondeterministically. (E.g. malloc may succeed or fail
@@ -373,11 +376,12 @@ protected:
    */
   class Event{
   public:
-    Event(const IID<IPid> &iid
+    Event(const IID<IPid> &iid,
+          sym_ty sym = {}
           //,const VClock<IPid> &clk
           )
       : iid(iid), origin_iid(iid), md(0), clock(/*clk*/), may_conflict(false),
-        sym(), sleep_branch_trace_count(0) {};
+        sym(std::move(sym)), sleep_branch_trace_count(0) {};
     /* The identifier for the first event in this event sequence. */
     IID<IPid> iid;
     /* The IID of the program instruction which is the origin of this
