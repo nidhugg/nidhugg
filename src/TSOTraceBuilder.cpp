@@ -1479,12 +1479,16 @@ bool TSOTraceBuilder::do_symevs_conflict
   }
 }
 
+static bool symev_has_pid(const SymEv &e) {
+  return e.kind == SymEv::SPAWN || e.kind == SymEv::JOIN;
+}
+
 bool TSOTraceBuilder::do_events_conflict
 (IPid fst_pid, const sym_ty &fst,
  IPid snd_pid, const sym_ty &snd) const{
   if (fst_pid == snd_pid) return true;
   for (const SymEv &fe : fst) {
-    if (fe.has_num() && fe.num() == (snd_pid / 2)) return true;
+    if (symev_has_pid(fe) && fe.num() == (snd_pid / 2)) return true;
     for (const SymEv &se : snd) {
       if (do_symevs_conflict(fst_pid, fe, snd_pid, se)) {
         return true;
@@ -1492,7 +1496,7 @@ bool TSOTraceBuilder::do_events_conflict
     }
   }
   for (const SymEv &se : snd) {
-    if (se.has_num() && se.num() == (fst_pid / 2)) return true;
+    if (symev_has_pid(se) && se.num() == (fst_pid / 2)) return true;
   }
   return false;
 }
