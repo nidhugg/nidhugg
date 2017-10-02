@@ -69,7 +69,7 @@ struct SymEv {
   SymEv() = delete;
   // SymEv() : kind(EMPTY) {};
   // static SymEv Empty() { return {EMPTY, {}}; }
-  static SymEv Nondet() { return {NONDET, {}}; }
+  static SymEv Nondet(int count) { return {NONDET, count}; }
 
   static SymEv Load(SymAddrSize addr) { return {LOAD, addr}; }
   static SymEv Store(SymAddrSize addr) { return {STORE, addr}; }

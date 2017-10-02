@@ -40,9 +40,10 @@ void SymEv::set(SymEv other) {
       assert(arg.addr == other.arg.addr);
       break;
     case SPAWN: case JOIN:
+    case NONDET:
       assert(arg.num == other.arg.num);
       break;
-    case FULLMEM: case NONDET:
+    case FULLMEM:
       break;
     default:
       assert(false && "Unknown kind");
@@ -55,7 +56,7 @@ void SymEv::set(SymEv other) {
 std::string SymEv::to_string(std::function<std::string(int)> pid_str) const {
     switch(kind) {
     // case EMPTY:    return "Empty()";
-    case NONDET:   return "Nondet()";
+    case NONDET:   return "Nondet(" + std::to_string(arg.num) + ")";
 
     case LOAD:     return "Load("    + arg.addr.to_string(pid_str) + ")";
     case STORE:    return "Store("   + arg.addr.to_string(pid_str) + ")";
@@ -102,9 +103,10 @@ bool SymEv::has_addr() const {
 bool SymEv::has_num() const {
   switch(kind) {
   case SPAWN: case JOIN:
+  case NONDET:
     return true;
   case C_WAIT: case C_AWAKE:
-  case FULLMEM: case NONDET:
+  case FULLMEM:
   case LOAD: case STORE:
   case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:

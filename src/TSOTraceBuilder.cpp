@@ -1072,7 +1072,7 @@ int TSOTraceBuilder::cond_destroy(const SymAddrSize &ml){
 
 void TSOTraceBuilder::register_alternatives(int alt_count){
   curev().may_conflict = true;
-  record_symbolic(SymEv::Nondet());
+  record_symbolic(SymEv::Nondet(alt_count));
   if(curbranch().alt == 0) {
     for(int i = curbranch().alt+1; i < alt_count; ++i){
       curev().races.push_back(Race::Nondet(prefix_idx, i));
