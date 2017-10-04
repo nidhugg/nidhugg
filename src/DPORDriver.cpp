@@ -152,7 +152,7 @@ Trace *DPORDriver::run_once(TraceBuilder &TB) const{
   std::shared_ptr<llvm::ExecutionEngine> EE(create_execution_engine(TB,conf));
 
   // Run main.
-  EE->runFunctionAsMain(mod->getFunction("main"), {"prog"}, 0);
+  EE->runFunctionAsMain(mod->getFunction("main"), conf.argv, 0);
 
   // Run static destructors.
   EE->runStaticConstructorsDestructors(true);
@@ -172,7 +172,7 @@ Trace *DPORDriver::run_once(TraceBuilder &TB) const{
       Configuration conf2(conf);
       conf2.ee_store_trace = true;
       llvm::ExecutionEngine *E = create_execution_engine(TB,conf2);
-      E->runFunctionAsMain(mod->getFunction("main"), {"prog"}, 0);
+      E->runFunctionAsMain(mod->getFunction("main"), conf.argv, 0);
       E->runStaticConstructorsDestructors(true);
       if(conf.check_robustness){
         static_cast<llvm::Interpreter*>(E)->checkForCycles();

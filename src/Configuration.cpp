@@ -22,6 +22,8 @@
 #include <llvm/Support/CommandLine.h>
 #include "Debug.h"
 
+extern llvm::cl::list<std::string> cl_program_arguments;
+
 extern llvm::cl::opt<std::string> cl_transform;
 
 static llvm::cl::opt<bool> cl_explore_all("explore-all",llvm::cl::NotHidden,
@@ -112,6 +114,9 @@ void Configuration::assign_by_commandline(){
   transform_loop_unroll = cl_transform_loop_unroll;
   print_progress = cl_print_progress || cl_print_progress_estimate;
   print_progress_estimate = cl_print_progress_estimate;
+  for(std::string a : cl_program_arguments){
+    argv.push_back(a);
+  }
 }
 
 void Configuration::check_commandline(){
