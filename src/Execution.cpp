@@ -1460,6 +1460,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
   assert(I.getType()->isIntegerTy());
 
   SymAddrSize Ptr_sas = GetSymAddrSize(Ptr,I.getType());
+  TB.load(Ptr_sas);
   TB.atomic_store(Ptr_sas);
 
   /* Load old value at *Ptr */
