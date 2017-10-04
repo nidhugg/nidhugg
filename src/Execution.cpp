@@ -1391,14 +1391,21 @@ void Interpreter::visitStoreInst(StoreInst &I) {
   ExecutionContext &SF = ECStack()->back();
   GenericValue Val = getOperandValue(I.getOperand(0), SF);
   GenericValue *Ptr = (GenericValue *)GVTOP(getOperandValue(I.getPointerOperand(), SF));
+  Option<SymAddrSize> Ptr_sas = TryGetSymAddrSize(Ptr,I.getOperand(0)->getType());
 
-  TB.atomic_store(GetSymAddrSize(Ptr,I.getOperand(0)->getType()));
+  if (!Ptr_sas) {
+    TB.segmentation_fault_error();
+    abort();
+    return;
+  }
+  TB.atomic_store(*Ptr_sas);
 
   if(DryRun){
     DryRunMem.push_back(GetSymData(Ptr, I.getOperand(0)->getType(), Val));
     return;
   }
 
+  // FIXME: Cannot fail anymore
   CheckedStoreValueToMemory(Val, Ptr, I.getOperand(0)->getType());
 }
 
@@ -3395,20 +3402,34 @@ void Interpreter::abort(){
   clearAllStacks();
 }
 
-SymAddr Interpreter::GetSymAddr(void *Ptr) {
+Option<SymAddr> Interpreter::TryGetSymAddr(void *Ptr) {
   auto ub = AllocatedMem.upper_bound(Ptr);
-  if (ub == AllocatedMem.begin()) {
-    std::stringstream out;
-    out << std::hex << Ptr << std::dec;
-    throw std::logic_error("Memory at address " + out.str() + " was not allocated!\n");
-  }
+  if (ub == AllocatedMem.begin()) return nullptr;
   --ub;
-  if ((char*)ub->first + ub->second.size <= Ptr) {
+  if ((char*)ub->first + ub->second.size <= Ptr) return nullptr;
+  return SymAddr(ub->second.block, (char*)Ptr - (char*)ub->first);
+}
+
+SymAddr Interpreter::GetSymAddr(void *Ptr) {
+  if (Option<SymAddr> ret = TryGetSymAddr(Ptr)) {
+    return *ret;
+  } else {
     std::stringstream out;
     out << std::hex << Ptr << std::dec;
-    throw std::logic_error("Memory at address " + out.str() + " was not allocated!\n");
+    llvm::dbgs() << "Memory at address " << out.str() + " was not allocated!\n";
+    std::abort();
   }
-  return SymAddr(ub->second.block, (char*)Ptr - (char*)ub->first);
+}
+
+SymAddrSize Interpreter::GetSymAddrSize(void *Ptr, Type *Ty){
+  if (Option<SymAddrSize> ret = TryGetSymAddrSize(Ptr, Ty)) {
+    return *ret;
+  } else {
+    std::stringstream out;
+    out << std::hex << Ptr << std::dec;
+    llvm::dbgs() << "Memory at address " << out.str() + " was not allocated!\n";
+    std::abort();
+  }
 }
 
 void Interpreter::run() {
