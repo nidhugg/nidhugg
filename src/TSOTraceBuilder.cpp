@@ -1576,7 +1576,8 @@ void TSOTraceBuilder::race_detect
   if (race.kind == Race::NONDET){
     assert(race.alternative > prefix.branch(i).alt);
     prefix.parent_at(i)
-      .put_child(Branch({prefix[i].iid.get_pid(),race.alternative}));
+      .put_child(Branch({prefix[i].iid.get_pid(),race.alternative,
+                         prefix.branch(i).sym}));
     return;
   }
 
@@ -1596,6 +1597,7 @@ void TSOTraceBuilder::race_detect
    */
   std::vector<int> candidates;
   Branch cand = {-1,0};
+  const sym_ty *cand_sym = nullptr;
   const VClock<IPid> &iclock = prefix[i].clock;
   for(int k = i+1; k <= j; ++k){
     const IID<IPid> &iid = k == j && race.kind == Race::LOCK_FAIL
@@ -1627,6 +1629,7 @@ void TSOTraceBuilder::race_detect
     candidates[p] = iid.get_index();
     cand.pid = p;
     cand.size = psize;
+    cand_sym = &pevent->sym;
     if(prefix.parent_at(i).has_child(cand)){
       /* There is already a satisfactory candidate branch */
       return;
@@ -1639,6 +1642,9 @@ void TSOTraceBuilder::race_detect
   }
 
   assert(0 <= cand.pid);
+  assert(conf.dpor_algorithm != Configuration::OPTIMAL);
+  assert(cand_sym);
+  cand.sym = *cand_sym;
   prefix.parent_at(i).put_child(cand);
 }
 
@@ -1658,6 +1664,7 @@ void TSOTraceBuilder::race_detect_optimal
     second = reconstruct_lock_event(race);
     /* XXX: Lock events don't have alternatives, right? */
     second_br = Branch(second.iid.get_pid());
+    second_br.sym = std::move(second.sym);
   } else if (race.kind == Race::NONDET) {
     second = first;
     second_br = prefix.branch(i);
@@ -1680,52 +1687,53 @@ void TSOTraceBuilder::race_detect_optimal
    *
    * It is the sequence we want to insert into the wakeup tree.
    */
-  std::vector<std::pair<Branch,sym_ty>> v;
+  std::vector<Branch> v;
   std::vector<const Event*> observers;
-  std::vector<std::pair<Branch,const sym_ty&>> notobs;
+  std::vector<Branch> notobs;
 
   if (conf.observers) {
     /* Start v with the entire prefix before e, for the
      * observers-compatible redundancy check.
      */
     for (int k = 0; k < i; ++k) {
-      v.emplace_back(prefix.branch(k), prefix[k].sym);
+      v.push_back(prefix.branch(k));
     }
   }
 
   for (int k = i + 1; k < int(prefix.len()); ++k){
     if (!first.clock.leq(prefix[k].clock)) {
-      v.emplace_back(prefix.branch(k), prefix[k].sym);
+      v.emplace_back(prefix.branch(k));
     } else if (race.kind == Race::OBSERVED && k != j) {
       if (!std::any_of(observers.begin(), observers.end(),
                        [this,k](const Event* o){
                          return o->clock.leq(prefix[k].clock); })){
         if (is_observed_conflict(first, second, prefix[k])){
           observers.push_back(&prefix[k]);
-        } else {
-          notobs.emplace_back(prefix.branch(k), prefix[k].sym);
+        } else if (race.kind == Race::OBSERVED) {
+          notobs.push_back(prefix.branch(k));
         }
       }
     }
   }
-  v.emplace_back(second_br, std::move(second.sym));
+  v.push_back(std::move(second_br));
   if (race.kind == Race::OBSERVED) {
     int k = race.witness_event;
     const Branch &first_br = prefix.branch(i);
-    const Event &witness = prefix[k];
     Branch witness_br = prefix.branch(k);
     /* Only replay the racy event. */
     witness_br.size = 1;
 
-    v.emplace_back(first_br, first.sym);
-    v.insert(v.end(), notobs.begin(), notobs.end());
-    v.emplace_back(witness_br, witness.sym);
+    v.push_back(first_br);
+    v.insert(v.end(), std::make_move_iterator(notobs.begin()),
+             std::make_move_iterator(notobs.end()));
+    notobs.clear(); /* Since their states are undefined after std::move */
+    v.push_back(std::move(witness_br));
   }
 
   if (conf.observers) {
     /* Recompute observed states on events in v */
-    for (std::pair<Branch,sym_ty> &pair : v) {
-      clear_observed(pair.second);
+    for (Branch &b : v) {
+      clear_observed(b.sym);
     }
 
     /* When !read_all, last_reads is the set of addresses that have been read
@@ -1737,8 +1745,8 @@ void TSOTraceBuilder::race_detect_optimal
     bool read_all = false;
 
     for (auto vi = v.end(); vi != v.begin();){
-      std::pair<Branch,sym_ty> &vp = *(--vi);
-      for (auto ei = vp.second.end(); ei != vp.second.begin();){
+      Branch &vb = *(--vi);
+      for (auto ei = vb.sym.end(); ei != vb.sym.begin();){
         SymEv &e = *(--ei);
         switch(e.kind){
         case SymEv::LOAD:
@@ -1784,17 +1792,17 @@ void TSOTraceBuilder::race_detect_optimal
   if (!conf.observers) {
   for (auto it = v.cbegin(); it != v.cend(); ++it) {
     /* Check for redundant exploration */
-    if (isleep.count(it->first.pid)) {
+    if (isleep.count(it->pid)) {
       /* Latter events of this process can't be weak initials either, so to
        * save us from checking, we just delete it from isleep */
-      isleep.erase(it->first.pid);
+      isleep.erase(it->pid);
 
       /* Is this a weak initial of v? */
       bool initial = true;
       for (auto prev = it; prev != v.cbegin();){
         --prev;
-        if (do_events_conflict(prev->first.pid, prev->second,
-                               it  ->first.pid, it  ->second)){
+        if (do_events_conflict(prev->pid, prev->sym,
+                               it  ->pid, it  ->sym)){
           initial = false;
           break;
         }
@@ -1828,16 +1836,16 @@ void TSOTraceBuilder::race_detect_optimal
          * v */
         bool skip = false;
         for (auto vei = vf; !skip && vei != v.end(); ++vei) {
-          std::pair<Branch,sym_ty> &ve = *vei;
-          if (sleep_br == ve.first) {
-            if (sleep_sym != ve.second) {
+          Branch &ve = *vei;
+          if (sleep_br == ve) {
+            if (sleep_sym != ve.sym) {
               /* This can happen due to observer effects. We must now make sure
                * ve.second->sym does not have any conflicts with any previous
                * event in v; i.e. wether it actually is a weak initial of v. */
               for (auto pei = vf; !skip && pei != vei; ++pei) {
-                const std::pair<Branch,sym_ty> &pe = *pei;
-                if (do_events_conflict(ve.first.pid, ve.second,
-                                       pe.first.pid, pe.second)) {
+                const Branch &pe = *pei;
+                if (do_events_conflict(ve.pid, ve.sym,
+                                       pe.pid, pe.sym)) {
                   /* We're not redundant with p, try next sleeper */
                   skip = true;
                 }
@@ -1848,8 +1856,8 @@ void TSOTraceBuilder::race_detect_optimal
             /* p is an initial of v; this insertion is redundant */
             return;
           }
-          if (ve.first.pid == p
-              || do_events_conflict(ve.first.pid, ve.second,
+          if (ve.pid == p
+              || do_events_conflict(ve.pid, ve.sym,
                                     p, sleep_sym)) {
             /* We're not redundant with p, try next sleeper */
             skip = true;
@@ -1861,7 +1869,7 @@ void TSOTraceBuilder::race_detect_optimal
         }
       }
       if (l >= i) break;
-      iid_map_step(iid_map, vf->first);
+      iid_map_step(iid_map, *vf);
     }
     v.erase(v.begin(), vf);
   }
@@ -1872,12 +1880,12 @@ void TSOTraceBuilder::race_detect_optimal
                                            (pair.first, iid_map[pair.first]));
     bool dependent = false;
     std::vector<int> dbgp_iid_map = iid_map;
-    for (const std::pair<Branch,sym_ty> &ve : v) {
-      if (sleep_br == ve.first) {
+    for (const Branch &ve : v) {
+      if (sleep_br == ve) {
         assert(false && "Already checked");
         return;
       }
-      if (do_events_conflict(ve.first.pid, ve.second,
+      if (do_events_conflict(ve.pid, ve.sym,
                              pair.first, *pair.second)) {
         /* Dependent */
         dependent = true;
@@ -1906,26 +1914,19 @@ void TSOTraceBuilder::race_detect_optimal
       /* Find this event in prefix */
       IID<IPid> child_iid(child_it.branch().pid,
                           iid_map[child_it.branch().pid]);
-      unsigned k = find_process_event(child_iid.get_pid(), child_iid.get_index());
-      /* If the indices of prefix[k].iid and child_iid differ, then the
-       * child event must be an event without global operations.
-       */
-      const sym_ty empty_sym;
-      const sym_ty &child_sym
-        = (prefix[k].iid.get_index() != child_iid.get_index())
-        ? empty_sym : child_it.branch().sym;
+      const sym_ty &child_sym = child_it.branch().sym;
 
       for (auto vei = v.begin(); skip == NO && vei != v.end(); ++vei) {
-        std::pair<Branch,sym_ty> &ve = *vei;
-        if (child_it.branch() == ve.first) {
-          if (child_sym != ve.second) {
+        const Branch &ve = *vei;
+        if (child_it.branch() == ve) {
+          if (child_sym != ve.sym) {
             /* This can happen due to observer effects. We must now make sure
              * ve.second->sym does not have any conflicts with any previous
              * event in v; i.e. wether it actually is a weak initial of v. */
             for (auto pei = v.begin(); skip == NO && pei != vei; ++pei){
-              const std::pair<Branch,sym_ty> &pe = *pei;
-              if (do_events_conflict(ve.first.pid, ve.second,
-                                     pe.first.pid, pe.second)){
+              const Branch &pe = *pei;
+              if (do_events_conflict(ve.pid, ve.sym,
+                                     pe.pid, pe.sym)){
                 skip = NEXT;
               }
             }
@@ -1943,7 +1944,7 @@ void TSOTraceBuilder::race_detect_optimal
           break;
         }
 
-        if (do_events_conflict(ve.first.pid, ve.second,
+        if (do_events_conflict(ve.pid, ve.sym,
                                child_it.branch().pid, child_sym)) {
           /* This branch is incompatible, try the next */
           skip = NEXT;
@@ -1963,7 +1964,10 @@ void TSOTraceBuilder::race_detect_optimal
     if (skip == RECURSE) continue;
 
     /* No existing child was compatible with v. Insert v as a new sequence. */
-    for (const std::pair<Branch,sym_ty> &ve : v) node = node.put_child(ve.first);
+    for (Branch &ve : v) {
+      if (conf.observers) clear_observed(ve.sym);
+      node = node.put_child(std::move(ve));
+    }
     return;
   }
 }

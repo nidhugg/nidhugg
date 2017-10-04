@@ -292,7 +292,8 @@ protected:
    */
   class Branch{
   public:
-    Branch (IPid pid, int alt = 0) : sym(), pid(pid), alt(alt), size(1) {}
+    Branch (IPid pid, int alt = 0, sym_ty sym = {})
+      : sym(std::move(sym)), pid(pid), alt(alt), size(1) {}
     /* Symbolic representation of the globally visible operation of this event.
      */
     sym_ty sym;
