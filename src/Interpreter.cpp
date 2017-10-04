@@ -123,8 +123,8 @@ Interpreter::Interpreter(Module *M, TSOPSOTraceBuilder &TB,
 
   // Assign symbolic names to all global variables
   int glbl_ctr = 0;
-  for (GlobalObject &go : M->global_objects()) {
-    if (GlobalVariable *gv = dyn_cast<GlobalVariable>(&go)) {
+  for (auto git = M->global_begin(); git != M->global_end(); ++git) {
+    if (GlobalVariable *gv = dyn_cast<GlobalVariable>(&*git)) {
       const DataLayout &DL = getDataLayout();
       size_t GVSize = (size_t)(DL.getTypeAllocSize(gv->getValueType()));
       void *GVPtr = getPointerToGlobal(gv);
