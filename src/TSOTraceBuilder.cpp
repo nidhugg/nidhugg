@@ -58,7 +58,10 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       return true;
     }else if(prefix_idx + 1 == int(prefix.len()) && prefix.lastnode().size() == 0){
       /* We are done replaying. Continue below... */
-      assert(prefix_idx < 0 || curev().sym.size() == sym_idx);
+      assert(prefix_idx < 0 || curev().sym.size() == sym_idx
+             || (errors.size() && errors.back()->get_location()
+                 == IID<CPid>(threads[curbranch().pid].cpid,
+                              curev().iid.get_index())));
       replay = false;
       assert(conf.dpor_algorithm != Configuration::OPTIMAL
             || (errors.size() && errors.back()->get_location()
@@ -85,7 +88,10 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       return true;
     }else{
       /* Go to the next event. */
-      assert(prefix_idx < 0 || curev().sym.size() == sym_idx);
+      assert(prefix_idx < 0 || curev().sym.size() == sym_idx
+             || (errors.size() && errors.back()->get_location()
+                 == IID<CPid>(threads[curbranch().pid].cpid,
+                              curev().iid.get_index())));
       dry_sleepers = 0;
       sym_idx = 0;
       ++prefix_idx;
@@ -97,7 +103,10 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
         /* We are replaying from the wakeup tree */
         pid = prefix.first_child().pid;
         prefix.enter_first_child
-          (Event(IID<IPid>(pid,threads[pid].last_event_index() + 1)));
+          (Event(IID<IPid>(pid,threads[pid].last_event_index() + 1),
+                 /* Jump a few hoops to get the next Branch before
+                  * calling enter_first_child() */
+                 prefix.parent_at(prefix_idx).begin().branch().sym));
       }
       *proc = pid/2;
       *aux = pid % 2 - 1;
@@ -360,7 +369,7 @@ bool TSOTraceBuilder::reset(){
     Event prev_evt = std::move(prefix[i]);
     while (ssize_t(prefix.len()) > i) prefix.delete_last();
 
-    Branch br = prefix.first_child();
+    const Branch &br = prefix.first_child();
 
     /* Find the index of br.pid. */
     int br_idx = 1;
@@ -372,6 +381,7 @@ bool TSOTraceBuilder::reset(){
 
     Event evt(IID<IPid>(br.pid,br_idx));
 
+    evt.sym = br.sym; /* For replay sanity assertions only */
     evt.sleep = prev_evt.sleep;
     if(br.pid != prev_evt.iid.get_pid()){
       evt.sleep.insert(prev_evt.iid.get_pid());
@@ -1432,20 +1442,12 @@ void TSOTraceBuilder::record_symbolic(SymEv event){
     threads[pid].sleep_sym->push_back(event);
     return;
   }
-  if (sym_idx == curev().sym.size()) {
-    // assert(!replay);
-    if (replay) {
-      if (conf.debug_print_on_reset)
-      llvm::dbgs() << "New symbolic event " << event <<
-        " after " << curev().sym.size() << " expected\n";
-      // assert(false && "");
-      // abort();
-    }
+  if (!replay) {
+    assert(sym_idx == curev().sym.size());
     /* New event */
     curev().sym.push_back(event);
     sym_idx++;
   } else {
-    assert(replay);
     /* Replay. SymEv::set() asserts that this is the same event as last time. */
     assert(sym_idx < curev().sym.size());
     curev().sym[sym_idx++].set(event);
@@ -1642,7 +1644,6 @@ void TSOTraceBuilder::race_detect
   }
 
   assert(0 <= cand.pid);
-  assert(conf.dpor_algorithm != Configuration::OPTIMAL);
   assert(cand_sym);
   cand.sym = *cand_sym;
   prefix.parent_at(i).put_child(cand);
