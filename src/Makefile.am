@@ -19,6 +19,7 @@ libnidhugg_a_SOURCES = \
   LoopUnrollPass.cpp LoopUnrollPass.h \
   MRef.cpp MRef.h \
   nregex.cpp nregex.h \
+  Option.h \
   POWERExecution.cpp \
   POWERInterpreter.cpp POWERInterpreter.h \
   POWERARMTraceBuilder.cpp POWERARMTraceBuilder.tcc POWERARMTraceBuilder.h POWERARMTraceBuilder_decl.h \
