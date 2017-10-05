@@ -93,14 +93,11 @@ def get_args():
             return nidhuggcparamaliases[arg[:i]]+arg[i:]
         return arg
     shouldhaveinput=(0 == len([a for a in sys.argv[1:] if canonize(a) in disablesinput]))
+    hasinput=False
     fornidhuggcsingle=[p['name'] for p in nidhuggcparams if p['param'] == False]
     hascompilerargs=False
     i = 1
     argc = len(sys.argv)
-    if shouldhaveinput:
-        if argc<2: print_help(); raise Exception('No input file specified.')
-        A['--input'] = sys.argv[argc-1]
-        argc = argc-1
     while i < argc:
         arg = canonize(sys.argv[i])
         i = i+1
@@ -121,12 +118,18 @@ def get_args():
                     foundparam=True
                     break
             if foundparam: pass
-            elif arg == '--' and not(hascompilerargs):
+            elif len(arg) > 0 and arg[0] != '-' and not(hasinput):
+                A['--input'] = arg
+                hasinput = True
+            elif arg == '--' and not(hascompilerargs) and not(hasinput):
                 B = C
                 C = []
                 hascompilerargs=True
             else:
                 C.append(arg)
+    if shouldhaveinput and not(hasinput):
+        print_help()
+        raise Exception('No input file specified.')
     return (A,B,C)
 
 def help_indent(s,n):
@@ -134,7 +137,8 @@ def help_indent(s,n):
     return ind+(s.replace('\n','\n'+ind))
 
 def print_help():
-    print('Usage: {0} [[COMPILER/NIDHUGGC OPTIONS --] NIDHUGG/NIDHUGGC OPTIONS] FILE'.format(sys.argv[0]))
+    print('Usage: {0} [[COMPILER/NIDHUGGC OPTIONS --] NIDHUGG/NIDHUGGC OPTIONS]'
+          ' FILE [-- [PROGRAM ARGUMENTS]]'.format(sys.argv[0]))
     print('')
     print(' - FILE should be a source code file in C or C++.')
     print(' - COMPILER OPTIONS are options that will be sent to the compiler')
@@ -205,7 +209,7 @@ def transform(nidhuggcargs,transformargs,irfname):
     return outputfname
 
 def run_nidhugg(nidhuggcargs,nidhuggargs,irfname):
-    cmd = [NIDHUGG]+nidhuggargs+[irfname]
+    cmd = [NIDHUGG,irfname]+nidhuggargs
     return run(cmd)
 
 def main():
