@@ -723,7 +723,6 @@ void TSOTraceBuilder::full_memory_conflict(){
     return;
   }
   curev().may_conflict = true;
-  assert(!conf.observers);
 
   /* See all pervious memory accesses */
   VecSet<int> seen_accesses;
