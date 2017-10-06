@@ -1199,6 +1199,35 @@ void POWERInterpreter::visitCallSite(llvm::CallSite CS) {
           /* Ignore this intrinsic function */
           return;
         }
+
+        /* Other processes with program counter inside the same basic
+         * block as this one may be invalidated when the intrinsic
+         * function is lowered. This goes not only for the program
+         * counter in the topmost stack frame, but for all program
+         * counters on the stack. For each such program counter, store
+         * it as an integer during rewriting and restore it
+         * afterwards.
+         */
+        std::map<ExecutionContext*,int> pcs;
+        for(unsigned i = 0; i < Threads.size(); ++i){ // Other thread
+          int smax = Threads[i].ECStack.size();
+          if(i == (unsigned)CurrentThread){
+            // Don't change the top-most stack-frame of the current thread.
+            --smax;
+          }
+          for(int j = 0; j < smax; ++j){ // Stack frame
+            ExecutionContext *EC = &Threads[i].ECStack[j];
+            if(EC->CurBB == SF.CurBB){ // Pointing into this basic block
+              int c = 0; // PC as offset from beginning of basic block
+              while(EC->CurInst != EC->CurBB->begin()){
+                --EC->CurInst;
+                ++c;
+              }
+              pcs[EC] = c;
+            }
+          }
+        }
+
         // If it is an unknown intrinsic function, use the intrinsic lowering
         // class to transform it into hopefully tasty LLVM code.
         //
@@ -1216,6 +1245,16 @@ void POWERInterpreter::visitCallSite(llvm::CallSite CS) {
         } else {
           SF.CurInst = me;
           ++SF.CurInst;
+        }
+
+        /* Restore the program counters for other stack frames in the
+         * same basic block.
+         */
+        for(auto it : pcs){
+          ExecutionContext *EC = it.first;
+          int c = it.second;
+          EC->CurInst = EC->CurBB->begin();
+          while(c--) ++EC->CurInst;
         }
         return;
       }

@@ -218,6 +218,115 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
   delete driver;
 }
 
+BOOST_AUTO_TEST_CASE(Intrinsic_return){
+  /* Regression test.
+   *
+   * Nidhugg would segmentation fault when analyzing this
+   * sample. (Similarly under TSO, PSO, POWER and ARM.)
+   *
+   * The bug was caused by Execution not handling llvm.dbg.declare
+   * correctly: When a thread first visits a llvm.dbg.declare
+   * statement, the statement is removed from its basic
+   * block. Therefore if any other thread's program counter (the
+   * iterator ExecutionContext::CurInst) points into that basic block,
+   * the iterator will become invalid. For this reason, the thread
+   * that removes the llvm.dbg.declare needs to check all other
+   * program counters and restore them if necessary. This was already
+   * properly done for the program pointer of the top-most stack frame
+   * of each other thread. However, program pointers in lower stack
+   * frames were erroneously neglected and left in an invalid state.
+   *
+   * This test is designed to trigger that error. Both threads P0 and
+   * P1 enter function f. From f they enter function g. Then one of
+   * the threads is delayed inside g (a schedule which delays the
+   * thread is triggered by having races in g). The other thread exits
+   * g and visits the llvm.dbg.declare statement which immediately
+   * follows the call to g from f. This will invalidate the return
+   * address in the second to top stack frame for the other thread,
+   * since it is pointing to that very statement.
+   *
+   * A complication is that in order to trigger the error, the above
+   * described situation must happen in the first run after the test
+   * module has been reparsed by DPORDriver. (Otherwise the
+   * llvm.dbg.declare statements are no longer present in the module.)
+   * Reparse happens (at the time of writing) every 1000 runs. This
+   * test has 7 stores to x in g, which means that the situation is
+   * caused to appear in (7*2)!/(7!*7!) = 3432 consecutive runs (save
+   * the first and last run).
+   */
+  Configuration conf = DPORDriver_test::get_sc_conf();
+
+#ifdef LLVM_METADATA_IS_VALUE
+  std::string declarecall = "call void @llvm.dbg.declare(metadata !{i32 %id}, metadata !0)";
+  std::string declaredeclare = R"(
+declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
+!llvm.module.flags = !{!1}
+!0 = metadata !{i32 0}
+!1 = metadata !{i32 2, metadata !"Debug Info Version", i32 )" LLVM_METADATA_VERSION_NUMBER_STR R"(}
+)";
+#else
+#ifdef LLVM_DBG_DECLARE_TWO_ARGS
+  std::string declarecall = "call void @llvm.dbg.declare(metadata i32 %id, metadata !0)";
+  std::string declaredeclare = R"(
+declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
+!llvm.module.flags = !{!1}
+!0 = !{i32 0}
+!1 = !{i32 2, !"Debug Info Version", i32 )" LLVM_METADATA_VERSION_NUMBER_STR R"(}
+)";
+#else
+  std::string declarecall = "call void @llvm.dbg.declare(metadata i32 %id, metadata !0, metadata !0)";
+  std::string declaredeclare = R"(
+declare void @llvm.dbg.declare(metadata, metadata, metadata) nounwind readnone
+!llvm.module.flags = !{!1}
+!0 = !{i32 0}
+!1 = !{i32 2, !"Debug Info Version", i32 )" LLVM_METADATA_VERSION_NUMBER_STR R"(}
+)";
+#endif
+#endif
+
+  DPORDriver *driver =
+    DPORDriver::parseIR(StrModule::portasm(R"(
+@x = global i32 0, align 4
+
+define void @g(i32 %id){
+  store i32 1, i32* @x, align 4
+  store i32 1, i32* @x, align 4
+  store i32 1, i32* @x, align 4
+  store i32 1, i32* @x, align 4
+  store i32 1, i32* @x, align 4
+  store i32 1, i32* @x, align 4
+  store i32 1, i32* @x, align 4
+  ret void
+}
+
+define void @f(i32 %id){
+  call void @g(i32 %id)
+  )"+declarecall+R"(
+  ret void
+}
+
+define i8* @p1(i8* %arg){
+  call void @f(i32 1)
+  ret i8* null
+}
+
+define i32 @main(){
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
+  call void @f(i32 0)
+  ret i32 0
+}
+
+%attr_t = type { i64, [48 x i8] }
+declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
+)"+declaredeclare),conf);
+
+  DPORDriver::Result res = driver->run();
+
+  // No test. We only check for crashes.
+
+  delete driver;
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif

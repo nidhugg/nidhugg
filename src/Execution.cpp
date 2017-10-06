@@ -1544,20 +1544,29 @@ void Interpreter::visitCallSite(CallSite CS) {
 
         /* Other processes with program counter inside the same basic
          * block as this one may be invalidated when the intrinsic
-         * function is lowered. Store their pcs as integers during
-         * rewriting.
+         * function is lowered. This goes not only for the program
+         * counter in the topmost stack frame, but for all program
+         * counters on the stack. For each such program counter, store
+         * it as an integer during rewriting and restore it
+         * afterwards.
          */
-        std::map<int,int> pcs;
-        for(unsigned i = 0; i < Threads.size(); ++i){
-          if(int(i) != CurrentThread &&
-             !Threads[i].ECStack.empty() &&
-             Threads[i].ECStack.back().CurBB == SF.CurBB){
-            int c = 0;
-            while(Threads[i].ECStack.back().CurInst != Threads[i].ECStack.back().CurBB->begin()){
-              --Threads[i].ECStack.back().CurInst;
-              ++c;
+        std::map<ExecutionContext*,int> pcs;
+        for(unsigned i = 0; i < Threads.size(); ++i){ // Other thread
+          int smax = Threads[i].ECStack.size();
+          if(i == (unsigned)CurrentThread){
+            // Don't change the top-most stack-frame of the current thread.
+            --smax;
+          }
+          for(int j = 0; j < smax; ++j){ // Stack frame
+            ExecutionContext *EC = &Threads[i].ECStack[j];
+            if(EC->CurBB == SF.CurBB){ // Pointing into this basic block
+              int c = 0; // PC as offset from beginning of basic block
+              while(EC->CurInst != EC->CurBB->begin()){
+                --EC->CurInst;
+                ++c;
+              }
+              pcs[EC] = c;
             }
-            pcs[i] = c;
           }
         }
 
@@ -1580,13 +1589,14 @@ void Interpreter::visitCallSite(CallSite CS) {
           ++SF.CurInst;
         }
 
-        /* Restore the CurInst pointer for other processes in the same
-         * basic block. */
-        for(auto it = pcs.begin(); it != pcs.end(); ++it){
-          int p = it->first;
-          int c = it->second;
-          Threads[p].ECStack.back().CurInst = Threads[p].ECStack.back().CurBB->begin();
-          while(c--) ++Threads[p].ECStack.back().CurInst;
+        /* Restore the program counters for other stack frames in the
+         * same basic block.
+         */
+        for(auto it : pcs){
+          ExecutionContext *EC = it.first;
+          int c = it.second;
+          EC->CurInst = EC->CurBB->begin();
+          while(c--) ++EC->CurInst;
         }
         return;
       }
