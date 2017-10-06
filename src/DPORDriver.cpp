@@ -222,18 +222,16 @@ DPORDriver::Result DPORDriver::run(){
   SigSegvHandler::setup_signal_handler();
 
   char esc = 27;
-  if(conf.print_progress){
-    llvm::dbgs() << esc << "[s"; // Save terminal cursor position
-  }
-
   uint64_t computation_count = 0;
   long double estimate = 1;
   do{
-    if(conf.print_progress && (computation_count+1) % 100 == 0){
-      llvm::dbgs() << esc << "[u" // Restore cursor position
-                   << esc << "[s" // Save cursor position
-                   << esc << "[K" // Erase the line
-                   << "Computation #" << computation_count+1;
+    if(conf.print_progress && computation_count % 100 == 0){
+      llvm::dbgs() << esc << "[K" // Erase the line
+                   << "Traces: " << res.trace_count;
+      if(res.sleepset_blocked_trace_count)
+        llvm::dbgs() << ", " << res.sleepset_blocked_trace_count << " ssb";
+      if(res.assume_blocked_trace_count)
+        llvm::dbgs() << ", " << res.assume_blocked_trace_count << " ab";
       if(conf.print_progress_estimate){
         std::stringstream ss;
         ss << std::setprecision(LDBL_DIG) << estimate;
@@ -242,6 +240,7 @@ DPORDriver::Result DPORDriver::run(){
                      << "% of total estimate: "
                      << ss.str() << ")";
       }
+      llvm::dbgs() << "\r"; // Move cursor to start of line
     }
     if((computation_count+1) % 1000 == 0){
       reparse();
@@ -275,7 +274,7 @@ DPORDriver::Result DPORDriver::run(){
   }while(TB->reset());
 
   if(conf.print_progress){
-    llvm::dbgs() << "\n";
+    llvm::dbgs() << esc << "[K\n";
   }
 
   SigSegvHandler::reset_signal_handler();
