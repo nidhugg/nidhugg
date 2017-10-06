@@ -101,9 +101,10 @@ void DPORDriver::reparse(){
   }
 }
 
-llvm::ExecutionEngine *DPORDriver::create_execution_engine(TraceBuilder &TB, const Configuration &conf) const {
+std::unique_ptr<DPORInterpreter> DPORDriver::
+create_execution_engine(TraceBuilder &TB, const Configuration &conf) const {
   std::string ErrorMsg;
-  llvm::ExecutionEngine *EE = 0;
+  std::unique_ptr<DPORInterpreter> EE = 0;
   switch(conf.memory_model){
   case Configuration::SC:
     EE = llvm::Interpreter::create(mod,static_cast<TSOPSOTraceBuilder&>(TB),conf,&ErrorMsg);
@@ -150,8 +151,8 @@ llvm::ExecutionEngine *DPORDriver::create_execution_engine(TraceBuilder &TB, con
   return EE;
 }
 
-Trace *DPORDriver::run_once(TraceBuilder &TB) const{
-  std::shared_ptr<llvm::ExecutionEngine> EE(create_execution_engine(TB,conf));
+Trace *DPORDriver::run_once(TraceBuilder &TB, bool &assume_blocked) const{
+  std::unique_ptr<DPORInterpreter> EE(create_execution_engine(TB,conf));
 
   // Run main.
   EE->runFunctionAsMain(mod->getFunction("main"), conf.argv, 0);
@@ -163,6 +164,8 @@ Trace *DPORDriver::run_once(TraceBuilder &TB) const{
     static_cast<llvm::Interpreter*>(EE.get())->checkForCycles();
   }
 
+  assume_blocked = EE->assumeBlocked();
+
   EE.reset();
 
   Trace *t = 0;
@@ -173,14 +176,13 @@ Trace *DPORDriver::run_once(TraceBuilder &TB) const{
       static_cast<POWERARMTraceBuilder&>(TB).replay();
       Configuration conf2(conf);
       conf2.ee_store_trace = true;
-      llvm::ExecutionEngine *E = create_execution_engine(TB,conf2);
+      std::unique_ptr<DPORInterpreter> E = create_execution_engine(TB,conf2);
       E->runFunctionAsMain(mod->getFunction("main"), conf.argv, 0);
       E->runStaticConstructorsDestructors(true);
       if(conf.check_robustness){
-        static_cast<llvm::Interpreter*>(E)->checkForCycles();
+        static_cast<llvm::Interpreter*>(E.get())->checkForCycles();
       }
       t = TB.get_trace();
-      delete E;
     }else{
       t = TB.get_trace();
     }
@@ -244,16 +246,18 @@ DPORDriver::Result DPORDriver::run(){
     if((computation_count+1) % 1000 == 0){
       reparse();
     }
-    Trace *t = run_once(*TB);
-    bool t_used = false;
+    bool t_used, assume_blocked = false;
+    Trace *t = run_once(*TB, assume_blocked);
     if(t && conf.debug_collect_all_traces){
       res.all_traces.push_back(t);
       t_used = true;
     }
-    if(TB->sleepset_is_empty()){
-      ++res.trace_count;
-    }else{
+    if(!TB->sleepset_is_empty()) {
       ++res.sleepset_blocked_trace_count;
+    }else if(assume_blocked){
+      ++res.assume_blocked_trace_count;
+    }else{
+      ++res.trace_count;
     }
     ++computation_count;
     if(t && t->has_errors() && !res.has_errors()){

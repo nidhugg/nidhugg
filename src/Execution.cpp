@@ -3071,6 +3071,7 @@ void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVa
       }
       return;
     }
+    setAssumeBlocked(true);
     ECStack()->clear();
     AtExitHandlers.clear();
     Threads[CurrentThread].AssumeBlocked = true;

@@ -50,9 +50,9 @@ bool PSOInterpreter::PSOThread::readable(const SymAddrSize &ml) const {
   return true;
 }
 
-llvm::ExecutionEngine *PSOInterpreter::create(llvm::Module *M, PSOTraceBuilder &TB,
-                                              const Configuration &conf,
-                                              std::string *ErrorStr){
+std::unique_ptr<PSOInterpreter> PSOInterpreter::
+create(llvm::Module *M, PSOTraceBuilder &TB, const Configuration &conf,
+       std::string *ErrorStr){
 #ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
   if(std::error_code EC = M->materializeAllPermanently()){
     // We got an error, just return 0
@@ -83,7 +83,7 @@ llvm::ExecutionEngine *PSOInterpreter::create(llvm::Module *M, PSOTraceBuilder &
   }
 #endif
 
-  return new PSOInterpreter(M,TB,conf);
+  return std::unique_ptr<PSOInterpreter>(new PSOInterpreter(M,TB,conf));
 }
 
 void PSOInterpreter::runAux(int proc, int aux){
