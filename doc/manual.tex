@@ -183,7 +183,8 @@ be analyzed by Nidhugg using a command like the following:
 
 \vspace{5pt}
 \noindent
-\texttt{\$ nidhugg $FLAGS$ \{--sc,--tso,--pso,--power,--arm\} $FILE$.ll}
+\texttt{\$ nidhugg $FLAGS$ \{--sc,--tso,--pso,--power,--arm\} $FILE$.ll $\backslash$}\\
+\texttt{\rule{20pt}{0pt}$[$ -- $PROGRAM\;ARGUMENTS$ $]$}
 
 \vspace{5pt}\noindent
 %
@@ -309,6 +310,8 @@ int main(int argc, char *argv[]){
 \item{\texttt{--version}}
 %
   Print the Nidhugg version and exit.
+\item{$PROGRAM\;ARGUMENTS$}, if given, will be sent as arguments
+  (argv) to the test case.
 \end{description}
 
 \subsubsection{Transformation Switches}\label{sec:transform:switches}
@@ -364,14 +367,15 @@ can be used as follows:
 \vspace{5pt}
 \noindent
 \texttt{\$ nidhuggc $CFLAGS$ -- \{--sc,--tso,--pso,--power,--arm\} $\backslash$}\\
-\rule{20pt}{0pt}\texttt{$AFLAGS$ $TFLAGS$ $FILE$.c}
+\rule{20pt}{0pt}\texttt{$AFLAGS$ $TFLAGS$ $FILE$.c $[$ -- $PROGRAM\;ARGUMENTS$ $]$}
 
 \vspace{5pt}\noindent
 %
 Here $CFLAGS$ are switches that will be given to the C compiler,
 $TFLAGS$ are Nidhugg transformation switches, and $AFLAGS$ are Nidhugg
-analysis switches. One common way to use \textsf{nidhuggc} is this
-call:
+analysis switches. Furthermore, $PROGRAM\;ARGUMENTS$, if given, will
+be sent as arguments to the program under test. One common way to use
+\textsf{nidhuggc} is this call:
 
 \vspace{5pt}
 \noindent
