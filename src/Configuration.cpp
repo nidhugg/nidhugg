@@ -114,6 +114,8 @@ void Configuration::assign_by_commandline(){
   transform_loop_unroll = cl_transform_loop_unroll;
   print_progress = cl_print_progress || cl_print_progress_estimate;
   print_progress_estimate = cl_print_progress_estimate;
+  argv.resize(1);
+  argv[0] = get_default_program_name();
   for(std::string a : cl_program_arguments){
     argv.push_back(a);
   }
@@ -153,6 +155,10 @@ void Configuration::check_commandline(){
     if(cl_check_robustness.getNumOccurrences()){
       Debug::warn("Configuration::check_commandline:transform:check_robustness")
         << "WARNING: --robustness ignored in presence of --transform.\n";
+    }
+    if(cl_program_arguments.size()){
+      Debug::warn("Configuration::check_commandline:transform:program_arguments")
+        << "WARNING: Program arguments (argv for test case) ignored in presence of --transform.\n";
     }
   }else{
     if(cl_transform_no_spin_assume.getNumOccurrences()){

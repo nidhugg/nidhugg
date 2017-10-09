@@ -84,8 +84,7 @@ public:
     transform_loop_unroll = -1;
     print_progress = false;
     print_progress_estimate = false;
-    argv = std::vector<std::string>();
-    argv.push_back("a.out");
+    argv.push_back(get_default_program_name());
   };
   /* Read the switches given to the program by the user. Assign
    * configuration options accordingly.
@@ -177,6 +176,13 @@ public:
   bool print_progress_estimate;
   /* The arguments that will be passed to the program under test */
   std::vector<std::string> argv;
+  /* The default program name to send to the program under test as
+   * argv[0].
+   */
+  static const std::string &get_default_program_name(){
+    static const std::string pname = "a.out";
+    return pname;
+  }
   /* The set of all commandline switches that are associated with
    * setting configuration options. This set has nothing to do with
    * which switches were actually given by the user.
