@@ -1412,6 +1412,15 @@ void TSOTraceBuilder::compute_vclocks(){
     auto fill = frontier_filter
       (first_pair, end,
        [this](const Race &f, const Race &s){
+        /* Filter out observed races with nonfirst witness */
+        if (f.kind == Race::OBSERVED && s.kind == Race::OBSERVED
+            && f.first_event == s.first_event
+            && f.second_event == s.second_event){
+          /* N.B. We want the _first_ observer as the witness; thus
+           * the reversal of f and s.
+           */
+          return s.witness_event < f.witness_event;
+        }
         int se = s.kind == Race::LOCK_SUC ? s.unlock_event : s.first_event;
         return prefix[f.first_event].clock.leq(prefix[se].clock);
        });
@@ -1708,6 +1717,7 @@ void TSOTraceBuilder::race_detect_optimal
                        [this,k](const Event* o){
                          return o->clock.leq(prefix[k].clock); })){
         if (is_observed_conflict(first, second, prefix[k])){
+          assert(!observers.empty() || k == race.witness_event);
           observers.push_back(&prefix[k]);
         } else if (race.kind == Race::OBSERVED) {
           notobs.push_back(prefix.branch(k));
