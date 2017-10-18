@@ -1380,6 +1380,8 @@ void TSOTraceBuilder::compute_vclocks(){
     if (prefix[i].iid.get_index() > 1) {
       unsigned last = find_process_event(prefix[i].iid.get_pid(), prefix[i].iid.get_index()-1);
       prefix[i].clock = prefix[last].clock;
+    } else {
+      prefix[i].clock = {};
     }
     prefix[i].clock[ipid] = prefix[i].iid.get_index();
 
