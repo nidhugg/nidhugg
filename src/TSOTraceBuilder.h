@@ -496,6 +496,8 @@ protected:
     return prefix.branch(prefix_idx);
   };
 
+  void do_load(ByteInfo &m);
+
   /* Finds the index in prefix of the event of process pid that has iid-index
    * index.
    */

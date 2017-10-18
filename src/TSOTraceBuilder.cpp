@@ -662,49 +662,24 @@ void TSOTraceBuilder::load(const SymAddrSize &ml){
   }
 
   /* Load from memory */
-
   VecSet<int> seen_accesses;
-  VecSet<std::pair<int,int>> seen_pairs;
 
   /* See all updates to the read bytes. */
   for(SymAddr b : ml){
     int lu = mem[b].last_update;
     const SymAddrSize &lu_ml = mem[b].last_update_ml;
     if(0 <= lu){
-      IPid lu_tipid = 2*(prefix[lu].iid.get_pid() / 2);
-      if(lu_tipid != ipid){
-        seen_accesses.insert(lu);
-      }else if(ml != lu_ml){
-        if (lu != prefix_idx)
-          add_happens_after(prefix_idx, lu);
-      }
-      if (conf.observers) {
-        /* Update last_update to be an observed store */
-        for (auto it = prefix[lu].sym.end();;){
-          assert(it != prefix[lu].sym.begin());
-          --it;
-          if(it->kind == SymEv::STORE && it->addr() == lu_ml) break;
-          if (it->kind == SymEv::UNOBS_STORE && it->addr() == lu_ml) {
-            *it = SymEv::Store(lu_ml);
-            break;
-          }
-        }
-        /* Add races */
-        for (int u : mem[b].unordered_updates){
-          if (prefix[lu].iid != prefix[u].iid) {
-            seen_pairs.insert(std::pair<int,int>(u, lu));
-          }
-        }
-        mem[b].unordered_updates.clear();
+      IPid lu_tipid = prefix[lu].iid.get_pid() & ~0x1;
+      if(lu_tipid == ipid && ml != lu_ml && lu != prefix_idx){
+        add_happens_after(prefix_idx, lu);
       }
     }
-    assert(mem[b].unordered_updates.size() == 0);
+    do_load(mem[b]);
   }
 
   seen_accesses.insert(last_full_memory_conflict);
 
   see_events(seen_accesses);
-  see_event_pairs(seen_pairs);
 
   /* Register load in memory */
   for(SymAddr b : ml){
@@ -727,7 +702,7 @@ void TSOTraceBuilder::full_memory_conflict(){
   /* See all pervious memory accesses */
   VecSet<int> seen_accesses;
   for(auto it = mem.begin(); it != mem.end(); ++it){
-    seen_accesses.insert(it->second.last_update);
+    do_load(it->second);
     for(int i : it->second.last_read){
       seen_accesses.insert(i);
     }
@@ -744,6 +719,43 @@ void TSOTraceBuilder::full_memory_conflict(){
 
   /* No later access can have a conflict with any earlier access */
   mem.clear();
+}
+
+void TSOTraceBuilder::do_load(ByteInfo &m){
+  IPid ipid = curev().iid.get_pid();
+  VecSet<int> seen_accesses;
+  VecSet<std::pair<int,int>> seen_pairs;
+
+  int lu = m.last_update;
+  const SymAddrSize &lu_ml = m.last_update_ml;
+  if(0 <= lu){
+    IPid lu_tipid = prefix[lu].iid.get_pid() & ~0x1;
+    if(lu_tipid != ipid){
+      seen_accesses.insert(lu);
+    }
+    if (conf.observers) {
+      /* Update last_update to be an observed store */
+      for (auto it = prefix[lu].sym.end();;){
+        assert(it != prefix[lu].sym.begin());
+        --it;
+        if(it->kind == SymEv::STORE && it->addr() == lu_ml) break;
+        if (it->kind == SymEv::UNOBS_STORE && it->addr() == lu_ml) {
+          *it = SymEv::Store(lu_ml);
+          break;
+        }
+      }
+      /* Add races */
+      for (int u : m.unordered_updates){
+        if (prefix[lu].iid != prefix[u].iid) {
+          seen_pairs.insert(std::pair<int,int>(u, lu));
+        }
+      }
+      m.unordered_updates.clear();
+    }
+  }
+  assert(m.unordered_updates.size() == 0);
+  see_events(seen_accesses);
+  see_event_pairs(seen_pairs);
 }
 
 void TSOTraceBuilder::fence(){

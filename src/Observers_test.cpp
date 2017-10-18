@@ -866,6 +866,75 @@ attributes #6 = { nounwind }
   BOOST_CHECK(res.trace_count == 7);
 }
 
+BOOST_AUTO_TEST_CASE(fullmemobs){
+  Configuration conf = sc_obs_conf();
+  std::string module = R"#(
+; ModuleID = '<stdin>'
+source_filename = "fullmemobs.c"
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+%union.pthread_attr_t = type { i64, [48 x i8] }
+
+@x = global i32 0, align 4
+
+; Function Attrs: norecurse nounwind uwtable
+define noalias i8* @p(i8* nocapture readnone %arg) #0 {
+entry:
+  store volatile i32 112, i32* @x, align 4
+  ret i8* null
+}
+
+; Function Attrs: norecurse nounwind uwtable
+define noalias i8* @q(i8* nocapture readnone %arg) #0 {
+entry:
+  store volatile i32 113, i32* @x, align 4
+  ret i8* null
+}
+
+; Function Attrs: nounwind uwtable
+define i32 @main() local_unnamed_addr #1 {
+entry:
+  %pt = alloca i64, align 8
+  %qt = alloca i64, align 8
+  %res = alloca i32, align 4
+  %call = call i32 @pthread_create(i64* nonnull %pt, %union.pthread_attr_t* null, i8* (i8*)* nonnull @p, i8* null) #4
+  %call1 = call i32 @pthread_create(i64* nonnull %qt, %union.pthread_attr_t* null, i8* (i8*)* nonnull @q, i8* null) #4
+  %0 = load i64, i64* %pt, align 8
+  %call2 = call i32 @pthread_join(i64 %0, i8** null) #4
+  %1 = load i64, i64* %qt, align 8
+  %call3 = call i32 @pthread_join(i64 %1, i8** null) #4
+  %2 = bitcast i32* %res to i8*
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %2, i8* bitcast (i32* @x to i8*), i64 4, i32 4, i1 false)
+  %3 = load i32, i32* %res, align 4
+  ret i32 %3
+}
+
+; Function Attrs: nounwind
+declare i32 @pthread_create(i64*, %union.pthread_attr_t*, i8* (i8*)*, i8*) local_unnamed_addr #2
+
+declare i32 @pthread_join(i64, i8**) local_unnamed_addr #3
+
+; Function Attrs: argmemonly nounwind
+declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture writeonly, i8* nocapture readonly, i64, i32, i1) #3
+
+attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #2 = { nounwind "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #3 = { "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #4 = { nounwind }
+
+!llvm.ident = !{!0}
+
+!0 = !{!"clang version 3.9.1 (http:/llvm.org/git/clang.git 54f5752c3600d39ee8de62ba9ff304154baf5e80) (http:/llvm.org/git/llvm.git a093ef43dd592b729da46db4ff3057fef9a46023)"}
+)#";
+  std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
+  DPORDriver::Result res = driver->run();
+
+  /* This could be replaced with a trace set spec */
+  BOOST_CHECK(res.trace_count == 2);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif
