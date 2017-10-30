@@ -41,7 +41,11 @@
 #elif defined(HAVE_LLVM_CONSTANTS_H)
 #include <llvm/Constants.h>
 #endif
+#if defined(HAVE_LLVM_SUPPORT_DWARF_H)
 #include <llvm/Support/Dwarf.h>
+#elif defined(HAVE_LLVM_BINARYFORMAT_DWARF_H)
+#include <llvm/BinaryFormat/Dwarf.h>
+#endif
 
 Trace::Trace(const std::vector<Error*> &errors, bool blk)
   : errors(errors), blocked(blk) {

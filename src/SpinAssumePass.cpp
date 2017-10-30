@@ -57,6 +57,12 @@
 #include "SpinAssumePass.h"
 #include "vecset.h"
 
+#ifdef LLVM_HAS_ATTRIBUTELIST
+typedef llvm::AttributeList AttributeList;
+#else
+typedef llvm::AttributeSet AttributeList;
+#endif
+
 void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
   AU.addRequired<llvm::LLVM_DOMINATOR_TREE_PASS>();
   AU.addRequired<DeclareAssumePass>();
@@ -74,8 +80,8 @@ bool DeclareAssumePass::runOnModule(llvm::Module &M){
       llvm::Type *i1Ty = llvm::Type::getInt1Ty(M.getContext());
       assumeTy = llvm::FunctionType::get(voidTy,{i1Ty},false);
     }
-    llvm::AttributeSet assumeAttrs =
-      llvm::AttributeSet::get(M.getContext(),llvm::AttributeSet::FunctionIndex,
+    AttributeList assumeAttrs =
+      AttributeList::get(M.getContext(),AttributeList::FunctionIndex,
                               std::vector<llvm::Attribute::AttrKind>({llvm::Attribute::NoUnwind}));
     F_assume = llvm::dyn_cast<llvm::Function>(M.getOrInsertFunction("__VERIFIER_assume",assumeTy,assumeAttrs));
     assert(F_assume);

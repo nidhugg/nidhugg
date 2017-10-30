@@ -964,16 +964,21 @@ void POWERInterpreter::visitSwitchInst(llvm::SwitchInst &I) {
   const unsigned nc = I.getNumCases();
   llvm::SwitchInst::CaseIt cit = I.case_begin();
   for(unsigned i = 0; i < nc; ++i, ++cit){
+#ifdef LLVM_SWITCHINST_CASEIT_NEEDS_DEREFERENCE
+    auto &cv = *cit;
+#else
+    auto &cv = cit;
+#endif
     llvm::GenericValue CaseVal = getOperandValue(2*i+2);
     if(CaseVal.AggregateVal.size()){
       assert(CaseVal.AggregateVal.size() == 1);
       assert(CaseVal.AggregateVal[0].AggregateVal.size() == 2);
       CaseVal = CaseVal.AggregateVal[0].AggregateVal[0];
     }else{
-      assert(I.getOperand(2*i+2) == cit.getCaseValue());
+      assert(I.getOperand(2*i+2) == cv.getCaseValue());
     }
     if(executeICMP_EQ(CondVal, CaseVal, ElTy).IntVal != 0){
-      Dest = llvm::cast<llvm::BasicBlock>(cit.getCaseSuccessor());
+      Dest = llvm::cast<llvm::BasicBlock>(cv.getCaseSuccessor());
       break;
     }
   }
@@ -2371,14 +2376,14 @@ void POWERInterpreter::callPthreadCreate(llvm::Function *F){
   llvm::Function *F_inner = (llvm::Function*)GVTOP(getOperandValue(2));
   std::vector<llvm::Value*> ArgVals_inner;
   llvm::Type *i8ptr = llvm::Type::getInt8PtrTy(F->getContext());
-  if(F_inner->getArgumentList().size() == 1 &&
+  if(F_inner->arg_size() == 1 &&
      F_inner->arg_begin()->getType() == i8ptr){
     void *opval = llvm::GVTOP(getOperandValue(3));
     llvm::Type *i64 = llvm::Type::getInt64Ty(F->getContext());
     llvm::Constant *opval_int = llvm::ConstantInt::get(i64,uint64_t(opval));
     llvm::Value *opval_ptr = llvm::ConstantExpr::getIntToPtr(opval_int,i8ptr);
     ArgVals_inner.push_back(opval_ptr);
-  }else if(F_inner->getArgumentList().size()){
+  }else if(F_inner->arg_size()){
     std::string _err;
     llvm::raw_string_ostream err(_err);
     err << "Unsupported: function passed as argument to pthread_create has type: "
