@@ -1426,6 +1426,9 @@ void TSOTraceBuilder::compute_vclocks(){
     auto fill = frontier_filter
       (first_pair, end,
        [this](const Race &f, const Race &s){
+        /* A virtual event does not contribute to the vclock and cannot
+         * subsume races. */
+        if (s.kind == Race::LOCK_FAIL) return false;
         /* Filter out observed races with nonfirst witness */
         if (f.kind == Race::OBSERVED && s.kind == Race::OBSERVED
             && f.first_event == s.first_event
