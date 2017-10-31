@@ -239,11 +239,14 @@ namespace DPORDriver_test {
                    << ".\n";
       retval = false;
     }
-    if (optimal.sleepset_blocked_trace_count != 0) {
-      llvm::dbgs() << "DPORDriver_test::check_optimal_equiv: "
-                   << optimal.sleepset_blocked_trace_count
-                   << " sleepset blocked executions in Optimal.\n";
-      retval = false;
+    for (auto oti = optimal.all_traces.cbegin();
+         oti != optimal.all_traces.cend(); ++oti) {
+      if ((*oti)->is_blocked() && !(*oti)->has_errors()) {
+        llvm::dbgs() << "DPORDriver_test::check_optimal_equiv: Optimal trace #"
+                     << (oti - optimal.all_traces.cbegin())
+                     << " is sleepset blocked.\n";
+        retval = false;
+      }
     }
     if (optimal.has_errors() != source.has_errors()) {
       llvm::dbgs() << "DPORDriver_test::check_optimal_equiv: "
