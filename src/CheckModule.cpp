@@ -82,9 +82,9 @@ void CheckModule::check_pthread_create(const llvm::Module *M){
           << *pthread_create->getReturnType();
       throw CheckModuleError(err.str());
     }
-    if(pthread_create->getArgumentList().size() != 4){
+    if(pthread_create->arg_size() != 4){
       err << "pthread_create takes wrong number of arguments ("
-          << pthread_create->getArgumentList().size() << ")";
+          << pthread_create->arg_size() << ")";
       throw CheckModuleError(err.str());
     }
     if(!pthread_create->arg_begin()->getType()->isPointerTy()){
@@ -129,9 +129,9 @@ void CheckModule::check_pthread_join(const llvm::Module *M){
           << *pthread_join->getReturnType();
       throw CheckModuleError(err.str());
     }
-    if(pthread_join->getArgumentList().size() != 2){
+    if(pthread_join->arg_size() != 2){
       err << "pthread_join takes wrong number of arguments ("
-          << pthread_join->getArgumentList().size() << ")";
+          << pthread_join->arg_size() << ")";
       throw CheckModuleError(err.str());
     }
     llvm::Type *arg0_ty, *arg1_ty;
@@ -164,7 +164,7 @@ void CheckModule::check_pthread_self(const llvm::Module *M){
           << *pthread_self->getReturnType();
       throw CheckModuleError(err.str());
     }
-    if(pthread_self->getArgumentList().size()){
+    if(pthread_self->arg_size()){
       err << "pthread_self takes arguments. Should not take any.";
       throw CheckModuleError(err.str());
     }
@@ -182,9 +182,9 @@ void CheckModule::check_pthread_exit(const llvm::Module *M){
           << *pthread_exit->getReturnType();
       throw CheckModuleError(err.str());
     }
-    if(pthread_exit->getArgumentList().size() != 1){
+    if(pthread_exit->arg_size() != 1){
       err << "pthread_exit takes wrong number of arguments ("
-          << pthread_exit->getArgumentList().size() << ")";
+          << pthread_exit->arg_size() << ")";
       throw CheckModuleError(err.str());
     }
     llvm::Type *ty = pthread_exit->arg_begin()->getType(),
@@ -207,9 +207,9 @@ void CheckModule::check_pthread_mutex_init(const llvm::Module *M){
           << *F->getReturnType();
       throw CheckModuleError(err.str());
     }
-    if(F->getArgumentList().size() != 2){
+    if(F->arg_size() != 2){
       err << "pthread_mutex_init takes wrong number of arguments ("
-          << F->getArgumentList().size() << ")";
+          << F->arg_size() << ")";
       throw CheckModuleError(err.str());
     }
     llvm::Type *arg0ty, *arg1ty;
@@ -241,9 +241,9 @@ void CheckModule::check_pthread_mutex_lock(const llvm::Module *M){
           << *F->getReturnType();
       throw CheckModuleError(err.str());
     }
-    if(F->getArgumentList().size() != 1){
+    if(F->arg_size() != 1){
       err << "pthread_mutex_lock takes wrong number of arguments ("
-          << F->getArgumentList().size() << ")";
+          << F->arg_size() << ")";
       throw CheckModuleError(err.str());
     }
     llvm::Type *arg0ty = F->arg_begin()->getType();
@@ -265,9 +265,9 @@ void CheckModule::check_pthread_mutex_trylock(const llvm::Module *M){
           << *F->getReturnType();
       throw CheckModuleError(err.str());
     }
-    if(F->getArgumentList().size() != 1){
+    if(F->arg_size() != 1){
       err << "pthread_mutex_trylock takes wrong number of arguments ("
-          << F->getArgumentList().size() << ")";
+          << F->arg_size() << ")";
       throw CheckModuleError(err.str());
     }
     llvm::Type *arg0ty = F->arg_begin()->getType();
@@ -289,9 +289,9 @@ void CheckModule::check_pthread_mutex_unlock(const llvm::Module *M){
           << *F->getReturnType();
       throw CheckModuleError(err.str());
     }
-    if(F->getArgumentList().size() != 1){
+    if(F->arg_size() != 1){
       err << "pthread_mutex_unlock takes wrong number of arguments ("
-          << F->getArgumentList().size() << ")";
+          << F->arg_size() << ")";
       throw CheckModuleError(err.str());
     }
     llvm::Type *arg0ty = F->arg_begin()->getType();
@@ -313,9 +313,9 @@ void CheckModule::check_pthread_mutex_destroy(const llvm::Module *M){
           << *F->getReturnType();
       throw CheckModuleError(err.str());
     }
-    if(F->getArgumentList().size() != 1){
+    if(F->arg_size() != 1){
       err << "pthread_mutex_destroy takes wrong number of arguments ("
-          << F->getArgumentList().size() << ")";
+          << F->arg_size() << ")";
       throw CheckModuleError(err.str());
     }
     llvm::Type *arg0ty = F->arg_begin()->getType();
@@ -365,9 +365,9 @@ namespace CheckModule {
             << *F->getReturnType();
         throw CheckModuleError(err.str());
       }
-      if(F->getArgumentList().size() != 1){
+      if(F->arg_size() != 1){
         err << name << " takes wrong number of arguments ("
-            << F->getArgumentList().size() << ")";
+            << F->arg_size() << ")";
         throw CheckModuleError(err.str());
       }
       if(!F->arg_begin()->getType()->isIntegerTy()){
@@ -399,9 +399,9 @@ void CheckModule::check_pthread_cond_init(const llvm::Module *M){
           << *F->getReturnType();
       throw CheckModuleError(err.str());
     }
-    if(F->getArgumentList().size() != 2){
+    if(F->arg_size() != 2){
       err << "pthread_cond_init takes wrong number of arguments ("
-          << F->getArgumentList().size() << ")";
+          << F->arg_size() << ")";
       throw CheckModuleError(err.str());
     }
     llvm::Type *arg0ty, *arg1ty;
@@ -433,9 +433,9 @@ void CheckModule::check_pthread_cond_signal(const llvm::Module *M){
           << *F->getReturnType();
       throw CheckModuleError(err.str());
     }
-    if(F->getArgumentList().size() != 1){
+    if(F->arg_size() != 1){
       err << "pthread_cond_signal takes wrong number of arguments ("
-          << F->getArgumentList().size() << ")";
+          << F->arg_size() << ")";
       throw CheckModuleError(err.str());
     }
     llvm::Type *arg0ty = F->arg_begin()->getType();
@@ -457,9 +457,9 @@ void CheckModule::check_pthread_cond_broadcast(const llvm::Module *M){
           << *F->getReturnType();
       throw CheckModuleError(err.str());
     }
-    if(F->getArgumentList().size() != 1){
+    if(F->arg_size() != 1){
       err << "pthread_cond_broadcast takes wrong number of arguments ("
-          << F->getArgumentList().size() << ")";
+          << F->arg_size() << ")";
       throw CheckModuleError(err.str());
     }
     llvm::Type *arg0ty = F->arg_begin()->getType();
@@ -481,9 +481,9 @@ void CheckModule::check_pthread_cond_wait(const llvm::Module *M){
           << *F->getReturnType();
       throw CheckModuleError(err.str());
     }
-    if(F->getArgumentList().size() != 2){
+    if(F->arg_size() != 2){
       err << "pthread_cond_wait takes wrong number of arguments ("
-          << F->getArgumentList().size() << ")";
+          << F->arg_size() << ")";
       throw CheckModuleError(err.str());
     }
     llvm::Type *arg0ty, *arg1ty;
@@ -515,9 +515,9 @@ void CheckModule::check_pthread_cond_destroy(const llvm::Module *M){
           << *F->getReturnType();
       throw CheckModuleError(err.str());
     }
-    if(F->getArgumentList().size() != 1){
+    if(F->arg_size() != 1){
       err << "pthread_cond_destroy takes wrong number of arguments ("
-          << F->getArgumentList().size() << ")";
+          << F->arg_size() << ")";
       throw CheckModuleError(err.str());
     }
     llvm::Type *arg0ty = F->arg_begin()->getType();

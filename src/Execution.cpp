@@ -960,9 +960,14 @@ void Interpreter::visitSwitchInst(SwitchInst &I) {
   // Check to see if any of the cases match...
   BasicBlock *Dest = 0;
   for (SwitchInst::CaseIt i = I.case_begin(), e = I.case_end(); i != e; ++i) {
-    GenericValue CaseVal = getOperandValue(i.getCaseValue(), SF);
+#ifdef LLVM_SWITCHINST_CASEIT_NEEDS_DEREFERENCE
+    auto &v = *i;
+#else
+    auto &v = i;
+#endif
+    GenericValue CaseVal = getOperandValue(v.getCaseValue(), SF);
     if (executeICMP_EQ(CondVal, CaseVal, ElTy).IntVal != 0) {
-      Dest = cast<BasicBlock>(i.getCaseSuccessor());
+      Dest = cast<BasicBlock>(v.getCaseSuccessor());
       break;
     }
   }
@@ -2623,10 +2628,10 @@ void Interpreter::callPthreadCreate(Function *F,
   // Build stack frame for the call
   Function *F_inner = (Function*)GVTOP(ArgVals[2]);
   std::vector<GenericValue> ArgVals_inner;
-  if(F_inner->getArgumentList().size() == 1 &&
+  if(F_inner->arg_size() == 1 &&
      F_inner->arg_begin()->getType() == Type::getInt8PtrTy(F->getContext())){
     ArgVals_inner.push_back(ArgVals[3]);
-  }else if(F_inner->getArgumentList().size()){
+  }else if(F_inner->arg_size()){
     std::string _err;
     llvm::raw_string_ostream err(_err);
     err << "Unsupported: function passed as argument to pthread_create has type: "

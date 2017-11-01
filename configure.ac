@@ -137,7 +137,6 @@ AC_CHECK_HEADERS([ \
   llvm/Support/CommandLine.h \
   llvm/Support/DataTypes.h \
   llvm/Support/Debug.h \
-  llvm/Support/Dwarf.h \
   llvm/Support/DynamicLibrary.h \
   llvm/Support/ErrorHandling.h \
   llvm/Support/FileSystem.h \
@@ -171,6 +170,7 @@ AC_CHECK_HEADERS_ALT([llvm/PassManager.h llvm/IR/PassManager.h],[],[AC_MSG_FAILU
 AC_CHECK_HEADERS_ALT([llvm/Type.h llvm/IR/Type.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS_ALT([llvm/Assembly/PrintModulePass.h llvm/IR/IRPrintingPasses.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS_ALT([llvm/Analysis/Verifier.h llvm/IR/Verifier.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],AC_INCLUDES_DEFAULT[])
+AC_CHECK_HEADERS_ALT([llvm/Support/Dwarf.h llvm/BinaryFormat/Dwarf.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],AC_INCLUDES_DEFAULT[])
 AC_CHECK_HEADERS_ALT([llvm/Support/ErrorOr.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS([llvm/Support/system_error.h],[],[],[AC_INCLUDES_DEFAULT])
 
@@ -293,11 +293,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <llvm/IR/Instructions.h>
 #endif
 ]],[[
-  llvm::AtomicCmpXchgInst I((llvm::Value*)0,(llvm::Value*)0,(llvm::Value*)0,
-                            (llvm::AtomicOrdering)0,
-                            (llvm::AtomicOrdering)0,
-                            llvm::SynchronizationScope(llvm::CrossThread),
-                            (llvm::Instruction*)0);
+  llvm::AtomicCmpXchgInst *I = nullptr;
+  I->getSuccessOrdering();
 ]])],
            [AC_DEFINE([LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING],[1],
             [Define if llvm::AtomicCmpXchgInst has separate orderings for success and failure.])
@@ -501,7 +498,11 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[
 ## Check if llvm::LLVMDebugVersion is defined
 AC_MSG_CHECKING([for LLVMDebugVersion])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_SUPPORT_DWARF_H)
 #include <llvm/Support/Dwarf.h>
+#elif defined(HAVE_LLVM_BINARYFORMAT_DWARF_H)
+#include <llvm/BinaryFormat/Dwarf.h>
+#endif
 ]],[[
   unsigned dbg = llvm::LLVMDebugVersion;
 ]])],
@@ -949,6 +950,42 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ]])],
         [AC_DEFINE([LLVM_NEW_GEP_TYPE_ITERATOR_API],[1],
          [Define if llvm:gep_type_iterator uses the new API.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
+## Check whether functions use llvm::AttributeList
+AC_MSG_CHECKING([whether functions use llvm::AttributeList])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_IR_MODULE_H)
+#include <llvm/IR/Module.h>
+#elif defined(HAVE_LLVM_MODULE_H)
+#include <llvm/Module.h>
+#endif
+]],[[
+  llvm::Module *M = nullptr;
+  llvm::AttributeList assumeAttrs =
+    llvm::AttributeList::get(M->getContext(),llvm::AttributeList::FunctionIndex,
+                             std::vector<llvm::Attribute::AttrKind>({llvm::Attribute::NoUnwind}));
+]])],
+        [AC_DEFINE([LLVM_HAS_ATTRIBUTELIST],[1],
+         [Define if llvm::AttributeList exists.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
+## Check whether llvm::SwitchInst::CaseIt needs dereference
+AC_MSG_CHECKING([whether llvm::SwitchInst::CaseIt needs dereference])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_IR_INSTRUCTIONS_H)
+#include <llvm/IR/Instructions.h>
+#elif defined(HAVE_LLVM_INSTRUCTIONS_H)
+#include <llvm/Instructions.h>
+#endif
+]],[[
+  llvm::SwitchInst::CaseIt *i = nullptr;
+  (*i)->getCaseValue();
+]])],
+        [AC_DEFINE([LLVM_SWITCHINST_CASEIT_NEEDS_DEREFERENCE],[1],
+         [Define if llvm::SwitchInst::CaseIt should be dereferenced.])
          AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])])
 

@@ -240,9 +240,9 @@ private:
   std::vector<llvm::Function*> AtExitHandlers;
 
   /* A dummy store of the value 0 (int32) to null. */
-  llvm::Instruction *dummy_store;
+  llvm::StoreInst *dummy_store;
   /* A dummy load from null (int8*). */
-  llvm::Instruction *dummy_load8;
+  llvm::LoadInst *dummy_load8;
 
 public:
   explicit POWERInterpreter(llvm::Module *M, POWERARMTraceBuilder &TB,
