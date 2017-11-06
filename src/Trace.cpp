@@ -54,14 +54,16 @@ Trace::Trace(std::vector<std::unique_ptr<Error>> errors, bool blk)
 Trace::~Trace(){
 }
 
-IIDSeqTrace::IIDSeqTrace(const std::vector<IID<CPid> > &cmp,
-                         const std::vector<const llvm::MDNode*> &cmpmd,
-                         std::vector<std::unique_ptr<Error>> errors,
-                         bool blk)
-  : Trace(std::move(errors),blk), computation(cmp), computation_md(cmpmd) {
+IIDVCSeqTrace::IIDVCSeqTrace(const std::vector<IID<CPid> > &cmp,
+                             const std::vector<const llvm::MDNode*> &cmpmd,
+                             const std::vector<VClock<CPid> > &cmpvc,
+                             std::vector<std::unique_ptr<Error>> errors,
+                             bool blk)
+  : Trace(std::move(errors),blk), computation(cmp), computation_md(cmpmd),
+    computation_clocks(cmpvc) {
 }
 
-IIDSeqTrace::~IIDSeqTrace(){
+IIDVCSeqTrace::~IIDVCSeqTrace(){
 }
 
 std::string Trace::to_string(int _ind) const{
@@ -76,7 +78,7 @@ std::string Trace::to_string(int _ind) const{
   }
 }
 
-std::string IIDSeqTrace::to_string(int _ind) const{
+std::string IIDVCSeqTrace::to_string(int _ind) const{
   std::string s;
   std::string ind;
   assert(_ind >= 0);

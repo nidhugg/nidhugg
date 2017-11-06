@@ -29,6 +29,7 @@
 
 #include "CPid.h"
 #include "IID.h"
+#include "VClock.h"
 
 #include <string>
 #include <vector>
@@ -183,9 +184,9 @@ protected:
 };
 
 /* This class represents traces that are expressed as sequences of
- * IIDs.
+ * IIDs and VClocks.
  */
-class IIDSeqTrace : public Trace {
+class IIDVCSeqTrace : public Trace {
 public:
   /* A Trace corresponding to the event sequence computation.
    *
@@ -193,24 +194,35 @@ public:
    * case that either computation_md[i] points to the LLVM Metadata
    * (kind "dbg") for the event computation[i], or computation_md[i]
    * is null.
+   *
+   * computation_clocks contains vector clocks corresponding to the
+   * events in computation, and represents the partial ordering of
+   * events that identify the equivalence class of traces that
+   * computation belongs to.
    */
-  IIDSeqTrace(const std::vector<IID<CPid> > &computation,
-              const std::vector<const llvm::MDNode*> &computation_md,
-              std::vector<std::unique_ptr<Error>> errors,
-              bool blocked = false);
-  virtual ~IIDSeqTrace();
-  IIDSeqTrace(const IIDSeqTrace&) = delete;
-  IIDSeqTrace &operator=(const IIDSeqTrace&) = delete;
+  IIDVCSeqTrace(const std::vector<IID<CPid> > &computation,
+                const std::vector<const llvm::MDNode*> &computation_md,
+                const std::vector<VClock<CPid> > &computation_clocks,
+                std::vector<std::unique_ptr<Error>> errors,
+                bool blocked = false);
+  virtual ~IIDVCSeqTrace();
+  IIDVCSeqTrace(const IIDVCSeqTrace&) = delete;
+  IIDVCSeqTrace &operator=(const IIDVCSeqTrace&) = delete;
   /* The sequence of events. */
   virtual const std::vector<IID<CPid> > &get_computation() const { return computation; };
   /* The sequence of metadata (see above). */
   virtual const std::vector<const llvm::MDNode*> &get_computation_metadata() const{
     return computation_md;
   };
+  /* The sequence of vector clocks. */
+  virtual const std::vector<VClock<CPid> > &get_computation_clocks() const{
+    return computation_clocks;
+  };
   virtual std::string to_string(int ind = 0) const;
 protected:
   std::vector<IID<CPid> > computation;
   std::vector<const llvm::MDNode*> computation_md;
+  std::vector<VClock<CPid> > computation_clocks;
 };
 
 

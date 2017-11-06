@@ -99,7 +99,7 @@ namespace DPORDriver_test {
     return res;
   }
 
-  int find(const IIDSeqTrace *_t, const IID<CPid> &iid){
+  int find(const IIDVCSeqTrace *_t, const IID<CPid> &iid){
     const std::vector<IID<CPid> > &t = _t->get_computation();
     for(int i = 0; i < int(t.size()); ++i){
       if(t[i] == iid){
@@ -109,7 +109,7 @@ namespace DPORDriver_test {
     return -1;
   }
 
-  bool check_trace(const IIDSeqTrace *t, const trace_spec &spec){
+  bool check_trace(const IIDVCSeqTrace *t, const trace_spec &spec){
     for(unsigned i = 0; i < spec.size(); ++i){
       int a_i = find(t,spec[i].a);
       int b_i = find(t,spec[i].b);
@@ -122,7 +122,7 @@ namespace DPORDriver_test {
 
   /* Returns true iff the indices of the IIDs of each process is
    * strictly increasing along the computation of t. */
-  bool all_clocks_increasing(const IIDSeqTrace *t){
+  bool all_clocks_increasing(const IIDVCSeqTrace *t){
     VClock<CPid> pcs;
     for(auto it = t->get_computation().begin(); it != t->get_computation().end(); ++it){
       if(it->get_index() <= pcs[it->get_pid()]) return false;
@@ -141,7 +141,7 @@ namespace DPORDriver_test {
     }
     bool retval = true;
     for(unsigned i = 0; i < res.all_traces.size(); ++i){
-      if(!all_clocks_increasing(static_cast<const IIDSeqTrace*>(res.all_traces[i]))){
+      if(!all_clocks_increasing(static_cast<const IIDVCSeqTrace*>(res.all_traces[i]))){
         llvm::dbgs() << "DPORDriver_test::check_all_traces: "
                      << "Non increasing instruction index in trace.\n";
         retval = false;
@@ -160,7 +160,7 @@ namespace DPORDriver_test {
       int prev_match = -1;
       for(unsigned j = 0; j < res.all_traces.size(); ++j){
         if(res.all_traces[j]->is_blocked()) continue;
-        if(check_trace(static_cast<const IIDSeqTrace*>(res.all_traces[j]),spec[i])){
+        if(check_trace(static_cast<const IIDVCSeqTrace*>(res.all_traces[j]),spec[i])){
           if(found){
             // Multiple traces match the same specification
             llvm::dbgs() << "DPORDriver_test::check_all_traces: Multiple traces (#"

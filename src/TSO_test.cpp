@@ -39,7 +39,7 @@ define i32 @main(){
   DPORDriver::Result res = driver->run();
 
   BOOST_CHECK(res.all_traces.size() == 1);
-  BOOST_CHECK(static_cast<const IIDSeqTrace*>(res.all_traces[0])->get_computation() == std::vector<IID<CPid> >({{CPid(),1}}));
+  BOOST_CHECK(static_cast<const IIDVCSeqTrace*>(res.all_traces[0])->get_computation() == std::vector<IID<CPid> >({{CPid(),1}}));
 
   delete driver;
 
@@ -48,7 +48,7 @@ define i32 @main(){
   DPORDriver::Result opt_res = driver->run();
 
   BOOST_CHECK(opt_res.all_traces.size() == 1);
-  BOOST_CHECK(static_cast<const IIDSeqTrace*>(opt_res.all_traces[0])->get_computation() == std::vector<IID<CPid> >({{CPid(),1}}));
+  BOOST_CHECK(static_cast<const IIDVCSeqTrace*>(opt_res.all_traces[0])->get_computation() == std::vector<IID<CPid> >({{CPid(),1}}));
 
   delete driver;
   BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
