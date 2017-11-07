@@ -321,6 +321,7 @@ bool PSOTraceBuilder::reset(){
   mutexes.clear();
   cond_vars.clear();
   mem.clear();
+  errors.clear();
   last_full_memory_conflict = -1;
   prefix_idx = -1;
   dryrun = false;
