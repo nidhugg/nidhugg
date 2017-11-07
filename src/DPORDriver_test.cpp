@@ -215,12 +215,12 @@ namespace DPORDriver_test {
   static bool trace_equiv(const Trace *a, const Trace *b){
     if (a->get_errors().size() != b->get_errors().size()) return false;
     std::list<Error*> bes;
-    for (Error *be : b->get_errors()) {
-      bes.push_back(be);
+    for (const std::unique_ptr<Error> &be : b->get_errors()) {
+      bes.push_back(be.get());
     }
-    for (Error *ae : a->get_errors()) {
-      auto bei = std::find_if(bes.begin(), bes.end(), [ae](const Error *be){
-          return error_equiv(ae, be);
+    for (const std::unique_ptr<Error> &ae : a->get_errors()) {
+      auto bei = std::find_if(bes.begin(), bes.end(), [&ae](const Error *be){
+          return error_equiv(ae.get(), be);
         });
       if (bei == bes.end()) return false;
       bei = bes.erase(bei);

@@ -47,21 +47,18 @@
 #include <llvm/BinaryFormat/Dwarf.h>
 #endif
 
-Trace::Trace(const std::vector<Error*> &errors, bool blk)
-  : errors(errors), blocked(blk) {
+Trace::Trace(std::vector<std::unique_ptr<Error>> errors, bool blk)
+  : errors(std::move(errors)), blocked(blk) {
 }
 
 Trace::~Trace(){
-  for(unsigned i = 0; i < errors.size(); ++i){
-    delete errors[i];
-  }
 }
 
 IIDSeqTrace::IIDSeqTrace(const std::vector<IID<CPid> > &cmp,
                          const std::vector<const llvm::MDNode*> &cmpmd,
-                         const std::vector<Error*> &errors,
+                         std::vector<std::unique_ptr<Error>> errors,
                          bool blk)
-  : Trace(errors,blk), computation(cmp), computation_md(cmpmd) {
+  : Trace(std::move(errors),blk), computation(cmp), computation_md(cmpmd) {
 }
 
 IIDSeqTrace::~IIDSeqTrace(){
@@ -70,7 +67,7 @@ IIDSeqTrace::~IIDSeqTrace(){
 std::string Trace::to_string(int _ind) const{
   if(errors.size()){
     std::string s = "Errors found:\n";
-    for(Error *e : errors){
+    for(const std::unique_ptr<Error> &e : errors){
       s += e->to_string()+"\n";
     }
     return s;
@@ -116,7 +113,7 @@ std::string IIDSeqTrace::to_string(int _ind) const{
         }
       }
       assert(0 <= loc);
-      error_locs[loc] = errors[i];
+      error_locs[loc] = errors[i].get();
     }
   }
 

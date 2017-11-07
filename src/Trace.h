@@ -139,16 +139,14 @@ private:
  */
 class Trace{
 public:
-  /* A Trace containing some errors.
-   *
-   * This object takes ownership of errors.
-   */
-  Trace(const std::vector<Error*> &errors, bool blocked = false);
+  /* A Trace containing some errors. */
+  Trace(std::vector<std::unique_ptr<Error>> errors, bool blocked = false);
   virtual ~Trace();
   Trace(const Trace&) = delete;
   Trace &operator=(const Trace&) = delete;
-  /* The trace keeps ownership of the errors. */
-  const std::vector<Error*> &get_errors() const { return errors; };
+  const std::vector<std::unique_ptr<Error>> &get_errors() const {
+    return errors;
+  };
   bool has_errors() const { return errors.size(); };
   /* A multi-line, human-readable string representation of this
    * Trace. Indentation will be in multiples of ind spaces.
@@ -158,7 +156,7 @@ public:
   virtual bool is_blocked() const { return blocked; };
   virtual void set_blocked(bool b = true) { blocked = b; };
 protected:
-  std::vector<Error*> errors;
+  std::vector<std::unique_ptr<Error>> errors;
   bool blocked;
 
   /* Attempt to find the directory, file name and line number
@@ -195,13 +193,10 @@ public:
    * case that either computation_md[i] points to the LLVM Metadata
    * (kind "dbg") for the event computation[i], or computation_md[i]
    * is null.
-   *
-   * errors contains all errors that were discovered in this
-   * trace. This object takes ownership of errors.
    */
   IIDSeqTrace(const std::vector<IID<CPid> > &computation,
               const std::vector<const llvm::MDNode*> &computation_md,
-              const std::vector<Error*> &errors,
+              std::vector<std::unique_ptr<Error>> errors,
               bool blocked = false);
   virtual ~IIDSeqTrace();
   IIDSeqTrace(const IIDSeqTrace&) = delete;

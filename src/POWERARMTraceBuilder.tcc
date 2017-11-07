@@ -44,10 +44,10 @@ namespace PATB_impl{
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   Trace *TB<MemMod,CB,Event>::get_trace() const{
-    std::vector<Error*> errs;
+    std::vector<std::unique_ptr<Error>> errs;
     for(unsigned i = 0; i < errors.size(); ++i){
       if(error_is_real(*errors[i])){
-        errs.push_back(errors[i]->clone());
+        errs.emplace_back(errors[i]->clone());
       }
     }
     std::vector<PATrace::Evt> evts(prefix.size());
@@ -56,7 +56,7 @@ namespace PATB_impl{
       evts[i].param.choices = get_evt(prefix[i]).cur_param.choices;
       // Ignore the rest of the parameter (relations etc.)
     }
-    return new PATrace(evts, cpids, conf, errs, TRec.to_string(2),
+    return new PATrace(evts, cpids, conf, std::move(errs), TRec.to_string(2),
                        !sleepset_is_empty());
   }
 

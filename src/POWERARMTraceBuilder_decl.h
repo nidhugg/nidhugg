@@ -1050,10 +1050,10 @@ namespace PATB_impl{
     PATrace(const std::vector<Evt> &events,
             const std::vector<CPid> &cpids,
             const Configuration &conf,
-            const std::vector<Error*> &errors,
+            std::vector<std::unique_ptr<Error>> errors,
             const std::string &str_rep = "",
             bool blocked = false)
-      : Trace(errors,blocked), events(events), cpids(cpids), string_rep(str_rep), conf(conf) {};
+      : Trace(std::move(errors),blocked), events(events), cpids(cpids), string_rep(str_rep), conf(conf) {};
     virtual ~PATrace(){};
     virtual std::string to_string(int ind = 0) const;
   protected:

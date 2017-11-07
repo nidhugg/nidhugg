@@ -246,15 +246,15 @@ bool PSOTraceBuilder::check_for_cycles(){
 Trace *PSOTraceBuilder::get_trace() const{
   std::vector<IID<CPid> > cmp;
   std::vector<const llvm::MDNode*> cmp_md;
-  std::vector<Error*> errs;
+  std::vector<std::unique_ptr<Error>> errs;
   for(unsigned i = 0; i < prefix.size(); ++i){
     cmp.push_back(IID<CPid>(threads[prefix[i].iid.get_pid()].cpid,prefix[i].iid.get_index()));
     cmp_md.push_back(prefix[i].md);
   }
   for(unsigned i = 0; i < errors.size(); ++i){
-    errs.push_back(errors[i]->clone());
+    errs.emplace_back(errors[i]->clone());
   }
-  Trace *t = new IIDSeqTrace(cmp,cmp_md,errs);
+  Trace *t = new IIDSeqTrace(cmp,cmp_md,std::move(errs));
   t->set_blocked(!sleepset_is_empty());
   return t;
 }
