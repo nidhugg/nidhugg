@@ -22,53 +22,49 @@
 TraceBuilder::TraceBuilder(const Configuration &C) : conf(C) {
 }
 
-TraceBuilder::~TraceBuilder(){
-  for(unsigned i = 0; i < errors.size(); ++i){
-    delete errors[i];
-  }
-}
+TraceBuilder::~TraceBuilder() = default;
 
 void TraceBuilder::assertion_error(std::string cond, const IID<CPid> &loc){
   if(loc.is_null()){
-    errors.push_back(new AssertionError(get_iid(),cond));
+    errors.emplace_back(new AssertionError(get_iid(),cond));
   }else{
-    errors.push_back(new AssertionError(loc,cond));
+    errors.emplace_back(new AssertionError(loc,cond));
   }
   if(conf.debug_print_on_error) debug_print();
 }
 
 void TraceBuilder::pthreads_error(std::string msg, const IID<CPid> &loc){
   if(loc.is_null()){
-    errors.push_back(new PthreadsError(get_iid(),msg));
+    errors.emplace_back(new PthreadsError(get_iid(),msg));
   }else{
-    errors.push_back(new PthreadsError(loc,msg));
+    errors.emplace_back(new PthreadsError(loc,msg));
   }
   if(conf.debug_print_on_error) debug_print();
 }
 
 void TraceBuilder::segmentation_fault_error(const IID<CPid> &loc){
   if(loc.is_null()){
-    errors.push_back(new SegmentationFaultError(get_iid()));
+    errors.emplace_back(new SegmentationFaultError(get_iid()));
   }else{
-    errors.push_back(new SegmentationFaultError(loc));
+    errors.emplace_back(new SegmentationFaultError(loc));
   }
   if(conf.debug_print_on_error) debug_print();
 }
 
 void TraceBuilder::memory_error(std::string msg, const IID<CPid> &loc){
   if(loc.is_null()){
-    errors.push_back(new MemoryError(get_iid(),msg));
+    errors.emplace_back(new MemoryError(get_iid(),msg));
   }else{
-    errors.push_back(new MemoryError(loc,msg));
+    errors.emplace_back(new MemoryError(loc,msg));
   }
   if(conf.debug_print_on_error) debug_print();
 }
 
 void TraceBuilder::nondeterminism_error(std::string cond, const IID<CPid> &loc){
   if(loc.is_null()){
-    errors.push_back(new NondeterminismError(get_iid(),cond));
+    errors.emplace_back(new NondeterminismError(get_iid(),cond));
   }else{
-    errors.push_back(new NondeterminismError(loc,cond));
+    errors.emplace_back(new NondeterminismError(loc,cond));
   }
   if(conf.debug_print_on_error) debug_print();
 }

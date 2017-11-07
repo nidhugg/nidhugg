@@ -2200,7 +2200,6 @@ namespace PATB_impl{
     cpids.clear();
     cpids.emplace_back();
     CPS = CPidSystem();
-    for(Error *e : errors) delete e;
     errors.clear();
     TRec.clear();
     TRec.activate();
@@ -2330,7 +2329,6 @@ namespace PATB_impl{
     cpids.clear();
     cpids.emplace_back();
     CPS = CPidSystem();
-    for(Error *e : errors) delete e;
     errors.clear();
     TRec.clear();
     TRec.deactivate();

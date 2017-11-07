@@ -266,7 +266,7 @@ bool TSOTraceBuilder::check_for_cycles(){
   {
     assert(prefix.len());
     IID<CPid> c_iid(threads[i_iid.get_pid()].cpid,i_iid.get_index());
-    errors.push_back(new RobustnessError(c_iid));
+    errors.emplace_back(new RobustnessError(c_iid));
   }
 
   return true;
