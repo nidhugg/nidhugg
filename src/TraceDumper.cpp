@@ -111,11 +111,13 @@ namespace TraceDumper {
     std::fstream out;
     if (!open_file(out, conf.trace_dump_file)) return;
     out << "strict digraph {\n";
+    out << "  packmode=array_tuc1\n"; // Speed up layout
     out << "  node [shape=box,fontname=Monospace]\n";
     for (unsigned ti = 0; ti < res.all_traces.size(); ++ti) {
       const IIDVCSeqTrace &t = static_cast<IIDVCSeqTrace&>(*res.all_traces[ti]);
       std::map<IID<CPid>,std::vector<Error*>> errors = sort_errors(t);
       out << "  subgraph trace_" << ti << " {\n";
+      out << "    sortv = " << ti << "\n";
       out << "    start_" << ti << " [label=\"Trace " << (ti+1) << "\"]\n";
       out << "    start_" << ti << " -> " << node_name(ti, t.get_iid(0)) << "\n";
       for (unsigned ei = 0; ei < t.size(); ++ei) {
