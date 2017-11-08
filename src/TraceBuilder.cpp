@@ -19,7 +19,7 @@
 
 #include "TraceBuilder.h"
 
-TraceBuilder::TraceBuilder(const Configuration &C) : conf(C) {
+TraceBuilder::TraceBuilder(const Configuration &C) : conf(C), replay_point(0) {
 }
 
 TraceBuilder::~TraceBuilder() = default;

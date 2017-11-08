@@ -1051,11 +1051,14 @@ namespace PATB_impl{
             const std::vector<CPid> &cpids,
             const Configuration &conf,
             std::vector<std::unique_ptr<Error>> errors,
+            int replay_point,
             const std::string &str_rep = "",
             bool blocked = false)
-      : Trace(std::move(errors),blocked), events(events), cpids(cpids), string_rep(str_rep), conf(conf) {};
+      : Trace(std::move(errors),replay_point,blocked), events(events),
+        cpids(cpids), string_rep(str_rep), conf(conf) {};
     virtual ~PATrace(){};
     virtual std::string to_string(int ind = 0) const;
+    virtual std::string event_desc(int event_index) const { return ""; }
     virtual IID<CPid> get_iid(int index) const override;
     virtual std::size_t size() const override { return events.size(); }
   protected:

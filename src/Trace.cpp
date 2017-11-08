@@ -47,8 +47,8 @@
 #include <llvm/BinaryFormat/Dwarf.h>
 #endif
 
-Trace::Trace(std::vector<std::unique_ptr<Error>> errors, bool blk)
-  : errors(std::move(errors)), blocked(blk) {
+Trace::Trace(std::vector<std::unique_ptr<Error>> errors, int replay_point, bool blk)
+: errors(std::move(errors)), blocked(blk), first_new_event(replay_point) {
 }
 
 Trace::~Trace(){
@@ -58,8 +58,9 @@ IIDVCSeqTrace::IIDVCSeqTrace(const std::vector<IID<CPid> > &cmp,
                              const std::vector<const llvm::MDNode*> &cmpmd,
                              const std::vector<VClock<CPid> > &cmpvc,
                              std::vector<std::unique_ptr<Error>> errors,
+                             int replay_point,
                              bool blk)
-  : Trace(std::move(errors),blk), computation(cmp), computation_md(cmpmd),
+  : Trace(std::move(errors),replay_point,blk), computation(cmp), computation_md(cmpmd),
     computation_clocks(cmpvc) {
 }
 

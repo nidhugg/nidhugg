@@ -113,6 +113,8 @@ public:
 protected:
   const Configuration &conf;
   std::vector<std::unique_ptr<Error>> errors;
+  /* The number of events that were replayed in the current computation. */
+  int replay_point;
 };
 
 #endif

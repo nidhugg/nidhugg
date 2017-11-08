@@ -140,8 +140,12 @@ private:
  */
 class Trace{
 public:
-  /* A Trace containing some errors. */
-  Trace(std::vector<std::unique_ptr<Error>> errors, bool blocked = false);
+  /* A Trace containing some errors.
+   *
+   * See replay_point() below for the meaning of replay_point.
+   */
+  Trace(std::vector<std::unique_ptr<Error>> errors, int replay_point,
+        bool blocked = false);
   virtual ~Trace();
   Trace(const Trace&) = delete;
   Trace &operator=(const Trace&) = delete;
@@ -153,10 +157,16 @@ public:
    * Trace. Indentation will be in multiples of ind spaces.
    */
   virtual std::string to_string(int ind = 0) const;
+  /* Human-readable representation description of event, excluding IID. */
+  virtual std::string event_desc(int event_index) const = 0;
   /* IID of the event with index event_index. */
   virtual IID<CPid> get_iid(int event_index) const = 0;
   /* Numer of events in trace. */
   virtual std::size_t size() const = 0;
+  /* First event in this trace that differs from the previous trace;
+   * i.e. the point up until which the trace was replayed.
+   */
+  int replay_point() const { return first_new_event; }
   /* Was the exploration of this execution (sleep set) blocked? */
   virtual bool is_blocked() const { return blocked; };
   virtual void set_blocked(bool b = true) { blocked = b; };
@@ -185,6 +195,7 @@ protected:
   static bool is_absolute_path(const std::string &fname);
   std::vector<std::unique_ptr<Error>> errors;
   bool blocked;
+  int first_new_event;
 };
 
 /* This class represents traces that are expressed as sequences of
@@ -208,6 +219,7 @@ public:
                 const std::vector<const llvm::MDNode*> &computation_md,
                 const std::vector<VClock<CPid> > &computation_clocks,
                 std::vector<std::unique_ptr<Error>> errors,
+                int replay_point,
                 bool blocked = false);
   virtual ~IIDVCSeqTrace();
   IIDVCSeqTrace(const IIDVCSeqTrace&) = delete;
@@ -219,8 +231,7 @@ public:
     return computation_clocks[event_index];
   };
   virtual std::string to_string(int ind = 0) const;
-  /* Human-readable representation description of event, excluding IID. */
-  std::string event_desc(int event_index) const;
+  virtual std::string event_desc(int event_index) const;
   virtual IID<CPid> get_iid(int index) const override {
     return computation[index];
   }

@@ -56,8 +56,8 @@ namespace PATB_impl{
       evts[i].param.choices = get_evt(prefix[i]).cur_param.choices;
       // Ignore the rest of the parameter (relations etc.)
     }
-    return new PATrace(evts, cpids, conf, std::move(errs), TRec.to_string(2),
-                       !sleepset_is_empty());
+    return new PATrace(evts, cpids, conf, std::move(errs), replay_point,
+                       TRec.to_string(2), !sleepset_is_empty());
   }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
@@ -2222,6 +2222,7 @@ namespace PATB_impl{
       }
     }
     if(i < 0) return false; // Nothing more to explore.
+    replay_point = i;
 
     int new_pfx_len;
     Event &evt = get_evt(prefix[i]);

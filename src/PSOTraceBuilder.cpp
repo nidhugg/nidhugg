@@ -260,7 +260,7 @@ Trace *PSOTraceBuilder::get_trace() const{
   for(unsigned i = 0; i < errors.size(); ++i){
     errs.emplace_back(errors[i]->clone());
   }
-  Trace *t = new IIDVCSeqTrace(cmp,cmp_md,cmp_vc,std::move(errs));
+  Trace *t = new IIDVCSeqTrace(cmp,cmp_md,cmp_vc,std::move(errs),replay_point);
   t->set_blocked(!sleepset_is_empty());
   return t;
 }
@@ -283,6 +283,7 @@ bool PSOTraceBuilder::reset(){
     /* No more branching is possible. */
     return false;
   }
+  replay_point = i;
 
   /* Setup the new Event at prefix[i] */
   {
