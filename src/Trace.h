@@ -156,9 +156,6 @@ public:
   /* Was the exploration of this execution (sleep set) blocked? */
   virtual bool is_blocked() const { return blocked; };
   virtual void set_blocked(bool b = true) { blocked = b; };
-protected:
-  std::vector<std::unique_ptr<Error>> errors;
-  bool blocked;
 
   /* Attempt to find the directory, file name and line number
    * corresponding to the metadata m.
@@ -180,7 +177,10 @@ protected:
    */
   static std::string get_src_line_verbatim(const llvm::MDNode *m);
   static std::string basename(const std::string &fname);
+protected:
   static bool is_absolute_path(const std::string &fname);
+  std::vector<std::unique_ptr<Error>> errors;
+  bool blocked;
 };
 
 /* This class represents traces that are expressed as sequences of

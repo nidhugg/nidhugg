@@ -567,9 +567,9 @@ namespace PATB_impl{
   /* A TraceRecorder helps the TraceBuilder to record a human-readable
    * string representation of a trace.
    */
-  class TraceRecorder : public Trace{
+  class TraceRecorder{
   public:
-    TraceRecorder(const std::vector<CPid> *cpids) : Trace({}), cpids(cpids), active(false) {};
+    TraceRecorder(const std::vector<CPid> *cpids) : cpids(cpids), active(false) {};
     /* Get the recorded trace representation. */
     std::string to_string(int ind = 0) const;
     /* Called when an event is committed by the TraceBuilder. */

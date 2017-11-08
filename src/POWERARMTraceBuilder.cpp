@@ -94,11 +94,11 @@ bool PATB_impl::TraceRecorder::source_line(int proc, const llvm::MDNode *md, std
   if(md){
     int lineno;
     std::string fname, dname;
-    if(get_location(md,&lineno,&fname,&dname)){
+    if(Trace::get_location(md,&lineno,&fname,&dname)){
       success = true;
       std::stringstream ss;
-      ss << basename(fname) << ":" << lineno
-         << " " << get_src_line_verbatim(md);
+      ss << Trace::basename(fname) << ":" << lineno
+         << " " << Trace::get_src_line_verbatim(md);
       ln += ss.str();
     }
   }
