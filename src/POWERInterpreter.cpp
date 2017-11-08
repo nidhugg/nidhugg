@@ -169,6 +169,10 @@ POWERInterpreter::runFunction(llvm::Function *F,
   for (unsigned i = 0; i < ArgCount; ++i)
     ActualArgs.push_back(ArgValues[i]);
 
+  if(conf.ee_store_trace){
+    TB.enable_tracing();
+  }
+
   // Set up the function call.
   callFunction(F, ActualArgs);
 

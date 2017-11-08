@@ -117,13 +117,15 @@ void PATB_impl::TraceRecorder::trace_register_metadata(int proc, const llvm::MDN
   std::string ln;
   int cpid_indent;
   source_line(proc,md,&ln,&cpid_indent);
+  std::string indent = "";
+  for(int i = 0; i < cpid_indent; ++i) indent += " ";
   lines.push_back({proc,ln});
   if(!last_committed.consumed){
     last_committed.consumed = true;
     int load_count = 0;
+    event_descs[last_committed.iid] += ln;
     for(const Access &A : last_committed.accesses){ // One line per access
       ln = "";
-      for(int i = 0; i < cpid_indent; ++i) ln += " "; // Indentation
       if(A.type == Access::LOAD){
         ln += "load 0x";
         std::stringstream ss;
@@ -169,7 +171,8 @@ void PATB_impl::TraceRecorder::trace_register_metadata(int proc, const llvm::MDN
            << "]";
         ln += ss.str();
       }
-      lines.push_back({proc,ln});
+      event_descs[last_committed.iid] += "\n" + ln;
+      lines.push_back({proc,indent+ln});
     }
   }
 }

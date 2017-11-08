@@ -156,6 +156,7 @@ void Configuration::assign_by_commandline(){
   debug_collect_all_traces |= !cl_dump_traces.empty();
   tree_dump_file = cl_dump_tree;
   debug_collect_all_traces |= !cl_dump_tree.empty();
+  ee_store_trace           |= !cl_dump_tree.empty();
   argv.resize(1);
   argv[0] = get_default_program_name();
   for(std::string a : cl_program_arguments){

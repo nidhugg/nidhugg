@@ -572,6 +572,9 @@ namespace PATB_impl{
     TraceRecorder(const std::vector<CPid> *cpids) : cpids(cpids), active(false) {};
     /* Get the recorded trace representation. */
     std::string to_string(int ind = 0) const;
+    const std::map<IID<int>,std::string> &get_event_descs() const {
+      return event_descs;
+    }
     /* Called when an event is committed by the TraceBuilder. */
     void trace_commit(const IID<int> &iid, const Param &param, const std::vector<Access> &accesses,
                       const std::vector<ByteAccess> &baccesses, std::vector<MBlock> values);
@@ -586,7 +589,12 @@ namespace PATB_impl{
     /* Called when the ExecutionEngine detects an error. */
     void trace_register_error(int proc, const std::string &err_msg);
     /* Clear the recorded trace */
-    void clear() { lines.clear(); last_committed.consumed = true; fun_call_stack.clear(); };
+    void clear() {
+      lines.clear();
+      last_committed.consumed = true;
+      fun_call_stack.clear();
+      event_descs.clear();
+    };
     void activate() { active = true; };
     void deactivate() { active = false; };
     bool is_active() const { return active; };
@@ -618,6 +626,11 @@ namespace PATB_impl{
       std::string ln;
     };
     std::vector<Line> lines;
+
+    /* Descriptions of the individual events in the execution.
+     * Contains a subset of the text in lines, in particular only
+     * the lines associated with a particular event. */
+    std::map<IID<int>,std::string> event_descs;
 
     /* Attempt to find the source code line associated with md.
      *
@@ -666,6 +679,7 @@ namespace PATB_impl{
     virtual IID<CPid> get_iid() const;
     virtual bool sleepset_is_empty() const;
     virtual void debug_print() const;
+    virtual void enable_tracing() override;
     virtual void trace_register_metadata(int proc, const llvm::MDNode *md);
     virtual void trace_register_external_function_call(int proc, const std::string &fname, const llvm::MDNode *md);
     virtual void trace_register_function_entry(int proc, const std::string &fname, const llvm::MDNode *md);
@@ -1053,18 +1067,24 @@ namespace PATB_impl{
             std::vector<std::unique_ptr<Error>> errors,
             int replay_point,
             const std::string &str_rep = "",
+            std::map<IID<int>,std::string> event_descs = {},
             bool blocked = false)
       : Trace(std::move(errors),replay_point,blocked), events(events),
-        cpids(cpids), string_rep(str_rep), conf(conf) {};
+        cpids(cpids), string_rep(str_rep), event_descs(event_descs),
+        conf(conf) {};
     virtual ~PATrace(){};
     virtual std::string to_string(int ind = 0) const;
-    virtual std::string event_desc(int event_index) const { return ""; }
+    virtual std::string event_desc(int event_index) const {
+      auto it = event_descs.find(events[event_index].iid);
+      return it != event_descs.end() ? it->second : "";
+    }
     virtual IID<CPid> get_iid(int index) const override;
     virtual std::size_t size() const override { return events.size(); }
   protected:
     std::vector<Evt> events;
     std::vector<CPid> cpids;
     std::string string_rep;
+    std::map<IID<int>,std::string> event_descs;
     Configuration conf;
   };
 

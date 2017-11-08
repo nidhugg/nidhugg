@@ -57,7 +57,8 @@ namespace PATB_impl{
       // Ignore the rest of the parameter (relations etc.)
     }
     return new PATrace(evts, cpids, conf, std::move(errs), replay_point,
-                       TRec.to_string(2), !sleepset_is_empty());
+                       TRec.to_string(2), TRec.get_event_descs(),
+                       !sleepset_is_empty());
   }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
@@ -2132,6 +2133,11 @@ namespace PATB_impl{
       ++b;
     }
     tgt = VecSet<Branch>(std::move(AB));
+  }
+
+  template<MemoryModel MemMod,CB_T CB,class Event>
+  void TB<MemMod,CB,Event>::enable_tracing(){
+    TRec.activate();
   }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
