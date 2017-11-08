@@ -78,6 +78,27 @@ std::string Trace::to_string(int _ind) const{
   }
 }
 
+std::string IIDVCSeqTrace::event_desc(int i) const{
+  std::string s = "";
+  if(computation[i].get_pid().is_auxiliary()){
+    s+=" UPDATE";
+  }
+  {
+    int ln;
+    std::string fname, dname;
+    if(get_location(computation_md[i],&ln,&fname,&dname)){
+      std::stringstream ss;
+      ss << " " << basename(fname) << ":" << ln;
+      std::string src_line = get_src_line_verbatim(computation_md[i]);
+      if (src_line != ""){
+        ss << ": " << src_line;
+      }
+      s += ss.str();
+    }
+  }
+  return s;
+}
+
 std::string IIDVCSeqTrace::to_string(int _ind) const{
   std::string s;
   std::string ind;
@@ -122,20 +143,8 @@ std::string IIDVCSeqTrace::to_string(int _ind) const{
   for(unsigned i = 0; i < computation.size(); ++i){
     std::string iid_str = ind + cpind[computation[i].get_pid()] + computation[i].to_string();
     s += iid_str;
-    if(computation[i].get_pid().is_auxiliary()){
-      s+=" UPDATE";
-    }
-    {
-      int ln;
-      std::string fname, dname;
-      if(get_location(computation_md[i],&ln,&fname,&dname)){
-        std::stringstream ss;
-        ss << " " << basename(fname) << ":" << ln;
-        ss << ": " << get_src_line_verbatim(computation_md[i]);
-        s += ss.str();
-      }
-      s += "\n";
-    }
+    s += event_desc(i);
+    s += "\n";
     if(error_locs.count(i)){
       // Indentation
       {

@@ -23,6 +23,7 @@
 #include "DPORDriver.h"
 #include "GlobalContext.h"
 #include "Transform.h"
+#include "TraceDumper.h"
 
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/ManagedStatic.h>
@@ -120,6 +121,8 @@ int main(int argc, char *argv[]){
       }else{
         std::cout << "No errors were detected." << std::endl;
       }
+
+      TraceDumper::dump(res,conf);
 
       delete driver;
     }

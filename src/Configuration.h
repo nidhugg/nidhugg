@@ -184,6 +184,8 @@ public:
    * traces.
    */
   bool print_progress_estimate;
+  /* File to dump graph of equivalence classes to. */
+  std::string trace_dump_file;
   /* The arguments that will be passed to the program under test */
   std::vector<std::string> argv;
   /* The default program name to send to the program under test as

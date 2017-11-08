@@ -219,6 +219,8 @@ public:
     return computation_clocks;
   };
   virtual std::string to_string(int ind = 0) const;
+  /* Human-readable representation description of event, excluding IID. */
+  std::string event_desc(int event_index) const;
 protected:
   std::vector<IID<CPid> > computation;
   std::vector<const llvm::MDNode*> computation_md;

@@ -99,6 +99,14 @@ static llvm::cl::opt<bool> cl_debug_print_on_reset
 ("debug-print-on-reset",llvm::cl::Hidden,
  llvm::cl::desc("Print debug info after exploring each trace."));
 
+static llvm::cl::OptionCategory cl_dump_cat
+("Trace Dumping");
+
+static llvm::cl::opt<std::string> cl_dump_traces
+("dump-traces",llvm::cl::NotHidden,llvm::cl::cat(cl_dump_cat),
+ llvm::cl::value_desc("FILE"),
+ llvm::cl::desc("Write graph of explored equivalence classes to FILE."));
+
 const std::set<std::string> &Configuration::commandline_opts(){
   static std::set<std::string> opts = {
     "dpor-explore-all",
@@ -113,7 +121,8 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "no-spin-assume",
     "unroll",
     "print-progress",
-    "print-progress-estimate"
+    "print-progress-estimate",
+    "dump-traces",
   };
   return opts;
 }
@@ -137,6 +146,8 @@ void Configuration::assign_by_commandline(){
   print_progress = cl_print_progress || cl_print_progress_estimate;
   print_progress_estimate = cl_print_progress_estimate;
   debug_print_on_reset = cl_debug_print_on_reset;
+  trace_dump_file = cl_dump_traces;
+  debug_collect_all_traces |= !cl_dump_traces.empty();
   argv.resize(1);
   argv[0] = get_default_program_name();
   for(std::string a : cl_program_arguments){
@@ -225,6 +236,10 @@ void Configuration::check_commandline(){
       if(cl_check_robustness.getNumOccurrences()){
         Debug::warn("Configuration::check_commandline:mm:robustness")
           << "WARNING: --robustness ignored under memory model " << mm << ".\n";
+      }
+      if (cl_dump_traces != ""){
+        Debug::warn("Configuration::check_commandline:mm:dump-traces")
+          << "WARNING: --dump-traces not implemented for memory model " << mm << ".\n";
       }
     }
     if (cl_dpor_algorithm == Configuration::OPTIMAL

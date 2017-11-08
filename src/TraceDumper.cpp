@@ -1,0 +1,178 @@
+/* Copyright (C) 2017 Magnus Lång
+ *
+ * This file is part of Nidhugg.
+ *
+ * Nidhugg is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Nidhugg is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see
+ * <http://www.gnu.org/licenses/>.
+ */
+
+#include "TraceDumper.h"
+
+#include <fstream>
+#include <iostream>
+
+namespace TraceDumper {
+
+  static std::string dot_escape_string(const std::string &input) {
+    std::string output = "";
+    for (char c : input) {
+      if (c == '\\') {
+        output += "\\\\";
+      } else if (c == '"') {
+        output += "\\\"";
+      } else {
+        output += c;
+      }
+    }
+    return output;
+  }
+
+  static std::string node_name(unsigned trace_index, const IID<CPid> &iid) {
+    return "\"" + std::to_string(trace_index)
+      + " " + dot_escape_string(iid.to_string()) + "\"";
+  }
+
+  static void print_trace_node(std::fstream &out, unsigned ti,
+                               const IIDVCSeqTrace &trace,
+                               unsigned ei, const std::vector<Error*> &errors) {
+    const IID<CPid> &iid = trace.get_computation()[ei];
+    out << "    " << node_name(ti, iid) << " [label=\"" << iid
+        << dot_escape_string(trace.event_desc(ei));
+    for (const Error *error : errors) {
+      out << "\n" << dot_escape_string(error->to_string());
+    }
+    out << "\",";
+    if (errors.size()) {
+      out << "color=red,penwidth=5,";
+    }
+    out << "]\n";
+  }
+
+  static void print_end_node(std::fstream &out, unsigned ti,
+                             const IIDVCSeqTrace &t) {
+    out << "    end_" << ti << " [label=\"";
+    if (t.has_errors()) {
+      out << "Error\",style=filled,fillcolor=red]\n";
+    } else if (t.is_blocked()) {
+      out << "SSB\",style=filled,fillcolor=yellow]\n";
+    } else {
+      out << "Ok\",style=filled,fillcolor=green]\n";
+    }
+  }
+
+  static VClock<CPid> reconstruct_error_clock
+  (const IIDVCSeqTrace &t, const IID<CPid> &iid, unsigned *last_index_out) {
+    const std::vector<IID<CPid>> &cmp = t.get_computation();
+    const std::vector<VClock<CPid>> &cmp_vc = t.get_computation_clocks();
+    VClock<CPid> result = cmp_vc[*last_index_out = 0];
+    for (unsigned i = cmp.size()-1; i > 0; --i) {
+      if (cmp[i].get_pid() == iid.get_pid()) {
+        result = cmp_vc[*last_index_out = i];
+        break;
+      }
+    }
+    result[iid.get_pid()] = iid.get_index();
+    return result;
+  }
+
+  static bool open_file(std::fstream &out, std::string filename) {
+    out.open(filename, std::fstream::out | std::fstream::trunc);
+    if (!out) {
+      throw std::logic_error("Failed to open output file " +filename);// << std::endl;
+    }
+    return !!out;
+  }
+
+  static void dump_traces(const DPORDriver::Result &res,
+                          const Configuration &conf) {
+    if (conf.memory_model != Configuration::SC
+        && conf.memory_model != Configuration::TSO
+        && conf.memory_model != Configuration::PSO) {
+      return;
+    }
+    std::fstream out;
+    if (!open_file(out, conf.trace_dump_file)) return;
+    out << "strict digraph {\n";
+    out << "  node [shape=box,fontname=Monospace]\n";
+    for (unsigned ti = 0; ti < res.all_traces.size(); ++ti) {
+      const IIDVCSeqTrace &t = static_cast<IIDVCSeqTrace&>(*res.all_traces[ti]);
+      const std::vector<IID<CPid>> &cmp = t.get_computation();
+      const std::vector<VClock<CPid>> &cmp_vc = t.get_computation_clocks();
+      std::map<IID<CPid>,std::vector<Error*>> errors;
+      for (const std::unique_ptr<Error> &error : t.get_errors()) {
+        errors[error->get_location()].push_back(error.get());
+      }
+      out << "  subgraph trace_" << ti << " {\n";
+      out << "    start_" << ti << " [label=\"Trace " << (ti+1) << "\"]\n";
+      out << "    start_" << ti << " -> " << node_name(ti, cmp[0]) << "\n";
+      for (unsigned ei = 0; ei < cmp_vc.size(); ++ei) {
+        print_trace_node(out, ti, t, ei, errors[cmp[ei]]);
+        errors.erase(cmp[ei]);
+        std::vector<const VClock<CPid>*> frontier;
+        for (unsigned pi = ei; pi > 0;) {
+          --pi;
+          if (cmp_vc[pi].leq(cmp_vc[ei])
+              && !std::any_of(frontier.begin(), frontier.end(),
+                              [&](const VClock<CPid> *fc) {
+                                return cmp_vc[pi].leq(*fc);
+                              })) {
+            out << "    " << node_name(ti, cmp[pi]) << " -> "
+                << node_name(ti, cmp[ei]) << "\n";
+            frontier.push_back(&cmp_vc[pi]);
+          }
+        }
+      }
+
+      std::vector<VClock<CPid>> end_front;
+      for (std::pair<const IID<CPid>,std::vector<Error*>> &p : errors) {
+        out << "    " << node_name(ti, p.first)
+            << " [color=red,penwidth=5,label=\"";
+        for (const Error *error : p.second) {
+          out << dot_escape_string(error->to_string()) << "\n";
+        }
+        out << "\"]\n";
+        out << "    " << node_name(ti, p.first) << " -> "
+            << "end_" << ti << "\n";
+        unsigned last_index;
+        end_front.push_back(reconstruct_error_clock(t, p.first, &last_index));
+        out << "    " << node_name(ti, cmp[last_index]) << " -> "
+            << node_name(ti, p.first) << "\n";
+
+      }
+      /* Print end node */
+      print_end_node(out, ti, t);
+      for (unsigned pi = cmp_vc.size(); pi > 0;) {
+        --pi;
+        if (!std::any_of(end_front.begin(), end_front.end(),
+                         [&](const VClock<CPid> &fc) {
+                           return cmp_vc[pi].leq(fc);
+                         })) {
+          out << "    " << node_name(ti, cmp[pi]) << " -> "
+              << "end_" << ti << "\n";
+          end_front.push_back(cmp_vc[pi]);
+        }
+      }
+      out << "  }\n";
+    }
+
+    out << "}\n";
+  }
+
+  void dump(const DPORDriver::Result &res,
+            const Configuration &conf) {
+    if (!conf.debug_collect_all_traces) return;
+    if (!conf.trace_dump_file.empty()) dump_traces(res, conf);
+  }
+
+}
