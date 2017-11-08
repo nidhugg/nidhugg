@@ -51,6 +51,11 @@ std::string PATB_impl::PATrace::to_string(int _ind) const{
   return ss.str();
 }
 
+IID<CPid> PATB_impl::PATrace::get_iid(int index) const{
+  IID<int> iiid = events[index].iid;
+  return {cpids[iiid.get_pid()], iiid.get_index()};
+}
+
 std::string PATB_impl::TraceRecorder::to_string(int ind) const{
   std::stringstream ss;
   for(const Line &L : lines){

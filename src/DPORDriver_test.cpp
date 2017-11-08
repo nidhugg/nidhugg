@@ -99,10 +99,9 @@ namespace DPORDriver_test {
     return res;
   }
 
-  int find(const IIDVCSeqTrace *_t, const IID<CPid> &iid){
-    const std::vector<IID<CPid> > &t = _t->get_computation();
-    for(int i = 0; i < int(t.size()); ++i){
-      if(t[i] == iid){
+  int find(const IIDVCSeqTrace *t, const IID<CPid> &iid){
+    for(int i = 0; i < int(t->size()); ++i){
+      if(t->get_iid(i) == iid){
         return i;
       }
     }
@@ -124,9 +123,10 @@ namespace DPORDriver_test {
    * strictly increasing along the computation of t. */
   bool all_clocks_increasing(const IIDVCSeqTrace *t){
     VClock<CPid> pcs;
-    for(auto it = t->get_computation().begin(); it != t->get_computation().end(); ++it){
-      if(it->get_index() <= pcs[it->get_pid()]) return false;
-      pcs[it->get_pid()] = it->get_index();
+    for(unsigned i = 0; i < t->size(); ++i){
+      const IID<CPid> &iid = t->get_iid(i);
+      if(iid.get_index() <= pcs[iid.get_pid()]) return false;
+      pcs[iid.get_pid()] = iid.get_index();
     }
     return true;
   }

@@ -1056,6 +1056,8 @@ namespace PATB_impl{
       : Trace(std::move(errors),blocked), events(events), cpids(cpids), string_rep(str_rep), conf(conf) {};
     virtual ~PATrace(){};
     virtual std::string to_string(int ind = 0) const;
+    virtual IID<CPid> get_iid(int index) const override;
+    virtual std::size_t size() const override { return events.size(); }
   protected:
     std::vector<Evt> events;
     std::vector<CPid> cpids;

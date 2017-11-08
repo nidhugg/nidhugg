@@ -153,6 +153,10 @@ public:
    * Trace. Indentation will be in multiples of ind spaces.
    */
   virtual std::string to_string(int ind = 0) const;
+  /* IID of the event with index event_index. */
+  virtual IID<CPid> get_iid(int event_index) const = 0;
+  /* Numer of events in trace. */
+  virtual std::size_t size() const = 0;
   /* Was the exploration of this execution (sleep set) blocked? */
   virtual bool is_blocked() const { return blocked; };
   virtual void set_blocked(bool b = true) { blocked = b; };
@@ -210,17 +214,17 @@ public:
   IIDVCSeqTrace &operator=(const IIDVCSeqTrace&) = delete;
   /* The sequence of events. */
   virtual const std::vector<IID<CPid> > &get_computation() const { return computation; };
-  /* The sequence of metadata (see above). */
-  virtual const std::vector<const llvm::MDNode*> &get_computation_metadata() const{
-    return computation_md;
-  };
-  /* The sequence of vector clocks. */
-  virtual const std::vector<VClock<CPid> > &get_computation_clocks() const{
-    return computation_clocks;
+  /* The vector clock of the event with index event_index. */
+  const VClock<CPid> &get_clock(int event_index) const{
+    return computation_clocks[event_index];
   };
   virtual std::string to_string(int ind = 0) const;
   /* Human-readable representation description of event, excluding IID. */
   std::string event_desc(int event_index) const;
+  virtual IID<CPid> get_iid(int index) const override {
+    return computation[index];
+  }
+  virtual std::size_t size() const override { return computation.size(); }
 protected:
   std::vector<IID<CPid> > computation;
   std::vector<const llvm::MDNode*> computation_md;

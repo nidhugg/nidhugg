@@ -46,7 +46,7 @@ namespace TraceDumper {
   static void print_trace_node(std::fstream &out, unsigned ti,
                                const IIDVCSeqTrace &trace,
                                unsigned ei, const std::vector<Error*> &errors) {
-    const IID<CPid> &iid = trace.get_computation()[ei];
+    const IID<CPid> &iid = trace.get_iid(ei);
     out << "    " << node_name(ti, iid) << " [label=\"" << iid
         << dot_escape_string(trace.event_desc(ei));
     for (const Error *error : errors) {
@@ -73,12 +73,10 @@ namespace TraceDumper {
 
   static VClock<CPid> reconstruct_error_clock
   (const IIDVCSeqTrace &t, const IID<CPid> &iid, unsigned *last_index_out) {
-    const std::vector<IID<CPid>> &cmp = t.get_computation();
-    const std::vector<VClock<CPid>> &cmp_vc = t.get_computation_clocks();
-    VClock<CPid> result = cmp_vc[*last_index_out = 0];
-    for (unsigned i = cmp.size()-1; i > 0; --i) {
-      if (cmp[i].get_pid() == iid.get_pid()) {
-        result = cmp_vc[*last_index_out = i];
+    VClock<CPid> result = t.get_clock(*last_index_out = 0);
+    for (unsigned i = t.size()-1; i > 0; --i) {
+      if (t.get_iid(i).get_pid() == iid.get_pid()) {
+        result = t.get_clock(*last_index_out = i);
         break;
       }
     }
@@ -107,29 +105,27 @@ namespace TraceDumper {
     out << "  node [shape=box,fontname=Monospace]\n";
     for (unsigned ti = 0; ti < res.all_traces.size(); ++ti) {
       const IIDVCSeqTrace &t = static_cast<IIDVCSeqTrace&>(*res.all_traces[ti]);
-      const std::vector<IID<CPid>> &cmp = t.get_computation();
-      const std::vector<VClock<CPid>> &cmp_vc = t.get_computation_clocks();
       std::map<IID<CPid>,std::vector<Error*>> errors;
       for (const std::unique_ptr<Error> &error : t.get_errors()) {
         errors[error->get_location()].push_back(error.get());
       }
       out << "  subgraph trace_" << ti << " {\n";
       out << "    start_" << ti << " [label=\"Trace " << (ti+1) << "\"]\n";
-      out << "    start_" << ti << " -> " << node_name(ti, cmp[0]) << "\n";
-      for (unsigned ei = 0; ei < cmp_vc.size(); ++ei) {
-        print_trace_node(out, ti, t, ei, errors[cmp[ei]]);
-        errors.erase(cmp[ei]);
+      out << "    start_" << ti << " -> " << node_name(ti, t.get_iid(0)) << "\n";
+      for (unsigned ei = 0; ei < t.size(); ++ei) {
+        print_trace_node(out, ti, t, ei, errors[t.get_iid(ei)]);
+        errors.erase(t.get_iid(ei));
         std::vector<const VClock<CPid>*> frontier;
         for (unsigned pi = ei; pi > 0;) {
           --pi;
-          if (cmp_vc[pi].leq(cmp_vc[ei])
+          if (t.get_clock(pi).leq(t.get_clock(ei))
               && !std::any_of(frontier.begin(), frontier.end(),
                               [&](const VClock<CPid> *fc) {
-                                return cmp_vc[pi].leq(*fc);
+                                return t.get_clock(pi).leq(*fc);
                               })) {
-            out << "    " << node_name(ti, cmp[pi]) << " -> "
-                << node_name(ti, cmp[ei]) << "\n";
-            frontier.push_back(&cmp_vc[pi]);
+            out << "    " << node_name(ti, t.get_iid(pi)) << " -> "
+                << node_name(ti, t.get_iid(ei)) << "\n";
+            frontier.push_back(&t.get_clock(pi));
           }
         }
       }
@@ -146,21 +142,21 @@ namespace TraceDumper {
             << "end_" << ti << "\n";
         unsigned last_index;
         end_front.push_back(reconstruct_error_clock(t, p.first, &last_index));
-        out << "    " << node_name(ti, cmp[last_index]) << " -> "
+        out << "    " << node_name(ti, t.get_iid(last_index)) << " -> "
             << node_name(ti, p.first) << "\n";
 
       }
       /* Print end node */
       print_end_node(out, ti, t);
-      for (unsigned pi = cmp_vc.size(); pi > 0;) {
+      for (unsigned pi = t.size(); pi > 0;) {
         --pi;
         if (!std::any_of(end_front.begin(), end_front.end(),
                          [&](const VClock<CPid> &fc) {
-                           return cmp_vc[pi].leq(fc);
+                           return t.get_clock(pi).leq(fc);
                          })) {
-          out << "    " << node_name(ti, cmp[pi]) << " -> "
+          out << "    " << node_name(ti, t.get_iid(pi)) << " -> "
               << "end_" << ti << "\n";
-          end_front.push_back(cmp_vc[pi]);
+          end_front.push_back(t.get_clock(pi));
         }
       }
       out << "  }\n";
