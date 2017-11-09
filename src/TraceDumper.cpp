@@ -19,8 +19,14 @@
 
 #include "TraceDumper.h"
 
+#include "DPORDriver_test.h"
+
 #include <fstream>
 #include <iostream>
+
+using DPORDriver_test::IIDOrder;
+using DPORDriver_test::trace_spec;
+using DPORDriver_test::trace_set_spec;
 
 namespace TraceDumper {
 
@@ -86,6 +92,7 @@ namespace TraceDumper {
   }
 
   static bool open_file(std::fstream &out, std::string filename) {
+    if (filename == "-") filename = "/dev/stdout";
     out.open(filename, std::fstream::out | std::fstream::trunc);
     if (!out) {
       throw std::logic_error("Failed to open output file " +filename);// << std::endl;
@@ -233,12 +240,175 @@ namespace TraceDumper {
     out << "}\n";
   }
 
+  /* The transitive reduction of res */
+  static trace_set_spec tred(const DPORDriver::Result &res) {
+    trace_set_spec set;
+    for (unsigned ti = 0; ti < res.all_traces.size(); ++ti) {
+      const IIDVCSeqTrace &t = static_cast<IIDVCSeqTrace&>(*res.all_traces[ti]);
+      if (t.is_blocked()) continue;
+      trace_spec spec;
+      for (unsigned ei = 0; ei < t.size(); ++ei) {
+        std::vector<const VClock<CPid>*> frontier;
+        for (unsigned pi = ei; pi > 0;) {
+          --pi;
+          if (t.get_clock(pi).leq(t.get_clock(ei))
+              && !std::any_of(frontier.begin(), frontier.end(),
+                              [&](const VClock<CPid> *fc) {
+                                return t.get_clock(pi).leq(*fc);
+                              })) {
+            spec.push_back({t.get_iid(pi), t.get_iid(ei)});
+            frontier.push_back(&t.get_clock(pi));
+          }
+        }
+      }
+      set.emplace_back(std::move(spec));
+    }
+    return set;
+  }
+
+  static void delete_po(trace_set_spec &set) {
+    for (trace_spec &spec : set) {
+      for (auto it = spec.begin(); it != spec.end();) {
+        if (it->a.get_pid() == it->b.get_pid()) {
+          it = spec.erase(it);
+        } else {
+          ++it;
+        }
+      }
+    }
+  }
+
+  static std::vector<std::map<IID<CPid>,const VClock<CPid>*>>
+  get_traces(const DPORDriver::Result &res) {
+    std::vector<std::map<IID<CPid>,const VClock<CPid>*>> traces;
+    for (const Trace *wtp : res.all_traces) {
+      const IIDVCSeqTrace &t = static_cast<const IIDVCSeqTrace&>(*wtp);
+      if (t.is_blocked()) continue;
+      traces.emplace_back();
+      for (unsigned ei = 0; ei < t.size(); ++ei) {
+        traces.back()[t.get_iid(ei)] = &t.get_clock(ei);
+      }
+    }
+    return traces;
+  }
+
+  static void
+  filter_traces(std::vector<std::map<IID<CPid>,const VClock<CPid>*>> &traces,
+                const IIDOrder &edge) {
+    for (auto it = traces.begin(); it != traces.end();) {
+      /* XXX: We check b !<= a rather than a <= b since
+       * DPORDriver_test::check_trace only checks that a was executed
+       * before b, and not that it actually *happens before* b.
+       */
+      if (it->count(edge.a) && it->count(edge.b)
+          && !it->at(edge.b)->leq(*it->at(edge.a))) {
+        ++it;
+      } else {
+        it = traces.erase(it);
+      }
+    }
+  }
+
+  /* Delete edges implied by all other edges in the set.
+   *
+   * Note: This is expensive and not guaranteed to find the global
+   * minumum.
+   */
+  static void delete_implied(trace_set_spec &set, const DPORDriver::Result &res) {
+    for (trace_spec &spec : set) {
+      for (auto it = spec.begin(); it != spec.end();) {
+        auto traces = get_traces(res);
+        for (auto it2 = spec.begin(); it2 != spec.end(); ++it2) {
+          if (it2 != it) filter_traces(traces, *it2);
+        }
+        if (traces.size() == 1) {
+          it = spec.erase(it);
+        } else {
+          ++it;
+        }
+      }
+    }
+  }
+
+  static const std::string &
+  name_pid(std::fstream &out, std::map<CPid,std::string> &map,
+           const CPid &cpid) {
+    if (map.count(cpid)) return map[cpid];
+    CPid parent = cpid.parent();
+    const std::string &parent_name = name_pid(out, map, parent);
+    std::string name = parent_name;
+    if (parent.has_parent()) name += "_";
+    if (cpid.is_auxiliary()) {
+      name[0] = 'U';
+      name += std::to_string(cpid.get_aux_index());
+      out << "CPid " << name << " = " << parent_name << ".aux("
+          << cpid.get_aux_index() << ");\n";
+    } else {
+      name += std::to_string(cpid.get_child_index());
+      out << "CPid " << name << " = " << parent_name << ".spawn("
+          << cpid.get_child_index() << ");\n";
+    }
+    map[cpid] = std::move(name);
+    return map[cpid];
+  }
+
+  static std::map<CPid,std::string>
+  name_pids(std::fstream &out, const trace_set_spec &set) {
+    std::map<CPid,std::string> map({{CPid(), "P"}});
+    out << "CPid P;\n";
+    for (const trace_spec &spec : set) {
+      for (const IIDOrder &edge : spec) {
+        name_pid(out, map, edge.a.get_pid());
+        name_pid(out, map, edge.b.get_pid());
+      }
+    }
+    return map;
+  }
+
+  static void
+  write_spec_iid(std::fstream &out, const std::map<CPid,std::string> &names,
+                 const IID<CPid> &iid) {
+    out << "{" << names.at(iid.get_pid()) << "," << iid.get_index() << "}";
+  }
+
+  static void dump_spec(const DPORDriver::Result &res,
+                        const Configuration &conf) {
+    if (conf.memory_model != Configuration::SC
+        && conf.memory_model != Configuration::TSO
+        && conf.memory_model != Configuration::PSO) {
+      return;
+    }
+    std::fstream out;
+    if (!open_file(out, conf.spec_dump_file)) return;
+
+    trace_set_spec set = tred(res);
+    delete_po(set);
+    delete_implied(set, res);
+
+    std::map<CPid,std::string> names = name_pids(out, set);
+    out << "DPORDriver_test::trace_set_spec expected = {\n";
+    for (const trace_spec &spec : set) {
+      out << "  {";
+      for (auto it = spec.begin();;) {
+        out << "{";
+        write_spec_iid(out, names, it->a);
+        out << ",";
+        write_spec_iid(out, names, it->b);
+        out << "}";
+        if (++it == spec.end()) break;
+        out << ",";
+      }
+      out << "},\n";
+    }
+    out << "};\n";
+  }
 
   void dump(const DPORDriver::Result &res,
             const Configuration &conf) {
     if (!conf.debug_collect_all_traces) return;
     if (!conf.trace_dump_file.empty()) dump_traces(res, conf);
     if (!conf.tree_dump_file.empty()) dump_tree(res, conf);
+    if (!conf.spec_dump_file.empty()) dump_spec(res, conf);
   }
 
 }

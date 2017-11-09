@@ -121,6 +121,10 @@ int CPid::get_aux_index() const{
   return aux_idx;
 }
 
+int CPid::get_child_index() const{
+  return proc_seq.back();
+}
+
 CPidSystem::CPidSystem(){
   real_children.push_back({});
   aux_children.push_back({});

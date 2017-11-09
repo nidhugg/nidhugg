@@ -71,6 +71,9 @@ public:
    */
   int get_aux_index() const;
 
+  /* Returns pn where this CPid is <p0.....pn/i>. */
+  int get_child_index() const;
+
   std::string to_string() const;
 
   /* Comparison implements a total order over CPids. */

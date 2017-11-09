@@ -112,6 +112,11 @@ static llvm::cl::opt<std::string> cl_dump_tree
  llvm::cl::value_desc("FILE"),
  llvm::cl::desc("Write graph of exploration tree to FILE."));
 
+static llvm::cl::opt<std::string> cl_dump_spec
+("dump-spec",llvm::cl::NotHidden,llvm::cl::cat(cl_dump_cat),
+ llvm::cl::value_desc("FILE"),
+ llvm::cl::desc("Write minimal trace_set_spec to FILE."));
+
 const std::set<std::string> &Configuration::commandline_opts(){
   static std::set<std::string> opts = {
     "dpor-explore-all",
@@ -129,6 +134,7 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "print-progress-estimate",
     "dump-traces",
     "dump-tree",
+    "dump-spec",
   };
   return opts;
 }
@@ -157,6 +163,8 @@ void Configuration::assign_by_commandline(){
   tree_dump_file = cl_dump_tree;
   debug_collect_all_traces |= !cl_dump_tree.empty();
   ee_store_trace           |= !cl_dump_tree.empty();
+  spec_dump_file = cl_dump_spec;
+  debug_collect_all_traces |= !cl_dump_spec.empty();
   argv.resize(1);
   argv[0] = get_default_program_name();
   for(std::string a : cl_program_arguments){
@@ -249,6 +257,10 @@ void Configuration::check_commandline(){
       if (cl_dump_traces != ""){
         Debug::warn("Configuration::check_commandline:mm:dump-traces")
           << "WARNING: --dump-traces not implemented for memory model " << mm << ".\n";
+      }
+      if (cl_dump_spec != ""){
+        Debug::warn("Configuration::check_commandline:mm:dump-spec")
+          << "WARNING: --dump-spec ignored under memory model " << mm << ".\n";
       }
     }
     if (cl_dpor_algorithm == Configuration::OPTIMAL
