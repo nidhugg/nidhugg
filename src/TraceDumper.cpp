@@ -316,15 +316,14 @@ namespace TraceDumper {
    */
   static void delete_implied(trace_set_spec &set, const DPORDriver::Result &res) {
     for (trace_spec &spec : set) {
-      for (auto it = spec.begin(); it != spec.end();) {
+      for (auto it = spec.end(); it != spec.begin();) {
+        --it;
         auto traces = get_traces(res);
         for (auto it2 = spec.begin(); it2 != spec.end(); ++it2) {
           if (it2 != it) filter_traces(traces, *it2);
         }
         if (traces.size() == 1) {
           it = spec.erase(it);
-        } else {
-          ++it;
         }
       }
     }
