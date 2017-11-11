@@ -1,8 +1,5 @@
 language: C++
 sudo: false
-branches:
-  only:
-    - master
 env:
   - LLVM_VERSION=3.5.0  # default on Debian jessie
   - LLVM_VERSION=3.6.2
