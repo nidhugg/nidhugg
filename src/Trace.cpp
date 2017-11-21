@@ -198,6 +198,14 @@ std::string MemoryError::to_string() const{
   return "Memory error at "+loc.to_string()+": ("+msg+")";
 }
 
+Error *NondeterminismError::clone() const{
+  return new NondeterminismError(loc,msg);
+}
+
+std::string NondeterminismError::to_string() const{
+  return "Nondeterminism detected at "+loc.to_string()+": "+msg;
+}
+
 bool Trace::get_location(const llvm::MDNode *m,
                          int *lineno,
                          std::string *fname,

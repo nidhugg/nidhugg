@@ -1163,6 +1163,64 @@ declare void @__assert_fail() nounwind noreturn
   BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
 }
 
+BOOST_AUTO_TEST_CASE(Nondeterminism_detection){
+  /* Simulate thread-wise nondeterminism, and check that it is
+   * detected.
+   *
+   * Here we use a memory location _changing_ which is declared
+   * *outside* of the test code. This is in order to ensure that its
+   * value is not reinitialized when the test is restarted (as a
+   * static variable inside the test code would be).
+   *
+   * The code in main will run twice. (This is ensured by the race on
+   * x.)
+   *
+   * The code in main branches on the value of _changing_, and changes
+   * its value. Therefore the branch will go in different directions
+   * in the first and the second computation. Since the branch is
+   * evaluated in the portion of the code that is replayed, this
+   * apparent non-determinism should be detected and trigger an error.
+   */
+  Configuration conf = DPORDriver_test::get_pso_conf();
+  char changing = 0;
+  std::stringstream ss;
+  ss << "inttoptr(i64 " << (unsigned long)(&changing) << " to i8*)";
+  std::string changingAddr = ss.str();
+  DPORDriver *driver =
+    DPORDriver::parseIR(StrModule::portasm(R"(
+@x = global i32 0, align 4
+
+define i8* @p1(i8* %arg){
+  store i32 1, i32* @x
+  ret i8* null
+}
+
+define i32 @main(){
+  %v = load i8, i8* )"+changingAddr+R"(
+  %c = icmp eq i8 %v, 0
+  br i1 %c, label %doset, label %exit
+doset:
+  store i8 1, i8* )"+changingAddr+R"(
+  br label %exit
+exit:
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
+  load i32, i32* @x
+  ret i32 0
+}
+
+%attr_t = type { i64, [48 x i8] }
+declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
+declare void @__assert_fail()
+)"),conf);
+
+  DPORDriver::Result res = driver->run();
+
+  BOOST_CHECK(changing == 1);
+  BOOST_CHECK(res.has_errors());
+
+  delete driver;
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif

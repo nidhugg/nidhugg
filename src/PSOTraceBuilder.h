@@ -32,6 +32,8 @@ public:
   virtual void refuse_schedule();
   virtual void mark_available(int proc, int aux = -1);
   virtual void mark_unavailable(int proc, int aux = -1);
+  virtual void cancel_replay();
+  virtual bool is_replaying() const;
   virtual void metadata(const llvm::MDNode *md);
   virtual bool sleepset_is_empty() const;
   virtual bool check_for_cycles();

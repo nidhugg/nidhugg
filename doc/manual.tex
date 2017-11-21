@@ -55,6 +55,11 @@ A test case must satisfy the following two conditions
 %
   This means that the test case may not e.g.\ check the time, or
   perform file I/O.
+%
+  If this condition is not satisfied, Nidhugg \emph{may} be able to
+  detect the nondeterminism and report it as an error with an attached
+  error trace (currently only supported under SC/TSO/PSO). However,
+  there is no guarantee for this, and a crash is a likely outcome.
 \end{description}
 
 \section{Supported Memory Models}

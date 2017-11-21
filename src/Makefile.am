@@ -8,6 +8,7 @@ libnidhugg_a_SOURCES = \
   Configuration.cpp Configuration.h \
   CPid.cpp CPid.h \
   Debug.cpp Debug.h \
+  DetCheckTraceBuilder.cpp DetCheckTraceBuilder.h \
   DPORDriver.cpp DPORDriver.h \
   Execution.cpp \
   ExternalFunctions.cpp \

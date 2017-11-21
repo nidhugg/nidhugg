@@ -121,6 +121,19 @@ private:
   std::string msg;
 };
 
+/* An error where the program has been detected violating the
+ * determinism requirement.
+ */
+class NondeterminismError : public Error{
+public:
+  NondeterminismError(const IID<CPid> &loc, std::string msg)
+    : Error(loc), msg(msg) {};
+  virtual Error *clone() const;
+  virtual std::string to_string() const;
+private:
+  std::string msg;
+};
+
 /* A Trace describes one execution of the program. Mainly it is a
  * sequence of events (IIDs).
  */

@@ -208,6 +208,16 @@ void PSOTraceBuilder::mark_unavailable(int proc, int aux){
   mark_unavailable_ipid(ipid(proc,aux));
 }
 
+bool PSOTraceBuilder::is_replaying() const {
+  return replay;
+}
+
+void PSOTraceBuilder::cancel_replay(){
+  if(!replay) return;
+  replay = false;
+  prefix.resize(prefix_idx+1,Event(IID<IPid>(),VClock<IPid>()));
+}
+
 void PSOTraceBuilder::metadata(const llvm::MDNode *md){
   if(curnode().md == 0){
     curnode().md = md;
@@ -315,6 +325,7 @@ bool PSOTraceBuilder::reset(){
   available_auxs.clear();
   available_threads.insert(0);
   last_md = 0;
+  reset_cond_branch_log();
 
   return true;
 }

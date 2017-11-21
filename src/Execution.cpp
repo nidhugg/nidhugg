@@ -945,7 +945,12 @@ void Interpreter::visitBranchInst(BranchInst &I) {
   Dest = I.getSuccessor(0);          // Uncond branches have a fixed dest...
   if (!I.isUnconditional()) {
     Value *Cond = I.getCondition();
-    if (getOperandValue(Cond, SF).IntVal == 0) // If false cond...
+    bool condVal = (getOperandValue(Cond, SF).IntVal != 0);
+    if(!TB.cond_branch(condVal)){
+      abort();
+      return;
+    }
+    if (!condVal) // If false cond...
       Dest = I.getSuccessor(1);
   }
   SwitchToNewBasicBlock(Dest, SF);
@@ -3350,6 +3355,7 @@ void Interpreter::clearAllStacks(){
 }
 
 void Interpreter::abort(){
+  TB.cancel_replay();
   for(unsigned i = 0; i < Threads.size(); ++i){
     TB.mark_unavailable(i);
   }

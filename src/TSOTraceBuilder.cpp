@@ -160,6 +160,16 @@ void TSOTraceBuilder::mark_unavailable(int proc, int aux){
   threads[ipid(proc,aux)].available = false;
 }
 
+bool TSOTraceBuilder::is_replaying() const {
+  return replay;
+}
+
+void TSOTraceBuilder::cancel_replay(){
+  if(!replay) return;
+  replay = false;
+  prefix.resize(prefix_idx+1,Event(IID<IPid>(),VClock<IPid>()));
+}
+
 void TSOTraceBuilder::metadata(const llvm::MDNode *md){
   if(!dryrun && curnode().md == 0){
     curnode().md = md;
@@ -266,6 +276,7 @@ bool TSOTraceBuilder::reset(){
   replay = true;
   dry_sleepers = 0;
   last_md = 0;
+  reset_cond_branch_log();
 
   return true;
 }

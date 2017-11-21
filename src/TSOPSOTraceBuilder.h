@@ -25,7 +25,7 @@
 #include "Configuration.h"
 #include "MRef.h"
 #include "Trace.h"
-#include "TraceBuilder.h"
+#include "DetCheckTraceBuilder.h"
 
 #include <string>
 #include <vector>
@@ -44,10 +44,10 @@
  * memory model specific.
  */
 
-class TSOPSOTraceBuilder : public TraceBuilder{
+class TSOPSOTraceBuilder : public DetCheckTraceBuilder{
 public:
   TSOPSOTraceBuilder(const Configuration &conf = Configuration::default_conf)
-    : TraceBuilder(conf) {};
+    : DetCheckTraceBuilder(conf) {};
   virtual ~TSOPSOTraceBuilder() {};
   /* Schedules the next thread.
    *
@@ -96,6 +96,11 @@ public:
    * because it is blocked waiting for something.
    */
   virtual void mark_unavailable(int proc, int aux = -1) = 0;
+  /* If we are not in a replay, do nothing. Otherwise cancel the
+   * replay from here on, so that the computation may continue
+   * according to an arbitrary schedule.
+   */
+  virtual void cancel_replay() = 0;
   /* Associate the currently scheduled event with LLVM "dbg" metadata. */
   virtual void metadata(const llvm::MDNode *md) = 0;
 
