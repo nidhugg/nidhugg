@@ -3033,8 +3033,9 @@ void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVa
   }
 }
 
-void Interpreter::callMalloc(Function *F,
-                             const std::vector<GenericValue> &ArgVals){
+void Interpreter::callMCalloc(Function *F,
+                              const std::vector<GenericValue> &ArgVals,
+                              bool isCalloc){
   if(conf.malloc_may_fail && CurrentAlt == 0){
     TB.register_alternatives(2);
     GenericValue Result;
@@ -3043,8 +3044,14 @@ void Interpreter::callMalloc(Function *F,
   }else{// else call as usual
     GenericValue Result;
     assert(ArgVals[0].IntVal.getBitWidth() <= 64);
-    uint64_t sz = ArgVals[0].IntVal.getLimitedValue();
-    Result.PointerVal = malloc(sz);
+    if(isCalloc){
+      uint64_t nm = ArgVals[0].IntVal.getLimitedValue();
+      uint64_t sz = ArgVals[1].IntVal.getLimitedValue();
+      Result.PointerVal = calloc(nm,sz);
+    }else{ // malloc
+      uint64_t sz = ArgVals[0].IntVal.getLimitedValue();
+      Result.PointerVal = malloc(sz);
+    }
     AllocatedMemHeap.insert(Result.PointerVal);
     returnValueToCaller(F->getReturnType(),Result);
   }
@@ -3142,7 +3149,10 @@ void Interpreter::callFunction(Function *F,
     callPthreadCondDestroy(F,ArgVals);
     return;
   }else if(F->getName().str() == "malloc"){
-    callMalloc(F,ArgVals);
+    callMCalloc(F,ArgVals,false);
+    return;
+  }else if(F->getName().str() == "calloc"){
+    callMCalloc(F,ArgVals,true);
     return;
   }else if(F->getName().str() == "free"){
     callFree(F,ArgVals);

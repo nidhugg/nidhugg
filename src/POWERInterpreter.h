@@ -508,7 +508,7 @@ private:  // Helper functions
    */
   void callAssertFail(llvm::Function *F);
   void callAssume(llvm::Function *F);
-  void callMalloc(llvm::Function *F);
+  void callMCalloc(llvm::Function *F, bool isCalloc);
   void callPthreadCreate(llvm::Function *F);
   void callPthreadExit(llvm::Function *F);
   void callPthreadJoin(llvm::Function *F);

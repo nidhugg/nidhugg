@@ -2090,6 +2090,29 @@ declare void @__assert_fail() noreturn nounwind
   delete driver;
 }
 
+BOOST_AUTO_TEST_CASE(Memory_leak_2){
+  /* Allocate memory without freeing it.
+   *
+   * The memory should be freed by the Interpreter after the end of
+   * the execution. If not, it will be detected when running the unit
+   * tests under valgrind.
+   */
+  Configuration conf = DPORDriver_test::get_tso_conf();
+  DPORDriver *driver =
+    DPORDriver::parseIR(StrModule::portasm(R"(
+define i32 @main(){
+  call i8* @calloc(i32 10, i32 4)
+  ret i32 0
+}
+
+declare i8* @calloc(i32,i32) nounwind
+declare void @free(i8*) nounwind
+declare void @__assert_fail() noreturn nounwind
+)"),conf);
+  DPORDriver::Result res = driver->run();
+  delete driver;
+}
+
 BOOST_AUTO_TEST_CASE(Atexit_1){
   Configuration conf = DPORDriver_test::get_sc_conf();
   DPORDriver *driver =

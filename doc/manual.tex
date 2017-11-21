@@ -287,7 +287,8 @@ int main(int argc, char *argv[]){
   assume that the call succeeds, allocate memory and provide the
   resulting memory pointer as return value for the call. But, if
   \texttt{--malloc-may-fail} is given to Nidhugg, then the case when
-  \texttt{malloc} fails and returns NULL is also analyzed.
+  \texttt{malloc} (or \texttt{calloc}) fails and returns NULL is also
+  analyzed.
 %
   \limitsupport{SC, TSO, PSO}
 \item{\texttt{--disable-mutex-init-requirement}}
@@ -636,6 +637,7 @@ called as blackboxes. See Section~\ref{sec:external:functions}.
 
 \begin{description}
 \item{\texttt{malloc}}
+\item{\texttt{calloc}}
 \item{\texttt{free}}
 \item{\texttt{atexit}} (\limitsupport{SC, TSO, PSO})
 \item{\texttt{\_\_assert\_fail}} (Called by the \texttt{assert} macro

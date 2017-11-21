@@ -74,6 +74,7 @@ namespace CheckModule {
   void check_pthread_cond_wait(const llvm::Module *M);
   void check_pthread_cond_destroy(const llvm::Module *M);
   void check_malloc(const llvm::Module *M);
+  void check_calloc(const llvm::Module *M);
   void check_nondet_int(const llvm::Module *M); // __VERIFIER_nondet_int, __VERIFIER_nondet_uint
   void check_assume(const llvm::Module *M); // __VERIFIER_assume
 

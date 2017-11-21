@@ -46,6 +46,7 @@ void CheckModule::check_functions(const llvm::Module *M){
   check_pthread_cond_wait(M);
   check_pthread_cond_destroy(M);
   check_malloc(M);
+  check_calloc(M);
   check_nondet_int(M);
   check_assume(M);
   std::set<std::string> supported =
@@ -335,6 +336,51 @@ void CheckModule::check_malloc(const llvm::Module *M){
     if(!F->getReturnType()->isPointerTy()){
       err << "malloc returns non-pointer type: "
           << *F->getReturnType();
+      throw CheckModuleError(err.str());
+    }
+    if(F->arg_size() != 1){
+      err << "malloc takes wrong number of arguments ("
+          << F->arg_size() << ")";
+      throw CheckModuleError(err.str());
+    }
+    llvm::Type *arg0ty = F->arg_begin()->getType();
+    if(!arg0ty->isIntegerTy()){
+      err << "Argument of malloc has non-integer type: "
+          << *arg0ty;
+      throw CheckModuleError(err.str());
+    }
+  }
+}
+
+void CheckModule::check_calloc(const llvm::Module *M){
+  std::string _err;
+  llvm::raw_string_ostream err(_err);
+  llvm::Function *F = M->getFunction("calloc");
+  if(F){
+    if(!F->getReturnType()->isPointerTy()){
+      err << "calloc returns non-pointer type: "
+          << *F->getReturnType();
+      throw CheckModuleError(err.str());
+    }
+    if(F->arg_size() != 2){
+      err << "calloc takes wrong number of arguments ("
+          << F->arg_size() << ")";
+      throw CheckModuleError(err.str());
+    }
+    llvm::Type *arg0ty, *arg1ty;
+    {
+      auto it = F->arg_begin();
+      arg0ty = it->getType();
+      arg1ty = (++it)->getType();
+    }
+    if(!arg0ty->isIntegerTy()){
+      err << "First argument of calloc has non-integer type: "
+          << *arg0ty;
+      throw CheckModuleError(err.str());
+    }
+    if(!arg1ty->isIntegerTy()){
+      err << "Second argument of calloc has non-integer type: "
+          << *arg1ty;
       throw CheckModuleError(err.str());
     }
   }

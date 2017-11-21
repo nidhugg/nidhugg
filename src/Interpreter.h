@@ -576,7 +576,7 @@ protected:  // Helper functions
   virtual void callPthreadCondDestroy(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callAssume(Function *F, const std::vector<GenericValue> &ArgVals);
-  virtual void callMalloc(Function *F, const std::vector<GenericValue> &ArgVals);
+  virtual void callMCalloc(Function *F, const std::vector<GenericValue> &ArgVals, bool isCalloc);
   virtual void callFree(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
   virtual void callAtexit(Function *F, const std::vector<GenericValue> &ArgVals);

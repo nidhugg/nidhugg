@@ -2332,10 +2332,16 @@ void POWERInterpreter::callAssertFail(llvm::Function *F){
    */
 }
 
-void POWERInterpreter::callMalloc(llvm::Function *F){
-  unsigned n = getOperandValue(0).IntVal.getZExtValue();
-
-  void *Memory = malloc(n);
+void POWERInterpreter::callMCalloc(llvm::Function *F,bool isCalloc){
+  void *Memory;
+  if(isCalloc){
+    unsigned nm = getOperandValue(0).IntVal.getZExtValue();
+    unsigned sz = getOperandValue(1).IntVal.getZExtValue();
+    Memory = calloc(nm,sz);
+  }else{
+    unsigned n = getOperandValue(0).IntVal.getZExtValue();
+    Memory = malloc(n);
+  }
 
   llvm::GenericValue Result = llvm::PTOGV(Memory);
   assert(Result.PointerVal && "Null pointer returned by malloc!");
@@ -2481,7 +2487,10 @@ void POWERInterpreter::callFunction(llvm::Function *F,
   }else if(F->getName().str() == "free"){
     return; // Do nothing
   }else if(F->getName().str() == "malloc"){
-    callMalloc(F);
+    callMCalloc(F,false);
+    return;
+  }else if(F->getName().str() == "calloc"){
+    callMCalloc(F,true);
     return;
   }else if(F->getName().str() == "pthread_create"){
     callPthreadCreate(F);
