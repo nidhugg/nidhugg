@@ -24,7 +24,9 @@ WakeupTreeRef<Branch> WakeupTreeRef<Branch>::put_child(Branch b) {
           [&b](std::pair<Branch,std::unique_ptr<WakeupTree<Branch>>> &e) {
            return e.first == b;
          }));
-  node->children.emplace_back(std::move(b), new WakeupTree<Branch>());
+  node->children.emplace_back
+    (std::move(b),
+     std::unique_ptr<WakeupTree<Branch>>(new WakeupTree<Branch>()));
   return WakeupTreeRef(*node->children.back().second);
 }
 

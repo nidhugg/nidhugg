@@ -26,7 +26,7 @@ template<typename Value>
 class Option {
 public:
   Option() : has_value(false) {}
-  Option(nullptr_t) : has_value(false) {}
+  Option(std::nullptr_t) : has_value(false) {}
   Option(Value value) : has_value(true), value(std::move(value)) {}
   ~Option() { if (has_value) value.~Value(); }
   Option(const Option &o) : has_value(o.has_value) {
