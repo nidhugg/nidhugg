@@ -1278,7 +1278,15 @@ void TSOTraceBuilder::add_noblock_race(int event){
   assert(0 <= event);
   assert(event < prefix_idx);
 
-  curev().races.push_back(Race::Nonblock(event,prefix_idx));
+  std::vector<Race> &races = curev().races;
+  if (races.size()) {
+    const Race &prev = races.back();
+    if (prev.kind == Race::NONBLOCK
+        && prev.first_event == event
+        && prev.second_event == prefix_idx) return;
+  }
+
+  races.push_back(Race::Nonblock(event,prefix_idx));
 }
 
 void TSOTraceBuilder::add_lock_suc_race(int lock, int unlock){
@@ -1301,7 +1309,17 @@ void TSOTraceBuilder::add_observed_race(int first, int second){
   assert(first < second);
   assert(second < prefix_idx);
 
-  prefix[second].races.push_back(Race::Observed(first,second,prefix_idx));
+  std::vector<Race> &races = prefix[second].races;
+  if (races.size()) {
+    const Race &prev = races.back();
+    if (prev.kind == Race::OBSERVED
+        && prev.first_event == first
+        && prev.second_event == second
+        && prev.witness_event == prefix_idx)
+      return;
+  }
+
+  races.push_back(Race::Observed(first,second,prefix_idx));
 }
 
 void TSOTraceBuilder::add_happens_after(unsigned second, unsigned first){
@@ -1311,7 +1329,10 @@ void TSOTraceBuilder::add_happens_after(unsigned second, unsigned first){
   assert(first < second);
   assert((long long)second <= prefix_idx);
 
-  prefix[second].happens_after.push_back(first);
+  std::vector<unsigned> &vec = prefix[second].happens_after;
+  if (vec.size() && vec.back() == first) return;
+
+  vec.push_back(first);
 }
 
 void TSOTraceBuilder::add_happens_after_thread(unsigned second, IPid thread){
@@ -1429,14 +1450,14 @@ void TSOTraceBuilder::compute_vclocks(){
         /* A virtual event does not contribute to the vclock and cannot
          * subsume races. */
         if (s.kind == Race::LOCK_FAIL) return false;
-        /* Filter out observed races with nonfirst witness */
+        /* Also filter out observed races with nonfirst witness */
         if (f.kind == Race::OBSERVED && s.kind == Race::OBSERVED
             && f.first_event == s.first_event
             && f.second_event == s.second_event){
           /* N.B. We want the _first_ observer as the witness; thus
            * the reversal of f and s.
            */
-          return s.witness_event < f.witness_event;
+          return s.witness_event <= f.witness_event;
         }
         int se = s.kind == Race::LOCK_SUC ? s.unlock_event : s.first_event;
         return prefix[f.first_event].clock.leq(prefix[se].clock);
