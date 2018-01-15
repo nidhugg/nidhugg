@@ -2008,6 +2008,7 @@ std::vector<int> TSOTraceBuilder::iid_map_at(int event) const{
 }
 
 void TSOTraceBuilder::iid_map_step(std::vector<int> &iid_map, const Branch &event) const{
+  if (iid_map.size() <= unsigned(event.pid)) iid_map.resize(event.pid+1, 1);
   iid_map[event.pid] += event.size;
 }
 
