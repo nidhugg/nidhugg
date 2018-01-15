@@ -2033,7 +2033,8 @@ TSOTraceBuilder::Event TSOTraceBuilder::reconstruct_lock_event
 
   assert(std::any_of(prefix[race.first_event].sym.begin(),
                      prefix[race.first_event].sym.end(),
-                     [](SymEv &e){ return e.kind == SymEv::M_LOCK; }));
+                     [](SymEv &e){ return e.kind == SymEv::M_LOCK
+                         || e.kind == SymEv::FULLMEM; }));
   ret.sym = prefix[race.first_event].sym;
   return ret;
 }
