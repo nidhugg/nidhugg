@@ -883,7 +883,6 @@ void TSOTraceBuilder::join(int tgt_proc){
   record_symbolic(SymEv::Join(tgt_proc));
   if(dryrun) return;
   curev().may_conflict = true;
-  IPid ipid = curev().iid.get_pid();
   assert(threads[tgt_proc*2].store_buffer.empty());
   add_happens_after_thread(prefix_idx, tgt_proc*2);
   add_happens_after_thread(prefix_idx, tgt_proc*2+1);
@@ -908,7 +907,6 @@ void TSOTraceBuilder::mutex_lock(const SymAddrSize &ml){
   wakeup(Access::W,ml.addr);
 
   Mutex &mutex = mutexes[ml.addr];
-  IPid ipid = curev().iid.get_pid();
 
   if(mutex.last_lock < 0){
     /* No previous lock */
