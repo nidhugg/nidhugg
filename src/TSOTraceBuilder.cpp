@@ -23,7 +23,19 @@
 #include <sstream>
 #include <stdexcept>
 
+#define ANSIRed "\x1b[91m"
+#define ANSIRst "\x1b[m"
+
+static std::string events_to_string(const llvm::SmallVectorImpl<SymEv> &e);
 static void clear_observed(sym_ty &syms);
+
+static VecSet<int> oss_to_ss(const std::map<int,const sym_ty*> &sleep) {
+  /* Efficiently make a VecSet */
+  std::vector<int> keys(sleep.size());
+  std::transform(sleep.begin(), sleep.end(), keys.begin(),
+                 [](const std::pair<const int,const sym_ty*> &r){return r.first;});
+  return VecSet<int>(std::move(keys));
+}
 
 TSOTraceBuilder::TSOTraceBuilder(const Configuration &conf) : TSOPSOTraceBuilder(conf) {
   threads.push_back(Thread(CPid(), -1));
@@ -283,6 +295,8 @@ Trace *TSOTraceBuilder::get_trace() const{
   return t;
 }
 
+static std::string rpad(std::string s, int n);
+
 bool TSOTraceBuilder::reset(){
   if(conf.debug_print_on_reset){
     llvm::dbgs() << " === TSOTraceBuilder reset ===\n";
@@ -343,7 +357,90 @@ bool TSOTraceBuilder::reset(){
           }
         }
 
+        if (iafterj != prefix[j].clock.leq(e.clock)) {
+          if (iafterj) {
+            llvm::dbgs() << "SymEv thinks " << i << " happens after " << j
+                         << " but vclock does not\n";
+          } else {
+            llvm::dbgs() << "VClock thinks " << i << " happens after " << j
+                         << " but SymEv does not\n";
+          }
+          int ix_offs = 0;
+          int iid_offs = 0;
+          int clock_offs = 0;
+          for(unsigned k = 0; k < prefix.len(); ++k){
+            IPid ipid = prefix[k].iid.get_pid();
+            ix_offs = std::max(ix_offs,int(std::to_string(k).size()));
+            iid_offs = std::max(iid_offs,/*2**/ipid+int(iid_string(k).size()));
+            clock_offs = std::max(clock_offs,int(prefix[k].clock.to_string().size()));
+          }
+
+          for(unsigned k = 0; k < prefix.len(); ++k){
+            IPid ipid = prefix[k].iid.get_pid();
+            llvm::dbgs() << rpad("",ix_offs-int(std::to_string(k).size()))
+                         << (k == i || k == j ? ANSIRed : "") << k
+                         << (k == i || k == j ? ANSIRst : "")
+                         << ":" << rpad("",2+ipid/**2*/)
+                         << rpad(iid_string(k),iid_offs-ipid/**2*/)
+                         << " " << rpad(prefix[k].clock.to_string(),clock_offs)
+                         << " " << events_to_string(prefix[k].sym)
+                         << "\n";
+          }
+          if(errors.size()){
+            llvm::dbgs() << "Errors:\n";
+            for(unsigned k = 0; k < errors.size(); ++k){
+              llvm::dbgs() << "  Error #" << k+1 << ": "
+                           << errors[k]->to_string() << "\n";
+            }
+          }
+        }
         assert(iafterj == prefix[j].clock.leq(e.clock));
+      }
+
+      if (!conf.observers) {
+        VecSet<IPid> vsleep = oss_to_ss(sym_sleep_set_at(i));
+
+        if (!(i == prefix.len() - 1 && errors.size() &&
+              errors.back()->get_location()
+              == IID<CPid>(threads[pid].cpid, e.iid.get_index()))
+            && sleep_set_at(i) != vsleep) {
+          llvm::dbgs() << "Sleepsets disagree at " << i << "\n";
+          std::function<std::string(const IPid&)> pf
+            = [this](const IPid &p) { return threads[p].cpid.to_string(); };
+          llvm::dbgs() << ANSIRed << "[" << i << "] vsleep: "
+                       << vsleep.to_string_one_line(pf)
+                       << ", ref:"
+                       << sleep_set_at(i).to_string_one_line(pf) << ANSIRst << "\n";
+          int ix_offs = 0;
+          int iid_offs = 0;
+          int slp_offs = 0;
+          for(unsigned k = 0; k < prefix.len(); ++k){
+            IPid ipid = prefix[k].iid.get_pid();
+            ix_offs = std::max(ix_offs,int(std::to_string(k).size()));
+            iid_offs = std::max(iid_offs,/*2**/ipid+int(iid_string(k).size()));
+            slp_offs = std::max(slp_offs,int((slp_string(prefix[k].sleep)+slp_string(prefix[k].wakeup)).size()));
+          }
+
+          for(unsigned k = 0; k < prefix.len(); ++k){
+            IPid ipid = prefix[k].iid.get_pid();
+            llvm::dbgs() << rpad("",ix_offs-int(std::to_string(k).size()))
+                         << (k == i ? ANSIRed : "") << k
+                         << (k == i ? ANSIRst : "")
+                         << ":" << rpad("",2+ipid/**2*/)
+                         << rpad(iid_string(k),iid_offs-ipid/**2*/)
+                         << " " << rpad(slp_string(prefix[k].sleep)+slp_string(prefix[k].wakeup),slp_offs)
+                         << " " << events_to_string(prefix[k].sym)
+                         << "\n";
+          }
+          if(errors.size()){
+            llvm::dbgs() << "Errors:\n";
+            for(unsigned k = 0; k < errors.size(); ++k){
+              llvm::dbgs() << "  Error #" << k+1 << ": "
+                           << errors[k]->to_string() << "\n";
+            }
+          }
+          abort();
+        }
       }
 
       /* Cleanup */
@@ -1703,6 +1800,16 @@ void TSOTraceBuilder::race_detect
   assert(cand_sym);
   cand.sym = *cand_sym;
   prefix.parent_at(i).put_child(cand);
+}
+
+static std::string events_to_string(const llvm::SmallVectorImpl<SymEv> &e) {
+  if (e.size() == 0) return "None()";
+  std::string res;
+  for (unsigned i = 0; i < e.size(); ++i) {
+    res += e[i].to_string();
+    if (i != e.size()-1) res += ", ";
+  }
+  return res;
 }
 
 void TSOTraceBuilder::race_detect_optimal
