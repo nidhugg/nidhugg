@@ -511,6 +511,9 @@ protected:
                            std::vector<int> &iid_map,
                            unsigned line, Branch branch,
                            WakeupTreeRef<Branch> node) const;
+#ifndef NDEBUG
+  void check_symev_vclock_equiv() const;
+#endif
   void add_noblock_race(int event);
   void add_observed_race(int first, int second);
   void add_lock_suc_race(int lock, int unlock);
