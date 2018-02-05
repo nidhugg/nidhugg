@@ -64,31 +64,4 @@ bool SymAddrSize::overlaps(const SymAddrSize &other) const {
 }
 
 SymData::SymData(const SymAddrSize ref, int alloc_size)
-  : ref(ref) {
-  block = malloc(alloc_size);
-  ptr_counter = new int(1);
-  *ptr_counter = 1;
-}
-
-SymData::SymData(const SymData &B)
-  : ref(B.ref), block(B.block), ptr_counter(B.ptr_counter) {
-  if(ptr_counter) ++*ptr_counter;
-}
-
-SymData &SymData::operator=(const SymData &B) {
-  if (this != &B) {
-    this->~SymData();
-    new (this) SymData(B);
-  }
-  return *this;
-}
-
-SymData::~SymData() {
-  if(ptr_counter){
-    --*ptr_counter;
-    if(*ptr_counter == 0){
-      free(block);
-      delete ptr_counter;
-    }
-  }
-}
+  : ref(ref), block(new uint8_t[alloc_size]) {}

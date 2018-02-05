@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <string>
 #include <functional>
+#include <memory>
 
 struct SymMBlock {
   static SymMBlock Global(unsigned no) {
@@ -201,12 +202,11 @@ public:
  * buffer.
  */
 class SymData {
+public:
+  typedef std::shared_ptr<uint8_t[]> block_type;
 private:
   SymAddrSize ref;
-  /* Block points to at least ref.size bytes of memory. */
-  void *block;
-  /* Pointer counter for block and itself. 0 if the block is not owned. */
-  int *ptr_counter;
+  block_type block;
 public:
   /* Create an SymData with reference ref, and a fresh block of memory
    * of alloc_size bytes.
@@ -214,15 +214,9 @@ public:
    * Pre: ref.size <= alloc_size
    */
   SymData(SymAddrSize ref, int alloc_size);
-  /* Create an SymData with reference ref, using the actual memory
-   * location referenced by ref as its memory block. Does not take
-   * ownership.
-   */
-  SymData(const SymData &B);
-  SymData &operator=(const SymData &B);
-  ~SymData();
   const SymAddrSize &get_ref() const { return ref; };
-  void *get_block() const { return block; };
+  void *get_block() const { return block.get(); };
+  block_type &get_shared_block() { return block; };
 };
 
 #endif
