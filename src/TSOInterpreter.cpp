@@ -84,7 +84,7 @@ void TSOInterpreter::runAux(int proc, int aux){
   void *ref = tso_threads[proc].store_buffer.front().first;
   const SymData &blk = tso_threads[proc].store_buffer.front().second;
 
-  TB.atomic_store(blk.get_ref());
+  TB.atomic_store(blk);
 
   if(DryRun) return;
 
@@ -260,25 +260,26 @@ void TSOInterpreter::visitStoreInst(llvm::StoreInst &I){
   llvm::ExecutionContext &SF = ECStack()->back();
   llvm::GenericValue Val = getOperandValue(I.getOperand(0), SF);
   llvm::GenericValue *Ptr = (llvm::GenericValue *)GVTOP(getOperandValue(I.getPointerOperand(), SF));
+  SymData sd = GetSymData(Ptr, I.getOperand(0)->getType(), Val);
 
   if(I.getOrdering() == LLVM_ATOMIC_ORDERING_SCOPE::SequentiallyConsistent ||
      0 <= AtomicFunctionCall){
     /* Atomic store */
     assert(tso_threads[CurrentThread].store_buffer.empty());
-    TB.atomic_store(GetSymAddrSize(Ptr,I.getOperand(0)->getType()));
+    TB.atomic_store(sd);
     if(DryRun){
-      DryRunMem.push_back(GetSymData(Ptr, I.getOperand(0)->getType(), Val));
+      DryRunMem.push_back(std::move(sd));
       return;
     }
     CheckedStoreValueToMemory(Val, Ptr, I.getOperand(0)->getType());
   }else{
     /* Store to buffer */
-    TB.store(GetSymAddrSize(Ptr,I.getOperand(0)->getType()));
+    TB.store(sd);
     if(DryRun){
-      DryRunMem.push_back(GetSymData(Ptr, I.getOperand(0)->getType(), Val));
+      DryRunMem.push_back(std::move(sd));
       return;
     }
-    tso_threads[CurrentThread].store_buffer.emplace_back(Ptr, GetSymData(Ptr, I.getOperand(0)->getType(), Val));
+    tso_threads[CurrentThread].store_buffer.emplace_back(Ptr, std::move(sd));
   }
 }
 

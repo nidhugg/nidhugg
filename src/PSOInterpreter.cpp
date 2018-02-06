@@ -97,14 +97,10 @@ void PSOInterpreter::runAux(int proc, int aux){
   assert(pso_threads[proc].store_buffers[b0].size());
 
   SymAddrSize ml = pso_threads[proc].store_buffers[b0].front().ml;
-
   assert(ml.addr == b0);
 
-  TB.atomic_store(ml);
-
-  if(DryRun) return;
-
-  uint8_t *blk = new uint8_t[ml.size];
+  SymData sd(ml, ml.size);
+  uint8_t *blk = (uint8_t*)sd.get_block();
 
   for(SymAddr b : ml){
     assert(pso_threads[proc].store_buffers.count(b));
@@ -112,18 +108,18 @@ void PSOInterpreter::runAux(int proc, int aux){
     assert(sb.size());
     assert(sb.front().ml == ml);
     blk[unsigned(b-b0)] = sb.front().val;
-    for(unsigned i = 0; i < sb.size()-1; ++i){
-      sb[i] = sb[i+1];
+    if(!DryRun) {
+      sb.erase(sb.begin());
+      if(sb.empty()) pso_threads[proc].store_buffers.erase(b);
     }
-    sb.pop_back();
-    if(sb.empty()) pso_threads[proc].store_buffers.erase(b);
   }
 
+  TB.atomic_store(sd);
+  if (DryRun) return;
+
   if(!CheckedMemCpy(pso_threads[proc].aux_to_addr[aux],blk,ml.size)){
-    delete[] blk;
     return;
   }
-  delete[] blk;
 
   /* Should we reenable the thread after awaiting buffer flush? */
   switch(pso_threads[proc].awaiting_buffer_flush){
@@ -298,7 +294,7 @@ void PSOInterpreter::visitStoreInst(llvm::StoreInst &I){
   llvm::GenericValue *Ptr = (llvm::GenericValue *)GVTOP
     (getOperandValue(I.getPointerOperand(), SF));
 
-  SymAddrSize ml = GetSymAddrSize(Ptr,I.getOperand(0)->getType());
+  SymData mb = GetSymData(Ptr, I.getOperand(0)->getType(), Val);
 
   PSOThread &thr = pso_threads[CurrentThread];
 
@@ -306,29 +302,29 @@ void PSOInterpreter::visitStoreInst(llvm::StoreInst &I){
      0 <= AtomicFunctionCall){
     /* Atomic store */
     assert(thr.all_buffers_empty());
-    TB.atomic_store(ml);
+    TB.atomic_store(mb);
     if(DryRun){
-      DryRunMem.push_back(GetSymData(Ptr, I.getOperand(0)->getType(), Val));
+      DryRunMem.push_back(mb);
       return;
     }
     CheckedStoreValueToMemory(Val, Ptr, I.getOperand(0)->getType());
   }else{
     /* Store to buffer */
+    const SymAddrSize &ml = mb.get_ref();
     if(thr.byte_to_aux.count(ml.addr) == 0){
       thr.byte_to_aux[ml.addr] = int(thr.aux_to_byte.size());
       thr.aux_to_byte.push_back(ml.addr);
       thr.aux_to_addr.push_back((uint8_t*)Ptr);
     }
 
-    SymData mb = GetSymData(Ptr, I.getOperand(0)->getType(), Val);
-    TB.store(mb.get_ref());
+    TB.store(mb);
     if(DryRun){
       DryRunMem.push_back(mb);
       return;
     }
-    for(SymAddr b : mb.get_ref()){
-      unsigned i = b - mb.get_ref().addr;
-      thr.store_buffers[b].push_back(PendingStoreByte(mb.get_ref(),((uint8_t*)mb.get_block())[i]));
+    for(SymAddr b : ml){
+      unsigned i = b - ml.addr;
+      thr.store_buffers[b].push_back(PendingStoreByte(ml,((uint8_t*)mb.get_block())[i]));
     }
   }
 }

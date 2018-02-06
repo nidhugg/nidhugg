@@ -491,12 +491,19 @@ protected:  // Helper functions
    * that of Ty.
    */
   SymData GetSymData(void *Ptr, Type *Ty, const GenericValue &Val){
+    return GetSymData(GetSymAddrSize(Ptr,Ty), Ty, Val);
+  }
+  /* Get a SymData associated with the location Ptr, and holding the
+   * value Val of type Ty. The size of the memory location will be
+   * that of Ty.
+   */
+  SymData GetSymData(SymAddrSize Ptr, Type *Ty, const GenericValue &Val){
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
     uint64_t alloc_size = getDataLayout()->getTypeAllocSize(Ty);
 #else
     uint64_t alloc_size = getDataLayout().getTypeAllocSize(Ty);
 #endif
-    SymData B(GetSymAddrSize(Ptr,Ty),alloc_size);
+    SymData B(Ptr,alloc_size);
     StoreValueToMemory(Val,static_cast<GenericValue*>(B.get_block()),Ty);
     return B;
   };

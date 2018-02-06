@@ -115,7 +115,7 @@ public:
   /* The current event spawned a new thread. */
   virtual void spawn() = 0;
   /* Perform a store to ml. */
-  virtual void store(const SymAddrSize &ml) = 0;
+  virtual void store(const SymData &ml) = 0;
   /* Perform an atomic store to ml.
    *
    * The exact interpretation depends on the memory model. But
@@ -125,7 +125,7 @@ public:
    * atomic_store performed by auxiliary threads can be used to model
    * memory updates under non-SC memory models.
    */
-  virtual void atomic_store(const SymAddrSize &ml) = 0;
+  virtual void atomic_store(const SymData &ml) = 0;
   /* Perform a load to ml. */
   virtual void load(const SymAddrSize &ml) = 0;
   /* Perform an action that conflicts with all memory accesses and all

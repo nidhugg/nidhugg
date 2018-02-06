@@ -1398,10 +1398,11 @@ void Interpreter::visitStoreInst(StoreInst &I) {
     abort();
     return;
   }
-  TB.atomic_store(*Ptr_sas);
+  SymData sd = GetSymData(*Ptr_sas, I.getOperand(0)->getType(), Val);
+  TB.atomic_store(sd);
 
   if(DryRun){
-    DryRunMem.push_back(GetSymData(Ptr, I.getOperand(0)->getType(), Val));
+    DryRunMem.emplace_back(std::move(sd));
     return;
   }
 
@@ -1439,13 +1440,14 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
   GenericValue CmpRes = executeICMP_EQ(Result,CmpVal,Ty);
 #endif
   if(CmpRes.IntVal.getBoolValue()){
-    TB.atomic_store(Ptr_sas);
+    SymData sd = GetSymData(Ptr_sas,Ty,NewVal);
+    TB.atomic_store(sd);
 #if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
     Result.AggregateVal[1].IntVal = 1;
 #endif
     SetValue(&I, Result, SF);
     if(DryRun){
-      DryRunMem.push_back(GetSymData(Ptr,Ty,NewVal));
+      DryRunMem.emplace_back(std::move(sd));
       return;
     }
     CheckedStoreValueToMemory(NewVal,Ptr,Ty);
@@ -1468,7 +1470,6 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
 
   SymAddrSize Ptr_sas = GetSymAddrSize(Ptr,I.getType());
   TB.load(Ptr_sas);
-  TB.atomic_store(Ptr_sas);
 
   /* Load old value at *Ptr */
   if(DryRun && DryRunMem.size()){
@@ -1507,9 +1508,12 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
     throw std::logic_error("Unsupported operation in RMW instruction.");
   }
 
+  SymData sd = GetSymData(Ptr_sas,I.getType(),NewVal);
+  TB.atomic_store(sd);
+
   /* Store NewVal */
   if(DryRun){
-    DryRunMem.push_back(GetSymData(Ptr,I.getType(),NewVal));
+    DryRunMem.emplace_back(std::move(sd));
     return;
   }
   CheckedStoreValueToMemory(NewVal,Ptr,I.getType());

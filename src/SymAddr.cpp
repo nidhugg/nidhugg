@@ -65,3 +65,6 @@ bool SymAddrSize::overlaps(const SymAddrSize &other) const {
 
 SymData::SymData(const SymAddrSize ref, int alloc_size)
   : ref(ref), block(new uint8_t[alloc_size]) {}
+
+SymData::SymData(SymAddrSize ref, block_type block)
+  : ref(ref), block(std::move(block)) {}

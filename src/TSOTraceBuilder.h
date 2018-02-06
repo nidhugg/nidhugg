@@ -48,8 +48,8 @@ public:
   virtual void debug_print() const ;
 
   virtual void spawn();
-  virtual void store(const SymAddrSize &ml);
-  virtual void atomic_store(const SymAddrSize &ml);
+  virtual void store(const SymData &ml);
+  virtual void atomic_store(const SymData &ml);
   virtual void load(const SymAddrSize &ml);
   virtual void full_memory_conflict();
   virtual void fence();

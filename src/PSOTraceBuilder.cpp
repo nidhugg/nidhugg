@@ -413,8 +413,9 @@ void PSOTraceBuilder::spawn(){
   mark_available_ipid(child_ipid);
 }
 
-void PSOTraceBuilder::store(const SymAddrSize &ml){
+void PSOTraceBuilder::store(const SymData &sd){
   if(dryrun) return;
+  const SymAddrSize &ml = sd.get_ref();
   IPid ipid = curnode().iid.get_pid();
   for(SymAddr b : ml){
     threads[ipid].store_buffers[b].push_back(PendingStoreByte(ml,threads[ipid].clock,last_md));
@@ -435,7 +436,8 @@ void PSOTraceBuilder::store(const SymAddrSize &ml){
   mark_available_ipid(upd_ipid);
 }
 
-void PSOTraceBuilder::atomic_store(const SymAddrSize &ml){
+void PSOTraceBuilder::atomic_store(const SymData &sd){
+  const SymAddrSize &ml = sd.get_ref();
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.size()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());

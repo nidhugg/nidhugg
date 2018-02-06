@@ -53,13 +53,30 @@ void SymEv::set(SymEv other) {
   *this = other;
 }
 
+static std::string block_to_string(const SymData::block_type &blk, unsigned size) {
+  unsigned i = 0;
+  uint8_t *ptr = (uint8_t*)blk.get();
+  std::stringstream res;
+  res << "0x" << std::hex;
+  for (; i < size - 1 && ptr[i] == 0; ++i);
+  res << (int)ptr[i++];
+  /* No leading zeroes on first digit */
+  res.width(2);
+  res.fill('0');
+  for (;i < size; ++i) {
+    res << (int)ptr[i];
+  }
+  return res.str();
+}
+
 std::string SymEv::to_string(std::function<std::string(int)> pid_str) const {
     switch(kind) {
     // case EMPTY:    return "Empty()";
     case NONDET:   return "Nondet(" + std::to_string(arg.num) + ")";
 
     case LOAD:     return "Load("    + arg.addr.to_string(pid_str) + ")";
-    case STORE:    return "Store("   + arg.addr.to_string(pid_str) + ")";
+    case STORE:    return "Store("   + arg.addr.to_string(pid_str)
+        + "," + block_to_string(written, arg.addr.size) + ")";
     case FULLMEM:  return "Fullmem()";
 
     case M_INIT:   return "MInit("   + arg.addr.to_string(pid_str) + ")";
@@ -77,7 +94,8 @@ std::string SymEv::to_string(std::function<std::string(int)> pid_str) const {
     case SPAWN: return "Spawn(" + pid_str(arg.num) + ")";
     case JOIN:  return "Join("  + pid_str(arg.num) + ")";
 
-    case UNOBS_STORE: return "UnobsStore(" + arg.addr.to_string(pid_str) + ")";
+    case UNOBS_STORE: return "UnobsStore(" + arg.addr.to_string(pid_str)
+        + "," + block_to_string(written, arg.addr.size) + ")";
 
     default:
       abort();
@@ -111,6 +129,23 @@ bool SymEv::has_num() const {
   case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
   case UNOBS_STORE:
+    return false;
+  default:
+    abort();
+  }
+}
+
+bool SymEv::has_data() const {
+  switch(kind) {
+  case STORE: case UNOBS_STORE:
+    return true;
+  case SPAWN: case JOIN:
+  case NONDET:
+  case C_WAIT: case C_AWAKE:
+  case FULLMEM:
+  case LOAD:
+  case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
+  case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
     return false;
   default:
     abort();

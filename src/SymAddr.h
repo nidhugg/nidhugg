@@ -214,6 +214,11 @@ public:
    * Pre: ref.size <= alloc_size
    */
   SymData(SymAddrSize ref, int alloc_size);
+  /* Create an SymData with reference ref, using block as the block of memory.
+   *
+   * Pre: The allocated size of block must be at least ref.size elements.
+   */
+  SymData(SymAddrSize ref, block_type block);
   const SymAddrSize &get_ref() const { return ref; };
   void *get_block() const { return block.get(); };
   block_type &get_shared_block() { return block; };

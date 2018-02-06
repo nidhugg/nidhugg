@@ -659,19 +659,20 @@ void TSOTraceBuilder::spawn(){
   record_symbolic(SymEv::Spawn(threads.size() / 2 - 1));
 }
 
-void TSOTraceBuilder::store(const SymAddrSize &ml){
+void TSOTraceBuilder::store(const SymData &sd){
   if(dryrun) return;
   curev().may_conflict = true; /* prefix_idx might become bad otherwise */
   IPid ipid = curev().iid.get_pid();
-  threads[ipid].store_buffer.push_back(PendingStore(ml,prefix_idx,last_md));
+  threads[ipid].store_buffer.push_back(PendingStore(sd.get_ref(),prefix_idx,last_md));
   threads[ipid+1].available = true;
 }
 
-void TSOTraceBuilder::atomic_store(const SymAddrSize &ml){
+void TSOTraceBuilder::atomic_store(const SymData &sd){
   if (conf.observers)
-    record_symbolic(SymEv::UnobsStore(ml));
+    record_symbolic(SymEv::UnobsStore(sd));
   else
-    record_symbolic(SymEv::Store(ml));
+    record_symbolic(SymEv::Store(sd));
+  const SymAddrSize &ml = sd.get_ref();
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.len()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
@@ -853,7 +854,7 @@ void TSOTraceBuilder::do_load(ByteInfo &m){
         --it;
         if(it->kind == SymEv::STORE && it->addr() == lu_ml) break;
         if (it->kind == SymEv::UNOBS_STORE && it->addr() == lu_ml) {
-          *it = SymEv::Store(lu_ml);
+          *it = SymEv::Store(it->data());
           break;
         }
       }
@@ -1333,7 +1334,7 @@ void TSOTraceBuilder::sym_sleep_set_add(std::map<IPid,const sym_ty*> &sleep,
 
 static void clear_observed(SymEv &e){
   if (e.kind == SymEv::STORE){
-    e = SymEv::UnobsStore(e.addr());
+    e = SymEv::UnobsStore(e.data());
   }
 }
 
@@ -1925,7 +1926,7 @@ void TSOTraceBuilder::race_detect_optimal
         case SymEv::UNOBS_STORE:
           if (read_all ^ last_reads.intersects
               (VecSet<SymAddr>(e.addr().begin(), e.addr().end()))){
-            e = SymEv::Store(e.addr());
+            e = SymEv::Store(e.data());
           }
           if (read_all)
                last_reads.insert(VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
@@ -2218,14 +2219,20 @@ bool TSOTraceBuilder::has_pending_store(IPid pid, SymAddr ml) const {
   return false;
 }
 
+#ifndef NDEBUG
+#  define IFDEBUG(X) X
+#else
+#  define IFDEBUG(X) ((void)0)
+#endif
+
 void TSOTraceBuilder::wakeup(Access::Type type, SymAddr ml){
   IPid pid = curev().iid.get_pid();
-  sym_ty ev;
+  IFDEBUG(sym_ty ev);
   std::vector<IPid> wakeup; // Wakeup these
   switch(type){
   case Access::W_ALL_MEMORY:
     {
-      ev.push_back(SymEv::Fullmem());
+      IFDEBUG(ev.push_back(SymEv::Fullmem()));
       for(unsigned p = 0; p < threads.size(); ++p){
         if(threads[p].sleep_full_memory_conflict ||
            threads[p].sleep_accesses_w.size()){
@@ -2243,7 +2250,7 @@ void TSOTraceBuilder::wakeup(Access::Type type, SymAddr ml){
     }
   case Access::R:
     {
-      ev.push_back(SymEv::Load(SymAddrSize(ml,1)));
+      IFDEBUG(ev.push_back(SymEv::Load(SymAddrSize(ml,1))));
       for(unsigned p = 0; p < threads.size(); ++p){
         if(threads[p].sleep_full_memory_conflict ||
            (int(p) != pid+1 &&
@@ -2255,7 +2262,8 @@ void TSOTraceBuilder::wakeup(Access::Type type, SymAddr ml){
     }
   case Access::W:
     {
-      ev.push_back(SymEv::Store(SymAddrSize(ml,1)));
+      /* We don't pick the right value, but it should not matter */
+      IFDEBUG(ev.push_back(SymEv::Store({SymAddrSize(ml,1), 1})));
       for(unsigned p = 0; p < threads.size(); ++p){
         if(threads[p].sleep_full_memory_conflict ||
            (int(p) + 1 != pid &&
