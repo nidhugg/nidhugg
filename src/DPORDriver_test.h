@@ -18,7 +18,6 @@
  */
 
 #include <config.h>
-#ifdef HAVE_BOOST_UNIT_TEST_FRAMEWORK
 
 #ifndef __DPOR_DRIVER_TEST_H__
 #define __DPOR_DRIVER_TEST_H__
@@ -33,15 +32,6 @@
  * check the set of traces produced by DPORDriver.
  */
 namespace DPORDriver_test {
-
-  /* A configuration with memory_model == TSO (resp. SC, PSO), and
-   * debug_collect_all_traces == true.
-   */
-  const Configuration &get_tso_conf();
-  const Configuration &get_sc_conf();
-  const Configuration &get_pso_conf();
-  const Configuration &get_power_conf();
-  const Configuration &get_arm_conf();
 
   /* An IIDOrder object {a,b} should be interpreted as a predicate
    * over traces, with the meaning "a precedes b in time".
@@ -63,6 +53,17 @@ namespace DPORDriver_test {
    * between traces in S and trace_specs in the trace_set_spec.
    */
   typedef std::vector<trace_spec> trace_set_spec;
+
+#ifdef HAVE_BOOST_UNIT_TEST_FRAMEWORK
+
+  /* A configuration with memory_model == TSO (resp. SC, PSO), and
+   * debug_collect_all_traces == true.
+   */
+  const Configuration &get_tso_conf();
+  const Configuration &get_sc_conf();
+  const Configuration &get_pso_conf();
+  const Configuration &get_power_conf();
+  const Configuration &get_arm_conf();
 
   /* Returns the cross product of specs. */
   trace_set_spec spec_xprod(const std::vector<trace_set_spec> &specs);
@@ -103,7 +104,7 @@ namespace DPORDriver_test {
                            const DPORDriver::Result &optimal_res,
                            const Configuration &conf);
 
+#endif /* defined(HAVE_BOOST_UNIT_TEST_FRAMEWORK) */
 }
 
-#endif
 #endif
