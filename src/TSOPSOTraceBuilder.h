@@ -126,6 +126,14 @@ public:
    * memory updates under non-SC memory models.
    */
   virtual void atomic_store(const SymData &ml) = 0;
+  /* Perform a compare-exchange to sd.get_ref().
+   *
+   * success is true iff ml.get_ref() contained the value of expected.
+   * Equivalently, if the value of sd was written.
+   */
+  virtual void compare_exchange(const SymData &sd,
+                                const SymData::block_type expected,
+                                bool success) = 0;
   /* Perform a load to ml. */
   virtual void load(const SymAddrSize &ml) = 0;
   /* Perform an action that conflicts with all memory accesses and all

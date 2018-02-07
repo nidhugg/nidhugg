@@ -46,6 +46,8 @@ public:
   virtual void spawn();
   virtual void store(const SymData &ml);
   virtual void atomic_store(const SymData &ml);
+  virtual void compare_exchange
+  (const SymData &sd, const SymData::block_type expected, bool success);
   virtual void load(const SymAddrSize &ml);
   virtual void full_memory_conflict();
   virtual void fence();

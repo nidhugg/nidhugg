@@ -63,8 +63,12 @@ bool SymAddrSize::overlaps(const SymAddrSize &other) const {
   return other_low < this_high && this_low < other_high;
 }
 
+SymData::block_type SymData::alloc_block(int alloc_size){
+  return block_type(new uint8_t[alloc_size]);
+}
+
 SymData::SymData(const SymAddrSize ref, int alloc_size)
-  : ref(ref), block(new uint8_t[alloc_size]) {}
+  : ref(ref), block(alloc_block(alloc_size)) {}
 
 SymData::SymData(SymAddrSize ref, block_type block)
   : ref(ref), block(std::move(block)) {}

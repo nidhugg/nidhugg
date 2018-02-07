@@ -38,6 +38,9 @@ struct SymEv {
     STORE,
     FULLMEM, /* Observe & clobber everything */
 
+    CMPXHG,
+    CMPXHGFAIL,
+
     M_INIT,
     M_LOCK,
     M_UNLOCK,
@@ -65,7 +68,7 @@ struct SymEv {
     arg(int num) : num(num) {}
     // ~arg_union() {}
   } arg;
-  SymData::block_type expected, written;
+  SymData::block_type _expected, _written;
 
   SymEv() = delete;
   // SymEv() : kind(EMPTY) {};
@@ -74,6 +77,12 @@ struct SymEv {
 
   static SymEv Load(SymAddrSize addr) { return {LOAD, addr}; }
   static SymEv Store(SymData addr) { return {STORE, std::move(addr)}; }
+  static SymEv CmpXhg(SymData addr, SymData::block_type expected) {
+    return {CMPXHG, addr, expected};
+  }
+  static SymEv CmpXhgFail(SymData addr, SymData::block_type expected) {
+    return {CMPXHGFAIL, addr, expected};
+  }
   static SymEv Fullmem() { return {FULLMEM, {}}; }
 
   static SymEv MInit(SymAddrSize addr) { return {M_INIT, addr}; }
@@ -105,15 +114,27 @@ struct SymEv {
   bool has_addr() const;
   bool has_num() const;
   bool has_data() const;
+  bool has_expected() const;
   const SymAddrSize &addr()   const { assert(has_addr()); return arg.addr; }
         int          num()    const { assert(has_num()); return arg.num; }
-  SymData data() const { assert(has_data()); return {arg.addr, written}; }
+  SymData data() const { assert(has_data()); return {arg.addr, _written}; }
+  SymData expected() const {
+    assert(has_expected());
+    return {arg.addr, _expected};
+  }
+
+  void purge_data();
+  void set_observed(bool observed);
 
 private:
   SymEv(enum kind kind, union arg arg) : kind(kind), arg(arg) {};
   SymEv(enum kind kind, SymData addr_written)
     : kind(kind), arg(std::move(addr_written.get_ref())),
-      written(std::move(addr_written.get_shared_block())) {};
+      _written(std::move(addr_written.get_shared_block())) {};
+  SymEv(enum kind kind, SymData addr_written, SymData::block_type expected)
+    : kind(kind), arg(std::move(addr_written.get_ref())),
+      _expected(std::move(expected)),
+      _written(std::move(addr_written.get_shared_block())) {};
 };
 
 inline std::ostream &operator<<(std::ostream &os, const SymEv &e){

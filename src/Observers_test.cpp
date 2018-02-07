@@ -1087,6 +1087,100 @@ declare void @__VERIFIER_assume(i64)
   BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
 }
 
+BOOST_AUTO_TEST_CASE(CAS_load){
+  /* Check that a CAS can observe a store. */
+  Configuration conf = sc_obs_conf();
+  std::string module = StrModule::portasm(R"(
+@x = global i32 0, align 4
+
+define i8* @r(i8* %arg){
+  load i32, i32* @x, align 4
+  ret i8* null
+}
+
+define i8* @w(i8* %arg){
+  store i32 1, i32* @x, align 4
+  ret i8* null
+}
+
+define i32 @main(){
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @r, i8* null)
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @w, i8* null)
+)"
+#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
+R"(  cmpxchg i32* @x, i32 1, i32 2 seq_cst seq_cst)"
+#else
+R"(  cmpxchg i32* @x, i32 1, i32 2 seq_cst)"
+#endif
+R"(
+  ret i32 0
+}
+
+%attr_t = type {i64*, [48 x i8]}
+declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
+)");
+  std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
+  DPORDriver::Result res = driver->run();
+
+  CPid P0, P1 = P0.spawn(0), P2 = P0.spawn(1);
+  IID<CPid> cas(P0,3), r(P1,1), w(P2,1);
+  DPORDriver_test::trace_set_spec expected =
+    {{{cas,w},{r,w}},
+     {{cas,w},{w,r}},
+     {{w,cas},{r,w}},
+     {{w,cas},{w,r},{r,cas}},
+     {{w,cas},{cas,r}}
+    };
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+}
+
+BOOST_AUTO_TEST_CASE(CAS_tricky){
+  /* Check that a CAS can observe a store. */
+  Configuration conf = sc_obs_conf();
+  std::string module = StrModule::portasm(R"(
+@x = global i32 0, align 4
+
+define i8* @r(i8* %arg){
+  load i32, i32* @x, align 4
+  ret i8* null
+}
+
+define i8* @cas(i8* %arg){
+)"
+#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
+R"(  cmpxchg i32* @x, i32 1, i32 2 seq_cst seq_cst)"
+#else
+R"(  cmpxchg i32* @x, i32 1, i32 2 seq_cst)"
+#endif
+R"(
+  ret i8* null
+}
+
+define i32 @main(){
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @r, i8* null)
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @cas, i8* null)
+  store i32 1, i32* @x, align 4
+  ret i32 0
+}
+
+%attr_t = type {i64*, [48 x i8]}
+declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
+)");
+  std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
+  DPORDriver::Result res = driver->run();
+
+  CPid P0, P1 = P0.spawn(0), P2 = P0.spawn(1);
+  IID<CPid> w(P0,3), r(P1,1), cas(P2,1);
+  DPORDriver_test::trace_set_spec expected =
+    {{{cas,w},{r,w}},
+     {{cas,w},{w,r}},
+     {{w,cas},{r,w}},
+     {{w,cas},{w,r},{r,cas}},
+     {{w,cas},{cas,r}}
+    };
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif

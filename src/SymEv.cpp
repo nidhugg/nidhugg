@@ -32,11 +32,12 @@ void SymEv::set(SymEv other) {
     }
 #ifndef NDEBUG
     switch(kind) {
-    case LOAD: case STORE:
+    case LOAD:
     case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
     case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
     case C_WAIT: case C_AWAKE:
-    case UNOBS_STORE:
+    case CMPXHG: case CMPXHGFAIL:
+    case STORE: case UNOBS_STORE:
       assert(arg.addr == other.arg.addr);
       break;
     case SPAWN: case JOIN:
@@ -54,16 +55,17 @@ void SymEv::set(SymEv other) {
 }
 
 static std::string block_to_string(const SymData::block_type &blk, unsigned size) {
-  unsigned i = 0;
+  if (!blk) return "-";
+  int i = size-1;
   uint8_t *ptr = (uint8_t*)blk.get();
   std::stringstream res;
   res << "0x" << std::hex;
-  for (; i < size - 1 && ptr[i] == 0; ++i);
-  res << (int)ptr[i++];
+  for (; i > 0 && ptr[i] == 0; --i);
+  res << (int)ptr[i--];
   /* No leading zeroes on first digit */
   res.width(2);
   res.fill('0');
-  for (;i < size; ++i) {
+  for (;i >= 0; --i) {
     res << (int)ptr[i];
   }
   return res.str();
@@ -76,7 +78,7 @@ std::string SymEv::to_string(std::function<std::string(int)> pid_str) const {
 
     case LOAD:     return "Load("    + arg.addr.to_string(pid_str) + ")";
     case STORE:    return "Store("   + arg.addr.to_string(pid_str)
-        + "," + block_to_string(written, arg.addr.size) + ")";
+        + "," + block_to_string(_written, arg.addr.size) + ")";
     case FULLMEM:  return "Fullmem()";
 
     case M_INIT:   return "MInit("   + arg.addr.to_string(pid_str) + ")";
@@ -95,11 +97,18 @@ std::string SymEv::to_string(std::function<std::string(int)> pid_str) const {
     case JOIN:  return "Join("  + pid_str(arg.num) + ")";
 
     case UNOBS_STORE: return "UnobsStore(" + arg.addr.to_string(pid_str)
-        + "," + block_to_string(written, arg.addr.size) + ")";
+        + "," + block_to_string(_written, arg.addr.size) + ")";
 
-    default:
-      abort();
+    case CMPXHG: return "CmpXhg("
+        + arg.addr.to_string(pid_str)
+        + "," + block_to_string(_expected, arg.addr.size)
+        + "," + block_to_string(_written, arg.addr.size) + ")";
+    case CMPXHGFAIL: return "CmpXhgFail("
+        + arg.addr.to_string(pid_str)
+        + "," + block_to_string(_expected, arg.addr.size)
+        + "," + block_to_string(_written, arg.addr.size) + ")";
     }
+    abort();
 }
 
 bool SymEv::has_addr() const {
@@ -109,13 +118,13 @@ bool SymEv::has_addr() const {
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
   case C_WAIT: case C_AWAKE:
   case UNOBS_STORE:
+  case CMPXHG: case CMPXHGFAIL:
     return true;
   case FULLMEM: case NONDET:
   case SPAWN: case JOIN:
     return false;
-  default:
-    abort();
   }
+  abort();
 }
 
 bool SymEv::has_num() const {
@@ -129,16 +138,17 @@ bool SymEv::has_num() const {
   case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
   case UNOBS_STORE:
+  case CMPXHG: case CMPXHGFAIL:
     return false;
-  default:
-    abort();
   }
+  abort();
 }
 
 bool SymEv::has_data() const {
   switch(kind) {
   case STORE: case UNOBS_STORE:
-    return true;
+  case CMPXHG: case CMPXHGFAIL:
+    return (bool)_written;
   case SPAWN: case JOIN:
   case NONDET:
   case C_WAIT: case C_AWAKE:
@@ -147,9 +157,25 @@ bool SymEv::has_data() const {
   case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
     return false;
-  default:
-    abort();
   }
+  abort();
+}
+
+bool SymEv::has_expected() const {
+  switch(kind) {
+  case CMPXHG: case CMPXHGFAIL:
+    return (bool)_written;
+  case SPAWN: case JOIN:
+  case NONDET:
+  case C_WAIT: case C_AWAKE:
+  case FULLMEM:
+  case LOAD:
+  case STORE: case UNOBS_STORE:
+  case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
+  case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
+    return false;
+  }
+  abort();
 }
 
 bool SymEv::operator==(const SymEv &s) const{
@@ -157,4 +183,25 @@ bool SymEv::operator==(const SymEv &s) const{
   if (has_addr() && addr() != s.addr()) return false;
   if (has_num() && num() != s.num()) return false;
   return true;
+}
+
+void SymEv::purge_data() {
+  _written.reset();
+  _expected.reset();
+}
+
+void SymEv::set_observed(bool observed) {
+  if (observed) {
+    if (kind == UNOBS_STORE) {
+      kind = STORE;
+    } else {
+      assert(kind == STORE);
+    }
+  } else {
+    if (kind == STORE) {
+      kind = UNOBS_STORE;
+    } else {
+      assert(kind == UNOBS_STORE);
+    }
+  }
 }

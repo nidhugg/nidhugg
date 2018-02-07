@@ -157,6 +157,7 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
         Branch b = curbranch();
         b.sym = curev().sym;
         if (conf.observers) clear_observed(b.sym);
+        for (SymEv &e : b.sym) e.purge_data();
         prefix.set_last_branch(std::move(b));
       }
     }
@@ -672,6 +673,10 @@ void TSOTraceBuilder::atomic_store(const SymData &sd){
     record_symbolic(SymEv::UnobsStore(sd));
   else
     record_symbolic(SymEv::Store(sd));
+  do_atomic_store(sd);
+}
+
+void TSOTraceBuilder::do_atomic_store(const SymData &sd){
   const SymAddrSize &ml = sd.get_ref();
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.len()));
@@ -753,6 +758,10 @@ void TSOTraceBuilder::atomic_store(const SymData &sd){
 
 void TSOTraceBuilder::load(const SymAddrSize &ml){
   record_symbolic(SymEv::Load(ml));
+  do_load(ml);
+}
+
+void TSOTraceBuilder::do_load(const SymAddrSize &ml){
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.len()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
@@ -799,6 +808,18 @@ void TSOTraceBuilder::load(const SymAddrSize &ml){
   for(SymAddr b : ml){
     mem[b].last_read[ipid/2] = prefix_idx;
     wakeup(Access::R,b);
+  }
+}
+
+void TSOTraceBuilder::compare_exchange
+(const SymData &sd, const SymData::block_type expected, bool success){
+  if(success){
+    record_symbolic(SymEv::CmpXhg(sd, expected));
+    do_load(sd.get_ref());
+    do_atomic_store(sd);
+  }else{
+    record_symbolic(SymEv::CmpXhgFail(sd, expected));
+    do_load(sd.get_ref());
   }
 }
 
@@ -852,7 +873,8 @@ void TSOTraceBuilder::do_load(ByteInfo &m){
       for (auto it = prefix[lu].sym.end();;){
         assert(it != prefix[lu].sym.begin());
         --it;
-        if(it->kind == SymEv::STORE && it->addr() == lu_ml) break;
+        if((it->kind == SymEv::STORE || it->kind == SymEv::CMPXHG)
+           && it->addr() == lu_ml) break;
         if (it->kind == SymEv::UNOBS_STORE && it->addr() == lu_ml) {
           *it = SymEv::Store(it->data());
           break;
@@ -1334,13 +1356,70 @@ void TSOTraceBuilder::sym_sleep_set_add(std::map<IPid,const sym_ty*> &sleep,
 
 static void clear_observed(SymEv &e){
   if (e.kind == SymEv::STORE){
-    e = SymEv::UnobsStore(e.data());
+    e.set_observed(false);
   }
 }
 
 static void clear_observed(sym_ty &syms){
   for (SymEv &e : syms){
     clear_observed(e);
+  }
+}
+
+template <class Iter>
+static void rev_recompute_data
+(SymData &data, VecSet<SymAddr> &needed, Iter end, Iter begin){
+  for (auto pi = end; !needed.empty() && (pi != begin);){
+    const SymEv &p = *(--pi);
+    switch(p.kind){
+    case SymEv::STORE:
+    case SymEv::UNOBS_STORE:
+    case SymEv::CMPXHG:
+      if (data.get_ref().overlaps(p.addr())) {
+        for (SymAddr a : p.addr()) {
+          if (needed.erase(a)) {
+            data[a] = p.data()[a];
+          }
+        }
+      }
+      break;
+    default:
+      break;
+    }
+  }
+}
+
+void TSOTraceBuilder::recompute_cmpxhg_success
+(sym_ty &es, const std::vector<Branch> &v, int i) const {
+  for (auto ei = es.begin(); ei != es.end(); ++ei) {
+    SymEv &e = *ei;
+    if (e.kind == SymEv::CMPXHG || e.kind == SymEv::CMPXHGFAIL) {
+      SymData data(e.addr(), e.addr().size);
+      VecSet<SymAddr> needed(e.addr().begin(), e.addr().end());
+      std::memset(data.get_block(), 0, e.addr().size);
+
+      /* Scan in reverse for data */
+      rev_recompute_data(data, needed, ei, es.begin());
+      for (auto vi = v.end(); !needed.empty() && (vi != v.begin());){
+        const Branch &vb = *(--vi);
+        rev_recompute_data(data, needed, vb.sym.end(), vb.sym.begin());
+      }
+      for (int k = i-1; !needed.empty() && (k >= 0); --k){
+        const sym_ty &ps = prefix[k].sym;
+        rev_recompute_data(data, needed, ps.end(), ps.begin());
+      }
+
+      /* If needed isn't empty then the program reads uninitialised data. */
+      // assert(needed.empty());
+
+      bool will_succeed = memcmp(e.expected().get_block(), data.get_block(),
+                                 e.addr().size) == 0;
+      if (will_succeed) {
+        e = SymEv::CmpXhg(e.data(), e.expected().get_shared_block());
+      } else {
+        e = SymEv::CmpXhgFail(e.data(), e.expected().get_shared_block());
+      }
+    }
   }
 }
 
@@ -1625,14 +1704,25 @@ bool TSOTraceBuilder::do_events_conflict
                             snd.iid.get_pid(), snd.sym);
 }
 
+static bool symev_has_pid(const SymEv &e) {
+  return e.kind == SymEv::SPAWN || e.kind == SymEv::JOIN;
+}
+
+static bool symev_is_load(const SymEv &e) {
+  return e.kind == SymEv::LOAD || e.kind == SymEv::CMPXHGFAIL;
+}
+
+static bool symev_is_unobs_store(const SymEv &e) {
+  return e.kind == SymEv::UNOBS_STORE;
+}
+
 bool TSOTraceBuilder::do_symevs_conflict
 (IPid fst_pid, const SymEv &fst,
  IPid snd_pid, const SymEv &snd) const {
   if (fst.kind == SymEv::NONDET || snd.kind == SymEv::NONDET) return false;
   if (fst.kind == SymEv::FULLMEM || snd.kind == SymEv::FULLMEM) return true;
-  if (fst.kind == SymEv::LOAD && snd.kind == SymEv::LOAD) return false;
-  if (fst.kind == SymEv::UNOBS_STORE && snd.kind == SymEv::UNOBS_STORE)
-    return false;
+  if (symev_is_load(fst) && symev_is_load(snd)) return false;
+  if (symev_is_unobs_store(fst) && symev_is_unobs_store(snd)) return false;
 
   /* Really crude. Is it enough? */
   if (fst.has_addr()) {
@@ -1644,10 +1734,6 @@ bool TSOTraceBuilder::do_symevs_conflict
   } else {
     return false;
   }
-}
-
-static bool symev_has_pid(const SymEv &e) {
-  return e.kind == SymEv::SPAWN || e.kind == SymEv::JOIN;
 }
 
 bool TSOTraceBuilder::do_events_conflict
@@ -1811,6 +1897,10 @@ void TSOTraceBuilder::race_detect
   assert(0 <= cand.pid);
   assert(cand_sym);
   cand.sym = *cand_sym;
+  if (race.kind == Race::NONBLOCK) {
+    /* Needed for assertions */
+    recompute_cmpxhg_success(cand.sym, {}, i);
+  }
   prefix.parent_at(i).put_child(cand);
 }
 
@@ -1833,13 +1923,13 @@ void TSOTraceBuilder::race_detect_optimal
     second_br.sym = std::move(second.sym);
   } else if (race.kind == Race::NONDET) {
     second = first;
-    second_br = prefix.branch(i);
+    second_br = branch_with_symbolic_data(i);
     second_br.alt = race.alternative;
   } else {
     second = prefix[j];
     second.sleep.clear();
     second.wakeup.clear();
-    second_br = prefix.branch(j);
+    second_br = branch_with_symbolic_data(j);
   }
   if (race.kind == Race::OBSERVED) {
   } else {
@@ -1862,13 +1952,13 @@ void TSOTraceBuilder::race_detect_optimal
      * observers-compatible redundancy check.
      */
     for (int k = 0; k < i; ++k) {
-      v.push_back(prefix.branch(k));
+      v.emplace_back(branch_with_symbolic_data(k));
     }
   }
 
   for (int k = i + 1; k < int(prefix.len()); ++k){
     if (!first.clock.leq(prefix[k].clock)) {
-      v.emplace_back(prefix.branch(k));
+      v.emplace_back(branch_with_symbolic_data(k));
     } else if (race.kind == Race::OBSERVED && k != j) {
       if (!std::any_of(observers.begin(), observers.end(),
                        [this,k](const Event* o){
@@ -1877,24 +1967,27 @@ void TSOTraceBuilder::race_detect_optimal
           assert(!observers.empty() || k == race.witness_event);
           observers.push_back(&prefix[k]);
         } else if (race.kind == Race::OBSERVED) {
-          notobs.push_back(prefix.branch(k));
+          notobs.emplace_back(branch_with_symbolic_data(k));
         }
       }
     }
   }
+  if (race.kind == Race::NONBLOCK) {
+    recompute_cmpxhg_success(second_br.sym, v, conf.observers ? 0 : i);
+  }
   v.push_back(std::move(second_br));
   if (race.kind == Race::OBSERVED) {
     int k = race.witness_event;
-    const Branch &first_br = prefix.branch(i);
-    Branch witness_br = prefix.branch(k);
+    Branch first_br = branch_with_symbolic_data(i);
+    Branch witness_br = branch_with_symbolic_data(k);
     /* Only replay the racy event. */
     witness_br.size = 1;
 
-    v.push_back(first_br);
+    v.emplace_back(std::move(first_br));
     v.insert(v.end(), std::make_move_iterator(notobs.begin()),
              std::make_move_iterator(notobs.end()));
     notobs.clear(); /* Since their states are undefined after std::move */
-    v.push_back(std::move(witness_br));
+    v.emplace_back(std::move(witness_br));
   }
 
   if (conf.observers) {
@@ -1917,6 +2010,8 @@ void TSOTraceBuilder::race_detect_optimal
         SymEv &e = *(--ei);
         switch(e.kind){
         case SymEv::LOAD:
+        case SymEv::CMPXHG: /* First a load, then a store */
+        case SymEv::CMPXHGFAIL:
           if (read_all)
                last_reads.erase (VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
           else last_reads.insert(VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
@@ -1990,15 +2085,21 @@ void TSOTraceBuilder::race_detect_optimal
      */
     auto vf = v.begin();
     for (int l = 0;; l++, ++vf) {
-      for (IPid p : prefix[l].sleep) {
+      for (int m = 0; m < prefix[l].sleep.size(); ++m) {
+        IPid p = prefix[l].sleep[m];
+        const sym_ty &sleep_sym = prefix[l].sleep_evs[m];
+#ifndef NDEBUG
         /* Find this event in prefix */
         IID<IPid> sleep_iid(p, iid_map[p]);
         unsigned k = find_process_event(p, sleep_iid.get_index());
-        Branch sleep_br = prefix.branch(k);
-        sym_ty sleep_sym = prefix[k].sym;
-        clear_observed(sleep_sym);
+        assert(prefix.branch(k).alt == 0);
         assert(prefix[k].iid.get_index() == sleep_iid.get_index()
                && "Sleepers cannot be truncated");
+#endif
+        Branch sleep_br(p);
+        assert(std::all_of(sleep_sym.begin(), sleep_sym.end(), [](const SymEv &e){
+              return e.kind != SymEv::STORE; // All must be unobserved
+            }));
         /* As an optimisation, when l < i, we could go directly to the event in
          * v */
         bool skip = false;
@@ -2132,6 +2233,7 @@ void TSOTraceBuilder::race_detect_optimal
     /* No existing child was compatible with v. Insert v as a new sequence. */
     for (Branch &ve : v) {
       if (conf.observers) clear_observed(ve.sym);
+      for (SymEv &e : ve.sym) e.purge_data();
       node = node.put_child(std::move(ve));
     }
     return;

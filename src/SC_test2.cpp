@@ -207,6 +207,61 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
   BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf,&opt_res));
 }
 
+BOOST_AUTO_TEST_CASE(CAS_tricky){
+  /* Check that we can predict that a CAS will fail when reversed with a
+   * store. */
+  Configuration conf = DPORDriver_test::get_sc_conf();
+  std::string module = StrModule::portasm(R"(
+@x = global i32 0, align 4
+
+define i8* @r(i8* %arg){
+  load i32, i32* @x, align 4
+  ret i8* null
+}
+
+define i8* @cas(i8* %arg){
+)"
+#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
+R"(  cmpxchg i32* @x, i32 1, i32 2 seq_cst seq_cst)"
+#else
+R"(  cmpxchg i32* @x, i32 1, i32 2 seq_cst)"
+#endif
+R"(
+  ret i8* null
+}
+
+define i32 @main(){
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @r, i8* null)
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @cas, i8* null)
+  store i32 1, i32* @x, align 4
+  ret i32 0
+}
+
+%attr_t = type {i64*, [48 x i8]}
+declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
+)");
+
+  DPORDriver *driver = DPORDriver::parseIR(module, conf);
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module, conf);
+  DPORDriver::Result opt_res = driver->run();
+  delete driver;
+
+  CPid P0, P1 = P0.spawn(0), P2 = P0.spawn(1);
+  IID<CPid> w(P0,3), r(P1,1), cas(P2,1);
+  DPORDriver_test::trace_set_spec expected =
+    {{{cas,w},{r,w}},
+     {{cas,w},{w,r}},
+     {{w,cas},{r,w}},
+     {{w,cas},{w,r},{r,cas}},
+     {{w,cas},{cas,r}}
+    };
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf,&opt_res));
+}
+
 BOOST_AUTO_TEST_CASE(Compiler_fence_dekker){
   Configuration conf = DPORDriver_test::get_sc_conf();
   std::string module = StrModule::portasm(R"(

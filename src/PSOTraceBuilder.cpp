@@ -528,6 +528,15 @@ void PSOTraceBuilder::atomic_store(const SymData &sd){
   }
 }
 
+void PSOTraceBuilder::compare_exchange
+(const SymData &sd, const SymData::block_type expected, bool success){
+  if(success){
+    atomic_store(sd);
+  }else{
+    load(sd.get_ref());
+  }
+}
+
 void PSOTraceBuilder::load(const SymAddrSize &ml){
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.size()));

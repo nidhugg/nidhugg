@@ -50,6 +50,8 @@ public:
   virtual void spawn();
   virtual void store(const SymData &ml);
   virtual void atomic_store(const SymData &ml);
+  virtual void compare_exchange
+  (const SymData &sd, const SymData::block_type expected, bool success);
   virtual void load(const SymAddrSize &ml);
   virtual void full_memory_conflict();
   virtual void fence();
@@ -294,6 +296,8 @@ protected:
   public:
     Branch (IPid pid, int alt = 0, sym_ty sym = {})
       : sym(std::move(sym)), pid(pid), alt(alt), size(1) {}
+    Branch (const Branch &base, sym_ty sym)
+      : sym(std::move(sym)), pid(base.pid), alt(base.alt), size(base.size) {}
     /* Symbolic representation of the globally visible operation of this event.
      */
     sym_ty sym;
@@ -496,6 +500,12 @@ protected:
     return prefix.branch(prefix_idx);
   };
 
+  Branch branch_with_symbolic_data(unsigned index) {
+    return Branch(prefix.branch(index), prefix[index].sym);
+  };
+
+  void do_atomic_store(const SymData &ml);
+  void do_load(const SymAddrSize &ml);
   void do_load(ByteInfo &m);
 
   /* Finds the index in prefix of the event of process pid that has iid-index
@@ -568,6 +578,15 @@ protected:
    * effects, allowing efficient walks over observer-correct sleep sets.
    */
   std::vector<VecSet<IPid>> compute_observers_wakeup_sets() const;
+  /* When planning a reversal with a compare-exchange, the symbolic event
+   * of the hoisted event must correctly indicate whether the
+   * compare-exchange will succeed or fail, otherwise sleep and
+   * wakeup-tree logic can break. This function updates all
+   * compare-exchange operations in one event es when preceeded by the
+   * events prefix[0..i] ++ v
+   */
+  void recompute_cmpxhg_success(sym_ty &es, const std::vector<Branch> &v, int i)
+    const;
   /* Computes the sleepset at position i, additionally returning the symbolic
    * events that the sleeper would do (as determined by dry running).
    */

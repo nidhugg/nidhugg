@@ -204,6 +204,7 @@ public:
 class SymData {
 public:
   typedef std::shared_ptr<uint8_t[]> block_type;
+  static std::shared_ptr<uint8_t[]> alloc_block(int alloc_size);
 private:
   SymAddrSize ref;
   block_type block;
@@ -219,6 +220,10 @@ public:
    * Pre: The allocated size of block must be at least ref.size elements.
    */
   SymData(SymAddrSize ref, block_type block);
+  uint8_t &operator [](SymAddr addr) const {
+    assert(ref.includes(addr));
+    return block[addr-ref.addr];
+  }
   const SymAddrSize &get_ref() const { return ref; };
   void *get_block() const { return block.get(); };
   block_type &get_shared_block() { return block; };
