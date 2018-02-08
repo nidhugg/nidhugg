@@ -2074,7 +2074,9 @@ void TSOTraceBuilder::race_detect_optimal
       return;
     }
 
-    /* */
+    /* skip is used to break out of the loops if we find a child to
+     * recurse into (RECURSE), or if the child is incompatible and we
+     * need to check the next (NEXT) */
     enum { NO, RECURSE, NEXT } skip = NO;
     for (auto child_it = node.begin(); child_it != node.end(); ++child_it) {
       /* Find this event in prefix */
@@ -2104,9 +2106,6 @@ void TSOTraceBuilder::race_detect_optimal
           }
           /* Drop ve from v and recurse into this node */
           v.erase(vei);
-          iid_map_step(iid_map, child_it.branch());
-          node = child_it.node();
-          skip = RECURSE;
           break;
         }
 
@@ -2116,9 +2115,9 @@ void TSOTraceBuilder::race_detect_optimal
           skip = NEXT;
         }
       }
-      if (skip == RECURSE) break;
       if (skip == NEXT) { skip = NO; continue; }
 
+      /* The child is compatible with v, recurse into it. */
       iid_map_step(iid_map, child_it.branch());
       node = child_it.node();
       skip = RECURSE;
