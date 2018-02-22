@@ -545,11 +545,9 @@ protected:
                             IPid snd_pid, const SymEv &snd,
                             IPid thd_pid, const SymEv &thd) const;
   Event reconstruct_lock_event(const Race&);
-  void race_detect(const Race&, const std::map<IPid,const sym_ty*>&);
   std::vector<int> iid_map_at(int event) const;
   void iid_map_step(std::vector<int> &iid_map, const Branch &event) const;
   void iid_map_step_rev(std::vector<int> &iid_map, const Branch &event) const;
-  void race_detect_optimal(const Race&, const std::map<IPid,const sym_ty*>&);
   /* Add clocks and branches.
    *
    * All elements e in seen should either be indices into prefix, or
@@ -629,6 +627,14 @@ protected:
   void obs_sleep_add(struct obs_sleep &sleep, const Event &e) const;
   obs_wake_res obs_sleep_wake(struct obs_sleep &osleep, IPid p,
                               const sym_ty &e) const;
+  /* This overload is a workaround for having the obs_sleep sets work
+   * correctly under TSO without a full symbolic conflict detection
+   * implementation (as required for Optimal-DPOR), as obs_sleep now is
+   * used even for Source-DPOR.
+   */
+  void obs_sleep_wake(struct obs_sleep &sleep, const Event &e) const;
+  void race_detect(const Race&, const struct obs_sleep&);
+  void race_detect_optimal(const Race&, const struct obs_sleep&);
   /* Wake up all threads which are sleeping, waiting for an access
    * (type,ml). */
   void wakeup(Access::Type type, SymAddr ml);
