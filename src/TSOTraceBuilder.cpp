@@ -397,6 +397,20 @@ std::string TSOTraceBuilder::slp_string(const VecSet<IPid> &slp) const {
   return slp.to_string_one_line([this](IPid p) { return threads[p].cpid.to_string(); });
 }
 
+std::string TSOTraceBuilder::oslp_string(const struct obs_sleep &os) const {
+  std::string res = "{";
+  for (const auto &pair : os.sleep) {
+    res += "," + threads[pair.first].cpid.to_string();
+    if (pair.second.not_if_read) {
+      res += "/" + pair.second.not_if_read->to_string();
+    }
+  }
+  for (const SymAddrSize &sas : os.must_read) {
+    res += "," + sas.to_string([this](IPid p) { return threads[p].cpid.to_string(); });
+  }
+  return res + "}";
+}
+
 /* For debug-printing the wakeup tree; adds a node and its children to lines */
 void TSOTraceBuilder::wut_string_add_node
 (std::vector<std::string> &lines, std::vector<int> &iid_map,
@@ -600,22 +614,15 @@ void TSOTraceBuilder::debug_print() const {
   int iid_offs = 0;
   int clock_offs = 0;
   std::vector<std::string> lines;
-  VecSet<IPid> sleep_set;
-
-  std::vector<VecSet<IPid>> wakeup_sets;
-  if (conf.observers) wakeup_sets = compute_observers_wakeup_sets();
+  struct obs_sleep sleep_set;
 
   for(unsigned i = 0; i < prefix.len(); ++i){
     IPid ipid = prefix[i].iid.get_pid();
     iid_offs = std::max(iid_offs,2*ipid+int(iid_string(i).size()));
     clock_offs = std::max(clock_offs,int(prefix[i].clock.to_string().size()));
-    sleep_set.insert(prefix[i].sleep);
-    lines.push_back(" SLP:" + slp_string(sleep_set));
-    if (conf.observers){
-      sleep_set.erase(wakeup_sets[i]);
-    }else{
-      sleep_set.erase(prefix[i].wakeup);
-    }
+    obs_sleep_add(sleep_set, prefix[i]);
+    lines.push_back(" SLP:" + oslp_string(sleep_set));
+    obs_sleep_wake(sleep_set, ipid, prefix[i].sym);
   }
 
   /* Add wakeup tree */
@@ -1354,6 +1361,108 @@ void TSOTraceBuilder::sym_sleep_set_add(std::map<IPid,const sym_ty*> &sleep,
   }
 }
 
+struct TSOTraceBuilder::obs_sleep
+TSOTraceBuilder::obs_sleep_at(int i) const{
+  assert(i >= 0);
+  std::vector<int> iid_map = iid_map_at(0);
+  struct obs_sleep sleep;
+  for(int j = 0;; ++j){
+    obs_sleep_add(sleep, prefix[j]);
+    if (j == i) break;
+    sym_ty sym = prefix[j].sym;
+    /* A tricky part to this is that we must clear observers from the events
+     * we use to wake */
+    clear_observed(sym);
+#ifndef NDEBUG
+    obs_wake_res res =
+#endif
+      obs_sleep_wake(sleep, prefix[j].iid.get_pid(), sym);
+    assert(res != obs_wake_res::BLOCK);
+    iid_map_step(iid_map, prefix.branch(j));
+  }
+
+  return sleep;
+}
+
+void TSOTraceBuilder::obs_sleep_add(struct obs_sleep &sleep,
+                                    const Event &e) const{
+  for (int k = 0; k < e.sleep.size(); ++k){
+    sleep.sleep[e.sleep[k]] = {&e.sleep_evs[k], nullptr};
+  }
+}
+
+static bool symev_does_load(const SymEv &e) {
+  return e.kind == SymEv::LOAD || e.kind == SymEv::CMPXHG
+    || e.kind == SymEv::CMPXHGFAIL || e.kind == SymEv::FULLMEM;
+}
+
+static bool symev_is_store(const SymEv &e) {
+  return e.kind == SymEv::UNOBS_STORE || e.kind == SymEv::STORE;
+}
+
+TSOTraceBuilder::obs_wake_res
+TSOTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep,
+                                IPid p, const sym_ty &sym) const{
+  if (sleep.sleep.count(p)) {
+    if (sleep.sleep[p].not_if_read) {
+      sleep.must_read.push_back(*sleep.sleep[p].not_if_read);
+      sleep.sleep.erase(p);
+      return obs_wake_res::CONTINUE;
+    } else {
+      return obs_wake_res::BLOCK;
+    }
+  }
+
+  for (auto it = sleep.sleep.begin(); it != sleep.sleep.end();) {
+    if (do_events_conflict(p, sym, it->first, *it->second.sym)){
+      it = sleep.sleep.erase(it);
+    }else{
+      ++it;
+    }
+  }
+  for (const SymEv &e : sym) {
+    if (symev_is_store(e)) {
+      /* Now check for shadowing of needed observations */
+      const SymAddrSize &esas = e.addr();
+      if (std::any_of(sleep.must_read.begin(), sleep.must_read.end(),
+                      [&esas](const SymAddrSize &ssas) {
+                        return ssas.subsetof(esas);
+                      })) {
+        return obs_wake_res::BLOCK;
+      }
+      /* Now handle write-write races by moving the sleepers to sleep_if */
+      for (auto it = sleep.sleep.begin(); it != sleep.sleep.end(); ++it) {
+        if (std::any_of(it->second.sym->begin(), it->second.sym->end(),
+                        [&esas](const SymEv &f) {
+                          return symev_is_store(f) && f.addr() == esas;
+                        })) {
+          assert(!it->second.not_if_read || *it->second.not_if_read == esas);
+          it->second.not_if_read = esas;
+        }
+      }
+    }
+    if (symev_does_load(e)) {
+      /* Now check for readers */
+      const SymAddrSize &esas = e.addr();
+      for (int i = 0; i < int(sleep.must_read.size());) {
+        if (sleep.must_read[i].overlaps(esas)) {
+          /* Efficient unordered set delete */
+          std::swap(sleep.must_read[i], sleep.must_read.back());
+          sleep.must_read.pop_back();
+        } else {
+          ++i;
+        }
+      }
+    }
+  }
+  /* Check if the sleep set became empty */
+  if (sleep.sleep.empty() && sleep.must_read.empty()) {
+    return obs_wake_res::CLEAR;
+  } else {
+    return obs_wake_res::CONTINUE;
+  }
+}
+
 static void clear_observed(SymEv &e){
   if (e.kind == SymEv::STORE){
     e.set_observed(false);
@@ -1911,7 +2020,9 @@ void TSOTraceBuilder::race_detect_optimal
 
   /* We need a writable copy */
   std::map<IPid,const sym_ty*> isleep;
+  struct obs_sleep osleep;
   if (!conf.observers) isleep = isleep_const;
+  else osleep = obs_sleep_at(i);
 
   const Event &first = prefix[i];
   Event second({-1,0});
@@ -1947,15 +2058,6 @@ void TSOTraceBuilder::race_detect_optimal
   std::vector<const Event*> observers;
   std::vector<Branch> notobs;
 
-  if (conf.observers) {
-    /* Start v with the entire prefix before e, for the
-     * observers-compatible redundancy check.
-     */
-    for (int k = 0; k < i; ++k) {
-      v.emplace_back(branch_with_symbolic_data(k));
-    }
-  }
-
   for (int k = i + 1; k < int(prefix.len()); ++k){
     if (!first.clock.leq(prefix[k].clock)) {
       v.emplace_back(branch_with_symbolic_data(k));
@@ -1973,7 +2075,7 @@ void TSOTraceBuilder::race_detect_optimal
     }
   }
   if (race.kind == Race::NONBLOCK) {
-    recompute_cmpxhg_success(second_br.sym, v, conf.observers ? 0 : i);
+    recompute_cmpxhg_success(second_br.sym, v, i);
   }
   v.push_back(std::move(second_br));
   if (race.kind == Race::OBSERVED) {
@@ -2046,9 +2148,7 @@ void TSOTraceBuilder::race_detect_optimal
    * construct the iid of any events we see in the wakeup tree,
    * which in turn is used to find the corresponding event in prefix.
    */
-  std::vector<int> iid_map;
-  if (conf.observers) iid_map = iid_map_at(0);
-  else iid_map = iid_map_at(i);
+  std::vector<int> iid_map = iid_map_at(i);
 
   /* Check for redundant exploration */
   if (!conf.observers) {
@@ -2076,70 +2176,13 @@ void TSOTraceBuilder::race_detect_optimal
     }
   }
   } else {
-    /* Observer-compatible redundancy check. Note the similarity to
-     * wakeup tree insertion. */
-    /* Conceptually, we want to pop_front() on v after each iteration;
-     * but since that's expensive on vectors, we instead keep a pointer
-     * vf to where v "should" start, and then erase() all the elements
-     * in one batch afterwards.
-     */
-    auto vf = v.begin();
-    for (int l = 0;; l++, ++vf) {
-      for (int m = 0; m < prefix[l].sleep.size(); ++m) {
-        IPid p = prefix[l].sleep[m];
-        const sym_ty &sleep_sym = prefix[l].sleep_evs[m];
-#ifndef NDEBUG
-        /* Find this event in prefix */
-        IID<IPid> sleep_iid(p, iid_map[p]);
-        unsigned k = find_process_event(p, sleep_iid.get_index());
-        assert(prefix.branch(k).alt == 0);
-        assert(prefix[k].iid.get_index() == sleep_iid.get_index()
-               && "Sleepers cannot be truncated");
-#endif
-        Branch sleep_br(p);
-        assert(std::all_of(sleep_sym.begin(), sleep_sym.end(), [](const SymEv &e){
-              return e.kind != SymEv::STORE; // All must be unobserved
-            }));
-        /* As an optimisation, when l < i, we could go directly to the event in
-         * v */
-        bool skip = false;
-        for (auto vei = vf; !skip && vei != v.end(); ++vei) {
-          Branch &ve = *vei;
-          if (sleep_br == ve) {
-            if (sleep_sym != ve.sym) {
-              /* This can happen due to observer effects. We must now make sure
-               * ve.second->sym does not have any conflicts with any previous
-               * event in v; i.e. wether it actually is a weak initial of v. */
-              for (auto pei = vf; !skip && pei != vei; ++pei) {
-                const Branch &pe = *pei;
-                if (do_events_conflict(ve.pid, ve.sym,
-                                       pe.pid, pe.sym)) {
-                  /* We're not redundant with p, try next sleeper */
-                  skip = true;
-                }
-              }
-              if (skip) break;
-            }
-
-            /* p is an initial of v; this insertion is redundant */
-            return;
-          }
-          if (ve.pid == p
-              || do_events_conflict(ve.pid, ve.sym,
-                                    p, sleep_sym)) {
-            /* We're not redundant with p, try next sleeper */
-            skip = true;
-          }
-        }
-        if (!skip) {
-          /* p is an initial of v; this insertion is redundant */
-          return;
-        }
-      }
-      if (l >= i) break;
-      iid_map_step(iid_map, *vf);
+    obs_wake_res state = obs_wake_res::CONTINUE;
+    for (auto it = v.cbegin(); state == obs_wake_res::CONTINUE
+           && it != v.cend(); ++it) {
+      state = obs_sleep_wake(osleep, it->pid, it->sym);
     }
-    v.erase(v.begin(), vf);
+    /* Redundant */
+    if (state != obs_wake_res::CLEAR) return;
   }
 
   if (!conf.observers){

@@ -25,6 +25,7 @@
 #include "VClock.h"
 #include "SymEv.h"
 #include "WakeupTrees.h"
+#include "Option.h"
 
 typedef llvm::SmallVector<SymEv,1> sym_ty;
 
@@ -609,6 +610,25 @@ protected:
    */
   void sym_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
                           const Event &e) const;
+  struct obs_sleep {
+    struct sleepy_state {
+      const sym_ty *sym;
+      Option<SymAddrSize> not_if_read;
+    };
+    std::map<IPid,struct sleepy_state> sleep;
+    /* Addresses that must be read */
+    std::vector<SymAddrSize> must_read;
+  };
+  std::string oslp_string(const struct obs_sleep &slp) const;
+  struct obs_sleep obs_sleep_at(int i) const;
+  enum class obs_wake_res {
+    CLEAR,
+    CONTINUE,
+    BLOCK,
+  };
+  void obs_sleep_add(struct obs_sleep &sleep, const Event &e) const;
+  obs_wake_res obs_sleep_wake(struct obs_sleep &osleep, IPid p,
+                              const sym_ty &e) const;
   /* Wake up all threads which are sleeping, waiting for an access
    * (type,ml). */
   void wakeup(Access::Type type, SymAddr ml);
