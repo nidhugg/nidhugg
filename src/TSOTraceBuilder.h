@@ -25,6 +25,12 @@
 #include "VClock.h"
 
 class TSOTraceBuilder : public TSOPSOTraceBuilder{
+  bool schedule_replay(int *proc, int *aux, int *alt, bool *dryrun);
+  bool schedule_thread(int *proc, unsigned p);
+  // merge last (invisible) event to the previous
+  // (also invisible) event
+  void squeezeLastEvent();
+  void mergeInvisibleEvents();
 public:
   TSOTraceBuilder(const Configuration &conf = Configuration::default_conf);
   virtual ~TSOTraceBuilder();

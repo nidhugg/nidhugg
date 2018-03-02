@@ -3373,6 +3373,9 @@ void Interpreter::run() {
     }
 
     // Interpret a single instruction & increment the "PC".
+    // the TraceBuilder::schedule set the CurrentThread attribute,
+    // so the ECStack() will get the execution context of the currently
+    // scheduled thread
     ExecutionContext &SF = ECStack()->back();  // Current stack frame
     Instruction &I = *SF.CurInst++;            // Increment before execute
 
