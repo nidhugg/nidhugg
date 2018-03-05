@@ -2,6 +2,7 @@
 
 \usepackage[utf8]{inputenc}
 \usepackage{amssymb}
+\usepackage[colorlinks,linkcolor=black]{hyperref}
 
 \title{Nidhugg -- Manual\\\large{Version %%NIDHUGGVERSION%%}}
 \author{}
@@ -363,6 +364,38 @@ int main(int argc, char *argv[]){
   representation after compilation and possibly optimization. These
   loops do not necessarily correspond one-to-one with the loops in the
   high-level language.
+\end{description}
+
+\subsubsection{Tracing Switches}
+
+Nidhugg has some switches that can show how it is exploring a program
+and what operations it considers racing. There operations output graphs
+in Graphviz\footnote{\url{https://graphviz.org}} DOT format.
+
+\begin{description}
+\item{\texttt{--dump-tree=$OUTFILE$}}
+%
+  After analysis, write a graph that visualises the exploration tree to
+  $OUTFILE$.
+
+\item{\texttt{--dump-traces=$OUTFILE$}}
+%
+  After analysis, write a graph of the happens-before orders of all explored
+  traces to $OUTFILE$.
+%
+  \limitsupport{SC, TSO, PSO}
+
+\item{\texttt{--dump-spec=$OUTFILE$}}
+%
+  This option is primarily useful to developers of Nidhugg. After analysis,
+  write a minimised \texttt{DPORDriver\_test::trace\_set\_\hspace{0pt}spec}
+  characterising the explored set of traces, excluding sleepset-blocked ones, to
+  $OUTFILE$. Useful for creating regression tests after an issue has been fixed,
+  and the test program is not small enough to make writing a
+  \texttt{DPORDriver\_test::trace\_set\_spec} by hand feasible.
+%
+  \limitsupport{SC, TSO, PSO}
+
 \end{description}
 
 \subsubsection{Exit Status}
