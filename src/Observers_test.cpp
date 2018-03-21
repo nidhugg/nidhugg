@@ -37,7 +37,7 @@ static Configuration sc_obs_conf(){
 
 BOOST_AUTO_TEST_CASE(lastwrite_4){
   Configuration conf = sc_obs_conf();
-  std::string module = R"(
+  std::string module = StrModule::portasm(R"(
 @var = global i32 zeroinitializer, align 4
 
 define i8* @writer(i8* %arg) {
@@ -70,7 +70,7 @@ define i32 @main() {
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*) nounwind
 declare i32 @pthread_join(i64,i8**) nounwind
-)";
+)");
   std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
   DPORDriver::Result res = driver->run();
 
@@ -91,7 +91,7 @@ declare i32 @pthread_join(i64,i8**) nounwind
 
 BOOST_AUTO_TEST_CASE(treewrite_2_3){
   Configuration conf = sc_obs_conf();
-  std::string module = R"(
+  std::string module = StrModule::portasm(R"(
 @vars = global [2 x i32] zeroinitializer, align 4
 @var = global i32 0, align 4
 
@@ -99,7 +99,7 @@ define i8* @writer(i8* %argp) {
   %arg = ptrtoint i8* %argp to i64
   %j = trunc i64 %arg to i32
   %i = ashr i64 %arg, 32
-  %varsp = getelementptr inbounds [2 x i32], [2 x i32]* @vars, i64 0, i64 %i
+  %varsp = getelementptr [2 x i32], [2 x i32]* @vars, i64 0, i64 %i
   store i32 %j, i32* %varsp, align 4
   ret i8* null
 }
@@ -126,7 +126,7 @@ define i8* @collector(i8* %arg) {
   call i32 @pthread_join(i64 %W2v, i8** null)
   %W3v = load i64, i64* %W3
   call i32 @pthread_join(i64 %W3v, i8** null)
-  %varsp = getelementptr inbounds [2 x i32], [2 x i32]* @vars, i64 0, i64 %i
+  %varsp = getelementptr [2 x i32], [2 x i32]* @vars, i64 0, i64 %i
   %val = load i32, i32* %varsp, align 4
   store i32 %val, i32* @var, align 4
   ret i8* null
@@ -148,7 +148,7 @@ define i32 @main() {
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*)
 declare i32 @pthread_join(i64, i8**)
-)";
+)");
   std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
   DPORDriver::Result res = driver->run();
 
@@ -176,7 +176,7 @@ declare i32 @pthread_join(i64, i8**)
 
 BOOST_AUTO_TEST_CASE(treewrite_3_3){
   Configuration conf = sc_obs_conf();
-  std::string module = R"(
+  std::string module = StrModule::portasm(R"(
 @vars = global [3 x i32] zeroinitializer, align 4
 @var = global i32 0, align 4
 
@@ -184,7 +184,7 @@ define i8* @writer(i8* %argp) {
   %arg = ptrtoint i8* %argp to i64
   %j = trunc i64 %arg to i32
   %i = ashr i64 %arg, 32
-  %varsp = getelementptr inbounds [3 x i32], [3 x i32]* @vars, i64 0, i64 %i
+  %varsp = getelementptr [3 x i32], [3 x i32]* @vars, i64 0, i64 %i
   store i32 %j, i32* %varsp, align 4
   ret i8* null
 }
@@ -211,7 +211,7 @@ define i8* @collector(i8* %arg) {
   call i32 @pthread_join(i64 %W2v, i8** null)
   %W3v = load i64, i64* %W3
   call i32 @pthread_join(i64 %W3v, i8** null)
-  %varsp = getelementptr inbounds [3 x i32], [3 x i32]* @vars, i64 0, i64 %i
+  %varsp = getelementptr [3 x i32], [3 x i32]* @vars, i64 0, i64 %i
   %val = load i32, i32* %varsp, align 4
   store i32 %val, i32* @var, align 4
   ret i8* null
@@ -237,7 +237,7 @@ define i32 @main() {
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*)
 declare i32 @pthread_join(i64, i8**)
-)";
+)");
   std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
   DPORDriver::Result res = driver->run();
 
@@ -271,7 +271,7 @@ declare i32 @pthread_join(i64, i8**)
 
 BOOST_AUTO_TEST_CASE(condtree_2_3r){
   Configuration conf = sc_obs_conf();
-  std::string module = R"(
+  std::string module = StrModule::portasm(R"(
 @var_a = global i64 0, align 8
 @var_b = global i64 0, align 8
 
@@ -329,7 +329,7 @@ bnzl:
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*)
 declare i32 @pthread_join(i64, i8**)
-)";
+)");
   std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
   DPORDriver::Result res = driver->run();
 
@@ -354,7 +354,7 @@ declare i32 @pthread_join(i64, i8**)
 
 BOOST_AUTO_TEST_CASE(condtree_2_3f){
   Configuration conf = sc_obs_conf();
-  std::string module = R"(
+  std::string module = StrModule::portasm(R"(
 @var_a = global i64 0, align 8
 @var_b = global i64 0, align 8
 
@@ -412,7 +412,7 @@ anzl:
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*)
 declare i32 @pthread_join(i64, i8**)
-)";
+)");
   std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
   DPORDriver::Result res = driver->run();
 
@@ -436,7 +436,7 @@ declare i32 @pthread_join(i64, i8**)
 
 BOOST_AUTO_TEST_CASE(condtree_3_3f){
   Configuration conf = sc_obs_conf();
-  std::string module = R"(
+  std::string module = StrModule::portasm(R"(
 @var_a = global i64 0, align 8
 @var_b = global i64 0, align 8
 @var_c = global i64 0, align 8
@@ -521,7 +521,7 @@ bnzl:
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*)
 declare i32 @pthread_join(i64, i8**)
-)";
+)");
   std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
   DPORDriver::Result res = driver->run();
 
@@ -556,7 +556,7 @@ declare i32 @pthread_join(i64, i8**)
 
 BOOST_AUTO_TEST_CASE(condtree_3_3r){
   Configuration conf = sc_obs_conf();
-  std::string module = R"(
+  std::string module = StrModule::portasm(R"(
 @var_a = global i64 0, align 8
 @var_b = global i64 0, align 8
 @var_c = global i64 0, align 8
@@ -641,7 +641,7 @@ bnzl:
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*)
 declare i32 @pthread_join(i64, i8**)
-)";
+)");
   std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
   DPORDriver::Result res = driver->run();
 
@@ -683,78 +683,65 @@ BOOST_AUTO_TEST_CASE(wrong_witness){
    * TSOTraceBuilder::compute_vclocks().
    */
   Configuration conf = sc_obs_conf();
-  std::string module = R"#(
-; ModuleID = 'wrong_witness.c'
-source_filename = "proofexample3.c"
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
-
-%union.pthread_attr_t = type { i64, [48 x i8] }
+  std::string module = StrModule::portasm(R"#(
+%attr_t = type { i64, [48 x i8] }
 
 @c = global i32 0, align 4
 @x = common global i32 0, align 4
 @y = common global i32 0, align 4
 @z = common global i32 0, align 4
 
-; Function Attrs: noinline norecurse nounwind uwtable
-define void @__VERIFIER_atomic_p() local_unnamed_addr #0 {
+define void @__VERIFIER_atomic_p() {
 entry:
-  store volatile i32 0, i32* @x, align 4, !tbaa !1
-  store volatile i32 0, i32* @y, align 4, !tbaa !1
+  store volatile i32 0, i32* @x, align 4
+  store volatile i32 0, i32* @y, align 4
   ret void
 }
 
-; Function Attrs: norecurse nounwind uwtable
-define noalias i8* @p(i8* nocapture readnone %arg) #1 {
+define i8* @p(i8* %arg) {
 entry:
   tail call void @__VERIFIER_atomic_p()
   ret i8* null
 }
 
-; Function Attrs: noinline norecurse nounwind uwtable
-define void @__VERIFIER_atomic_q() local_unnamed_addr #0 {
+define void @__VERIFIER_atomic_q() {
 entry:
-  store volatile i32 1, i32* @y, align 4, !tbaa !1
-  store volatile i32 1, i32* @z, align 4, !tbaa !1
+  store volatile i32 1, i32* @y, align 4
+  store volatile i32 1, i32* @z, align 4
   ret void
 }
 
-; Function Attrs: norecurse nounwind uwtable
-define noalias i8* @q(i8* nocapture readnone %arg) #1 {
+define noalias i8* @q(i8* %arg) {
 entry:
   tail call void @__VERIFIER_atomic_q()
   ret i8* null
 }
 
-; Function Attrs: noinline norecurse nounwind uwtable
-define void @__VERIFIER_atomic_r() local_unnamed_addr #0 {
+define void @__VERIFIER_atomic_r() {
 entry:
-  store volatile i32 2, i32* @x, align 4, !tbaa !1
-  store volatile i32 2, i32* @y, align 4, !tbaa !1
-  store volatile i32 2, i32* @z, align 4, !tbaa !1
+  store volatile i32 2, i32* @x, align 4
+  store volatile i32 2, i32* @y, align 4
+  store volatile i32 2, i32* @z, align 4
   ret void
 }
 
-; Function Attrs: norecurse nounwind uwtable
-define noalias i8* @r(i8* nocapture readnone %arg) #1 {
+define noalias i8* @r(i8* %arg) {
 entry:
   tail call void @__VERIFIER_atomic_r()
   ret i8* null
 }
 
-; Function Attrs: norecurse nounwind uwtable
-define noalias i8* @s(i8* nocapture readnone %arg) #1 {
+define noalias i8* @s(i8* %arg) {
 entry:
-  store volatile i32 1, i32* @c, align 4, !tbaa !1
+  store volatile i32 1, i32* @c, align 4
   ret i8* null
 }
 
-; Function Attrs: norecurse nounwind uwtable
-define { i64, i32 } @oprime() local_unnamed_addr #1 {
+define { i64, i32 } @oprime() {
 entry:
-  %0 = load volatile i32, i32* @x, align 4, !tbaa !1
-  %1 = load volatile i32, i32* @y, align 4, !tbaa !1
-  %2 = load volatile i32, i32* @z, align 4, !tbaa !1
+  %0 = load volatile i32, i32* @x, align 4
+  %1 = load volatile i32, i32* @y, align 4
+  %2 = load volatile i32, i32* @z, align 4
   %retval.sroa.0.0.insert.ext = zext i32 %0 to i64
   %retval.sroa.0.4.insert.ext = zext i32 %1 to i64
   %retval.sroa.0.4.insert.shift = shl nuw i64 %retval.sroa.0.4.insert.ext, 32
@@ -764,18 +751,11 @@ entry:
   ret { i64, i32 } %.fca.1.insert
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #2
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #2
-
-; Function Attrs: noinline norecurse nounwind uwtable
-define { i64, i32 } @__VERIFIER_atomic_oprime() local_unnamed_addr #0 {
+define { i64, i32 } @__VERIFIER_atomic_oprime() {
 entry:
-  %0 = load volatile i32, i32* @x, align 4, !tbaa !1
-  %1 = load volatile i32, i32* @y, align 4, !tbaa !1
-  %2 = load volatile i32, i32* @z, align 4, !tbaa !1
+  %0 = load volatile i32, i32* @x, align 4
+  %1 = load volatile i32, i32* @y, align 4
+  %2 = load volatile i32, i32* @z, align 4
   %retval.sroa.0.0.insert.ext = zext i32 %0 to i64
   %retval.sroa.0.4.insert.ext = zext i32 %1 to i64
   %retval.sroa.0.4.insert.shift = shl nuw i64 %retval.sroa.0.4.insert.ext, 32
@@ -785,32 +765,27 @@ entry:
   ret { i64, i32 } %.fca.1.insert
 }
 
-; Function Attrs: nounwind uwtable
-define i32 @main() local_unnamed_addr #3 {
+define i32 @main() {
 entry:
   %pt = alloca i64, align 8
   %qt = alloca i64, align 8
   %rt = alloca i64, align 8
   %st = alloca i64, align 8
   %0 = bitcast i64* %pt to i8*
-  call void @llvm.lifetime.start(i64 8, i8* %0) #6
   %1 = bitcast i64* %qt to i8*
-  call void @llvm.lifetime.start(i64 8, i8* %1) #6
   %2 = bitcast i64* %rt to i8*
-  call void @llvm.lifetime.start(i64 8, i8* %2) #6
   %3 = bitcast i64* %st to i8*
-  call void @llvm.lifetime.start(i64 8, i8* %3) #6
-  %call = call i32 @pthread_create(i64* nonnull %pt, %union.pthread_attr_t* null, i8* (i8*)* nonnull @p, i8* null) #6
-  %call1 = call i32 @pthread_create(i64* nonnull %qt, %union.pthread_attr_t* null, i8* (i8*)* nonnull @q, i8* null) #6
-  %call2 = call i32 @pthread_create(i64* nonnull %rt, %union.pthread_attr_t* null, i8* (i8*)* nonnull @r, i8* null) #6
-  %call3 = call i32 @pthread_create(i64* nonnull %st, %union.pthread_attr_t* null, i8* (i8*)* nonnull @s, i8* null) #6
-  %4 = load i64, i64* %pt, align 8, !tbaa !5
-  %call4 = call i32 @pthread_join(i64 %4, i8** null) #6
-  %5 = load i64, i64* %qt, align 8, !tbaa !5
-  %call5 = call i32 @pthread_join(i64 %5, i8** null) #6
-  %6 = load i64, i64* %rt, align 8, !tbaa !5
-  %call6 = call i32 @pthread_join(i64 %6, i8** null) #6
-  %7 = load volatile i32, i32* @c, align 4, !tbaa !1
+  %call = call i32 @pthread_create(i64* %pt, %attr_t* null, i8* (i8*)* @p, i8* null)
+  %call1 = call i32 @pthread_create(i64* %qt, %attr_t* null, i8* (i8*)* @q, i8* null)
+  %call2 = call i32 @pthread_create(i64* %rt, %attr_t* null, i8* (i8*)* @r, i8* null)
+  %call3 = call i32 @pthread_create(i64* %st, %attr_t* null, i8* (i8*)* @s, i8* null)
+  %4 = load i64, i64* %pt, align 8
+  %call4 = call i32 @pthread_join(i64 %4, i8** null)
+  %5 = load i64, i64* %qt, align 8
+  %call5 = call i32 @pthread_join(i64 %5, i8** null)
+  %6 = load i64, i64* %rt, align 8
+  %call6 = call i32 @pthread_join(i64 %6, i8** null)
+  %7 = load volatile i32, i32* @c, align 4
   %tobool = icmp eq i32 %7, 0
   br i1 %tobool, label %if.else, label %if.then
 
@@ -819,42 +794,18 @@ if.then:                                          ; preds = %entry
   br label %if.end
 
 if.else:                                          ; preds = %entry
-  %8 = load volatile i32, i32* @x, align 4, !tbaa !1
+  %8 = load volatile i32, i32* @x, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
-  %9 = load i64, i64* %st, align 8, !tbaa !5
-  %call9 = call i32 @pthread_join(i64 %9, i8** null) #6
-  call void @llvm.lifetime.end(i64 8, i8* %3) #6
-  call void @llvm.lifetime.end(i64 8, i8* %2) #6
-  call void @llvm.lifetime.end(i64 8, i8* %1) #6
-  call void @llvm.lifetime.end(i64 8, i8* %0) #6
+  %9 = load i64, i64* %st, align 8
+  %call9 = call i32 @pthread_join(i64 %9, i8** null)
   ret i32 0
 }
 
-; Function Attrs: nounwind
-declare i32 @pthread_create(i64*, %union.pthread_attr_t*, i8* (i8*)*, i8*) local_unnamed_addr #4
-
-declare i32 @pthread_join(i64, i8**) local_unnamed_addr #5
-
-attributes #0 = { noinline norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { argmemonly nounwind }
-attributes #3 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #4 = { nounwind "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #5 = { "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #6 = { nounwind }
-
-!llvm.ident = !{!0}
-
-!0 = !{!"clang version 3.9.1 (http:/llvm.org/git/clang.git 54f5752c3600d39ee8de62ba9ff304154baf5e80) (http:/llvm.org/git/llvm.git a093ef43dd592b729da46db4ff3057fef9a46023)"}
-!1 = !{!2, !2, i64 0}
-!2 = !{!"int", !3, i64 0}
-!3 = !{!"omnipotent char", !4, i64 0}
-!4 = !{!"Simple C/C++ TBAA"}
-!5 = !{!6, !6, i64 0}
-!6 = !{!"long", !3, i64 0}
-)#";
+declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*)
+declare i32 @pthread_join(i64, i8**)
+)#");
   std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
   DPORDriver::Result res = driver->run();
 
@@ -868,66 +819,44 @@ attributes #6 = { nounwind }
 
 BOOST_AUTO_TEST_CASE(fullmemobs){
   Configuration conf = sc_obs_conf();
-  std::string module = R"#(
-; ModuleID = '<stdin>'
-source_filename = "fullmemobs.c"
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
-
-%union.pthread_attr_t = type { i64, [48 x i8] }
-
+  std::string module = StrModule::portasm(R"#(
 @x = global i32 0, align 4
 
-; Function Attrs: norecurse nounwind uwtable
-define noalias i8* @p(i8* nocapture readnone %arg) #0 {
+define i8* @p(i8* %arg) {
 entry:
   store volatile i32 112, i32* @x, align 4
   ret i8* null
 }
 
-; Function Attrs: norecurse nounwind uwtable
-define noalias i8* @q(i8* nocapture readnone %arg) #0 {
+define i8* @q(i8* %arg) {
 entry:
   store volatile i32 113, i32* @x, align 4
   ret i8* null
 }
 
-; Function Attrs: nounwind uwtable
-define i32 @main() local_unnamed_addr #1 {
+define i32 @main() {
 entry:
   %pt = alloca i64, align 8
   %qt = alloca i64, align 8
   %res = alloca i32, align 4
-  %call = call i32 @pthread_create(i64* nonnull %pt, %union.pthread_attr_t* null, i8* (i8*)* nonnull @p, i8* null) #4
-  %call1 = call i32 @pthread_create(i64* nonnull %qt, %union.pthread_attr_t* null, i8* (i8*)* nonnull @q, i8* null) #4
+  %call = call i32 @pthread_create(i64* %pt, %attr_t* null, i8* (i8*)* @p, i8* null)
+  %call1 = call i32 @pthread_create(i64* %qt, %attr_t* null, i8* (i8*)* @q, i8* null)
   %0 = load i64, i64* %pt, align 8
-  %call2 = call i32 @pthread_join(i64 %0, i8** null) #4
+  %call2 = call i32 @pthread_join(i64 %0, i8** null)
   %1 = load i64, i64* %qt, align 8
-  %call3 = call i32 @pthread_join(i64 %1, i8** null) #4
+  %call3 = call i32 @pthread_join(i64 %1, i8** null)
   %2 = bitcast i32* %res to i8*
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %2, i8* bitcast (i32* @x to i8*), i64 4, i32 4, i1 false)
   %3 = load i32, i32* %res, align 4
   ret i32 %3
 }
 
-; Function Attrs: nounwind
-declare i32 @pthread_create(i64*, %union.pthread_attr_t*, i8* (i8*)*, i8*) local_unnamed_addr #2
+%attr_t = type { i64, [48 x i8] }
+declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*)
+declare i32 @pthread_join(i64, i8**)
 
-declare i32 @pthread_join(i64, i8**) local_unnamed_addr #3
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture writeonly, i8* nocapture readonly, i64, i32, i1) #3
-
-attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { nounwind "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #3 = { "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #4 = { nounwind }
-
-!llvm.ident = !{!0}
-
-!0 = !{!"clang version 3.9.1 (http:/llvm.org/git/clang.git 54f5752c3600d39ee8de62ba9ff304154baf5e80) (http:/llvm.org/git/llvm.git a093ef43dd592b729da46db4ff3057fef9a46023)"}
-)#";
+declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i32, i1)
+)#");
   std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
   DPORDriver::Result res = driver->run();
 
@@ -937,8 +866,8 @@ attributes #4 = { nounwind }
 
 BOOST_AUTO_TEST_CASE(lamport){
   Configuration conf = sc_obs_conf();
-  std::string module = R"(
-%union.pthread_attr_t = type { i64, [48 x i8] }
+  std::string module = StrModule::portasm(R"(
+%attr_t = type { i64, [48 x i8] }
 
 @b = common global [2 x i64] zeroinitializer, align 16
 @x = common global i64 0, align 8
@@ -948,38 +877,28 @@ BOOST_AUTO_TEST_CASE(lamport){
 @.str.1 = private unnamed_addr constant [10 x i8] c"lamport.c\00", align 1
 @__PRETTY_FUNCTION__.thread = private unnamed_addr constant [21 x i8] c"void *thread(void *)\00", align 1
 
-; Function Attrs: nounwind sspstrong uwtable
 define i32 @main() {
   %1 = alloca i64, align 8
   %2 = alloca i64, align 8
   %3 = bitcast i64* %1 to i8*
-  call void @llvm.lifetime.start(i64 8, i8* nonnull %3)
   %4 = bitcast i64* %2 to i8*
-  call void @llvm.lifetime.start(i64 8, i8* nonnull %4)
-  %5 = call i32 @pthread_create(i64* nonnull %1, %union.pthread_attr_t* null, i8* (i8*)* nonnull @thread, i8* inttoptr (i64 1 to i8*))
-  %6 = call i32 @pthread_create(i64* nonnull %2, %union.pthread_attr_t* null, i8* (i8*)* nonnull @thread, i8* inttoptr (i64 2 to i8*))
+  %5 = call i32 @pthread_create(i64* %1, %attr_t* null, i8* (i8*)* @thread, i8* inttoptr (i64 1 to i8*))
+  %6 = call i32 @pthread_create(i64* %2, %attr_t* null, i8* (i8*)* @thread, i8* inttoptr (i64 2 to i8*))
   %7 = load i64, i64* %1, align 8
   %8 = call i32 @pthread_join(i64 %7, i8** null)
   %9 = load i64, i64* %2, align 8
   %10 = call i32 @pthread_join(i64 %9, i8** null)
-  call void @llvm.lifetime.end(i64 8, i8* nonnull %4)
-  call void @llvm.lifetime.end(i64 8, i8* nonnull %3)
   ret i32 0
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture)
+declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*)
 
-; Function Attrs: nounwind
-declare i32 @pthread_create(i64*, %union.pthread_attr_t*, i8* (i8*)*, i8*)
-
-; Function Attrs: nounwind sspstrong uwtable
 define internal noalias i8* @thread(i8*) {
   %2 = ptrtoint i8* %0 to i64
   %3 = add nsw i64 %2, -1
-  %4 = getelementptr inbounds [2 x i64], [2 x i64]* @b, i64 0, i64 %3
+  %4 = getelementptr [2 x i64], [2 x i64]* @b, i64 0, i64 %3
   %5 = sub i64 2, %2
-  %6 = getelementptr inbounds [2 x i64], [2 x i64]* @b, i64 0, i64 %5
+  %6 = getelementptr [2 x i64], [2 x i64]* @b, i64 0, i64 %5
   br label %7
 
 ; <label>:7:                                      ; preds = %14, %1
@@ -1030,7 +949,10 @@ define internal noalias i8* @thread(i8*) {
   br i1 %30, label %32, label %31
 
 ; <label>:31:                                     ; preds = %28
-  tail call void @__assert_fail(i8* getelementptr inbounds ([22 x i8], [22 x i8]* @.str, i64 0, i64 0), i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str.1, i64 0, i64 0), i32 50, i8* getelementptr inbounds ([21 x i8], [21 x i8]* @__PRETTY_FUNCTION__.thread, i64 0, i64 0))
+  tail call void @__assert_fail(i8* getelementptr ([22 x i8], [22 x i8]* @.str, i64 0, i64 0),
+                                i8* getelementptr ([10 x i8], [10 x i8]* @.str.1, i64 0, i64 0),
+                                i32 50,
+                                i8* getelementptr ([21 x i8], [21 x i8]* @__PRETTY_FUNCTION__.thread, i64 0, i64 0))
   unreachable
 
 ; <label>:32:                                     ; preds = %28
@@ -1041,15 +963,10 @@ define internal noalias i8* @thread(i8*) {
 
 declare i32 @pthread_join(i64, i8**)
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture)
-
-; Function Attrs: noreturn nounwind
 declare void @__assert_fail(i8*, i8*, i32, i8*)
 
 declare void @__VERIFIER_assume(i64)
-
-)";
+)");
   std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
   DPORDriver::Result res = driver->run();
 
