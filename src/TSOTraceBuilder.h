@@ -517,7 +517,6 @@ protected:
 
   std::string iid_string(std::size_t pos) const;
   std::string iid_string(const Branch &branch, int index) const;
-  std::string slp_string(const VecSet<IPid> &slp) const;
   void wut_string_add_node(std::vector<std::string> &lines,
                            std::vector<int> &iid_map,
                            unsigned line, Branch branch,
@@ -568,15 +567,6 @@ protected:
   /* Records a symbolic representation of the current event.
    */
   void record_symbolic(SymEv event);
-  /* Traverses prefix to compute the set of threads that were sleeping
-   * as the first event of prefix[i] started executing. Returns that
-   * set.
-   */
-  VecSet<IPid> sleep_set_at(int i) const;
-  /* Traverses prefix to compute the "wakeup" sets accounting for observer
-   * effects, allowing efficient walks over observer-correct sleep sets.
-   */
-  std::vector<VecSet<IPid>> compute_observers_wakeup_sets() const;
   /* When planning a reversal with a compare-exchange, the symbolic event
    * of the hoisted event must correctly indicate whether the
    * compare-exchange will succeed or fail, otherwise sleep and
@@ -586,28 +576,6 @@ protected:
    */
   void recompute_cmpxhg_success(sym_ty &es, const std::vector<Branch> &v, int i)
     const;
-  /* Computes the sleepset at position i, additionally returning the symbolic
-   * events that the sleeper would do (as determined by dry running).
-   */
-  std::map<IPid,const sym_ty*> sym_sleep_set_at(int i) const;
-  /* Performs the first half of a sleep set step, adding new sleepers from e. */
-  void sym_sleep_set_add(std::map<IPid,const sym_ty*> &sleep,
-                         const Event &e) const;
-  /* Performs the second half of a sleep set step, removing sleepers that
-   * conflict with (p, sym).
-   */
-  void sym_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
-                          IPid p, const sym_ty &sym) const;
-  /* Performs the second half of a sleep set step, removing sleepers that
-   * were identified as waking after event e.
-   *
-   * This overload is a workaround for having the sym_sleep sets work
-   * correctly under TSO without a full symbolic conflict detection
-   * implementation (as required for Optimal-DPOR), as sym_sleep now is
-   * used even for Source-DPOR.
-   */
-  void sym_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
-                          const Event &e) const;
   struct obs_sleep {
     struct sleepy_state {
       const sym_ty *sym;

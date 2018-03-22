@@ -393,10 +393,6 @@ std::string TSOTraceBuilder::iid_string(const Branch &branch, int index) const{
   return ss.str();
 }
 
-std::string TSOTraceBuilder::slp_string(const VecSet<IPid> &slp) const {
-  return slp.to_string_one_line([this](IPid p) { return threads[p].cpid.to_string(); });
-}
-
 std::string TSOTraceBuilder::oslp_string(const struct obs_sleep &os) const {
   std::string res = "{";
   for (const auto &pair : os.sleep) {
@@ -459,14 +455,6 @@ static std::string events_to_string(const llvm::SmallVectorImpl<SymEv> &e) {
     if (i != e.size()-1) res += ", ";
   }
   return res;
-}
-
-static VecSet<int> oss_to_ss(const std::map<int,const sym_ty*> &sleep) {
-  /* Efficiently make a VecSet */
-  std::vector<int> keys(sleep.size());
-  std::transform(sleep.begin(), sleep.end(), keys.begin(),
-                 [](const std::pair<const int,const sym_ty*> &r){return r.first;});
-  return VecSet<int>(std::move(keys));
 }
 
 void TSOTraceBuilder::check_symev_vclock_equiv() const {
@@ -555,52 +543,6 @@ void TSOTraceBuilder::check_symev_vclock_equiv() const {
         }
       }
       assert(iafterj == prefix[j].clock.leq(e.clock));
-    }
-
-    if (!conf.observers) {
-      VecSet<IPid> vsleep = oss_to_ss(sym_sleep_set_at(i));
-
-      if (!(i == prefix.len() - 1 && errors.size() &&
-            errors.back()->get_location()
-            == IID<CPid>(threads[pid].cpid, e.iid.get_index()))
-          && sleep_set_at(i) != vsleep) {
-        llvm::dbgs() << "Sleepsets disagree at " << i << "\n";
-        std::function<std::string(const IPid&)> pf
-          = [this](const IPid &p) { return threads[p].cpid.to_string(); };
-        llvm::dbgs() << ANSIRed << "[" << i << "] vsleep: "
-                     << vsleep.to_string_one_line(pf)
-                     << ", ref:"
-                     << sleep_set_at(i).to_string_one_line(pf) << ANSIRst << "\n";
-        int ix_offs = 0;
-        int iid_offs = 0;
-        int slp_offs = 0;
-        for(unsigned k = 0; k < prefix.len(); ++k){
-          IPid ipid = prefix[k].iid.get_pid();
-          ix_offs = std::max(ix_offs,int(std::to_string(k).size()));
-          iid_offs = std::max(iid_offs,/*2**/ipid+int(iid_string(k).size()));
-          slp_offs = std::max(slp_offs,int((slp_string(prefix[k].sleep)+slp_string(prefix[k].wakeup)).size()));
-        }
-
-        for(unsigned k = 0; k < prefix.len(); ++k){
-          IPid ipid = prefix[k].iid.get_pid();
-          llvm::dbgs() << rpad("",ix_offs-int(std::to_string(k).size()))
-                       << (k == i ? ANSIRed : "") << k
-                       << (k == i ? ANSIRst : "")
-                       << ":" << rpad("",2+ipid/**2*/)
-                       << rpad(iid_string(k),iid_offs-ipid/**2*/)
-                       << " " << rpad(slp_string(prefix[k].sleep)+slp_string(prefix[k].wakeup),slp_offs)
-                       << " " << events_to_string(prefix[k].sym)
-                       << "\n";
-        }
-        if(errors.size()){
-          llvm::dbgs() << "Errors:\n";
-          for(unsigned k = 0; k < errors.size(); ++k){
-            llvm::dbgs() << "  Error #" << k+1 << ": "
-                         << errors[k]->to_string() << "\n";
-          }
-        }
-        abort();
-      }
     }
 
     /* Cleanup */
@@ -1262,105 +1204,6 @@ void TSOTraceBuilder::register_alternatives(int alt_count){
   }
 }
 
-VecSet<TSOTraceBuilder::IPid> TSOTraceBuilder::sleep_set_at(int i) const{
-  VecSet<IPid> sleep;
-  for(int j = 0; j < i; ++j){
-    sleep.insert(prefix[j].sleep);
-    sleep.erase(prefix[j].wakeup);
-  }
-  sleep.insert(prefix[i].sleep);
-  return sleep;
-}
-
-std::vector<VecSet<TSOTraceBuilder::IPid>> TSOTraceBuilder::
-compute_observers_wakeup_sets() const{
-  std::vector<VecSet<IPid>> wakeup_sets(prefix.len());
-
-  std::vector<int> iid_map = iid_map_at(0);
-  for (unsigned i = 0; i < prefix.len(); ++i){
-    const Event &e = prefix[i];
-    for (int j = 0; j < e.sleep.size(); ++j){
-      /* In order to wake processes at the right point when observer effects are
-       * possible, in case the sleeping event does appear in the current
-       * execution sequence, we must use the symbolic event with the observer
-       * flags from where the event was executed, and additionally check for the
-       * first conflict in reverse from there. Otherwise we will compute
-       * incorrect sleep sets for the case when we have a trio of writes from
-       * different processes before a read of the same variable. In particular,
-       * after executing w1-w2-w3-r we will schedule w2-w3-w1-r. During this
-       * trace, w1 will be in the sleep set before the first event. The place
-       * where w1 should leave the sleep set is after w3, as w1 and w3 conflicts
-       * in this trace. However, if doing wakeup top-down, we would either do it
-       * with the observer flag set, which would have it conflict with w2 and
-       * leave the sleepset prematurely (note that w2-w1-w3-r is equivalent to
-       * w1-w2-w3-r), or we would do it without the observer flag set, which
-       * would not have it leave the sleepset at all until it is executed.
-       */
-      bool found; unsigned p = e.sleep[j], k;
-      std::tie(found, k) = try_find_process_event(p, iid_map[p]);
-      if (found){
-        const sym_ty &sym = prefix[k].sym;
-        for (unsigned l = k-1;; --l){
-          if (do_events_conflict(p,                    sym,
-                                 prefix.branch(l).pid, prefix[l].sym)){
-            wakeup_sets[l].insert(p);
-            break;
-          }
-
-          assert(l != i && "An event was executed while in the sleepset");
-        }
-      }else{
-        const sym_ty &sym = e.sleep_evs[j];
-        for (unsigned l = i; l < prefix.len(); ++l){
-          if (do_events_conflict(p,                    sym,
-                                 prefix.branch(l).pid, prefix[l].sym)){
-            wakeup_sets[l].insert(p);
-            break;
-          }
-        }
-      }
-    }
-
-    iid_map_step(iid_map, prefix.branch(i));
-  }
-
-  return wakeup_sets;
-}
-
-std::map<TSOTraceBuilder::IPid,const sym_ty*>
-TSOTraceBuilder::sym_sleep_set_at(int i) const{
-  assert(i >= 0);
-  std::vector<int> iid_map = iid_map_at(0);
-  std::map<IPid,const sym_ty*> sleep;
-  for(int j = 0;; ++j){
-    const Event &e = prefix[j];
-    for (int k = 0; k < e.sleep.size(); ++k){
-      /* If the sleeping event occurs in prefix before i, then we know that it
-       * will also be awoken before that. Thus, as an optimisation, we kan skip
-       * putting it in sleep to begin with.
-       */
-      bool found; unsigned l;
-      std::tie(found, l) = try_find_process_event
-        (e.sleep[k], iid_map[e.sleep[k]]);
-      if (!found || int(l) >= i) {
-        sleep.emplace(e.sleep[k], &e.sleep_evs[k]);
-      }
-    }
-    if (j == i) break;
-    sym_sleep_set_wake(sleep, prefix[j].iid.get_pid(), prefix[j].sym);
-    iid_map_step(iid_map, prefix.branch(j));
-  }
-
-  return sleep;
-}
-
-void TSOTraceBuilder::sym_sleep_set_add(std::map<IPid,const sym_ty*> &sleep,
-                                          const Event &e) const{
-  for (int k = 0; k < e.sleep.size(); ++k){
-    sleep.emplace(e.sleep[k], &e.sleep_evs[k]);
-  }
-}
-
 struct TSOTraceBuilder::obs_sleep
 TSOTraceBuilder::obs_sleep_at(int i) const{
   assert(i >= 0);
@@ -1540,33 +1383,6 @@ void TSOTraceBuilder::recompute_cmpxhg_success
       } else {
         e = SymEv::CmpXhgFail(e.data(), e.expected().get_shared_block());
       }
-    }
-  }
-}
-
-void TSOTraceBuilder::sym_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
-                                           IPid p, const sym_ty &sym) const{
-  for (auto it = sleep.begin(); it != sleep.end();) {
-    if (do_events_conflict(p, sym, it->first, *it->second)){
-      it = sleep.erase(it);
-    }else{
-      ++it;
-    }
-  }
-}
-
-void TSOTraceBuilder::sym_sleep_set_wake(std::map<IPid,const sym_ty*> &sleep,
-                                           const Event &e) const{
-  auto si = sleep.begin();
-  auto wi = e.wakeup.begin();
-  while (si != sleep.end() && wi != e.wakeup.end()) {
-    if (si->first < *wi) {
-      ++si;
-    } else if (si->first == *wi){
-      si = sleep.erase(si);
-      ++wi;
-    } else {
-      ++wi;
     }
   }
 }
