@@ -682,6 +682,11 @@ BOOST_AUTO_TEST_CASE(wrong_witness){
    * added to fix this is commented out in
    * TSOTraceBuilder::compute_vclocks().
    */
+
+  /* This test is currently not runnable due to lack of support for
+   * atomic blocks in TSOTraceBuilder::obs_sleep. */
+  return; /* Test disabled */
+
   Configuration conf = sc_obs_conf();
   std::string module = StrModule::portasm(R"#(
 %attr_t = type { i64, [48 x i8] }
