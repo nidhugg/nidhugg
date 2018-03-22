@@ -178,7 +178,7 @@ namespace StrModule {
     }
     {
       /* Remove explicit return types for getelementptr.*/
-      s = nregex::regex_replace(s,"getelementptr *((inbounds)?) *[^ (]*,","getelementptr $1 ");
+      s = nregex::regex_replace(s,"getelementptr *((inbounds)?) *[^,(]*,","getelementptr $1 ");
       s = nregex::regex_replace(s,"getelementptr *\\([^,]*,","getelementptr (");
     }
 #endif
