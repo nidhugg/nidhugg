@@ -3227,6 +3227,10 @@ void Interpreter::callFunction(Function *F,
          "Incorrect number of arguments passed into function call!");
 
   if(F->getName().str().find("__VERIFIER_atomic_") == 0){
+    if (conf.observers)
+      Debug::warn("optimal+atomic")
+        << "WARNING: Support for atomic blocks is limited with --optimal.\n"
+           "         Nidhugg might crash or miss bugs, see the manual.\n";
     TB.fence();
     if(AtomicFunctionCall < 0){
       AtomicFunctionCall = ECStack()->size();
