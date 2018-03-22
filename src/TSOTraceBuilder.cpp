@@ -67,10 +67,11 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
                               curev().iid.get_index())));
       replay = false;
       assert(conf.dpor_algorithm != Configuration::OPTIMAL
-            || (errors.size() && errors.back()->get_location()
-                == IID<CPid>(threads[curev().iid.get_pid()].cpid, curev().iid.get_index()))
-            || std::all_of(threads.cbegin(), threads.cend(),
-                           [](const Thread &t) { return !t.sleeping; }));
+             || (errors.size() && errors.back()->get_location()
+                 == IID<CPid>(threads[curev().iid.get_pid()].cpid,
+                              curev().iid.get_index()))
+             || std::all_of(threads.cbegin(), threads.cend(),
+                            [](const Thread &t) { return !t.sleeping; }));
     }else if(prefix_idx + 1 != int(prefix.len()) &&
              dry_sleepers < int(prefix[prefix_idx+1].sleep.size())){
       /* Before going to the next event, dry run the threads that are
@@ -1940,7 +1941,7 @@ void TSOTraceBuilder::race_detect_optimal
         case SymEv::CMPXHG: /* First a load, then a store */
         case SymEv::CMPXHGFAIL:
           if (read_all)
-               last_reads.erase (VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
+            last_reads.erase (VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
           else last_reads.insert(VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
           break;
         case SymEv::STORE:
@@ -1951,7 +1952,7 @@ void TSOTraceBuilder::race_detect_optimal
             e = SymEv::Store(e.data());
           }
           if (read_all)
-               last_reads.insert(VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
+            last_reads.insert(VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
           else last_reads.erase (VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
           break;
         case SymEv::FULLMEM:
@@ -1977,29 +1978,29 @@ void TSOTraceBuilder::race_detect_optimal
 
   /* Check for redundant exploration */
   if (!conf.observers) {
-  for (auto it = v.cbegin(); it != v.cend(); ++it) {
-    /* Check for redundant exploration */
-    if (isleep.sleep.count(it->pid)) {
-      /* Latter events of this process can't be weak initials either, so to
-       * save us from checking, we just delete it from isleep */
-      isleep.sleep.erase(it->pid);
+    for (auto it = v.cbegin(); it != v.cend(); ++it) {
+      /* Check for redundant exploration */
+      if (isleep.sleep.count(it->pid)) {
+        /* Latter events of this process can't be weak initials either, so to
+         * save us from checking, we just delete it from isleep */
+        isleep.sleep.erase(it->pid);
 
-      /* Is this a weak initial of v? */
-      bool initial = true;
-      for (auto prev = it; prev != v.cbegin();){
-        --prev;
-        if (do_events_conflict(prev->pid, prev->sym,
-                               it  ->pid, it  ->sym)){
-          initial = false;
-          break;
+        /* Is this a weak initial of v? */
+        bool initial = true;
+        for (auto prev = it; prev != v.cbegin();){
+          --prev;
+          if (do_events_conflict(prev->pid, prev->sym,
+                                 it  ->pid, it  ->sym)){
+            initial = false;
+            break;
+          }
+        }
+        if (initial){
+          /* Then the reversal of this race has already been explored */
+          return;
         }
       }
-      if (initial){
-        /* Then the reversal of this race has already been explored */
-        return;
-      }
     }
-  }
   } else {
     obs_wake_res state = obs_wake_res::CONTINUE;
     for (auto it = v.cbegin(); state == obs_wake_res::CONTINUE
@@ -2011,27 +2012,27 @@ void TSOTraceBuilder::race_detect_optimal
   }
 
   if (!conf.observers){
-  for (auto const &pair : isleep.sleep) {
-    const Branch &sleep_br = prefix.branch(find_process_event
-                                           (pair.first, iid_map[pair.first]));
-    bool dependent = false;
-    std::vector<int> dbgp_iid_map = iid_map;
-    for (const Branch &ve : v) {
-      if (sleep_br == ve) {
-        assert(false && "Already checked");
+    for (auto const &pair : isleep.sleep) {
+      const Branch &sleep_br = prefix.branch(find_process_event
+                                             (pair.first, iid_map[pair.first]));
+      bool dependent = false;
+      std::vector<int> dbgp_iid_map = iid_map;
+      for (const Branch &ve : v) {
+        if (sleep_br == ve) {
+          assert(false && "Already checked");
+          return;
+        }
+        if (do_events_conflict(ve.pid, ve.sym,
+                               pair.first, *pair.second.sym)) {
+          /* Dependent */
+          dependent = true;
+          break;
+        }
+      }
+      if (!dependent) {
         return;
       }
-      if (do_events_conflict(ve.pid, ve.sym,
-                             pair.first, *pair.second.sym)) {
-        /* Dependent */
-        dependent = true;
-        break;
-      }
     }
-    if (!dependent) {
-      return;
-    }
-  }
   }
 
   /* Do insertion into the wakeup tree */
