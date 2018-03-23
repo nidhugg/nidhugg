@@ -299,8 +299,7 @@ bool TSOTraceBuilder::reset(){
   /* The if-statement is just so we can control which test cases need to
    *  satisfy this assertion for now. Eventually, all should.
    */
-  if (conf.dpor_algorithm == Configuration::OPTIMAL)
-  {
+  if(conf.dpor_algorithm == Configuration::OPTIMAL){
     check_symev_vclock_equiv();
   }
 #endif
@@ -394,18 +393,29 @@ std::string TSOTraceBuilder::iid_string(const Branch &branch, int index) const{
   return ss.str();
 }
 
+static std::string
+str_join(const std::vector<std::string> &vec, const std::string &sep) {
+  std::string res;
+  for (auto it = vec.begin(); it != vec.end(); ++it) {
+    if (it != vec.begin()) res += sep;
+    res += *it;
+  }
+  return res;
+}
+
 std::string TSOTraceBuilder::oslp_string(const struct obs_sleep &os) const {
-  std::string res = "{";
+  std::vector<std::string> elems;
+  auto pid_str = [this](IPid p) { return threads[p].cpid.to_string(); };
   for (const auto &pair : os.sleep) {
-    res += "," + threads[pair.first].cpid.to_string();
+    elems.push_back(threads[pair.first].cpid.to_string());
     if (pair.second.not_if_read) {
-      res += "/" + pair.second.not_if_read->to_string();
+      elems.back() += "/" + pair.second.not_if_read->to_string(pid_str);
     }
   }
   for (const SymAddrSize &sas : os.must_read) {
-    res += "," + sas.to_string([this](IPid p) { return threads[p].cpid.to_string(); });
+    elems.push_back(sas.to_string(pid_str));
   }
-  return res + "}";
+  return "{" + str_join(elems, ",") + "}";
 }
 
 /* For debug-printing the wakeup tree; adds a node and its children to lines */
@@ -428,7 +438,7 @@ void TSOTraceBuilder::wut_string_add_node
     if (l < lines.size()) offset = std::max(offset, unsigned(lines[l].size()));
   }
   if (lines.size() < l+1) lines.resize(l+1, "");
-  /* First node needs different padding, so we do it here*/
+  /* First node needs different padding, so we do it here */
   lines[line] += " ";
   while(lines[line].size() < offset) lines[line] += "-";
 
@@ -520,7 +530,7 @@ void TSOTraceBuilder::check_symev_vclock_equiv() const {
         for(unsigned k = 0; k < prefix.len(); ++k){
           IPid ipid = prefix[k].iid.get_pid();
           ix_offs = std::max(ix_offs,int(std::to_string(k).size()));
-          iid_offs = std::max(iid_offs,/*2**/ipid+int(iid_string(k).size()));
+          iid_offs = std::max(iid_offs,2*ipid+int(iid_string(k).size()));
           clock_offs = std::max(clock_offs,int(prefix[k].clock.to_string().size()));
         }
 
@@ -529,8 +539,8 @@ void TSOTraceBuilder::check_symev_vclock_equiv() const {
           llvm::dbgs() << rpad("",ix_offs-int(std::to_string(k).size()))
                        << (k == i || k == j ? ANSIRed : "") << k
                        << (k == i || k == j ? ANSIRst : "")
-                       << ":" << rpad("",2+ipid/**2*/)
-                       << rpad(iid_string(k),iid_offs-ipid/**2*/)
+                       << ":" << rpad("",2+ipid*2)
+                       << rpad(iid_string(k),iid_offs-ipid*2)
                        << " " << rpad(prefix[k].clock.to_string(),clock_offs)
                        << " " << events_to_string(prefix[k].sym)
                        << "\n";
@@ -1388,6 +1398,53 @@ void TSOTraceBuilder::recompute_cmpxhg_success
   }
 }
 
+void TSOTraceBuilder::recompute_observed(std::vector<Branch> &v) const {
+  for (Branch &b : v) {
+    clear_observed(b.sym);
+  }
+
+  /* When !read_all, last_reads is the set of addresses that have been read
+   * (or "are live", if comparing to a liveness analysis).
+   * When read_all, last_reads is instead the set of addresses that have *not*
+   * been read. All addresses that are not in last_reads are read.
+   */
+  VecSet<SymAddr> last_reads;
+  bool read_all = false;
+
+  for (auto vi = v.end(); vi != v.begin();){
+    Branch &vb = *(--vi);
+    for (auto ei = vb.sym.end(); ei != vb.sym.begin();){
+      SymEv &e = *(--ei);
+      switch(e.kind){
+      case SymEv::LOAD:
+      case SymEv::CMPXHG: /* First a load, then a store */
+      case SymEv::CMPXHGFAIL:
+        if (read_all)
+          last_reads.erase (VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
+        else last_reads.insert(VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
+        break;
+      case SymEv::STORE:
+        assert(false); abort();
+      case SymEv::UNOBS_STORE:
+        if (read_all ^ last_reads.intersects
+            (VecSet<SymAddr>(e.addr().begin(), e.addr().end()))){
+          e = SymEv::Store(e.data());
+        }
+        if (read_all)
+          last_reads.insert(VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
+        else last_reads.erase (VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
+        break;
+      case SymEv::FULLMEM:
+        last_reads.clear();
+        read_all = true;
+        break;
+      default:
+        break;
+      }
+    }
+  }
+}
+
 void TSOTraceBuilder::see_events(const VecSet<int> &seen_accesses){
   for(int i : seen_accesses){
     if(i < 0) continue;
@@ -1920,55 +1977,8 @@ void TSOTraceBuilder::race_detect_optimal
 
   if (conf.observers) {
     /* Recompute observed states on events in v */
-    for (Branch &b : v) {
-      clear_observed(b.sym);
-    }
-
-    /* When !read_all, last_reads is the set of addresses that have been read
-     * (or "are live", if comparing to a liveness analysis).
-     * When read_all, last_reads is instead the set of addresses that have *not*
-     * been read. All addresses that are not in last_reads are read.
-     */
-    VecSet<SymAddr> last_reads;
-    bool read_all = false;
-
-    for (auto vi = v.end(); vi != v.begin();){
-      Branch &vb = *(--vi);
-      for (auto ei = vb.sym.end(); ei != vb.sym.begin();){
-        SymEv &e = *(--ei);
-        switch(e.kind){
-        case SymEv::LOAD:
-        case SymEv::CMPXHG: /* First a load, then a store */
-        case SymEv::CMPXHGFAIL:
-          if (read_all)
-            last_reads.erase (VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
-          else last_reads.insert(VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
-          break;
-        case SymEv::STORE:
-          assert(false); abort();
-        case SymEv::UNOBS_STORE:
-          if (read_all ^ last_reads.intersects
-              (VecSet<SymAddr>(e.addr().begin(), e.addr().end()))){
-            e = SymEv::Store(e.data());
-          }
-          if (read_all)
-            last_reads.insert(VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
-          else last_reads.erase (VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
-          break;
-        case SymEv::FULLMEM:
-          last_reads.clear();
-          read_all = true;
-          break;
-        default:
-          break;
-        }
-      }
-    }
+    recompute_observed(v);
   }
-
-  /* TODO: Build a "partial-order heap" of v. The "mins" of the heap
-   * would be the initials.
-   */
 
   /* iid_map is a map from processes to their next event indices, and is used to
    * construct the iid of any events we see in the wakeup tree,
@@ -1979,7 +1989,6 @@ void TSOTraceBuilder::race_detect_optimal
   /* Check for redundant exploration */
   if (!conf.observers) {
     for (auto it = v.cbegin(); it != v.cend(); ++it) {
-      /* Check for redundant exploration */
       if (isleep.sleep.count(it->pid)) {
         /* Latter events of this process can't be weak initials either, so to
          * save us from checking, we just delete it from isleep */
@@ -2001,17 +2010,7 @@ void TSOTraceBuilder::race_detect_optimal
         }
       }
     }
-  } else {
-    obs_wake_res state = obs_wake_res::CONTINUE;
-    for (auto it = v.cbegin(); state == obs_wake_res::CONTINUE
-           && it != v.cend(); ++it) {
-      state = obs_sleep_wake(isleep, it->pid, it->sym);
-    }
-    /* Redundant */
-    if (state != obs_wake_res::CLEAR) return;
-  }
 
-  if (!conf.observers){
     for (auto const &pair : isleep.sleep) {
       const Branch &sleep_br = prefix.branch(find_process_event
                                              (pair.first, iid_map[pair.first]));
@@ -2033,6 +2032,14 @@ void TSOTraceBuilder::race_detect_optimal
         return;
       }
     }
+  } else {
+    obs_wake_res state = obs_wake_res::CONTINUE;
+    for (auto it = v.cbegin(); state == obs_wake_res::CONTINUE
+           && it != v.cend(); ++it) {
+      state = obs_sleep_wake(isleep, it->pid, it->sym);
+    }
+    /* Redundant */
+    if (state != obs_wake_res::CLEAR) return;
   }
 
   /* Do insertion into the wakeup tree */
@@ -2061,7 +2068,8 @@ void TSOTraceBuilder::race_detect_optimal
           if (child_sym != ve.sym) {
             /* This can happen due to observer effects. We must now make sure
              * ve.second->sym does not have any conflicts with any previous
-             * event in v; i.e. wether it actually is a weak initial of v. */
+             * event in v; i.e. wether it actually is a weak initial of v.
+             */
             for (auto pei = v.begin(); skip == NO && pei != vei; ++pei){
               const Branch &pe = *pei;
               if (do_events_conflict(ve.pid, ve.sym,

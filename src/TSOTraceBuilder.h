@@ -131,8 +131,7 @@ protected:
    */
   class Thread{
   public:
-    Thread(const CPid &cpid, int spawn_event
-           )
+    Thread(const CPid &cpid, int spawn_event)
       : cpid(cpid), available(true), spawn_event(spawn_event), sleeping(false),
         sleep_full_memory_conflict(false), sleep_sym(nullptr) {};
     CPid cpid;
@@ -373,6 +372,9 @@ protected:
       witness_event(w) {}
   };
 
+  /* Locations in the trace where a process is blocked waiting for a
+   * lock. All are of kind LOCK_FAIL.
+   */
   std::vector<Race> lock_fail_races;
 
   /* Information about a (short) sequence of consecutive events by the
@@ -382,11 +384,8 @@ protected:
    */
   class Event{
   public:
-    Event(const IID<IPid> &iid,
-          sym_ty sym = {}
-          //,const VClock<IPid> &clk
-          )
-      : iid(iid), origin_iid(iid), md(0), clock(/*clk*/), may_conflict(false),
+    Event(const IID<IPid> &iid, sym_ty sym = {})
+      : iid(iid), origin_iid(iid), md(0), clock(), may_conflict(false),
         sym(std::move(sym)), sleep_branch_trace_count(0) {};
     /* The identifier for the first event in this event sequence. */
     IID<IPid> iid;
@@ -501,12 +500,26 @@ protected:
     return prefix.branch(prefix_idx);
   };
 
+  /* Symbolic events in Branches in the wakeup tree do not record the
+   * data of memory accesses as these can change between executions.
+   * branch_with_symbolic_data(i) returns a Branch of the event i, but
+   * with data of memory accesses in the symbolic events.
+   */
   Branch branch_with_symbolic_data(unsigned index) {
     return Branch(prefix.branch(index), prefix[index].sym);
   };
 
+  /* Perform the logic of atomic_store(), aside from recording a
+   * symbolic event.
+   */
   void do_atomic_store(const SymData &ml);
+  /* Perform the logic of load(), aside from recording a symbolic
+   * event.
+   */
   void do_load(const SymAddrSize &ml);
+  /* Adds the happens-before edges that result from the current event
+   * reading m.
+   */
   void do_load(ByteInfo &m);
 
   /* Finds the index in prefix of the event of process pid that has iid-index
@@ -515,8 +528,15 @@ protected:
   std::pair<bool,unsigned> try_find_process_event(IPid pid, int index) const;
   unsigned find_process_event(IPid pid, int index) const;
 
+  /* Pretty-prints the iid of prefix[pos]. */
   std::string iid_string(std::size_t pos) const;
+  /* Pretty-prints the iid <branch.pid, index>. */
   std::string iid_string(const Branch &branch, int index) const;
+  /* Pretty prints the wakeup tree subtree rooted at <branch,node>
+   * into the buffer lines starting at line line.
+   * iid_map needs to be an iid_map at <branch,node>. It is restored to
+   * the value it had when calling the function before returning.
+   */
   void wut_string_add_node(std::vector<std::string> &lines,
                            std::vector<int> &iid_map,
                            unsigned line, Branch branch,
@@ -524,28 +544,55 @@ protected:
 #ifndef NDEBUG
   void check_symev_vclock_equiv() const;
 #endif
+  /* Adds a reversible co-enabled happens-before edge between the
+   * current event and event.
+   */
   void add_noblock_race(int event);
+  /* Adds an observed race between first and second that is observed by
+   * the current event.
+   */
   void add_observed_race(int first, int second);
+  /* Add a race between two successful mutex aquisitions (lock and the
+   * current event). Unlock is the unlock event between them.
+   */
   void add_lock_suc_race(int lock, int unlock);
+  /* Record that the currently executing event is being blocked trying
+   * to aquire mutex m, which is held by the lock event event.
+   */
   void add_lock_fail_race(const Mutex &m, int event);
+  /* Check if two events in the current prefix are in conflict. */
   bool do_events_conflict(int i, int j) const;
   bool do_events_conflict(const Event &fst, const Event &snd) const;
+  /* Check if two symbolic events conflict. */
   bool do_events_conflict(IPid fst_pid, const sym_ty &fst,
                           IPid snd_pid, const sym_ty &snd) const;
   bool do_symevs_conflict(IPid fst_pid, const SymEv &fst,
                           IPid snd_pid, const SymEv &snd) const;
-  void do_race_detect();
+  /* Check if events fst and snd are in an observed race with thd as an
+   * observer.
+   */
   bool is_observed_conflict(const Event &fst, const Event &snd,
                             const Event &thd) const;
+  /* Check if two symbolic events are in an observed race with a third
+   * as an observer.
+   */
   bool is_observed_conflict(IPid fst_pid, const sym_ty &fst,
                             IPid snd_pid, const sym_ty &snd,
                             IPid thd_pid, const sym_ty &thd) const;
   bool is_observed_conflict(IPid fst_pid, const SymEv &fst,
                             IPid snd_pid, const SymEv &snd,
                             IPid thd_pid, const SymEv &thd) const;
-  Event reconstruct_lock_event(const Race&);
+  /* Reconstruct the vector cloc and symbolic event of a blocked attempt
+   * at aquiring a mutex recorded in race.
+   */
+  Event reconstruct_lock_event(const Race &race);
+  /* Computes a mapping between IPid and current local clock value
+   * (index) of that process after executing the prefix [0,event).
+   */
   std::vector<int> iid_map_at(int event) const;
+  /* Plays an iid_map forward by one event. */
   void iid_map_step(std::vector<int> &iid_map, const Branch &event) const;
+  /* Reverses an iid_map by one event. */
   void iid_map_step_rev(std::vector<int> &iid_map, const Branch &event) const;
   /* Add clocks and branches.
    *
@@ -558,12 +605,23 @@ protected:
    * All pairs in seen should be increasing indices into prefix.
    */
   void see_event_pairs(const VecSet<std::pair<int,int>> &seen);
+  /* Adds a non-reversible happens-before edge between first and
+   * second.
+   */
   void add_happens_after(unsigned second, unsigned first);
+  /* Adds a non-reversible happens-before edge between the last event
+   * executed by thread (if there is such an event), and second.
+   */
   void add_happens_after_thread(unsigned second, IPid thread);
   /* Computes the vector clocks of all events in a complete execution
    * sequence from happens_after and race edges.
    */
   void compute_vclocks();
+  /* Perform planning of future executions. Requires the trace to be
+   * maximal or sleepset blocked, and that the vector clocks have been
+   * computed.
+   */
+  void do_race_detect();
   /* Records a symbolic representation of the current event.
    */
   void record_symbolic(SymEv event);
@@ -576,29 +634,51 @@ protected:
    */
   void recompute_cmpxhg_success(sym_ty &es, const std::vector<Branch> &v, int i)
     const;
+  /* Recompute the observation states on the symbolic events in v. */
+  void recompute_observed(std::vector<Branch> &v) const;
   struct obs_sleep {
-    struct sleepy_state {
+    struct process_state {
       const sym_ty *sym;
       Option<SymAddrSize> not_if_read;
     };
-    std::map<IPid,struct sleepy_state> sleep;
+    std::map<IPid,struct process_state> sleep;
     /* Addresses that must be read */
     std::vector<SymAddrSize> must_read;
   };
+  /* Returns a string representation of a sleep set. */
   std::string oslp_string(const struct obs_sleep &slp) const;
+  /* Traverses prefix to compute the set of threads that were sleeping
+   * as the first event of prefix[i] started executing. Returns that
+   * set.
+   */
   struct obs_sleep obs_sleep_at(int i) const;
+  /* Performs the first half of a sleep set step, adding new sleepers
+   * from e.
+   */
+  void obs_sleep_add(struct obs_sleep &sleep, const Event &e) const;
   enum class obs_wake_res {
     CLEAR,
     CONTINUE,
     BLOCK,
   };
-  void obs_sleep_add(struct obs_sleep &sleep, const Event &e) const;
+  /* Performs the second half of a sleep set step, removing sleepers that
+   * conflict with (p, sym).
+   *
+   * If obs_wake_res::BLOCK is returned, then this execution has
+   * blocked.
+   */
   obs_wake_res obs_sleep_wake(struct obs_sleep &osleep, IPid p,
-                              const sym_ty &e) const;
-  /* This overload is a workaround for having the obs_sleep sets work
+                              const sym_ty &sym) const;
+  /* Performs the second half of a sleep set step, removing sleepers that
+   * were identified as waking after event e.
+   *
+   * This overload is a workaround for having the obs_sleep sets work
    * correctly under TSO without a full symbolic conflict detection
    * implementation (as required for Optimal-DPOR), as obs_sleep now is
    * used even for Source-DPOR.
+   *
+   * As this overload is only used on events that have already been
+   * executed, it will never block, and thus has no return value.
    */
   void obs_sleep_wake(struct obs_sleep &sleep, const Event &e) const;
   void race_detect(const Race&, const struct obs_sleep&);
