@@ -1283,44 +1283,48 @@ TSOTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep,
       ++it;
     }
   }
-  for (const SymEv &e : sym) {
-    if (symev_is_store(e)) {
-      /* Now check for shadowing of needed observations */
-      const SymAddrSize &esas = e.addr();
-      if (std::any_of(sleep.must_read.begin(), sleep.must_read.end(),
-                      [&esas](const SymAddrSize &ssas) {
-                        return ssas.subsetof(esas);
-                      })) {
-        return obs_wake_res::BLOCK;
-      }
-      /* Now handle write-write races by moving the sleepers to sleep_if */
-      for (auto it = sleep.sleep.begin(); it != sleep.sleep.end(); ++it) {
-        if (std::any_of(it->second.sym->begin(), it->second.sym->end(),
-                        [&esas](const SymEv &f) {
-                          return symev_is_store(f) && f.addr() == esas;
+
+  if (conf.observers) {
+    for (const SymEv &e : sym) {
+      if (symev_is_store(e)) {
+        /* Now check for shadowing of needed observations */
+        const SymAddrSize &esas = e.addr();
+        if (std::any_of(sleep.must_read.begin(), sleep.must_read.end(),
+                        [&esas](const SymAddrSize &ssas) {
+                          return ssas.subsetof(esas);
                         })) {
-          assert(!it->second.not_if_read || *it->second.not_if_read == esas);
-          it->second.not_if_read = esas;
+          return obs_wake_res::BLOCK;
+        }
+        /* Now handle write-write races by moving the sleepers to sleep_if */
+        for (auto it = sleep.sleep.begin(); it != sleep.sleep.end(); ++it) {
+          if (std::any_of(it->second.sym->begin(), it->second.sym->end(),
+                          [&esas](const SymEv &f) {
+                            return symev_is_store(f) && f.addr() == esas;
+                          })) {
+            assert(!it->second.not_if_read || *it->second.not_if_read == esas);
+            it->second.not_if_read = esas;
+          }
         }
       }
-    }
-    /* Now check for readers */
-    if (e.kind == SymEv::FULLMEM) {
-      /* Reads all; observes all */
-      sleep.must_read.clear();
-    } else if (symev_does_load(e)) {
-      const SymAddrSize &esas = e.addr();
-      for (int i = 0; i < int(sleep.must_read.size());) {
-        if (sleep.must_read[i].overlaps(esas)) {
-          /* Efficient unordered set delete */
-          std::swap(sleep.must_read[i], sleep.must_read.back());
-          sleep.must_read.pop_back();
-        } else {
-          ++i;
+      /* Now check for readers */
+      if (e.kind == SymEv::FULLMEM) {
+        /* Reads all; observes all */
+        sleep.must_read.clear();
+      } else if (symev_does_load(e)) {
+        const SymAddrSize &esas = e.addr();
+        for (int i = 0; i < int(sleep.must_read.size());) {
+          if (sleep.must_read[i].overlaps(esas)) {
+            /* Efficient unordered set delete */
+            std::swap(sleep.must_read[i], sleep.must_read.back());
+            sleep.must_read.pop_back();
+          } else {
+            ++i;
+          }
         }
       }
     }
   }
+
   /* Check if the sleep set became empty */
   if (sleep.sleep.empty() && sleep.must_read.empty()) {
     return obs_wake_res::CLEAR;
@@ -1980,59 +1984,8 @@ void TSOTraceBuilder::race_detect_optimal
     recompute_observed(v);
   }
 
-  /* iid_map is a map from processes to their next event indices, and is used to
-   * construct the iid of any events we see in the wakeup tree,
-   * which in turn is used to find the corresponding event in prefix.
-   */
-  std::vector<int> iid_map = iid_map_at(i);
-
   /* Check for redundant exploration */
-  if (!conf.observers) {
-    for (auto it = v.cbegin(); it != v.cend(); ++it) {
-      if (isleep.sleep.count(it->pid)) {
-        /* Latter events of this process can't be weak initials either, so to
-         * save us from checking, we just delete it from isleep */
-        isleep.sleep.erase(it->pid);
-
-        /* Is this a weak initial of v? */
-        bool initial = true;
-        for (auto prev = it; prev != v.cbegin();){
-          --prev;
-          if (do_events_conflict(prev->pid, prev->sym,
-                                 it  ->pid, it  ->sym)){
-            initial = false;
-            break;
-          }
-        }
-        if (initial){
-          /* Then the reversal of this race has already been explored */
-          return;
-        }
-      }
-    }
-
-    for (auto const &pair : isleep.sleep) {
-      const Branch &sleep_br = prefix.branch(find_process_event
-                                             (pair.first, iid_map[pair.first]));
-      bool dependent = false;
-      std::vector<int> dbgp_iid_map = iid_map;
-      for (const Branch &ve : v) {
-        if (sleep_br == ve) {
-          assert(false && "Already checked");
-          return;
-        }
-        if (do_events_conflict(ve.pid, ve.sym,
-                               pair.first, *pair.second.sym)) {
-          /* Dependent */
-          dependent = true;
-          break;
-        }
-      }
-      if (!dependent) {
-        return;
-      }
-    }
-  } else {
+  {
     obs_wake_res state = obs_wake_res::CONTINUE;
     for (auto it = v.cbegin(); state == obs_wake_res::CONTINUE
            && it != v.cend(); ++it) {
@@ -2041,6 +1994,12 @@ void TSOTraceBuilder::race_detect_optimal
     /* Redundant */
     if (state != obs_wake_res::CLEAR) return;
   }
+
+  /* iid_map is a map from processes to their next event indices, and is used to
+   * construct the iid of any events we see in the wakeup tree,
+   * which in turn is used to find the corresponding event in prefix.
+   */
+  std::vector<int> iid_map = iid_map_at(i);
 
   /* Do insertion into the wakeup tree */
   WakeupTreeRef<Branch> node = prefix.parent_at(i);
