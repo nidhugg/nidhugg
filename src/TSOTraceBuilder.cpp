@@ -707,15 +707,8 @@ void TSOTraceBuilder::do_atomic_store(const SymData &sd){
     for(int i : bi.last_read){
       if(0 <= i && prefix[i].iid.get_pid() != tipid) seen_accesses.insert(i);
     }
-  }
 
-  seen_accesses.insert(last_full_memory_conflict);
-
-  see_events(seen_accesses);
-
-  /* Register in memory */
-  for(SymAddr b : ml){
-    ByteInfo &bi = mem[b];
+    /* Register in memory */
     if (conf.observers) {
       bi.unordered_updates.insert_geq(prefix_idx);
     }
@@ -736,6 +729,10 @@ void TSOTraceBuilder::do_atomic_store(const SymData &sd){
       threads[uipid].available = false;
     }
   }
+
+  seen_accesses.insert(last_full_memory_conflict);
+
+  see_events(seen_accesses);
 }
 
 void TSOTraceBuilder::load(const SymAddrSize &ml){
@@ -780,17 +777,15 @@ void TSOTraceBuilder::do_load(const SymAddrSize &ml){
       }
     }
     do_load(mem[b]);
+
+    /* Register load in memory */
+    mem[b].last_read[ipid/2] = prefix_idx;
+    wakeup(Access::R,b);
   }
 
   seen_accesses.insert(last_full_memory_conflict);
 
   see_events(seen_accesses);
-
-  /* Register load in memory */
-  for(SymAddr b : ml){
-    mem[b].last_read[ipid/2] = prefix_idx;
-    wakeup(Access::R,b);
-  }
 }
 
 void TSOTraceBuilder::compare_exchange
@@ -828,14 +823,14 @@ void TSOTraceBuilder::full_memory_conflict(){
     seen_accesses.insert(it->second.last_access);
   }
   seen_accesses.insert(last_full_memory_conflict);
-
-  see_events(seen_accesses);
+  last_full_memory_conflict = prefix_idx;
 
   wakeup(Access::W_ALL_MEMORY,{SymMBlock::Global(0),0});
-  last_full_memory_conflict = prefix_idx;
 
   /* No later access can have a conflict with any earlier access */
   mem.clear();
+
+  see_events(seen_accesses);
 }
 
 void TSOTraceBuilder::do_load(ByteInfo &m){
