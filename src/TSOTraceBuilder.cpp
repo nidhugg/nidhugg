@@ -1345,6 +1345,20 @@ static void clear_observed(sym_ty &syms){
   }
 }
 
+bool TSOTraceBuilder::
+sequence_clears_sleep(const std::vector<Branch> &seq,
+                      const struct obs_sleep &sleep_const) const{
+  /* We need a writable copy */
+  struct obs_sleep isleep = sleep_const;
+  obs_wake_res state = obs_wake_res::CONTINUE;
+  for (auto it = seq.cbegin(); state == obs_wake_res::CONTINUE
+         && it != seq.cend(); ++it) {
+    state = obs_sleep_wake(isleep, it->pid, it->sym);
+  }
+  /* Redundant */
+  return (state == obs_wake_res::CLEAR);
+}
+
 template <class Iter>
 static void rev_recompute_data
 (SymData &data, VecSet<SymAddr> &needed, Iter end, Iter begin){
@@ -1904,12 +1918,95 @@ void TSOTraceBuilder::race_detect
 }
 
 void TSOTraceBuilder::race_detect_optimal
-(const Race &race, const struct obs_sleep &isleep_const){
+(const Race &race, const struct obs_sleep &isleep){
+  const int i = race.first_event;
+  std::vector<Branch> v = wakeup_sequence(race);
+
+  /* Check if we have previously explored everything startable with v */
+  if (!sequence_clears_sleep(v, isleep)) return;
+
+  /* Do insertion into the wakeup tree */
+  WakeupTreeRef<Branch> node = prefix.parent_at(i);
+  while(1) {
+    if (!node.size()) {
+      /* node is a leaf. That means that an execution that will explore the
+       * reversal of this race has already been scheduled.
+       */
+      return;
+    }
+
+    /* skip is used to break out of the loops if we find a child to
+     * recurse into (RECURSE), or if the child is incompatible and we
+     * need to check the next (NEXT)
+     */
+    enum { NO, RECURSE, NEXT } skip = NO;
+    for (auto child_it = node.begin(); child_it != node.end(); ++child_it) {
+      const sym_ty &child_sym = child_it.branch().sym;
+
+      for (auto vei = v.begin(); skip == NO && vei != v.end(); ++vei) {
+        const Branch &ve = *vei;
+        if (child_it.branch() == ve) {
+          if (child_sym != ve.sym) {
+            /* This can happen due to observer effects. We must now make sure
+             * ve.second->sym does not have any conflicts with any previous
+             * event in v; i.e. wether it actually is a weak initial of v.
+             */
+            for (auto pei = v.begin(); skip == NO && pei != vei; ++pei){
+              const Branch &pe = *pei;
+              if (do_events_conflict(ve.pid, ve.sym,
+                                     pe.pid, pe.sym)){
+                skip = NEXT;
+              }
+            }
+            if (skip == NEXT) break;
+          }
+
+          if (v.size() == 1) {
+            /* v is about to run out, which means that we had already
+             * scheduled an execution that was startable with v.
+             * From this point, the recursive insertion is a no-op, so
+             * exit early.
+             */
+            return;
+          }
+
+          /* Drop ve from v and recurse into this node */
+          v.erase(vei);
+          break;
+        }
+
+        if (do_events_conflict(ve.pid, ve.sym,
+                               child_it.branch().pid, child_sym)) {
+          /* This branch is incompatible, try the next */
+          skip = NEXT;
+        }
+      }
+      if (skip == NEXT) { skip = NO; continue; }
+
+      /* The child is compatible with v, recurse into it. */
+      node = child_it.node();
+      skip = RECURSE;
+      break;
+
+      assert(false && "UNREACHABLE");
+      abort();
+    }
+    if (skip == RECURSE) continue;
+
+    /* No existing child was compatible with v. Insert v as a new sequence. */
+    for (Branch &ve : v) {
+      if (conf.observers) clear_observed(ve.sym);
+      for (SymEv &e : ve.sym) e.purge_data();
+      node = node.put_child(std::move(ve));
+    }
+    return;
+  }
+}
+
+std::vector<TSOTraceBuilder::Branch> TSOTraceBuilder::
+wakeup_sequence(const Race &race) const{
   const int i = race.first_event;
   const int j = race.second_event;
-
-  /* We need a writable copy */
-  struct obs_sleep isleep = isleep_const;
 
   const Event &first = prefix[i];
   Event second({-1,0});
@@ -1984,96 +2081,7 @@ void TSOTraceBuilder::race_detect_optimal
     recompute_observed(v);
   }
 
-  /* Check for redundant exploration */
-  {
-    obs_wake_res state = obs_wake_res::CONTINUE;
-    for (auto it = v.cbegin(); state == obs_wake_res::CONTINUE
-           && it != v.cend(); ++it) {
-      state = obs_sleep_wake(isleep, it->pid, it->sym);
-    }
-    /* Redundant */
-    if (state != obs_wake_res::CLEAR) return;
-  }
-
-  /* iid_map is a map from processes to their next event indices, and is used to
-   * construct the iid of any events we see in the wakeup tree,
-   * which in turn is used to find the corresponding event in prefix.
-   */
-  std::vector<int> iid_map = iid_map_at(i);
-
-  /* Do insertion into the wakeup tree */
-  WakeupTreeRef<Branch> node = prefix.parent_at(i);
-  while(1) {
-    if (!node.size()) {
-      /* node is a leaf. That means that an execution that will explore the
-       * reversal of this race has already been scheduled.
-       */
-      return;
-    }
-
-    /* skip is used to break out of the loops if we find a child to
-     * recurse into (RECURSE), or if the child is incompatible and we
-     * need to check the next (NEXT) */
-    enum { NO, RECURSE, NEXT } skip = NO;
-    for (auto child_it = node.begin(); child_it != node.end(); ++child_it) {
-      /* Find this event in prefix */
-      IID<IPid> child_iid(child_it.branch().pid,
-                          iid_map[child_it.branch().pid]);
-      const sym_ty &child_sym = child_it.branch().sym;
-
-      for (auto vei = v.begin(); skip == NO && vei != v.end(); ++vei) {
-        const Branch &ve = *vei;
-        if (child_it.branch() == ve) {
-          if (child_sym != ve.sym) {
-            /* This can happen due to observer effects. We must now make sure
-             * ve.second->sym does not have any conflicts with any previous
-             * event in v; i.e. wether it actually is a weak initial of v.
-             */
-            for (auto pei = v.begin(); skip == NO && pei != vei; ++pei){
-              const Branch &pe = *pei;
-              if (do_events_conflict(ve.pid, ve.sym,
-                                     pe.pid, pe.sym)){
-                skip = NEXT;
-              }
-            }
-            if (skip == NEXT) break;
-          }
-
-          if (v.size() == 1 && child_it.node().size()) {
-            return;
-          }
-          /* Drop ve from v and recurse into this node */
-          v.erase(vei);
-          break;
-        }
-
-        if (do_events_conflict(ve.pid, ve.sym,
-                               child_it.branch().pid, child_sym)) {
-          /* This branch is incompatible, try the next */
-          skip = NEXT;
-        }
-      }
-      if (skip == NEXT) { skip = NO; continue; }
-
-      /* The child is compatible with v, recurse into it. */
-      iid_map_step(iid_map, child_it.branch());
-      node = child_it.node();
-      skip = RECURSE;
-      break;
-
-      assert(false && "UNREACHABLE");
-      abort();
-    }
-    if (skip == RECURSE) continue;
-
-    /* No existing child was compatible with v. Insert v as a new sequence. */
-    for (Branch &ve : v) {
-      if (conf.observers) clear_observed(ve.sym);
-      for (SymEv &e : ve.sym) e.purge_data();
-      node = node.put_child(std::move(ve));
-    }
-    return;
-  }
+  return v;
 }
 
 std::vector<int> TSOTraceBuilder::iid_map_at(int event) const{
@@ -2093,8 +2101,8 @@ void TSOTraceBuilder::iid_map_step_rev(std::vector<int> &iid_map, const Branch &
   iid_map[event.pid] -= event.size;
 }
 
-TSOTraceBuilder::Event TSOTraceBuilder::reconstruct_lock_event
-(const Race &race) {
+TSOTraceBuilder::Event TSOTraceBuilder::
+reconstruct_lock_event(const Race &race) const {
   assert(race.kind == Race::LOCK_FAIL);
   Event ret(race.second_process);
   /* Compute the clock of the locking process (event k in prefix is
@@ -2110,7 +2118,7 @@ TSOTraceBuilder::Event TSOTraceBuilder::reconstruct_lock_event
 
   assert(std::any_of(prefix[race.first_event].sym.begin(),
                      prefix[race.first_event].sym.end(),
-                     [](SymEv &e){ return e.kind == SymEv::M_LOCK
+                     [](const SymEv &e){ return e.kind == SymEv::M_LOCK
                          || e.kind == SymEv::FULLMEM; }));
   ret.sym = prefix[race.first_event].sym;
   return ret;

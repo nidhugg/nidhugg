@@ -505,7 +505,7 @@ protected:
    * branch_with_symbolic_data(i) returns a Branch of the event i, but
    * with data of memory accesses in the symbolic events.
    */
-  Branch branch_with_symbolic_data(unsigned index) {
+  Branch branch_with_symbolic_data(unsigned index) const {
     return Branch(prefix.branch(index), prefix[index].sym);
   };
 
@@ -585,7 +585,7 @@ protected:
   /* Reconstruct the vector cloc and symbolic event of a blocked attempt
    * at aquiring a mutex recorded in race.
    */
-  Event reconstruct_lock_event(const Race &race);
+  Event reconstruct_lock_event(const Race &race) const;
   /* Computes a mapping between IPid and current local clock value
    * (index) of that process after executing the prefix [0,event).
    */
@@ -683,6 +683,11 @@ protected:
   void obs_sleep_wake(struct obs_sleep &sleep, const Event &e) const;
   void race_detect(const Race&, const struct obs_sleep&);
   void race_detect_optimal(const Race&, const struct obs_sleep&);
+  /* Compute the wakeup sequence for reversing a race. */
+  std::vector<Branch> wakeup_sequence(const Race&) const;
+  /* Checks if a sequence of events will clear a sleep set. */
+  bool sequence_clears_sleep(const std::vector<Branch> &seq,
+                             const struct obs_sleep &sleep) const;
   /* Wake up all threads which are sleeping, waiting for an access
    * (type,ml). */
   void wakeup(Access::Type type, SymAddr ml);
