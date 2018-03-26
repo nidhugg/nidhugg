@@ -636,6 +636,19 @@ void TSOTraceBuilder::atomic_store(const SymData &sd){
   do_atomic_store(sd);
 }
 
+static bool symev_is_store(const SymEv &e) {
+  return e.kind == SymEv::UNOBS_STORE || e.kind == SymEv::STORE;
+}
+
+static SymAddrSize sym_get_last_write(const sym_ty &sym, SymAddr addr){
+  for (auto it = sym.end(); it != sym.begin();){
+    const SymEv &e = *(--it);
+    if (symev_is_store(e) && e.addr().includes(addr)) return e.addr();
+  }
+  assert(false && "No write touching addr found");
+  abort();
+}
+
 void TSOTraceBuilder::do_atomic_store(const SymData &sd){
   const SymAddrSize &ml = sd.get_ref();
   if(dryrun){
@@ -677,7 +690,16 @@ void TSOTraceBuilder::do_atomic_store(const SymData &sd){
     if(0 <= lu){
       IPid lu_tipid = 2*(prefix[lu].iid.get_pid() / 2);
       if(lu_tipid != tipid){
-        if (!conf.observers){
+        if(conf.observers){
+          SymAddrSize lu_addr = sym_get_last_write(prefix[lu].sym, b);
+          if (lu_addr != ml) {
+            /* When there is "partial overlap", observers requires
+             * writes to be unconditionally racing
+             */
+            seen_accesses.insert(bi.last_update);
+            bi.unordered_updates.clear();
+          }
+        }else{
           seen_accesses.insert(bi.last_update);
         }
       }
@@ -1259,10 +1281,6 @@ static bool symev_does_load(const SymEv &e) {
     || e.kind == SymEv::CMPXHGFAIL || e.kind == SymEv::FULLMEM;
 }
 
-static bool symev_is_store(const SymEv &e) {
-  return e.kind == SymEv::UNOBS_STORE || e.kind == SymEv::STORE;
-}
-
 TSOTraceBuilder::obs_wake_res
 TSOTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep,
                                 IPid p, const sym_ty &sym) const{
@@ -1735,7 +1753,8 @@ bool TSOTraceBuilder::do_symevs_conflict
   if (fst.kind == SymEv::NONDET || snd.kind == SymEv::NONDET) return false;
   if (fst.kind == SymEv::FULLMEM || snd.kind == SymEv::FULLMEM) return true;
   if (symev_is_load(fst) && symev_is_load(snd)) return false;
-  if (symev_is_unobs_store(fst) && symev_is_unobs_store(snd)) return false;
+  if (symev_is_unobs_store(fst) && symev_is_unobs_store(snd)
+      && fst.addr() == snd.addr()) return false;
 
   /* Really crude. Is it enough? */
   if (fst.has_addr()) {

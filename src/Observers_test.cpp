@@ -1103,6 +1103,42 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
   BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
 }
 
+BOOST_AUTO_TEST_CASE(overlapping_write){
+  Configuration conf = sc_obs_conf();
+  std::string module = StrModule::portasm(R"(
+@data = global [3 x i8] zeroinitializer, align 1
+
+define i8* @w1(i8* %arg){
+  store i16 1, i16* bitcast ([3 x i8]* @data to i16*), align 1
+  ret i8* null
+}
+
+define i8* @w2(i8* %arg){
+  store i16 1, i16* bitcast (i8* getelementptr ([3 x i8], [3 x i8]* @data, i64 0, i64 1) to i16*), align 1
+  ret i8* null
+}
+
+define i32 @main(){
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @w1, i8* null)
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @w2, i8* null)
+  ret i32 0
+}
+
+%attr_t = type {i64*, [48 x i8]}
+declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
+)");
+  std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
+  DPORDriver::Result res = driver->run();
+
+  CPid P0, P1 = P0.spawn(0), P2 = P0.spawn(1);
+  IID<CPid> w1(P1,1), w2(P2,1);
+  DPORDriver_test::trace_set_spec expected =
+    {{{w1,w2}},
+     {{w2,w1}},
+    };
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif
