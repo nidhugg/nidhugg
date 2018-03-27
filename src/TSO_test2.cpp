@@ -1202,6 +1202,11 @@ BOOST_AUTO_TEST_CASE(Nondeterminism_detection){
    * in the first and the second computation. Since the branch is
    * evaluated in the portion of the code that is replayed, this
    * apparent non-determinism should be detected and trigger an error.
+   *
+   * All accesses to _changing_ are done through memcpy() in order to
+   * mask the fact that it is not a valid memory location, so that this
+   * test will exercise the nondeterminism detection, and not other
+   * mechanisms that detect invalid input.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   char changing = 0;
@@ -1218,13 +1223,16 @@ define i8* @p1(i8* %arg){
 }
 
 define i32 @main(){
-  %v = load i8, i8* )"+changingAddr+R"(
+  %tp = alloca i8
+  call i8* @memcpy(i8* %tp, i8* )"+changingAddr+R"(, i64 1)
+  %v = load i8, i8* %tp
   %c = icmp eq i8 %v, 0
-  br i1 %c, label %doset, label %exit
-doset:
-  store i8 1, i8* )"+changingAddr+R"(
-  br label %exit
-exit:
+  br i1 %c, label %zero, label %nonzero
+zero:
+  store i8 1, i8* %tp
+  call i8* @memcpy(i8* )"+changingAddr+R"(, i8* %tp, i64 1)
+  br label %nonzero
+nonzero:
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
   load i32, i32* @x
   ret i32 0
@@ -1233,6 +1241,7 @@ exit:
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail()
+declare i8* @memcpy(i8*, i8*, i64)
 )"),conf);
 
   DPORDriver::Result res = driver->run();
