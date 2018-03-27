@@ -32,6 +32,7 @@ TSOTraceBuilder::TSOTraceBuilder(const Configuration &conf) : TSOPSOTraceBuilder
   replay = false;
   last_full_memory_conflict = -1;
   last_md = 0;
+  replay_point = 0;
 }
 
 TSOTraceBuilder::~TSOTraceBuilder(){
@@ -161,7 +162,7 @@ void TSOTraceBuilder::mark_unavailable(int proc, int aux){
 }
 
 bool TSOTraceBuilder::is_replaying() const {
-  return replay;
+  return prefix_idx < replay_point;
 }
 
 void TSOTraceBuilder::cancel_replay(){
@@ -232,6 +233,7 @@ bool TSOTraceBuilder::reset(){
     /* No more branching is possible. */
     return false;
   }
+  replay_point = i;
 
   /* Setup the new Event at prefix[i] */
   {

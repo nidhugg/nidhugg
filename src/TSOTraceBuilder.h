@@ -358,6 +358,11 @@ protected:
    */
   bool replay;
 
+  /* The number of events that were or are going to be replayed in the
+   * current computation.
+   */
+  int replay_point;
+
   /* The latest value passed to this->metadata(). */
   const llvm::MDNode *last_md;
 
