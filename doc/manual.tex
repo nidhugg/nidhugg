@@ -272,6 +272,20 @@ int main(int argc, char *argv[]){
 %
   Analyze the test case under the SC, TSO, PSO, POWER or ARM memory
   model respectively.
+\item{\texttt{--source/--optimal}}
+%
+  Use the Source or Optimal DPOR algorithm for analysis, respectively.
+  Optimal DPOR guarantees no redundant (sleep set blocked) executions,
+  at the cost of some runtime overhead and a larger worst-case memory
+  complexity.
+%
+  \textbf{Optimal-DPOR is supported only for the SC memory model.}
+\item{\texttt{--observers}}
+%
+  Use the observers optimisation; not considering two memory writes to
+  the same address to be racing unless the result is read.
+%
+  Requires Optimal-DPOR (\texttt{--optimal}).
 \item{\texttt{--robustness}}
 %
   Perform a robustness analysis. In addition to considering the usual
@@ -828,6 +842,12 @@ before use, making sure to use the same signatures as described here.
   \texttt{\_\_VERIFIER\_atomic\_} will execute atomically. This also
   means that it will execute under sequential consistency, and act as
   a full memory fence.
+
+  \textbf{Atomic functions may not contain control flow when using
+    Optimal-DPOR (\texttt{--optimal}), and additionally not writes to
+    multiple memory locations when using Observers
+    (\texttt{--observers}), or the analysis may not be sound.} %
+  Prefer using built-in atomic functions provided by the compiler.
 %
   \limitsupport{SC, TSO, PSO}
 \end{description}

@@ -36,6 +36,10 @@ static llvm::cl::opt<bool> cl_malloc_may_fail("malloc-may-fail",llvm::cl::NotHid
 static llvm::cl::opt<bool> cl_disable_mutex_init_requirement("disable-mutex-init-requirement",llvm::cl::NotHidden,
                                                              llvm::cl::desc("If set, then allow use of mutexes without a preceding call to pthread_mutex_init.\nThis switch is necessary when using static mutex initialization."));
 
+static llvm::cl::opt<bool> cl_observers
+("observers",llvm::cl::NotHidden,
+ llvm::cl::desc("Do not consider writes racing unless they are read"));
+
 static llvm::cl::opt<int>
 cl_max_search_depth("max-search-depth",
                     llvm::cl::NotHidden,llvm::cl::init(-1),
@@ -51,6 +55,16 @@ cl_memory_model(llvm::cl::NotHidden, llvm::cl::init(Configuration::MM_UNDEF),
                                  clEnumValN(Configuration::TSO,"tso","Total Store Order")
 #ifdef LLVM_CL_VALUES_USES_SENTINEL
                                 ,clEnumValEnd
+#endif
+                                 ));
+
+static llvm::cl::opt<Configuration::DPORAlgorithm>
+cl_dpor_algorithm(llvm::cl::NotHidden, llvm::cl::init(Configuration::SOURCE),
+                  llvm::cl::desc("Select DPOR algorithm"),
+                  llvm::cl::values(clEnumValN(Configuration::SOURCE,"source","Source-DPOR (default)"),
+                                   clEnumValN(Configuration::OPTIMAL,"optimal","Optimal-DPOR")
+#ifdef LLVM_CL_VALUES_USES_SENTINEL
+                                  ,clEnumValEnd
 #endif
                                  ));
 
@@ -81,6 +95,10 @@ static llvm::cl::list<std::string> cl_extfun_no_race("extfun-no-race",llvm::cl::
                                                                         "does not participate in any races. (See manual.)\n"
                                                                         "May be given multiple times."));
 
+static llvm::cl::opt<bool> cl_debug_print_on_reset
+("debug-print-on-reset",llvm::cl::Hidden,
+ llvm::cl::desc("Print debug info after exploring each trace."));
+
 const std::set<std::string> &Configuration::commandline_opts(){
   static std::set<std::string> opts = {
     "dpor-explore-all",
@@ -89,6 +107,8 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "disable-mutex-init-requirement",
     "max-search-depth",
     "sc","tso","pso","power","arm",
+    "source","optimal",
+    "observers",
     "robustness",
     "no-spin-assume",
     "unroll",
@@ -109,11 +129,14 @@ void Configuration::assign_by_commandline(){
   mutex_require_init = !cl_disable_mutex_init_requirement;
   max_search_depth = cl_max_search_depth;
   memory_model = cl_memory_model;
+  dpor_algorithm = cl_dpor_algorithm;
+  observers = cl_observers;
   check_robustness = cl_check_robustness;
   transform_spin_assume = !cl_transform_no_spin_assume;
   transform_loop_unroll = cl_transform_loop_unroll;
   print_progress = cl_print_progress || cl_print_progress_estimate;
   print_progress_estimate = cl_print_progress_estimate;
+  debug_print_on_reset = cl_debug_print_on_reset;
   argv.resize(1);
   argv[0] = get_default_program_name();
   for(std::string a : cl_program_arguments){
@@ -144,6 +167,10 @@ void Configuration::check_commandline(){
       Debug::warn("Configuration::check_commandline:transform:memory_model")
         << "WARNING: Given memory model ignored in presence of --transform.\n";
     }
+    if(cl_dpor_algorithm.getNumOccurrences()){
+      Debug::warn("Configuration::check_commandline:transform:dpor_algorithm")
+        << "WARNING: Given DPOR algorithm ignored in presence of --transform.\n";
+    }
     if(cl_print_progress.getNumOccurrences()){
       Debug::warn("Configuration::check_commandline:transform:print-progress")
         << "WARNING: --print-progress ignored in presence of --transform.\n";
@@ -170,6 +197,10 @@ void Configuration::check_commandline(){
         << "WARNING: --unroll ignored in absence of --transform.\n";
     }
   }
+  if (cl_observers && cl_dpor_algorithm != Configuration::OPTIMAL) {
+    Debug::warn("Configuration::check_commandline:observers")
+      << "WARNING: --observers requires --optimal.\n";
+  }
   /* Check commandline switch compatibility with memory model. */
   {
     std::string mm;
@@ -195,6 +226,12 @@ void Configuration::check_commandline(){
         Debug::warn("Configuration::check_commandline:mm:robustness")
           << "WARNING: --robustness ignored under memory model " << mm << ".\n";
       }
+    }
+    if (cl_dpor_algorithm == Configuration::OPTIMAL
+        && cl_memory_model != Configuration::SC
+        && cl_memory_model != Configuration::TSO) {
+      Debug::warn("Configuration::check_commandline:dpor:mm")
+        << "WARNING: Optimal-DPOR not implemented for memory model " << mm << ".\n";
     }
   }
 }

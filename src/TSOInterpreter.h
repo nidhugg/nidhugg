@@ -60,7 +60,7 @@ protected:
     /* The TSO store buffer of this thread. Newer entries are further
      * to the back.
      */
-    std::vector<MBlock> store_buffer;
+    std::vector<std::pair<void*,SymData>> store_buffer;
     /* When partial_buffer_flush >= 0, it signals that this thread is
      * blocked, waiting for its store buffer update to memory. The
      * thread will continue to be blocked until the size of its store

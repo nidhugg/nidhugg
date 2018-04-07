@@ -19,6 +19,7 @@ libnidhugg_a_SOURCES = \
   LoopUnrollPass.cpp LoopUnrollPass.h \
   MRef.cpp MRef.h \
   nregex.cpp nregex.h \
+  Option.h \
   POWERExecution.cpp \
   POWERInterpreter.cpp POWERInterpreter.h \
   POWERARMTraceBuilder.cpp POWERARMTraceBuilder.tcc POWERARMTraceBuilder.h POWERARMTraceBuilder_decl.h \
@@ -27,6 +28,8 @@ libnidhugg_a_SOURCES = \
   SigSegvHandler.cpp SigSegvHandler.h \
   SpinAssumePass.cpp SpinAssumePass.h \
   StrModule.cpp StrModule.h \
+  SymEv.cpp SymEv.h \
+  SymAddr.cpp SymAddr.h \
   Trace.cpp Trace.h \
   TraceBuilder.cpp TraceBuilder.h \
   Transform.cpp Transform.h \
@@ -54,6 +57,7 @@ unittest_SOURCES = \
   DryRun_test.cpp \
   FBVClock_test.cpp \
   nregex_test.cpp \
+  Observers_test.cpp \
   POWER_test.cpp \
   POWER_test2.cpp \
   PSO_test.cpp \
@@ -74,15 +78,16 @@ unittest_LDADD=@BOOST_UNIT_TEST_FRAMEWORK_LIB@ libnidhugg.a
 ## Run only the tests matching UTEST. Default: all.
 ## Override by a make command like
 ## $ make test UTEST='some filter'
-UTEST ?= *
+UTEST ?=
 
 .PHONY: test valtest
 BOOSTTESTFLAGS=--report_level=short --log_level=warning
 test: unittest
-	./unittest $(BOOSTTESTFLAGS) --run_test='$(UTEST)'
+	./unittest $(BOOSTTESTFLAGS) `test -z "$(UTEST)" || echo "--run_test=$(UTEST)"`
 
 valtest: unittest
-	valgrind --leak-check=full ./unittest $(BOOSTTESTFLAGS) --show_progress --run_test='$(UTEST)'
+	valgrind --leak-check=full ./unittest $(BOOSTTESTFLAGS) --show_progress \
+		`test -z "$(UTEST)" || echo "--run_test=$(UTEST)"`
 
 nidhuggc$(EXEEXT): $(srcdir)/nidhuggc.py
 	cat $(srcdir)/nidhuggc.py \

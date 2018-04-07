@@ -30,25 +30,33 @@ BOOST_AUTO_TEST_SUITE(TSO_test)
 
 BOOST_AUTO_TEST_CASE(Minimal_computation){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 define i32 @main(){
   ret i32 0
 }
-)"),conf);
-
+)");
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
 
   BOOST_CHECK(res.all_traces.size() == 1);
   BOOST_CHECK(static_cast<const IIDSeqTrace*>(res.all_traces[0])->get_computation() == std::vector<IID<CPid> >({{CPid(),1}}));
 
   delete driver;
+
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
+
+  BOOST_CHECK(opt_res.all_traces.size() == 1);
+  BOOST_CHECK(static_cast<const IIDSeqTrace*>(opt_res.all_traces[0])->get_computation() == std::vector<IID<CPid> >({{CPid(),1}}));
+
+  delete driver;
+  BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Small_dekker){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
@@ -73,9 +81,15 @@ define i32 @main(){
 %union.pthread_attr_t = type { i64, [48 x i8] }
 
 declare i32 @pthread_create(i64*,%union.pthread_attr_t*,i8*(i8*)*,i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // std::unique_ptr<DPORDriver> opt_driver(DPORDriver::parseIR(module,conf));
+  // DPORDriver::Result opt_res = opt_driver->run();
 
   CPid P0;
   CPid U0 = P0.aux(0);
@@ -93,15 +107,15 @@ declare i32 @pthread_create(i64*,%union.pthread_attr_t*,i8*(i8*)*,i8*) nounwind
      {{ux0,rx1},{ry0,uy1}},
      {{rx1,ux0},{uy1,ry0}},
      {{rx1,ux0},{ry0,uy1}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,spec,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,spec,conf// ,&opt_res
+                                                ));
 
   delete driver;
 }
 
 BOOST_AUTO_TEST_CASE(Small_peterson){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 @t = global i32 0, align 4
@@ -130,9 +144,15 @@ define i32 @main(){
 
 %union.pthread_attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %union.pthread_attr_t*, i8*(i8*)*, i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // std::unique_ptr<DPORDriver> opt_driver(DPORDriver::parseIR(module,conf));
+  // DPORDriver::Result opt_res = opt_driver->run();
 
   CPid P0;
   CPid U0 = P0.aux(0);
@@ -162,7 +182,8 @@ declare i32 @pthread_create(i64*, %union.pthread_attr_t*, i8*(i8*)*, i8*) nounwi
      {{rx1,ux0},{ut0,ut1},{ut1,rt0},{uy1,ry0}},
      {{rx1,ux0},{ut1,ut0},{rt1,ut0},{ry0,uy1}},
      {{rx1,ux0},{ut1,ut0},{rt1,ut0},{uy1,ry0}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 
   delete driver;
 }
@@ -175,8 +196,7 @@ BOOST_AUTO_TEST_CASE(ROWE_1){
    * r(x)
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p0(i8* %arg){
@@ -198,11 +218,17 @@ define i32 @main(){
 
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
-
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   IID<CPid>
     ux0(CPid({0},0),1),
@@ -213,7 +239,8 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
     {{{ux0,ux1},{rx0,ux1}},
      {{ux0,ux1},{ux1,rx0}},
      {{ux1,ux0}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 
 }
 
@@ -228,8 +255,7 @@ BOOST_AUTO_TEST_CASE(ROWE_2){
    * r(x)
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p0(i8* %arg){
@@ -251,11 +277,17 @@ define i32 @main(){
 
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
-
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   IID<CPid>
     ux0(CPid({0},0),1),
@@ -266,13 +298,13 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
     {{{ux0,ux1},{ux0,rx1}},
      {{ux1,ux0},{ux0,rx1}},
      {{ux1,ux0},{rx1,ux0}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(read_read_write_1){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p0(i8* %arg){
@@ -299,10 +331,17 @@ define i32 @main(){
 
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   IID<CPid>
     ux0(CPid({0},0),1),
@@ -315,7 +354,8 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
      {{rx1,ux0},{ux0,rx2}},
      {{rx1,ux0},{rx2,ux0}}};
 
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(read_read_write_2){
@@ -323,8 +363,7 @@ BOOST_AUTO_TEST_CASE(read_read_write_2){
    * is to get a different scheduling.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p0(i8* %arg){
@@ -351,10 +390,17 @@ define i32 @main(){
 
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   IID<CPid>
     ux0(CPid({0,1},0),1),
@@ -367,7 +413,8 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
      {{rx1,ux0},{ux0,rx2}},
      {{rx1,ux0},{rx2,ux0}}};
 
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(before_update){
@@ -378,8 +425,7 @@ BOOST_AUTO_TEST_CASE(before_update){
    * resulting update was not properly registered in TSOTraceBuilder.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
@@ -398,11 +444,17 @@ define i32 @main(){
 
 %attr_t = type { i64 , [48 x i8] }
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)"),conf);
+)");
 
-  DPORDriver::Result res =
-    driver->run();
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   IID<CPid>
     rx1(CPid({0,0}),1),
@@ -415,13 +467,13 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
      {{ry0,uy1},{rx1,ux0}},
      {{uy1,ry0},{rx1,ux0}}};
 
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(fib_simple){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @i = global i32 1, align 4
 @j = global i32 1, align 4
 
@@ -453,10 +505,17 @@ define i32 @main(){
 
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0;
   CPid P1 = P0.spawn(0); CPid U1 = P1.aux(0);
@@ -489,13 +548,13 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
      */
      {{uj2,rj1},{ri2,ui1},{ui1,ri0},{uj2,rj0}},
     };
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(fib_simple_n2){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @i = global i32 1, align 4
 @j = global i32 1, align 4
 
@@ -544,18 +603,25 @@ exit:
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() nounwind noreturn
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
+
   BOOST_CHECK(res.has_errors());
+  // BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(fib_simple_n2_true){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @i = global i32 1, align 4
 @j = global i32 1, align 4
 
@@ -604,18 +670,25 @@ exit:
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() nounwind noreturn
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
+
   BOOST_CHECK(!res.has_errors());
+  // BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(blacken_change_clock){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @i = global i32 1, align 4
 @j = global i32 1, align 4
 
@@ -644,10 +717,17 @@ define i32 @main(){
 
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0;
   CPid P1 = P0.spawn(0); CPid U1 = P1.aux(0);
@@ -686,7 +766,8 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
       {{p1ui1,p0ri},{p1ui2,p0ri}, {p1ui1,p2ri},{p1ui2,p2ri}, {p1rj1,p2uj},{p1rj2,p2uj}},
     };
 
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Intrinsic){
@@ -699,8 +780,7 @@ BOOST_AUTO_TEST_CASE(Intrinsic){
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
 #ifdef LLVM_METADATA_IS_VALUE
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @work(i8* %arg){
@@ -726,7 +806,7 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 !llvm.module.flags = !{!1}
 !0 = metadata !{i32 0}
 !1 = metadata !{i32 2, metadata !"Debug Info Version", i32 )" LLVM_METADATA_VERSION_NUMBER_STR R"(}
-)"),conf);
+)");
 #else
 #ifdef LLVM_DBG_DECLARE_TWO_ARGS
   std::string declarecall = "call void @llvm.dbg.declare(metadata i8** %_arg, metadata !0)";
@@ -735,8 +815,7 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
   std::string declarecall = "call void @llvm.dbg.declare(metadata i8** %_arg, metadata !0, metadata !0)";
   std::string declaredeclare = "declare void @llvm.dbg.declare(metadata, metadata, metadata) nounwind readnone";
 #endif
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @work(i8* %arg){
@@ -762,11 +841,18 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 !llvm.module.flags = !{!1}
 !0 = !{i32 0}
 !1 = !{i32 2, !"Debug Info Version", i32 )" LLVM_METADATA_VERSION_NUMBER_STR R"(}
-)"),conf);
+)");
 #endif
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   IID<CPid>
     rx0(CPid(),5), ux0(CPid({0},0),2),
@@ -778,13 +864,13 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
      {{ux1,ux0},{rx0,ux1},{rx1,ux0}},
      {{ux1,ux0},{ux1,rx0},{rx1,ux0}}
     };
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(small_dekker_checker){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 @c = global i32 0, align 4
@@ -837,10 +923,17 @@ define i32 @main(){
 
 %attr_t = type {i64,[48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0; CPid U0 = P0.aux(0);
   CPid P1 = P0.spawn(0); CPid U1 = P1.aux(0);
@@ -862,13 +955,13 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
      {{rx1,ux0},{uy1,ry0},{uc0,uc1},{uc0,rc1}},
      {{rx1,ux0},{uy1,ry0},{uc1,uc0},{rc1,uc0}}
     };
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Disappearing_conflict){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
@@ -922,10 +1015,17 @@ define i32 @main(){
 
 %attr_t = type {i64,[48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   IID<CPid>
     rx01(CPid(),3),
@@ -947,7 +1047,8 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
      {{rx05,ux1},{uy1,ry0}},
      {{rx05,ux1},{ry0,uy1}}
     };
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(rruu){
@@ -956,8 +1057,7 @@ BOOST_AUTO_TEST_CASE(rruu){
    * r(y)          u(x)
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
@@ -976,10 +1076,17 @@ define i32 @main(){
 
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0;
   CPid P1 = P0.spawn(0); CPid U1 = P1.aux(0);
@@ -990,7 +1097,8 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
     {{{rx,ux},{ry,uy}},
      {{rx,ux},{uy,ry}},
      {{ux,rx},{uy,ry}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(own_black_read){
@@ -1003,8 +1111,7 @@ BOOST_AUTO_TEST_CASE(own_black_read){
    * u(x)           u(x)
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p(i8* %arg){
@@ -1021,10 +1128,17 @@ define i32 @main(){
 
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0; CPid U0 = P0.aux(0);
   CPid P1 = P0.spawn(0); CPid U1 = P1.aux(0);
@@ -1044,7 +1158,8 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
      */
     };
 
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(own_black_read_2){
@@ -1057,8 +1172,7 @@ BOOST_AUTO_TEST_CASE(own_black_read_2){
    * u(x)           u(x)
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
@@ -1075,10 +1189,17 @@ define i32 @main(){
 
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0; CPid U0 = P0.aux(0);
   CPid P1 = P0.spawn(0); CPid U1 = P1.aux(0);
@@ -1094,7 +1215,8 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
      */
     };
 
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(own_black_read_3){
@@ -1107,8 +1229,7 @@ BOOST_AUTO_TEST_CASE(own_black_read_3){
    * u(x)           u(x)
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
@@ -1125,10 +1246,17 @@ define i32 @main(){
 
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0; CPid U0 = P0.aux(0);
   CPid P1 = P0.spawn(0); CPid U1 = P1.aux(0);
@@ -1144,7 +1272,8 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
      */
     };
 
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Refuse_1){
@@ -1156,8 +1285,7 @@ BOOST_AUTO_TEST_CASE(Refuse_1){
    * associated with the wrong IID.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
@@ -1174,10 +1302,17 @@ define i32 @main(){
 
 %attr_t = type { i64, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0; CPid U0 = P0.aux(0);
   CPid P1 = P0.spawn(0); CPid U1 = P1.aux(0);
@@ -1187,13 +1322,13 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
   DPORDriver_test::trace_set_spec expected =
     {{{ux0,ux1},{rx0,ux1}},
      {{ux0,ux1},{ux1,rx0}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Propagate){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
@@ -1218,19 +1353,26 @@ define i32 @main(){
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
+
   BOOST_CHECK(res.has_errors());
+  // BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Branch_sleep){
   Configuration conf = DPORDriver_test::get_tso_conf();
   conf.explore_all_traces = true;
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @i = global i32 1, align 4
 @j = global i32 1, align 4
 
@@ -1284,18 +1426,25 @@ exit:
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
+
   BOOST_CHECK(res.has_errors());
+  // BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Atomic_store_1){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @c = global i32 0, align 4
 @x = global i32 0, align 4
 @y = global i32 0, align 4
@@ -1352,10 +1501,17 @@ exit:
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   BOOST_CHECK(!res.has_errors());
 
@@ -1368,13 +1524,13 @@ declare void @__assert_fail() noreturn nounwind
     {{{ux0,rx1},{ry0,uy1}},
      {{ux0,rx1},{uy1,ry0}},
      {{rx1,ux0},{uy1,ry0}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Atomic_store_2){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @c = global i32 0, align 4
 @x = global i32 0, align 4
 @y = global i32 0, align 4
@@ -1435,10 +1591,17 @@ exit:
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   BOOST_CHECK(!res.has_errors());
 
@@ -1451,13 +1614,13 @@ declare void @__assert_fail() noreturn nounwind
     {{{ux0,rx1},{ry0,uy1}},
      {{ux0,rx1},{uy1,ry0}},
      {{rx1,ux0},{uy1,ry0}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Atomic_store_3){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 @z = global i32 0, align 4
@@ -1479,10 +1642,17 @@ define i32 @main(){
 
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0, P1 = P0.spawn(0),
     U0 = P0.aux(0), U1 = P1.aux(0);
@@ -1494,13 +1664,13 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
      {{ux,rx},{uz1,uz0},{uy,ry}},
      {{rx,ux},{uz1,uz0},{uy,ry}}
     };
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(CMPXCHG_1){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @c = global i32 0, align 4
 @x = global i32 0, align 4
 @y = global i32 0, align 4
@@ -1571,10 +1741,17 @@ exit:
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   BOOST_CHECK(!res.has_errors());
 
@@ -1587,13 +1764,13 @@ declare void @__assert_fail() noreturn nounwind
     {{{ux0,rx1},{ry0,uy1}},
      {{ux0,rx1},{uy1,ry0}},
      {{rx1,ux0},{uy1,ry0}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(CMPXCHG_2){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @c = global i32 0, align 4
 @x = global i32 0, align 4
 @y = global i32 0, align 4
@@ -1668,10 +1845,17 @@ exit:
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   BOOST_CHECK(!res.has_errors());
 
@@ -1684,13 +1868,13 @@ declare void @__assert_fail() noreturn nounwind
     {{{ux0,rx1},{ry0,uy1}},
      {{ux0,rx1},{uy1,ry0}},
      {{rx1,ux0},{uy1,ry0}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(CMPXCHG_3){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @c = global i32 0, align 4
 @l = global i32 0, align 4
 
@@ -1745,18 +1929,25 @@ exit:
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
+
   BOOST_CHECK(res.has_errors());
+  // BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(CMPXCHG_4){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @c = global i32 0, align 4
 @l = global i32 0, align 4
 
@@ -1812,12 +2003,20 @@ exit:
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
+
   BOOST_CHECK(!res.has_errors());
+  // BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Join_1){
@@ -1825,8 +2024,7 @@ BOOST_AUTO_TEST_CASE(Join_1){
    * values through pthread_join.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 define i8* @p1(i8* %arg){
   %iarg = ptrtoint i8* %arg to i32
   %rv = mul i32 %iarg, %iarg
@@ -1857,18 +2055,24 @@ exit:
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare i32 @pthread_join(i64, i8**) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
+  delete driver;
+
   BOOST_CHECK(!res.has_errors());
+  BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Join_2){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
@@ -1889,10 +2093,17 @@ define i32 @main(){
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare i32 @pthread_join(i64, i8**) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   BOOST_CHECK(!res.has_errors());
 
@@ -1902,13 +2113,13 @@ declare void @__assert_fail() noreturn nounwind
     ux0(U0,1), rx1(P1,1);
   DPORDriver_test::trace_set_spec expected =
     {{{rx1,ux0}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Join_3){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
@@ -1935,10 +2146,17 @@ exit:
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare i32 @pthread_join(i64, i8**) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   BOOST_CHECK(!res.has_errors());
 
@@ -1948,13 +2166,13 @@ declare void @__assert_fail() noreturn nounwind
     ux1(U1,1), rx0(P0,5);
   DPORDriver_test::trace_set_spec expected =
     {{{ux1,rx0}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Mutex_1){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @lck = global i32 0, align 4
 @c = global i32 0, align 4
 
@@ -1986,10 +2204,17 @@ declare i32 @pthread_mutex_init(i32*,i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   BOOST_CHECK(!res.has_errors());
 
@@ -2000,14 +2225,14 @@ declare void @__assert_fail() noreturn nounwind
   DPORDriver_test::trace_set_spec expected =
     {{{unlock0,lock1}},
      {{unlock1,lock0}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Mutex_2){
   /* Possible access to mutex before initialization. */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @lck = global i32 0, align 4
 @c = global i32 0, align 4
 
@@ -2039,18 +2264,25 @@ declare i32 @pthread_mutex_init(i32*,i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
+
   BOOST_CHECK(res.has_errors());
+  // BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Mutex_3){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @lck = global i32 0, align 4
 @x = global i32 0, align 4
 @y = global i32 0, align 4
@@ -2085,10 +2317,17 @@ declare i32 @pthread_mutex_init(i32*,i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   BOOST_CHECK(!res.has_errors());
 
@@ -2101,14 +2340,14 @@ declare void @__assert_fail() noreturn nounwind
     {{{unlock0,lock1},{ry0,uy1},{rx0,ux1}},
      {{unlock0,lock1},{ry0,uy1},{ux1,rx0}},
      {{unlock1,lock0},{uy1,ry0},{ux1,rx0}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Mutex_4){
   /* Unlock without lock */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @lck = global i32 0, align 4
 
 define i32 @main(){
@@ -2120,19 +2359,25 @@ define i32 @main(){
 %attr_t = type {i64*, [48 x i8]}
 declare i32 @pthread_mutex_init(i32*,i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
+  delete driver;
+
   BOOST_CHECK(res.has_errors());
+  BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Mutex_5){
   /* Unlock mutex when locked by other process. */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @lck = global i32 0, align 4
 @x = global i32 0, align 4
 @y = global i32 0, align 4
@@ -2155,20 +2400,26 @@ declare i32 @pthread_mutex_init(i32*,i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
+  delete driver;
+
   BOOST_CHECK(res.has_errors());
+  BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Mutex_6){
   /* Make sure that we do not miss computations even when some process
    * refuses to release a lock. */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @lck = global i32 0, align 4
 @x = global i32 0, align 4
 
@@ -2194,10 +2445,17 @@ declare i32 @pthread_mutex_init(i32*,i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0; CPid U0 = P0.aux(0);
   CPid P1 = P0.spawn(0); CPid P2 = P0.spawn(1);
@@ -2207,14 +2465,14 @@ declare void @__assert_fail() noreturn nounwind
     {{{ux0,rx0}},
      {{ux0,rx1}},
      {{ux0,rx2}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Mutex_7){
   /* Typical use of pthread_mutex_destroy */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @lck = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
@@ -2243,9 +2501,15 @@ declare i32 @pthread_mutex_destroy(i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
+  delete driver;
+
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
   delete driver;
 
   BOOST_CHECK(!res.has_errors());
@@ -2257,14 +2521,13 @@ declare void @__assert_fail() noreturn nounwind
   DPORDriver_test::trace_set_spec expected =
     {{{unlock0,lock1},{unlock1,destroy0}},
      {{unlock1,lock0},{unlock0,destroy0}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf,&opt_res));
 }
 
 BOOST_AUTO_TEST_CASE(Mutex_8){
   /* Too early destruction of mutex. */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @lck = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
@@ -2290,19 +2553,25 @@ declare i32 @pthread_mutex_destroy(i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
+  delete driver;
+
   BOOST_CHECK(res.has_errors());
+  BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Mutex_9){
   /* Mutex destruction and flag */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @lck = global i32 0, align 4
 @flag = global i32 0, align 4
 
@@ -2336,10 +2605,17 @@ declare i32 @pthread_mutex_destroy(i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   BOOST_CHECK(!res.has_errors());
 
@@ -2353,15 +2629,15 @@ declare void @__assert_fail() noreturn nounwind
      {{unlock0,lock1},{rf1,uf0}},
      {{unlock1,lock0},{uf0,rf1},{unlock0,destroy1}},
      {{unlock1,lock0},{rf1,uf0}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Mutex_10){
   /* Check that critical sections locked with different locks can
    * overlap. */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @lck0 = global i32 0, align 4
 @lck1 = global i32 0, align 4
 @c = global i32 0, align 4
@@ -2410,19 +2686,26 @@ declare i32 @pthread_mutex_init(i32*,i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
+
   BOOST_CHECK(res.has_errors());
+  // BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Mutex_11){
   /* Check return values from calls to pthread_mutex_* */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @lck = global i32 0, align 4
 @c = global i32 0, align 4
 
@@ -2474,12 +2757,20 @@ declare i32 @pthread_mutex_destroy(i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
+
   BOOST_CHECK(!res.has_errors());
+  // BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Mutex_12){
@@ -2487,8 +2778,7 @@ BOOST_AUTO_TEST_CASE(Mutex_12){
    * unlocked would not be cleared when they were awoken.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @lck = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
@@ -2514,9 +2804,15 @@ declare i32 @pthread_mutex_destroy(i32*) nounwind
 declare i32 @pthread_mutex_lock(i32*) nounwind
 declare i32 @pthread_mutex_unlock(i32*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
+  delete driver;
+
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
   delete driver;
 
   BOOST_CHECK(!res.has_errors());
@@ -2533,14 +2829,13 @@ declare void @__assert_fail() noreturn nounwind
      {{unlock1b,lock0a}}, // 1100
      {{unlock1a,lock0a},{unlock0b,lock1b}} // 1001
     };
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf,&opt_res));
 }
 
 BOOST_AUTO_TEST_CASE(Malloc_1){
   Configuration conf = DPORDriver_test::get_tso_conf();
   conf.malloc_may_fail = true;
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 define i32 @main(){
   %p = call i8* @malloc(i32 10)
   %pcmp = icmp eq i8* %p, null
@@ -2558,18 +2853,24 @@ exit:
 declare i8* @malloc(i32) nounwind
 declare void @free(i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
+  delete driver;
+
   BOOST_CHECK(res.has_errors());
+  BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Malloc_2){
   Configuration conf = DPORDriver_test::get_tso_conf();
   conf.malloc_may_fail = true;
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 define i32 @main(){
   %p = call i8* @malloc(i32 10)
   %pcmp = icmp ne i8* %p, null
@@ -2585,18 +2886,24 @@ exit:
 declare i8* @malloc(i32) nounwind
 declare void @free(i8*) nounwind
 declare void @__assert_fail() noreturn nounwind
-)"),conf);
+)");
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
+  delete driver;
+
   BOOST_CHECK(res.has_errors());
+  BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Assume_1){
   Configuration conf = DPORDriver_test::get_tso_conf();
   conf.malloc_may_fail = true;
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 define i32 @main(){
   %p = call i8* @malloc(i32 10)
   %pi = ptrtoint i8* %p to i32
@@ -2609,17 +2916,24 @@ define i32 @main(){
 declare i8* @malloc(i32) nounwind
 declare void @free(i8*) nounwind
 declare void @__VERIFIER_assume(i32)
-)"),conf);
+)");
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
   BOOST_CHECK(!res.has_errors());
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
+  // BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Assume_2){
   Configuration conf = DPORDriver_test::get_tso_conf();
   conf.malloc_may_fail = true;
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 define i32 @main(){
   %p = call i8* @malloc(i32 10)
   %pi = ptrtoint i8* %p to i32
@@ -2633,10 +2947,17 @@ declare i8* @malloc(i32) nounwind
 declare void @free(i8*) nounwind
 declare void @__assert_fail()
 declare void @__VERIFIER_assume(i32)
-)"),conf);
+)");
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
   BOOST_CHECK(res.has_errors());
+
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
+  delete driver;
+  BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Nasty_bitcast){
@@ -2644,8 +2965,7 @@ BOOST_AUTO_TEST_CASE(Nasty_bitcast){
    * function taking no arguments.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 define i8* @p(){
   ret i8* null
 }
@@ -2657,17 +2977,23 @@ define i32 @main(){
 
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)"),conf);
+)");
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
+  delete driver;
+
   BOOST_CHECK(!res.has_errors());
+  BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Atomic_2){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define i8* @p1(i8* %arg){
@@ -2696,9 +3022,15 @@ define i32 @main(){
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail()
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
+  delete driver;
+
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
   delete driver;
 
   BOOST_CHECK(!res.has_errors());
@@ -2707,14 +3039,13 @@ declare void @__assert_fail()
   IID<CPid> ux0(P0,2), rx1(P1,1);
   DPORDriver_test::trace_set_spec expected =
     {{{ux0,rx1}},{{rx1,ux0}}};
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf,&opt_res));
 }
 
 BOOST_AUTO_TEST_CASE(Atomic_4){
   /* Atomic functions act as full fences */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
@@ -2740,10 +3071,17 @@ define i32 @main(){
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 declare void @__assert_fail()
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   BOOST_CHECK(!res.has_errors());
 
@@ -2757,13 +3095,13 @@ declare void @__assert_fail()
      {{ux0,rx1},{uy1,ry0}},
      {{rx1,ux0},{uy1,ry0}}
     };
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Non_fences){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
@@ -2786,10 +3124,17 @@ define i32 @main(){
 
 %attr_t = type{i64, [48 x i8]}
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0; CPid U0 = P0.aux(0);
   CPid P1 = P0.spawn(0); CPid U1 = P1.aux(0);
@@ -2802,13 +3147,13 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
      {{rx1,ux0},{ry0,uy1}},
      {{rx1,ux0},{uy1,ry0}}
     };
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Bitcast_rowe_1){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @p = global i32* null, align 8
 @i = global i32 0, align 4
 
@@ -2846,18 +3191,25 @@ exit:
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
 declare void @__assert_fail() nounwind noreturn
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
+
   BOOST_CHECK(!res.has_errors());
+  // BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Bitcast_rowe_2){
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @p = global i32* null, align 8
 @i = global i32 0, align 4
 @j = global i32 0, align 4
@@ -2894,12 +3246,20 @@ exit:
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
 declare void @__assert_fail() nounwind noreturn
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
 
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
+
   BOOST_CHECK(!res.has_errors());
+  // BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Full_conflict_5){
@@ -2909,8 +3269,7 @@ BOOST_AUTO_TEST_CASE(Full_conflict_5){
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
   conf.explore_all_traces = true;
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 
 @x = global i32 0, align 4
 @y = global i32 0, align 4
@@ -2932,10 +3291,17 @@ define i32 @main(){
 %attr_t = type { i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
 declare i8* @memcpy(i8*, i8*, i32) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0; CPid U0 = P0.aux(0);
   CPid P1 = P0.spawn(0); CPid U1 = P1.aux(0);
@@ -2951,7 +3317,8 @@ declare i8* @memcpy(i8*, i8*, i32) nounwind
       {{p1ux2,p0mc},{p0mc,p1mc},{p0uy,p1mc}},
       {{p1mc,p0mc}}
     };
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Overlapping_ROWE_1){
@@ -2962,8 +3329,7 @@ BOOST_AUTO_TEST_CASE(Overlapping_ROWE_1){
    * is intended to be a safe under-approximation of TSO behaviour.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
@@ -2991,10 +3357,17 @@ define i32 @main(){
 
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0, P1 = P0.spawn(0), P2 = P0.spawn(1);
   CPid U1 = P1.aux(0), U2 = P2.aux(0);
@@ -3004,7 +3377,8 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
      {{ux1,rx2},{uy2,ry1}},
      {{rx2,ux1},{uy2,ry1}}
     };
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Overlapping_ROWE_2){
@@ -3015,8 +3389,7 @@ BOOST_AUTO_TEST_CASE(Overlapping_ROWE_2){
    * is intended to be a safe under-approximation of TSO behaviour.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
@@ -3046,10 +3419,17 @@ define i32 @main(){
 
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0, P1 = P0.spawn(0), P2 = P0.spawn(1);
   CPid U1 = P1.aux(0), U2 = P2.aux(0);
@@ -3063,7 +3443,8 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
      {{ux1a,rx2},{rx2,ux1b},{uy2b,ry1}},
      {{rx2,ux1a},{uy2b,ry1}},
     };
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Overlapping_ROWE_3){
@@ -3074,8 +3455,7 @@ BOOST_AUTO_TEST_CASE(Overlapping_ROWE_3){
    * is intended to be a safe under-approximation of TSO behaviour.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
@@ -3105,10 +3485,17 @@ define i32 @main(){
 
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0, P1 = P0.spawn(0), P2 = P0.spawn(1);
   CPid U1 = P1.aux(0), U2 = P2.aux(0);
@@ -3127,7 +3514,8 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
      {{rx2,ux1a},{uy2a,ry1},{ry1,uy2b}},
      {{rx2,ux1a},{uy2b,ry1}}
     };
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Overlapping_ROWE_4){
@@ -3138,8 +3526,7 @@ BOOST_AUTO_TEST_CASE(Overlapping_ROWE_4){
    * is intended to be a safe under-approximation of TSO behaviour.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
@@ -3169,10 +3556,17 @@ define i32 @main(){
 
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0, P1 = P0.spawn(0), P2 = P0.spawn(1);
   CPid U1 = P1.aux(0), U2 = P2.aux(0);
@@ -3183,7 +3577,8 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
      {{ux1,rx2},{uy2,ry1}},
      {{rx2,ux1},{uy2,ry1}}
     };
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_CASE(Overlapping_ROWE_5){
@@ -3194,8 +3589,7 @@ BOOST_AUTO_TEST_CASE(Overlapping_ROWE_5){
    * is intended to be a safe under-approximation of TSO behaviour.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 @y = global i32 0, align 4
 
@@ -3227,10 +3621,17 @@ define i32 @main(){
 
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
   DPORDriver::Result res = driver->run();
   delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
 
   CPid P0, P1 = P0.spawn(0), P2 = P0.spawn(1);
   CPid U1 = P1.aux(0), U2 = P2.aux(0);
@@ -3242,7 +3643,8 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
      {{rx2,ux1},{uy2,ry1}},
      {{rx2,ux1},{ry1,uy2}}
     };
-  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

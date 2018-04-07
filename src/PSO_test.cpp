@@ -1925,8 +1925,9 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
 BOOST_AUTO_TEST_CASE(Atomic_9){
   Configuration conf;
   conf.memory_model = Configuration::SC;
-  DPORDriver *driver =
-    DPORDriver::parseIR(StrModule::portasm(R"(
+  conf.debug_collect_all_traces = true;
+  conf.explore_all_traces = true;
+  std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
 define void @__VERIFIER_atomic_foox(){
@@ -1955,9 +1956,15 @@ define i32 @main(){
 
 %attr_t = type{i64,[48 x i8]}
 declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-)"),conf);
+)");
 
+  DPORDriver *driver = DPORDriver::parseIR(module, conf);
   DPORDriver::Result res = driver->run();
+  delete driver;
+
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module, conf);
+  DPORDriver::Result opt_res = driver->run();
   delete driver;
 
   BOOST_CHECK(!res.has_errors());
@@ -1967,6 +1974,7 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
    * 3 threads, each executing two stores to x.
    */
   BOOST_CHECK(res.trace_count == 90);
+  BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
 BOOST_AUTO_TEST_CASE(Atomic_and_nonatomic_writes){

@@ -27,6 +27,7 @@
 #include "BVClock.h"
 #include "FBVClock.h"
 #include "TraceBuilder.h"
+#include "MRef.h"
 
 /* A POWERARMTraceBuilder is a TraceBuilder for the POWER or ARM
  * memory models. POWERARMTraceBuilder is an abstract class, inherited

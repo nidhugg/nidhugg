@@ -42,6 +42,10 @@ public:
     PSO,
     TSO
   };
+  enum DPORAlgorithm{
+    SOURCE,
+    OPTIMAL
+  };
   /* Assign default values to all configuration parameters. */
   Configuration(){
     explore_all_traces = false;
@@ -49,6 +53,7 @@ public:
     mutex_require_init = true;
     max_search_depth = -1;
     memory_model = MM_UNDEF;
+    dpor_algorithm = SOURCE;
     extfun_no_fence = {
       "pthread_self",
       "malloc",
@@ -75,6 +80,7 @@ public:
       "__assert_fail",
       "atexit"
     };
+    observers = false;
     check_robustness = false;
     ee_store_trace = false;
     debug_collect_all_traces = false;
@@ -118,6 +124,10 @@ public:
   int max_search_depth;
   /* Which memory model should be assumed? */
   MemoryModel memory_model;
+  /* Which DPOR algorithm should be used? */
+  DPORAlgorithm dpor_algorithm;
+  /* Should the observers optimisation be used? */
+  bool observers;
   /* A set of names of external functions that should be assumed to
    * not have fencing behavior. Notice however that the function
    * itself will still execute atomically, which may cause behaviors

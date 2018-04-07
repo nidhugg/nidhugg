@@ -73,6 +73,15 @@ public:
    * Return (i,b) where i is the index of t in the vector and b is
    * true iff t was not previously in this set. */
   std::pair<int,bool> insert(const T &t);
+  /* Insert t into this set under the assumption that t is >= all
+   * elements in this set.
+   *
+   * Return (i,b) where i is the index of t in the vector and b is
+   * true iff t was not previously in this set. */
+  std::pair<int,bool> insert_geq(const T &t);
+  /* Insert t into this set under the assumption that t is > all
+   * elements in this set. */
+  void insert_gt(const T &t);
   /* Sets this set to the union of this set and s.
    *
    * Return the number of elements that were inserted into this set
@@ -178,7 +187,7 @@ public:
   /* Produces a string representation of the set with each element t
    * represented as f(t) without any new lines between the elements.
    */
-  std::string to_string_one_line(std::function<std::string(const T&)> &f) const;
+  std::string to_string_one_line(std::function<std::string(const T&)> f) const;
 private:
   /* The set consists of the elements in vec.
    *
