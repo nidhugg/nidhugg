@@ -187,7 +187,7 @@ public:
 
   private:
     iterator(SymAddr addr) : addr(addr) {}
-    friend class SymAddrSize;
+    friend struct SymAddrSize;
     SymAddr addr;
   };
 
