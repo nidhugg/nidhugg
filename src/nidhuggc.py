@@ -11,7 +11,7 @@ import time
 # Default Configuration #
 #########################
 
-NIDHUGG='%%NIDHUGGPATH%%'
+NIDHUGG=os.path.join(sys.path[0], 'nidhugg')
 CLANG='%%CLANG%%'
 CLANGXX='%%CLANGXX%%'
 
