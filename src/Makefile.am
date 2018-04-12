@@ -94,6 +94,5 @@ nidhuggc$(EXEEXT): $(srcdir)/nidhuggc.py
 	| sed 's|%%PYTHON%%|@PYTHON@|g' \
 	| sed 's|%%CLANG%%|@CLANG@|g' \
 	| sed 's|%%CLANGXX%%|@CLANGXX@|g' \
-	| sed 's|%%NIDHUGGPATH%%|$(bindir)/nidhugg|g' \
 	> nidhuggc
 	chmod a+x nidhuggc
