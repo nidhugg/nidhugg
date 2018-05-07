@@ -1022,7 +1022,6 @@ AC_SUBST(NIDHUGGCBIN)
 AM_CONDITIONAL([BUILDPDFDOCUMENTATION],[test "x$BUILDPDFDOCUMENTATION" = "xyes"])
 
 # Checks for library functions.
-AC_FUNC_MALLOC
 AC_CHECK_FUNCS([atexit memset setenv])
 
 # Warn about compiling with clang++ for llvm version >= 3.9
