@@ -991,8 +991,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 
 
 # Checks for typedefs, structures, and compiler characteristics.
-#AC_CHECK_HEADER_STDBOOL macro is defined with autoconf version >= 2.67
-m4_ifdef([AC_CHECK_HEADER_STDBOOL], [AC_CHECK_HEADER_STDBOOL])
 AC_C_INLINE
 AC_TYPE_INT16_T
 AC_TYPE_INT32_T
@@ -1020,9 +1018,6 @@ fi
 
 AC_SUBST(NIDHUGGCBIN)
 AM_CONDITIONAL([BUILDPDFDOCUMENTATION],[test "x$BUILDPDFDOCUMENTATION" = "xyes"])
-
-# Checks for library functions.
-AC_CHECK_FUNCS([atexit memset setenv])
 
 # Warn about compiling with clang++ for llvm version >= 3.9
 if test "x$CXX" = "xclang" || test "x$CXX" = "xclang++" ; then
