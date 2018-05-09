@@ -84,7 +84,7 @@ def get_args():
     A = {}
     B = []
     C = []
-    disablesinput=['--help','--version']
+    disablesinput={'--help','--version'}
     def canonize(arg):
         if arg in nidhuggcparamaliases:
             return nidhuggcparamaliases[arg]
@@ -92,8 +92,6 @@ def get_args():
         if 0 <= i and (arg[:i] in nidhuggcparamaliases):
             return nidhuggcparamaliases[arg[:i]]+arg[i:]
         return arg
-    shouldhaveinput=(0 == len([a for a in sys.argv[1:] if canonize(a) in disablesinput]))
-    hasinput=False
     fornidhuggcsingle=[p['name'] for p in nidhuggcparams if p['param'] == False]
     hascompilerargs=False
     i = 1
@@ -118,26 +116,41 @@ def get_args():
                     foundparam=True
                     break
             if foundparam: pass
-            elif len(arg) > 0 and arg[0] != '-' and not(hasinput):
-                A['--input'] = arg
-                hasinput = True
-            elif arg == '--' and not(hascompilerargs) and not(hasinput):
-                B = C
-                C = []
-                hascompilerargs=True
+            elif arg == '--':
+                if not(hascompilerargs):
+                    B = C
+                    C = []
+                    hascompilerargs=True
+                else:
+                    # Stop input processing so that program arguments may
+                    # contain flags that are nidhuggc parameters
+                    C.extend(sys.argv[i-1:])
+                    break
             else:
                 C.append(arg)
-    if shouldhaveinput and not(hasinput):
-        print_help()
-        raise Exception('No input file specified.')
+    shouldhaveinput = disablesinput.isdisjoint(A.keys())
+    if shouldhaveinput:
+        A['--input'] = get_input(C)
     return (A,B,C)
+
+# Remove and return the input argument from a nidhugg argument list
+def get_input(args):
+    # Do not interpret args after --
+    end = args.index('--') if '--' in args else len(args)
+    # Iterate in reverse to find last matching
+    for arg in reversed(args[:end]):
+        if len(arg) > 0 and arg[0] != '-':
+            args.remove(arg)
+            return arg
+    print_help()
+    raise Exception('No input file specified.')
 
 def help_indent(s,n):
     ind=' '*n
     return ind+(s.replace('\n','\n'+ind))
 
 def print_help():
-    print('Usage: {0} [[COMPILER/NIDHUGGC OPTIONS --] NIDHUGG/NIDHUGGC OPTIONS]'
+    print('Usage: {0} [COMPILER OPTIONS] -- [NIDHUGG/NIDHUGGC OPTIONS]'
           ' FILE [-- [PROGRAM ARGUMENTS]]'.format(sys.argv[0]))
     print('')
     print(' - FILE should be a source code file in C or C++.')
@@ -145,6 +158,7 @@ def print_help():
     print('   (clang/clang++).')
     print(' - NIDHUGG OPTIONS are options that will be sent to nidhugg.')
     print('   (See nidhugg --help for details.)')
+    print(' - PROGRAM ARGUMENTS will be sent as arguments (argv) to the test case.')
     print('')
     print('NIDHUGGC OPTIONS:')
     for p in nidhuggcparams:
