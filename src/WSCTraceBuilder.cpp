@@ -1846,24 +1846,24 @@ void WSCTraceBuilder::compute_prefixes() {
                        [](const SymEv &e) { return e.kind == SymEv::STORE; });
   };
 
-  std::map<SymAddr,std::vector<unsigned>> writes_per_address;
+  std::map<SymAddr,std::vector<unsigned>> writes_by_address;
   for (unsigned j = 0; j < prefix.len(); ++j) {
     if (is_store(j)) {
-      writes_per_address[get_addr(j).addr].push_back(j);
+      writes_by_address[get_addr(j).addr].push_back(j);
     }
   }
 
   for (unsigned i = 0; i < prefix.len(); ++i) {
     if (!prefix.branch(i).pinned && is_load(i)) {
       auto addr = get_addr(i);
-      const std::vector<unsigned> &possible_writes = writes_per_address[addr.addr];
+      const std::vector<unsigned> &possible_writes = writes_by_address[addr.addr];
       unsigned original_read_from = *prefix[i].read_from;
 
       for (unsigned j : possible_writes) {
         if (j == original_read_from) continue;
         prefix[i].read_from = j;
         prefix.branch(j).pinned = true;
-        try_sat(writes_per_address);
+        try_sat(writes_by_address);
       }
 
       /* Reset read from, but leave pinned = true */
@@ -1876,7 +1876,7 @@ void WSCTraceBuilder::compute_prefixes() {
 template<class OStream>
 void WSCTraceBuilder::output_formula
 (OStream &in,
- std::map<SymAddr,std::vector<unsigned>> &writes_per_address,
+ std::map<SymAddr,std::vector<unsigned>> &writes_by_address,
  const std::vector<bool> &keep){
   auto get_addr = [&](unsigned i) {
     for (SymEv &e : prefix[i].sym) {
@@ -1902,15 +1902,15 @@ void WSCTraceBuilder::output_formula
   for (unsigned i = 0; i < prefix.len(); ++i) {
     if (!keep[i] || !prefix[i].read_from) continue;
     int w = *prefix[i].read_from;
-    assert(i != w);
+    assert(int(i) != w);
     if (w == -1) {
-      for (int j : writes_per_address[get_addr(i).addr]) {
+      for (int j : writes_by_address[get_addr(i).addr]) {
         if (!keep[j]) continue;
         in << "(assert (< e" << i << " e" << j << "))\n";
       }
     } else {
       in << "(assert (> e" << i << " e" << w << "))\n";
-      for (int j : writes_per_address[get_addr(i).addr]) {
+      for (int j : writes_by_address[get_addr(i).addr]) {
         if (j == w || !keep[j]) continue;
         in << "(assert (or (< e" << j << " e" << w << ")"
           "(< e" << i << " e" << j << ")))\n";
@@ -1921,15 +1921,15 @@ void WSCTraceBuilder::output_formula
 }
 
 void WSCTraceBuilder::try_sat
-(std::map<SymAddr,std::vector<unsigned>> &writes_per_address){
+(std::map<SymAddr,std::vector<unsigned>> &writes_by_address){
   std::vector<bool> keep = causal_past();
 
   boost::process::ipstream out;
   boost::process::opstream in;
   boost::process::child z3("z3 -in", boost::process::std_out > out, boost::process::std_in < in);
 
-  output_formula(in, writes_per_address, keep);
-  output_formula(std::cerr, writes_per_address, keep);
+  output_formula(in, writes_by_address, keep);
+  output_formula(std::cerr, writes_by_address, keep);
 
   in << "(check-sat)" << std::endl;
 
