@@ -1615,6 +1615,13 @@ void WSCTraceBuilder::output_formula
     }
   }
 
+  /* Other happens-after edges (such as thread spawn and join) */
+  for (unsigned i = 0; i < prefix.len(); ++i) {
+    if (!keep[i]) continue;
+    for (unsigned j : prefix[i].happens_after) {
+        in << "(assert (> e" << i << " e" << j << "))\n";
+    }
+  }
 }
 
 void WSCTraceBuilder::try_sat
@@ -1690,6 +1697,9 @@ void WSCTraceBuilder::causal_past_1(std::vector<bool> &acc, unsigned i) const{
   acc[i] = true;
   if (prefix[i].read_from && *prefix[i].read_from != -1) {
     causal_past_1(acc, *prefix[i].read_from);
+  }
+  for (unsigned j : prefix[i].happens_after) {
+    causal_past_1(acc, j);
   }
   if (Option<unsigned> pred = po_predecessor(i)) {
     causal_past_1(acc, *pred);
