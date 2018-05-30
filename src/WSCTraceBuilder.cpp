@@ -1589,6 +1589,12 @@ void WSCTraceBuilder::output_formula
     }
   }
 
+  in << "(assert (distinct ";
+  for (unsigned i = 0; i < prefix.len(); ++i) {
+    if (keep[i]) in << "e" << i << " ";
+  }
+  in << "))" << std::endl;
+
   /* Read-from and SC consistency */
   for (unsigned i = 0; i < prefix.len(); ++i) {
     if (!keep[i] || !prefix[i].read_from) continue;
