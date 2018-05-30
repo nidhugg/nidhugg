@@ -30,6 +30,7 @@
 #include "StrModule.h"
 #include "TSOInterpreter.h"
 #include "TSOTraceBuilder.h"
+#include "WSCTraceBuilder.h"
 
 #include <fstream>
 #include <stdexcept>
@@ -104,6 +105,7 @@ llvm::ExecutionEngine *DPORDriver::create_execution_engine(TraceBuilder &TB, con
   llvm::ExecutionEngine *EE = 0;
   switch(conf.memory_model){
   case Configuration::SC:
+  case Configuration::WEAK_SC:
     EE = llvm::Interpreter::create(mod,static_cast<TSOPSOTraceBuilder&>(TB),conf,&ErrorMsg);
     break;
   case Configuration::TSO:
@@ -195,6 +197,9 @@ DPORDriver::Result DPORDriver::run(){
   switch(conf.memory_model){
   case Configuration::SC:
     TB = new TSOTraceBuilder(conf);
+    break;
+  case Configuration::WEAK_SC:
+    TB = new WSCTraceBuilder(conf);
     break;
   case Configuration::TSO:
     TB = new TSOTraceBuilder(conf);

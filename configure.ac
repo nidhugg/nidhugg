@@ -1,6 +1,7 @@
 AC_INIT([Nidhugg], [0.2], [carl.leonardsson@gmail.com])
 m4_include([m4/ax_cxx_compile_stdcxx_11.m4])
 m4_include([m4/ax_boost_base.m4])
+m4_include([m4/ax_boost_system.m4])
 m4_include([m4/ax_boost_unit_test_framework.m4])
 m4_include([m4/ax_llvm.m4])
 m4_include([m4/ax_git_commit.m4])
@@ -23,6 +24,7 @@ AX_GIT_COMMIT
 
 # Checks for libraries
 AX_BOOST_BASE([1.49])
+AX_BOOST_SYSTEM
 AX_BOOST_UNIT_TEST_FRAMEWORK
 AX_LLVM(,[AC_MSG_FAILURE(LLVM is required.)])
 CXXFLAGS="`echo " $CXXFLAGS " | sed 's/ -fno-rtti / /' | sed 's/ -fno-exceptions / /'`"

@@ -108,6 +108,9 @@ public:
   const Branch &branch(std::size_t i) const {
     return parent_at(i)->children.front().first;
   }
+  Branch &branch(std::size_t i) {
+    return parent_at(i)->children.front().first;
+  }
   WakeupTreeRef<Branch> node(std::size_t i) { assert(i < len()); return prefix[i].node; }
   WakeupTreeRef<Branch> parent_at(std::size_t i) {
     assert(i <= len());

@@ -37,6 +37,7 @@ public:
   enum MemoryModel{
     MM_UNDEF, // No memory model was specified
     SC,
+    WEAK_SC,
     ARM,
     POWER,
     PSO,

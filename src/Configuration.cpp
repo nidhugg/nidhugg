@@ -49,6 +49,7 @@ static llvm::cl::opt<Configuration::MemoryModel>
 cl_memory_model(llvm::cl::NotHidden, llvm::cl::init(Configuration::MM_UNDEF),
                 llvm::cl::desc("Select memory model"),
                 llvm::cl::values(clEnumValN(Configuration::SC,"sc","Sequential Consistency"),
+                                 clEnumValN(Configuration::WEAK_SC,"wsc","Weak Sequential Consistency"),
                                  clEnumValN(Configuration::ARM,"arm","The ARM model"),
                                  clEnumValN(Configuration::POWER,"power","The POWER model"),
                                  clEnumValN(Configuration::PSO,"pso","Partial Store Order"),
@@ -205,6 +206,7 @@ void Configuration::check_commandline(){
   {
     std::string mm;
     if(cl_memory_model == Configuration::SC) mm = "SC";
+    if(cl_memory_model == Configuration::WEAK_SC) mm = "WSC";
     if(cl_memory_model == Configuration::TSO) mm = "TSO";
     if(cl_memory_model == Configuration::PSO) mm = "PSO";
     if(cl_memory_model == Configuration::POWER) mm = "POWER";

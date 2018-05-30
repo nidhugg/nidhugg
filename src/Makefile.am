@@ -36,6 +36,7 @@ libnidhugg_a_SOURCES = \
   TSOInterpreter.cpp TSOInterpreter.h \
   TSOPSOTraceBuilder.h \
   TSOTraceBuilder.cpp TSOTraceBuilder.h \
+  WSCTraceBuilder.cpp WSCTraceBuilder.h \
   VClock.cpp VClock.h VClock.tcc \
   vecset.h vecset.tcc
 libnidhugg_a_CXXFLAGS = -fno-rtti
@@ -43,7 +44,8 @@ libnidhugg_a_CXXFLAGS = -fno-rtti
 EXTRA_PROGRAMS = nidhuggc
 bin_PROGRAMS = nidhugg @NIDHUGGCBIN@
 nidhugg_SOURCES = main.cpp
-nidhugg_LDADD = libnidhugg.a
+nidhugg_LDADD = @BOOST_SYSTEM_LIB@ libnidhugg.a
+nidhugg_LDFLAGS = -pthread
 nidhugg_CXXFLAGS = -fno-rtti
 nidhuggc_SOURCES = nidhuggc.py
 
@@ -72,7 +74,8 @@ unittest_SOURCES = \
   VClock_CPid_test.cpp \
   VClock_int_test.cpp \
   unittest.cpp
-unittest_LDADD=@BOOST_UNIT_TEST_FRAMEWORK_LIB@ libnidhugg.a
+unittest_LDADD=@BOOST_SYSTEM_LIB@ @BOOST_UNIT_TEST_FRAMEWORK_LIB@ libnidhugg.a
+unittest_LDFLAGS=-pthread
 
 
 ## Run only the tests matching UTEST. Default: all.
