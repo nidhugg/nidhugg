@@ -132,8 +132,7 @@ protected:
   class Thread{
   public:
     Thread(const CPid &cpid, int spawn_event)
-      : cpid(cpid), available(true), spawn_event(spawn_event), sleeping(false),
-        sleep_full_memory_conflict(false), sleep_sym(nullptr) {};
+      : cpid(cpid), available(true), spawn_event(spawn_event) {};
     CPid cpid;
     /* Is the thread available for scheduling? */
     bool available;
@@ -150,34 +149,6 @@ protected:
      * Newer entries are further to the back.
      */
     std::vector<PendingStore> store_buffer;
-    /* True iff this thread is currently in the sleep set. */
-    bool sleeping;
-    /* sleep_accesses_r is the set of bytes that will be read by the
-     * next event to be executed by this thread (as determined by dry
-     * running).
-     *
-     * Empty if !sleeping.
-     */
-    VecSet<SymAddr> sleep_accesses_r;
-    /* sleep_accesses_w is the set of bytes that will be written by
-     * the next event to be executed by this thread (as determined by
-     * dry running).
-     *
-     * Empty if !sleeping.
-     */
-    VecSet<SymAddr> sleep_accesses_w;
-    /* sleep_full_memory_conflict is set when the next event to be
-     * executed by this thread will be a full memory conflict (as
-     * determined by dry running).
-     */
-    bool sleep_full_memory_conflict;
-    /* sleep_sym is the set of globally visible actions that the next
-     * event to be executed by this thread will do (as determined by
-     * dry running).
-     *
-     * NULL if !sleeping.
-     */
-    sym_ty *sleep_sym;
 
     /* The iid-index of the last event of this thread, or 0 if it has not
      * executed any events yet.
@@ -426,19 +397,6 @@ protected:
      * Empty iff !may_conflict
      */
     sym_ty sym;
-    /* The set of threads that go to sleep immediately before this
-     * event sequence.
-     */
-    VecSet<IPid> sleep;
-    /* The events that the threads in sleep will perform as their next step,
-     * as determined by dry running.
-     * sleep and sleep_evs are of the same size and correspond pairwise.
-     */
-    std::vector<sym_ty> sleep_evs;
-    /* The set of sleeping threads that wake up during or after this
-     * event sequence.
-     */
-    VecSet<IPid> wakeup;
     /* For each previous IID that has been explored at this position
      * with the exact same prefix, some number of traces (both sleep
      * set blocked and otherwise) have been
@@ -455,11 +413,6 @@ protected:
    */
   WakeupTreeExplorationBuffer<Branch, Event> prefix;
 
-  /* The number of threads that have been dry run since the last
-   * non-dry run event was scheduled.
-   */
-  int dry_sleepers;
-
   /* The index into prefix corresponding to the last event that was
    * scheduled. Has the value -1 when no events have been scheduled.
    */
@@ -470,9 +423,6 @@ protected:
    * not replaying.
    */
   unsigned sym_idx;
-
-  /* Are we currently executing an event in dry run mode? */
-  bool dryrun;
 
   /* Are we currently replaying the events given in prefix from the
    * previous execution? Or are we executing new events by arbitrary
@@ -648,51 +598,6 @@ protected:
     const;
   /* Recompute the observation states on the symbolic events in v. */
   void recompute_observed(std::vector<Branch> &v) const;
-  struct obs_sleep {
-    struct process_state {
-      const sym_ty *sym;
-      Option<SymAddrSize> not_if_read;
-    };
-    std::map<IPid,struct process_state> sleep;
-    /* Addresses that must be read */
-    std::vector<SymAddrSize> must_read;
-  };
-  /* Returns a string representation of a sleep set. */
-  std::string oslp_string(const struct obs_sleep &slp) const;
-  /* Traverses prefix to compute the set of threads that were sleeping
-   * as the first event of prefix[i] started executing. Returns that
-   * set.
-   */
-  struct obs_sleep obs_sleep_at(int i) const;
-  /* Performs the first half of a sleep set step, adding new sleepers
-   * from e.
-   */
-  void obs_sleep_add(struct obs_sleep &sleep, const Event &e) const;
-  enum class obs_wake_res {
-    CLEAR,
-    CONTINUE,
-    BLOCK,
-  };
-  /* Performs the second half of a sleep set step, removing sleepers that
-   * conflict with (p, sym).
-   *
-   * If obs_wake_res::BLOCK is returned, then this execution has
-   * blocked.
-   */
-  obs_wake_res obs_sleep_wake(struct obs_sleep &osleep, IPid p,
-                              const sym_ty &sym) const;
-  /* Performs the second half of a sleep set step, removing sleepers that
-   * were identified as waking after event e.
-   *
-   * This overload is a workaround for having the obs_sleep sets work
-   * correctly under TSO without a full symbolic conflict detection
-   * implementation (as required for Optimal-DPOR), as obs_sleep now is
-   * used even for Source-DPOR.
-   *
-   * As this overload is only used on events that have already been
-   * executed, it will never block, and thus has no return value.
-   */
-  void obs_sleep_wake(struct obs_sleep &sleep, const Event &e) const;
   void try_sat(std::map<SymAddr,std::vector<unsigned>> &);
   template<class OStream>
   void output_formula(OStream &out,
@@ -700,14 +605,6 @@ protected:
                       const std::vector<bool> &);
   std::vector<bool> causal_past() const;
   void causal_past_1(std::vector<bool> &acc, unsigned i) const;
-  /* Compute the wakeup sequence for reversing a race. */
-  std::vector<Branch> wakeup_sequence(const Race&) const;
-  /* Checks if a sequence of events will clear a sleep set. */
-  bool sequence_clears_sleep(const std::vector<Branch> &seq,
-                             const struct obs_sleep &sleep) const;
-  /* Wake up all threads which are sleeping, waiting for an access
-   * (type,ml). */
-  void wakeup(Access::Type type, SymAddr ml);
   /* Returns true iff the thread pid has a pending store to some
    * memory location including the byte ml.
    */

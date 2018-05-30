@@ -41,7 +41,6 @@ WSCTraceBuilder::WSCTraceBuilder(const Configuration &conf) : TSOPSOTraceBuilder
   threads.push_back(Thread(CPS.new_aux(CPid()), -1));
   threads[1].available = false; // Store buffer is empty.
   prefix_idx = -1;
-  dryrun = false;
   replay = false;
   last_full_memory_conflict = -1;
   last_md = 0;
@@ -54,7 +53,6 @@ WSCTraceBuilder::~WSCTraceBuilder(){
 bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   *dryrun = false;
   *alt = 0;
-  this->dryrun = false;
   if(replay){
     /* Are we done with the current Event? */
     if(0 <= prefix_idx && threads[curev().iid.get_pid()].last_event_index() <
@@ -74,37 +72,12 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
                  == IID<CPid>(threads[curbranch().pid].cpid,
                               curev().iid.get_index())));
       replay = false;
-      assert(conf.dpor_algorithm != Configuration::OPTIMAL
-             || (errors.size() && errors.back()->get_location()
-                 == IID<CPid>(threads[curev().iid.get_pid()].cpid,
-                              curev().iid.get_index()))
-             || std::all_of(threads.cbegin(), threads.cend(),
-                            [](const Thread &t) { return !t.sleeping; }));
-    }else if(prefix_idx + 1 != int(prefix.len()) &&
-             dry_sleepers < int(prefix[prefix_idx+1].sleep.size())){
-      /* Before going to the next event, dry run the threads that are
-       * being put to sleep.
-       */
-      IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers];
-      prefix[prefix_idx+1].sleep_evs.resize
-        (prefix[prefix_idx+1].sleep.size());
-      threads[pid].sleep_sym = &prefix[prefix_idx+1].sleep_evs[dry_sleepers];
-      threads[pid].sleep_sym->clear();
-      ++dry_sleepers;
-      threads[pid].sleeping = true;
-      *proc = pid/2;
-      *aux = pid % 2 - 1;
-      *alt = 0;
-      *dryrun = true;
-      this->dryrun = true;
-      return true;
     }else{
       /* Go to the next event. */
       assert(prefix_idx < 0 || curev().sym.size() == sym_idx
              || (errors.size() && errors.back()->get_location()
                  == IID<CPid>(threads[curbranch().pid].cpid,
                               curev().iid.get_index())));
-      dry_sleepers = 0;
       sym_idx = 0;
       ++prefix_idx;
       IPid pid;
@@ -125,7 +98,6 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       *alt = curbranch().alt;
       assert(threads[pid].available);
       threads[pid].event_indices.push_back(prefix_idx);
-      assert(!threads[pid].sleeping);
       return true;
     }
   }
@@ -140,10 +112,8 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   if(prefix.len() > 1 &&
      prefix[prefix.len()-1].iid.get_pid()
      == prefix[prefix.len()-2].iid.get_pid() &&
-     !prefix[prefix.len()-1].may_conflict &&
-     prefix[prefix.len()-1].sleep.empty()){
+     !prefix[prefix.len()-1].may_conflict){
     assert(prefix.children_after(prefix.len()-1) == 0);
-    assert(prefix[prefix.len()-1].wakeup.empty());
     assert(curev().sym.empty()); /* Would need to be copied */
     assert(curbranch().sym.empty()); /* Can't happen */
     prefix.delete_last();
@@ -185,7 +155,7 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   const unsigned sz = threads.size();
   unsigned p;
   for(p = 1; p < sz; p += 2){ // Loop through auxiliary threads
-    if(threads[p].available && !threads[p].sleeping &&
+    if(threads[p].available &&
        (conf.max_search_depth < 0 || threads[p].last_event_index() < conf.max_search_depth)){
       threads[p].event_indices.push_back(prefix_idx);
       prefix.push(Branch(IPid(p)),
@@ -197,7 +167,7 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   }
 
   for(p = 0; p < sz; p += 2){ // Loop through real threads
-    if(threads[p].available && !threads[p].sleeping &&
+    if(threads[p].available &&
        (conf.max_search_depth < 0 || threads[p].last_event_index() < conf.max_search_depth)){
       threads[p].event_indices.push_back(prefix_idx);
       prefix.push(Branch(IPid(p)),
@@ -219,8 +189,6 @@ void WSCTraceBuilder::refuse_schedule(){
   assert(prefix_idx == int(prefix.len())-1);
   assert(prefix.lastbranch().size == 1);
   assert(!prefix.last().may_conflict);
-  assert(prefix.last().sleep.empty());
-  assert(prefix.last().wakeup.empty());
   assert(prefix.children_after(prefix_idx) == 0);
   IPid last_pid = prefix.last().iid.get_pid();
   prefix.delete_last();
@@ -253,16 +221,13 @@ void WSCTraceBuilder::cancel_replay(){
 }
 
 void WSCTraceBuilder::metadata(const llvm::MDNode *md){
-  if(!dryrun && curev().md == 0){
+  if(curev().md == 0){
     curev().md = md;
   }
   last_md = md;
 }
 
 bool WSCTraceBuilder::sleepset_is_empty() const{
-  for(unsigned i = 0; i < threads.size(); ++i){
-    if(threads[i].sleeping) return false;
-  }
   return true;
 }
 
@@ -345,10 +310,6 @@ bool WSCTraceBuilder::reset(){
     Event evt(IID<IPid>(br.pid,br_idx));
 
     evt.sym = br.sym; /* For replay sanity assertions only */
-    evt.sleep = prev_evt.sleep;
-    if(br.pid != prev_evt.iid.get_pid()){
-      evt.sleep.insert(prev_evt.iid.get_pid());
-    }
     evt.sleep_branch_trace_count = sleep_branch_trace_count;
 
     prefix.enter_first_child(std::move(evt));
@@ -364,9 +325,7 @@ bool WSCTraceBuilder::reset(){
   mem.clear();
   last_full_memory_conflict = -1;
   prefix_idx = -1;
-  dryrun = false;
   replay = true;
-  dry_sleepers = 0;
   last_md = 0;
   reset_cond_branch_log();
 
@@ -409,21 +368,6 @@ str_join(const std::vector<std::string> &vec, const std::string &sep) {
     res += *it;
   }
   return res;
-}
-
-std::string WSCTraceBuilder::oslp_string(const struct obs_sleep &os) const {
-  std::vector<std::string> elems;
-  auto pid_str = [this](IPid p) { return threads[p].cpid.to_string(); };
-  for (const auto &pair : os.sleep) {
-    elems.push_back(threads[pair.first].cpid.to_string());
-    if (pair.second.not_if_read) {
-      elems.back() += "/" + pair.second.not_if_read->to_string(pid_str);
-    }
-  }
-  for (const SymAddrSize &sas : os.must_read) {
-    elems.push_back(sas.to_string(pid_str));
-  }
-  return "{" + str_join(elems, ",") + "}";
 }
 
 /* For debug-printing the wakeup tree; adds a node and its children to lines */
@@ -574,16 +518,12 @@ void WSCTraceBuilder::debug_print() const {
   llvm::dbgs() << "WSCTraceBuilder (debug print):\n";
   int iid_offs = 0;
   int clock_offs = 0;
-  std::vector<std::string> lines;
-  struct obs_sleep sleep_set;
+  std::vector<std::string> lines(prefix.len(), "");
 
   for(unsigned i = 0; i < prefix.len(); ++i){
     IPid ipid = prefix[i].iid.get_pid();
     iid_offs = std::max(iid_offs,2*ipid+int(iid_string(i).size()));
     clock_offs = std::max(clock_offs,int(prefix[i].clock.to_string().size()));
-    obs_sleep_add(sleep_set, prefix[i]);
-    lines.push_back(" SLP:" + oslp_string(sleep_set));
-    obs_sleep_wake(sleep_set, ipid, prefix[i].sym);
   }
 
   /* Add wakeup tree */
@@ -629,7 +569,6 @@ void WSCTraceBuilder::spawn(){
 }
 
 void WSCTraceBuilder::store(const SymData &sd){
-  if(dryrun) return;
   curev().may_conflict = true; /* prefix_idx might become bad otherwise */
   IPid ipid = curev().iid.get_pid();
   threads[ipid].store_buffer.push_back(PendingStore(sd.get_ref(),prefix_idx,last_md));
@@ -659,16 +598,6 @@ static SymAddrSize sym_get_last_write(const sym_ty &sym, SymAddr addr){
 
 void WSCTraceBuilder::do_atomic_store(const SymData &sd){
   const SymAddrSize &ml = sd.get_ref();
-  if(dryrun){
-    assert(prefix_idx+1 < int(prefix.len()));
-    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
-    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
-    VecSet<SymAddr> &A = threads[pid].sleep_accesses_w;
-    for(SymAddr b : ml){
-      A.insert(b);
-    }
-    return;
-  }
   IPid ipid = curev().iid.get_pid();
   curev().may_conflict = true;
   bool is_update = ipid % 2;
@@ -725,7 +654,6 @@ void WSCTraceBuilder::do_atomic_store(const SymData &sd){
     if(is_update && threads[tipid].store_buffer.front().last_rowe >= 0){
       bi.last_read[tipid/2] = threads[tipid].store_buffer.front().last_rowe;
     }
-    wakeup(Access::W,b);
   }
 
   if(is_update){ /* Remove pending store from buffer */
@@ -749,16 +677,6 @@ void WSCTraceBuilder::load(const SymAddrSize &ml){
 }
 
 void WSCTraceBuilder::do_load(const SymAddrSize &ml){
-  if(dryrun){
-    assert(prefix_idx+1 < int(prefix.len()));
-    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
-    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
-    VecSet<SymAddr> &A = threads[pid].sleep_accesses_r;
-    for(SymAddr b : ml){
-      A.insert(b);
-    }
-    return;
-  }
   curev().may_conflict = true;
   IPid ipid = curev().iid.get_pid();
 
@@ -788,7 +706,6 @@ void WSCTraceBuilder::do_load(const SymAddrSize &ml){
 
     /* Register load in memory */
     mem[b].last_read[ipid/2] = prefix_idx;
-    wakeup(Access::R,b);
   }
 
   seen_accesses.insert(last_full_memory_conflict);
@@ -810,13 +727,6 @@ void WSCTraceBuilder::compare_exchange
 
 void WSCTraceBuilder::full_memory_conflict(){
   record_symbolic(SymEv::Fullmem());
-  if(dryrun){
-    assert(prefix_idx+1 < int(prefix.len()));
-    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
-    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
-    threads[pid].sleep_full_memory_conflict = true;
-    return;
-  }
   curev().may_conflict = true;
 
   /* See all pervious memory accesses */
@@ -832,8 +742,6 @@ void WSCTraceBuilder::full_memory_conflict(){
   }
   seen_accesses.insert(last_full_memory_conflict);
   last_full_memory_conflict = prefix_idx;
-
-  wakeup(Access::W_ALL_MEMORY,{SymMBlock::Global(0),0});
 
   /* No later access can have a conflict with any earlier access */
   mem.clear();
@@ -881,7 +789,6 @@ void WSCTraceBuilder::do_load(ByteInfo &m){
 }
 
 void WSCTraceBuilder::fence(){
-  if(dryrun) return;
   IPid ipid = curev().iid.get_pid();
   assert(ipid % 2 == 0);
   assert(threads[ipid].store_buffer.empty());
@@ -890,7 +797,6 @@ void WSCTraceBuilder::fence(){
 
 void WSCTraceBuilder::join(int tgt_proc){
   record_symbolic(SymEv::Join(tgt_proc));
-  if(dryrun) return;
   curev().may_conflict = true;
   assert(threads[tgt_proc*2].store_buffer.empty());
   add_happens_after_thread(prefix_idx, tgt_proc*2);
@@ -899,13 +805,6 @@ void WSCTraceBuilder::join(int tgt_proc){
 
 void WSCTraceBuilder::mutex_lock(const SymAddrSize &ml){
   record_symbolic(SymEv::MLock(ml));
-  if(dryrun){
-    assert(prefix_idx+1 < int(prefix.len()));
-    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
-    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
-    threads[pid].sleep_accesses_w.insert(ml.addr);
-    return;
-  }
   fence();
   if(!conf.mutex_require_init && !mutexes.count(ml.addr)){
     // Assume static initialization
@@ -913,7 +812,6 @@ void WSCTraceBuilder::mutex_lock(const SymAddrSize &ml){
   }
   assert(mutexes.count(ml.addr));
   curev().may_conflict = true;
-  wakeup(Access::W,ml.addr);
 
   Mutex &mutex = mutexes[ml.addr];
 
@@ -929,7 +827,6 @@ void WSCTraceBuilder::mutex_lock(const SymAddrSize &ml){
 }
 
 void WSCTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
-  assert(!dryrun);
   if(!conf.mutex_require_init && !mutexes.count(ml.addr)){
     // Assume static initialization
     mutexes[ml.addr] = Mutex();
@@ -946,13 +843,6 @@ void WSCTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
 
 void WSCTraceBuilder::mutex_trylock(const SymAddrSize &ml){
   record_symbolic(SymEv::MLock(ml));
-  if(dryrun){
-    assert(prefix_idx+1 < int(prefix.len()));
-    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
-    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
-    threads[pid].sleep_accesses_w.insert(ml.addr);
-    return;
-  }
   fence();
   if(!conf.mutex_require_init && !mutexes.count(ml.addr)){
     // Assume static initialization
@@ -960,7 +850,6 @@ void WSCTraceBuilder::mutex_trylock(const SymAddrSize &ml){
   }
   assert(mutexes.count(ml.addr));
   curev().may_conflict = true;
-  wakeup(Access::W,ml.addr);
   Mutex &mutex = mutexes[ml.addr];
   see_events({mutex.last_access,last_full_memory_conflict});
 
@@ -972,13 +861,6 @@ void WSCTraceBuilder::mutex_trylock(const SymAddrSize &ml){
 
 void WSCTraceBuilder::mutex_unlock(const SymAddrSize &ml){
   record_symbolic(SymEv::MUnlock(ml));
-  if(dryrun){
-    assert(prefix_idx+1 < int(prefix.len()));
-    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
-    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
-    threads[pid].sleep_accesses_w.insert(ml.addr);
-    return;
-  }
   fence();
   if(!conf.mutex_require_init && !mutexes.count(ml.addr)){
     // Assume static initialization
@@ -987,7 +869,6 @@ void WSCTraceBuilder::mutex_unlock(const SymAddrSize &ml){
   assert(mutexes.count(ml.addr));
   Mutex &mutex = mutexes[ml.addr];
   curev().may_conflict = true;
-  wakeup(Access::W,ml.addr);
   assert(0 <= mutex.last_access);
 
   see_events({mutex.last_access,last_full_memory_conflict});
@@ -997,13 +878,6 @@ void WSCTraceBuilder::mutex_unlock(const SymAddrSize &ml){
 
 void WSCTraceBuilder::mutex_init(const SymAddrSize &ml){
   record_symbolic(SymEv::MInit(ml));
-  if(dryrun){
-    assert(prefix_idx+1 < int(prefix.len()));
-    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
-    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
-    threads[pid].sleep_accesses_w.insert(ml.addr);
-    return;
-  }
   fence();
   assert(mutexes.count(ml.addr) == 0);
   curev().may_conflict = true;
@@ -1013,13 +887,6 @@ void WSCTraceBuilder::mutex_init(const SymAddrSize &ml){
 
 void WSCTraceBuilder::mutex_destroy(const SymAddrSize &ml){
   record_symbolic(SymEv::MDelete(ml));
-  if(dryrun){
-    assert(prefix_idx+1 < int(prefix.len()));
-    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
-    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
-    threads[pid].sleep_accesses_w.insert(ml.addr);
-    return;
-  }
   fence();
   if(!conf.mutex_require_init && !mutexes.count(ml.addr)){
     // Assume static initialization
@@ -1028,7 +895,6 @@ void WSCTraceBuilder::mutex_destroy(const SymAddrSize &ml){
   assert(mutexes.count(ml.addr));
   Mutex &mutex = mutexes[ml.addr];
   curev().may_conflict = true;
-  wakeup(Access::W,ml.addr);
 
   see_events({mutex.last_access,last_full_memory_conflict});
 
@@ -1037,13 +903,6 @@ void WSCTraceBuilder::mutex_destroy(const SymAddrSize &ml){
 
 bool WSCTraceBuilder::cond_init(const SymAddrSize &ml){
   record_symbolic(SymEv::CInit(ml));
-  if(dryrun){
-    assert(prefix_idx+1 < int(prefix.len()));
-    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
-    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
-    threads[pid].sleep_accesses_w.insert(ml.addr);
-    return true;
-  }
   fence();
   if(cond_vars.count(ml.addr)){
     pthreads_error("Condition variable initiated twice.");
@@ -1057,16 +916,8 @@ bool WSCTraceBuilder::cond_init(const SymAddrSize &ml){
 
 bool WSCTraceBuilder::cond_signal(const SymAddrSize &ml){
   record_symbolic(SymEv::CSignal(ml));
-  if(dryrun){
-    assert(prefix_idx+1 < int(prefix.len()));
-    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
-    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
-    threads[pid].sleep_accesses_w.insert(ml.addr);
-    return true;
-  }
   fence();
   curev().may_conflict = true;
-  wakeup(Access::W,ml.addr);
 
   auto it = cond_vars.find(ml.addr);
   if(it == cond_vars.end()){
@@ -1104,16 +955,8 @@ bool WSCTraceBuilder::cond_signal(const SymAddrSize &ml){
 
 bool WSCTraceBuilder::cond_broadcast(const SymAddrSize &ml){
   record_symbolic(SymEv::CBrdcst(ml));
-  if(dryrun){
-    assert(prefix_idx+1 < int(prefix.len()));
-    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
-    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
-    threads[pid].sleep_accesses_w.insert(ml.addr);
-    return true;
-  }
   fence();
   curev().may_conflict = true;
-  wakeup(Access::W,ml.addr);
 
   auto it = cond_vars.find(ml.addr);
   if(it == cond_vars.end()){
@@ -1140,7 +983,7 @@ bool WSCTraceBuilder::cond_broadcast(const SymAddrSize &ml){
 bool WSCTraceBuilder::cond_wait(const SymAddrSize &cond_ml, const SymAddrSize &mutex_ml){
   {
     auto it = mutexes.find(mutex_ml.addr);
-    if(!dryrun && it == mutexes.end()){
+    if(it == mutexes.end()){
       if(conf.mutex_require_init){
         pthreads_error("cond_wait called with uninitialized mutex object.");
       }else{
@@ -1149,7 +992,7 @@ bool WSCTraceBuilder::cond_wait(const SymAddrSize &cond_ml, const SymAddrSize &m
       return false;
     }
     Mutex &mtx = it->second;
-    if(!dryrun && (mtx.last_lock < 0 || prefix[mtx.last_lock].iid.get_pid() != curev().iid.get_pid())){
+    if(mtx.last_lock < 0 || prefix[mtx.last_lock].iid.get_pid() != curev().iid.get_pid()){
       pthreads_error("cond_wait called with mutex which is not locked by the same thread.");
       return false;
     }
@@ -1157,16 +1000,8 @@ bool WSCTraceBuilder::cond_wait(const SymAddrSize &cond_ml, const SymAddrSize &m
 
   mutex_unlock(mutex_ml);
   record_symbolic(SymEv::CWait(cond_ml));
-  if(dryrun){
-    assert(prefix_idx+1 < int(prefix.len()));
-    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
-    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
-    threads[pid].sleep_accesses_r.insert(cond_ml.addr);
-    return true;
-  }
   fence();
   curev().may_conflict = true;
-  wakeup(Access::R,cond_ml.addr);
 
   IPid pid = curev().iid.get_pid();
 
@@ -1184,17 +1019,12 @@ bool WSCTraceBuilder::cond_wait(const SymAddrSize &cond_ml, const SymAddrSize &m
 }
 
 bool WSCTraceBuilder::cond_awake(const SymAddrSize &cond_ml, const SymAddrSize &mutex_ml){
-  if (!dryrun){
-    assert(cond_vars.count(cond_ml.addr));
-    CondVar &cond_var = cond_vars[cond_ml.addr];
-    add_happens_after(prefix_idx, cond_var.last_signal);
-  }
+  assert(cond_vars.count(cond_ml.addr));
+  CondVar &cond_var = cond_vars[cond_ml.addr];
+  add_happens_after(prefix_idx, cond_var.last_signal);
 
   mutex_lock(mutex_ml);
   record_symbolic(SymEv::CAwake(cond_ml));
-  if(dryrun){
-    return true;
-  }
   curev().may_conflict = true;
 
   return true;
@@ -1202,19 +1032,11 @@ bool WSCTraceBuilder::cond_awake(const SymAddrSize &cond_ml, const SymAddrSize &
 
 int WSCTraceBuilder::cond_destroy(const SymAddrSize &ml){
   record_symbolic(SymEv::CDelete(ml));
-  if(dryrun){
-    assert(prefix_idx+1 < int(prefix.len()));
-    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
-    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
-    threads[pid].sleep_accesses_w.insert(ml.addr);
-    return 0;
-  }
   fence();
 
   int err = (EBUSY == 1) ? 2 : 1; // Chose an error value different from EBUSY
 
   curev().may_conflict = true;
-  wakeup(Access::W,ml.addr);
 
   auto it = cond_vars.find(ml.addr);
   if(it == cond_vars.end()){
@@ -1241,118 +1063,9 @@ void WSCTraceBuilder::register_alternatives(int alt_count){
   }
 }
 
-struct WSCTraceBuilder::obs_sleep
-WSCTraceBuilder::obs_sleep_at(int i) const{
-  assert(i >= 0);
-  std::vector<int> iid_map = iid_map_at(0);
-  struct obs_sleep sleep;
-  for(int j = 0;; ++j){
-    obs_sleep_add(sleep, prefix[j]);
-    if (j == i) break;
-    obs_sleep_wake(sleep, prefix[j]);
-    iid_map_step(iid_map, prefix.branch(j));
-  }
-
-  return sleep;
-}
-
-void WSCTraceBuilder::obs_sleep_add(struct obs_sleep &sleep,
-                                    const Event &e) const{
-  for (int k = 0; k < e.sleep.size(); ++k){
-    sleep.sleep[e.sleep[k]] = {&e.sleep_evs[k], nullptr};
-  }
-}
-
-void
-WSCTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep, const Event &e) const{
-  if (!conf.observers) {
-    for (IPid p : e.wakeup) sleep.sleep.erase(p);
-  } else {
-    sym_ty sym = e.sym;
-    /* A tricky part to this is that we must clear observers from the events
-     * we use to wake */
-    clear_observed(sym);
-#ifndef NDEBUG
-    obs_wake_res res =
-#endif
-      obs_sleep_wake(sleep, e.iid.get_pid(), sym);
-    assert(res != obs_wake_res::BLOCK);
-  }
-}
-
 static bool symev_does_load(const SymEv &e) {
   return e.kind == SymEv::LOAD || e.kind == SymEv::CMPXHG
     || e.kind == SymEv::CMPXHGFAIL || e.kind == SymEv::FULLMEM;
-}
-
-WSCTraceBuilder::obs_wake_res
-WSCTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep,
-                                IPid p, const sym_ty &sym) const{
-  if (sleep.sleep.count(p)) {
-    if (sleep.sleep[p].not_if_read) {
-      sleep.must_read.push_back(*sleep.sleep[p].not_if_read);
-      sleep.sleep.erase(p);
-      return obs_wake_res::CONTINUE;
-    } else {
-      return obs_wake_res::BLOCK;
-    }
-  }
-
-  for (auto it = sleep.sleep.begin(); it != sleep.sleep.end();) {
-    if (do_events_conflict(p, sym, it->first, *it->second.sym)){
-      it = sleep.sleep.erase(it);
-    }else{
-      ++it;
-    }
-  }
-
-  if (conf.observers) {
-    for (const SymEv &e : sym) {
-      if (symev_is_store(e)) {
-        /* Now check for shadowing of needed observations */
-        const SymAddrSize &esas = e.addr();
-        if (std::any_of(sleep.must_read.begin(), sleep.must_read.end(),
-                        [&esas](const SymAddrSize &ssas) {
-                          return ssas.subsetof(esas);
-                        })) {
-          return obs_wake_res::BLOCK;
-        }
-        /* Now handle write-write races by moving the sleepers to sleep_if */
-        for (auto it = sleep.sleep.begin(); it != sleep.sleep.end(); ++it) {
-          if (std::any_of(it->second.sym->begin(), it->second.sym->end(),
-                          [&esas](const SymEv &f) {
-                            return symev_is_store(f) && f.addr() == esas;
-                          })) {
-            assert(!it->second.not_if_read || *it->second.not_if_read == esas);
-            it->second.not_if_read = esas;
-          }
-        }
-      }
-      /* Now check for readers */
-      if (e.kind == SymEv::FULLMEM) {
-        /* Reads all; observes all */
-        sleep.must_read.clear();
-      } else if (symev_does_load(e)) {
-        const SymAddrSize &esas = e.addr();
-        for (int i = 0; i < int(sleep.must_read.size());) {
-          if (sleep.must_read[i].overlaps(esas)) {
-            /* Efficient unordered set delete */
-            std::swap(sleep.must_read[i], sleep.must_read.back());
-            sleep.must_read.pop_back();
-          } else {
-            ++i;
-          }
-        }
-      }
-    }
-  }
-
-  /* Check if the sleep set became empty */
-  if (sleep.sleep.empty() && sleep.must_read.empty()) {
-    return obs_wake_res::CLEAR;
-  } else {
-    return obs_wake_res::CONTINUE;
-  }
 }
 
 static void clear_observed(SymEv &e){
@@ -1365,20 +1078,6 @@ static void clear_observed(sym_ty &syms){
   for (SymEv &e : syms){
     clear_observed(e);
   }
-}
-
-bool WSCTraceBuilder::
-sequence_clears_sleep(const std::vector<Branch> &seq,
-                      const struct obs_sleep &sleep_const) const{
-  /* We need a writable copy */
-  struct obs_sleep isleep = sleep_const;
-  obs_wake_res state = obs_wake_res::CONTINUE;
-  for (auto it = seq.cbegin(); state == obs_wake_res::CONTINUE
-         && it != seq.cend(); ++it) {
-    state = obs_sleep_wake(isleep, it->pid, it->sym);
-  }
-  /* Redundant */
-  return (state == obs_wake_res::CLEAR);
 }
 
 template <class Iter>
@@ -1709,14 +1408,6 @@ void WSCTraceBuilder::compute_vclocks(){
 }
 
 void WSCTraceBuilder::record_symbolic(SymEv event){
-  if(dryrun) {
-    assert(prefix_idx+1 < int(prefix.len()));
-    assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
-    IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
-    assert(threads[pid].sleep_sym);
-    threads[pid].sleep_sym->push_back(event);
-    return;
-  }
   if (!replay) {
     assert(sym_idx == curev().sym.size());
     /* New event */
@@ -1999,88 +1690,6 @@ void WSCTraceBuilder::causal_past_1(std::vector<bool> &acc, unsigned i) const{
   }
 }
 
-
-std::vector<WSCTraceBuilder::Branch> WSCTraceBuilder::
-wakeup_sequence(const Race &race) const{
-  const int i = race.first_event;
-  const int j = race.second_event;
-
-  const Event &first = prefix[i];
-  Event second({-1,0});
-  Branch second_br(-1);
-  if (race.kind == Race::LOCK_FAIL) {
-    second = reconstruct_lock_event(race);
-    /* XXX: Lock events don't have alternatives, right? */
-    second_br = Branch(second.iid.get_pid());
-    second_br.sym = std::move(second.sym);
-  } else if (race.kind == Race::NONDET) {
-    second = first;
-    second_br = branch_with_symbolic_data(i);
-    second_br.alt = race.alternative;
-  } else {
-    second = prefix[j];
-    second.sleep.clear();
-    second.wakeup.clear();
-    second_br = branch_with_symbolic_data(j);
-  }
-  if (race.kind == Race::OBSERVED) {
-  } else {
-    /* Only replay the racy event. */
-    second_br.size = 1;
-  }
-
-  /* v is the subsequence of events in prefix come after prefix[i],
-   * but do not "happen after" (i.e. their vector clocks are not strictly
-   * greater than prefix[i].clock), followed by the second event.
-   *
-   * It is the sequence we want to insert into the wakeup tree.
-   */
-  std::vector<Branch> v;
-  std::vector<const Event*> observers;
-  std::vector<Branch> notobs;
-
-  for (int k = i + 1; k < int(prefix.len()); ++k){
-    if (!first.clock.leq(prefix[k].clock)) {
-      v.emplace_back(branch_with_symbolic_data(k));
-    } else if (race.kind == Race::OBSERVED && k != j) {
-      if (!std::any_of(observers.begin(), observers.end(),
-                       [this,k](const Event* o){
-                         return o->clock.leq(prefix[k].clock); })){
-        if (is_observed_conflict(first, second, prefix[k])){
-          assert(!observers.empty() || k == race.witness_event);
-          observers.push_back(&prefix[k]);
-        } else if (race.kind == Race::OBSERVED) {
-          notobs.emplace_back(branch_with_symbolic_data(k));
-        }
-      }
-    }
-  }
-  if (race.kind == Race::NONBLOCK) {
-    recompute_cmpxhg_success(second_br.sym, v, i);
-  }
-  v.push_back(std::move(second_br));
-  if (race.kind == Race::OBSERVED) {
-    int k = race.witness_event;
-    Branch first_br = branch_with_symbolic_data(i);
-    Branch witness_br = branch_with_symbolic_data(k);
-    /* Only replay the racy event. */
-    witness_br.size = 1;
-
-    v.emplace_back(std::move(first_br));
-    v.insert(v.end(), std::make_move_iterator(notobs.begin()),
-             std::make_move_iterator(notobs.end()));
-    notobs.clear(); /* Since their states are undefined after std::move */
-    v.emplace_back(std::move(witness_br));
-  }
-
-  if (conf.observers) {
-    /* Recompute observed states on events in v */
-    recompute_observed(v);
-  }
-
-  return v;
-}
-
 std::vector<int> WSCTraceBuilder::iid_map_at(int event) const{
   std::vector<int> map(threads.size(), 1);
   for (int i = 0; i < event; ++i) {
@@ -2160,89 +1769,6 @@ bool WSCTraceBuilder::has_pending_store(IPid pid, SymAddr ml) const {
     }
   }
   return false;
-}
-
-#ifndef NDEBUG
-#  define IFDEBUG(X) X
-#else
-#  define IFDEBUG(X) ((void)0)
-#endif
-
-void WSCTraceBuilder::wakeup(Access::Type type, SymAddr ml){
-  IPid pid = curev().iid.get_pid();
-  IFDEBUG(sym_ty ev);
-  std::vector<IPid> wakeup; // Wakeup these
-  switch(type){
-  case Access::W_ALL_MEMORY:
-    {
-      IFDEBUG(ev.push_back(SymEv::Fullmem()));
-      for(unsigned p = 0; p < threads.size(); ++p){
-        if(threads[p].sleep_full_memory_conflict ||
-           threads[p].sleep_accesses_w.size()){
-          wakeup.push_back(p);
-        }else{
-          for(SymAddr b : threads[p].sleep_accesses_r){
-            if(!has_pending_store(p,b)){
-              wakeup.push_back(p);
-              break;
-            }
-          }
-        }
-      }
-      break;
-    }
-  case Access::R:
-    {
-      IFDEBUG(ev.push_back(SymEv::Load(SymAddrSize(ml,1))));
-      for(unsigned p = 0; p < threads.size(); ++p){
-        if(threads[p].sleep_full_memory_conflict ||
-           (int(p) != pid+1 &&
-            threads[p].sleep_accesses_w.count(ml))){
-          wakeup.push_back(p);
-        }
-      }
-      break;
-    }
-  case Access::W:
-    {
-      /* We don't pick the right value, but it should not matter */
-      IFDEBUG(ev.push_back(SymEv::Store({SymAddrSize(ml,1), 1})));
-      for(unsigned p = 0; p < threads.size(); ++p){
-        if(threads[p].sleep_full_memory_conflict ||
-           (int(p) + 1 != pid &&
-            (threads[p].sleep_accesses_w.count(ml) ||
-             (threads[p].sleep_accesses_r.count(ml) &&
-              !has_pending_store(p,ml))))){
-          wakeup.push_back(p);
-        }
-      }
-      break;
-    }
-  default:
-    throw std::logic_error("WSCTraceBuilder::wakeup: Unknown type of memory access.");
-  }
-
-#ifndef NDEBUG
-  if (conf.dpor_algorithm == Configuration::OPTIMAL) {
-    VecSet<IPid> wakeup_set(wakeup);
-    for (unsigned p = 0; p < threads.size(); ++p){
-      if (!threads[p].sleeping) continue;
-      assert(threads[p].sleep_sym);
-      assert(bool(wakeup_set.count(p))
-             == do_events_conflict(pid, ev, p, *threads[p].sleep_sym));
-    }
-  }
-#endif
-
-  for(IPid p : wakeup){
-    assert(threads[p].sleeping);
-    threads[p].sleep_accesses_r.clear();
-    threads[p].sleep_accesses_w.clear();
-    threads[p].sleep_full_memory_conflict = false;
-    threads[p].sleep_sym = nullptr;
-    threads[p].sleeping = false;
-    curev().wakeup.insert(p);
-  }
 }
 
 bool WSCTraceBuilder::has_cycle(IID<IPid> *loc) const{
@@ -2393,11 +1919,11 @@ int WSCTraceBuilder::estimate_trace_count(int idx) const{
   if(idx > int(prefix.len())) return 0;
   if(idx == int(prefix.len())) return 1;
 
-  int count = 1;
+  int count = 42;
   for(int i = int(prefix.len())-1; idx <= i; --i){
     count += prefix[i].sleep_branch_trace_count;
-    count += std::max(0, int(prefix.children_after(i)))
-      * (count / (1 + prefix[i].sleep.size()));
+    // count += std::max(0, int(prefix.children_after(i)))
+    //   * (count / (1 + prefix[i].sleep.size()));
   }
 
   return count;
