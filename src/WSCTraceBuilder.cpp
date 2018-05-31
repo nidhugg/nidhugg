@@ -1537,25 +1537,47 @@ void WSCTraceBuilder::compute_prefixes() {
                        [](const SymEv &e) { return e.kind == SymEv::STORE; });
   };
 
-  std::map<SymAddr,std::vector<unsigned>> writes_by_address;
+  auto pretty_index = [&] (int i) -> std::string {
+    if (i==-1) return "init event";
+    return  iid_string(i) + events_to_string(prefix[i].sym);
+  }; 
+
+  std::map<SymAddr,std::vector<int>> writes_by_address;
   for (unsigned j = 0; j < prefix.len(); ++j) {
     if (is_store(j)) {
       writes_by_address[get_addr(j).addr].push_back(j);
     }
   }
+  // for (std::pair<SymAddr,std::vector<int>> &pair : writes_by_address) {
+  //   pair.second.push_back(-1);
+  // }
 
   for (unsigned i = 0; i < prefix.len(); ++i) {
     if (!prefix.branch(i).pinned && is_load(i)) {
       auto addr = get_addr(i);
-      const std::vector<unsigned> &possible_writes = writes_by_address[addr.addr];
-      unsigned original_read_from = *prefix[i].read_from;
+      const std::vector<int> &possible_writes = writes_by_address[addr.addr];
+      int original_read_from = *prefix[i].read_from;
+      assert(std::any_of(possible_writes.begin(), possible_writes.end(),
+             [=](int i) { return i == original_read_from; })
+           || original_read_from == -1);      
+      // assert(std::any_of(possible_writes.begin(), possible_writes.end(),
+      //        [](int i) { return i == -1; })
+      //      || original_read_from == -1);
 
-      for (unsigned j : possible_writes) {
-        if (j == original_read_from) continue;
+
+      auto try_read_from = [&](int j) {
+        if (j == original_read_from) return;
         prefix[i].read_from = j;
-        prefix.branch(j).pinned = true;
+        prefix.branch(i).pinned = true;
+	      std::cerr << "Trying to make " << pretty_index(i)
+                  << " read from " << pretty_index(j) << 
+                  " instead of " << pretty_index(original_read_from) 
+                  << std::endl;
         try_sat(writes_by_address);
-      }
+      };
+
+      for (int j : possible_writes) try_read_from(j);
+      try_read_from(-1); 
 
       /* Reset read from, but leave pinned = true */
       prefix[i].read_from = original_read_from;
@@ -1567,7 +1589,7 @@ void WSCTraceBuilder::compute_prefixes() {
 template<class OStream>
 void WSCTraceBuilder::output_formula
 (OStream &in,
- std::map<SymAddr,std::vector<unsigned>> &writes_by_address,
+ std::map<SymAddr,std::vector<int>> &writes_by_address,
  const std::vector<bool> &keep){
   auto get_addr = [&](unsigned i) {
     for (SymEv &e : prefix[i].sym) {
@@ -1576,12 +1598,23 @@ void WSCTraceBuilder::output_formula
     abort();
   };
 
+    auto pretty_index = [&] (int i) -> std::string {
+    if (i==-1) return "init event";
+    return  iid_string(i) + events_to_string(prefix[i].sym);
+  }; 
+
+  unsigned no_keep = 0;
+  for (unsigned i = 0; i < prefix.len(); ++i) {
+    if (keep[i]) no_keep++;
+  }
+
   in << "(set-logic QF_IDL)\n";
   for (unsigned i = 0; i < prefix.len(); ++i) {
     if (!keep[i]) continue;
+    in << ";; " << pretty_index(i) << "\n";
     in << "(declare-const e" << i << " Int)\n";
     in << "(assert (>= e" << i << " 0))\n";
-    in << "(assert (< e" << i << " " << prefix.len() << "))\n";
+    in << "(assert (< e" << i << " " << no_keep << "))\n";
     /* PO */
     if (Option<unsigned> pred = po_predecessor(i)) {
       assert(*pred != i);
@@ -1625,7 +1658,7 @@ void WSCTraceBuilder::output_formula
 }
 
 void WSCTraceBuilder::try_sat
-(std::map<SymAddr,std::vector<unsigned>> &writes_by_address){
+(std::map<SymAddr,std::vector<int>> &writes_by_address){
   std::vector<bool> keep = causal_past();
 
   boost::process::ipstream out;
@@ -1633,7 +1666,7 @@ void WSCTraceBuilder::try_sat
   boost::process::child z3("z3 -in", boost::process::std_out > out, boost::process::std_in < in);
 
   output_formula(in, writes_by_address, keep);
-  output_formula(std::cerr, writes_by_address, keep);
+  //output_formula(std::cerr, writes_by_address, keep);
 
   in << "(check-sat)" << std::endl;
 
@@ -1666,6 +1699,7 @@ void WSCTraceBuilder::try_sat
       assert(matched);
       std::cerr << "Index for event " << i << ": " << sm[1].str() << std::endl;
       unsigned pos = std::stoi(sm[1].str());
+
       new_prefix[pos] = prefix.branch(i);
     }
   }
