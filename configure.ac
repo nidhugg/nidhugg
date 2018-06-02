@@ -27,7 +27,14 @@ AX_BOOST_UNIT_TEST_FRAMEWORK
 AX_LLVM(,[AC_MSG_FAILURE(LLVM is required.)])
 CXXFLAGS="`echo " $CXXFLAGS " | sed 's/ -fno-rtti / /' | sed 's/ -fno-exceptions / /'`"
 AC_CHECK_LIB([dl], [dlopen],[],[AC_MSG_FAILURE([Could not find library libdl.])])
-AC_CHECK_LIB([ffi], [ffi_call],[],[AC_MSG_FAILURE([Could not find library libffi.])])
+PKG_CHECK_MODULES([FFI], [libffi], [
+  AC_DEFINE([HAVE_LIBFFI], [1], [Define to 1 if we have libffi])
+  CFLAGS="$CFLAGS $FFI_CFLAGS"
+  CXXFLAGS="$CXXFLAGS $FFI_CFLAGS"
+  LIBS="$LIBS $FFI_LIBS"
+],[
+  AC_CHECK_LIB([ffi], [ffi_call],[],[AC_MSG_FAILURE([Could not find library libffi.])])
+])
 BUILDNIDHUGGC='yes'
 AC_ARG_ENABLE([nidhuggc],[AS_HELP_STRING([--disable-nidhuggc],[Don't build the script nidhuggc.])],
               [if test "x$enableval" = "xno"; then
@@ -174,8 +181,8 @@ AC_CHECK_HEADERS_ALT([llvm/Support/Dwarf.h llvm/BinaryFormat/Dwarf.h],[],[AC_MSG
 AC_CHECK_HEADERS_ALT([llvm/Support/ErrorOr.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS([llvm/Support/system_error.h],[],[],[AC_INCLUDES_DEFAULT])
 
-AC_CHECK_HEADERS([ffi/ffi.h],[],[
-  AC_CHECK_HEADERS([ffi.h],[],[AC_MSG_FAILURE([Could not find header ffi.h.])],[AC_INCLUDES_DEFAULT])
+AC_CHECK_HEADERS([ffi.h],[],[
+  AC_CHECK_HEADERS([ffi/ffi.h],[],[AC_MSG_FAILURE([Could not find header ffi.h.])],[AC_INCLUDES_DEFAULT])
 ],[AC_INCLUDES_DEFAULT])
 
 AC_CHECK_HEADERS([valgrind/valgrind.h])
@@ -991,8 +998,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 
 
 # Checks for typedefs, structures, and compiler characteristics.
-#AC_CHECK_HEADER_STDBOOL macro is defined with autoconf version >= 2.67
-m4_ifdef([AC_CHECK_HEADER_STDBOOL], [AC_CHECK_HEADER_STDBOOL])
 AC_C_INLINE
 AC_TYPE_INT16_T
 AC_TYPE_INT32_T
@@ -1020,10 +1025,6 @@ fi
 
 AC_SUBST(NIDHUGGCBIN)
 AM_CONDITIONAL([BUILDPDFDOCUMENTATION],[test "x$BUILDPDFDOCUMENTATION" = "xyes"])
-
-# Checks for library functions.
-AC_FUNC_MALLOC
-AC_CHECK_FUNCS([atexit memset setenv])
 
 # Warn about compiling with clang++ for llvm version >= 3.9
 if test "x$CXX" = "xclang" || test "x$CXX" = "xclang++" ; then
