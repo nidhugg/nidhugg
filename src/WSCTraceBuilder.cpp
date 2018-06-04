@@ -1,4 +1,4 @@
-/* Copyright (C) 2014-2017 Carl Leonardsson
+/* Copyright (C) 2018 Magnus Lång and Tuan Phong Ngo
  *
  * This file is part of Nidhugg.
  *
@@ -20,15 +20,8 @@
 #include "Debug.h"
 #include "WSCTraceBuilder.h"
 
-#ifndef HAVE_BOOST
-#  error "BOOST is required"
-#endif
-
-#include <boost/process.hpp>
-
 #include <sstream>
 #include <stdexcept>
-#include <regex>
 #include <iostream>
 
 #define ANSIRed "\x1b[91m"
@@ -1571,8 +1564,7 @@ void WSCTraceBuilder::compute_prefixes() {
         prefix.branch(i).pinned = true;
 	      std::cerr << "Trying to make " << pretty_index(i)
                   << " read from " << pretty_index(j) << 
-                  " instead of " << pretty_index(original_read_from) 
-                  << std::endl;
+                  " instead of " << pretty_index(original_read_from);
         try_sat(writes_by_address);
       };
 
@@ -1586,9 +1578,8 @@ void WSCTraceBuilder::compute_prefixes() {
 
 }
 
-template<class OStream>
 void WSCTraceBuilder::output_formula
-(OStream &in,
+(SatSolver &sat,
  std::map<SymAddr,std::vector<int>> &writes_by_address,
  const std::vector<bool> &keep){
   auto get_addr = [&](unsigned i) {
@@ -1598,52 +1589,44 @@ void WSCTraceBuilder::output_formula
     abort();
   };
 
-    auto pretty_index = [&] (int i) -> std::string {
+  auto pretty_index = [&] (int i) -> std::string {
     if (i==-1) return "init event";
     return  iid_string(i) + events_to_string(prefix[i].sym);
   }; 
 
   unsigned no_keep = 0;
+  std::vector<unsigned> var;
   for (unsigned i = 0; i < prefix.len(); ++i) {
+    var.push_back(no_keep);
     if (keep[i]) no_keep++;
   }
 
-  in << "(set-logic QF_IDL)\n";
+  sat.alloc_variables(no_keep);
+  /* PO */
   for (unsigned i = 0; i < prefix.len(); ++i) {
     if (!keep[i]) continue;
-    in << ";; " << pretty_index(i) << "\n";
-    in << "(declare-const e" << i << " Int)\n";
-    in << "(assert (>= e" << i << " 0))\n";
-    in << "(assert (< e" << i << " " << no_keep << "))\n";
-    /* PO */
     if (Option<unsigned> pred = po_predecessor(i)) {
       assert(*pred != i);
-      in << "(assert (> e" << i << " e" << *pred << "))\n";
+      sat.add_edge(var[*pred], var[i]);
     }
   }
 
-  in << "(assert (distinct ";
-  for (unsigned i = 0; i < prefix.len(); ++i) {
-    if (keep[i]) in << "e" << i << " ";
-  }
-  in << "))" << std::endl;
-
   /* Read-from and SC consistency */
-  for (unsigned i = 0; i < prefix.len(); ++i) {
-    if (!keep[i] || !prefix[i].read_from) continue;
-    int w = *prefix[i].read_from;
-    assert(int(i) != w);
+  for (unsigned r = 0; r < prefix.len(); ++r) {
+    if (!keep[r] || !prefix[r].read_from) continue;
+    int w = *prefix[r].read_from;
+    assert(int(r) != w);
     if (w == -1) {
-      for (int j : writes_by_address[get_addr(i).addr]) {
+      for (int j : writes_by_address[get_addr(r).addr]) {
         if (!keep[j]) continue;
-        in << "(assert (< e" << i << " e" << j << "))\n";
+        sat.add_edge(var[r], var[j]);
       }
     } else {
-      in << "(assert (> e" << i << " e" << w << "))\n";
-      for (int j : writes_by_address[get_addr(i).addr]) {
+      sat.add_edge(var[w], var[r]);
+      for (int j : writes_by_address[get_addr(r).addr]) {
         if (j == w || !keep[j]) continue;
-        in << "(assert (or (< e" << j << " e" << w << ")"
-          "(< e" << i << " e" << j << ")))\n";
+        sat.add_edge_disj(var[j], var[w],
+                          var[r], var[j]);
       }
     }
   }
@@ -1652,7 +1635,7 @@ void WSCTraceBuilder::output_formula
   for (unsigned i = 0; i < prefix.len(); ++i) {
     if (!keep[i]) continue;
     for (unsigned j : prefix[i].happens_after) {
-        in << "(assert (> e" << i << " e" << j << "))\n";
+      sat.add_edge(var[j], var[i]);
     }
   }
 }
@@ -1660,46 +1643,27 @@ void WSCTraceBuilder::output_formula
 void WSCTraceBuilder::try_sat
 (std::map<SymAddr,std::vector<int>> &writes_by_address){
   std::vector<bool> keep = causal_past();
+  std::unique_ptr<SatSolver> sat = conf.get_sat_solver();
 
-  boost::process::ipstream out;
-  boost::process::opstream in;
-  boost::process::child z3("z3 -in", boost::process::std_out > out, boost::process::std_in < in);
-
-  output_formula(in, writes_by_address, keep);
+  output_formula(*sat, writes_by_address, keep);
   //output_formula(std::cerr, writes_by_address, keep);
 
-  in << "(check-sat)" << std::endl;
-
-  std::string res;
-  std::getline(out, res);
-  std::cerr << "Z3 says: " << res << std::endl;
-  if (res == "unsat") return;
-  assert(res == "sat");
-
-  in << "(get-value (";
-  for (unsigned i = 0; i < prefix.len(); ++i) {
-    if (keep[i]) in << "e" << i << " ";
+  if (!sat->check_sat()) {
+    std::cerr << ": UNSAT\n";
+    return;
   }
-  in << "))" << std::endl;
+  std::cerr << ": SAT\n";
+
+  std::vector<unsigned> model = sat->get_model();
 
   unsigned no_keep = 0;
   for (unsigned i = 0; i < prefix.len(); ++i) {
     if (keep[i]) no_keep++;
   }
   std::vector<Branch> new_prefix(no_keep, Branch(-1));
-  std::regex sexprr(R"([ (]\(e\d+ (\d+)\)+)");
-  for (unsigned i = 0; i < prefix.len(); ++i) {
+  for (unsigned i = 0, var = 0; i < prefix.len(); ++i) {
     if (keep[i]) {
-      assert(out);
-      std::string line;
-      std::getline(out, line);
-      assert(!line.empty());
-      std::smatch sm;
-      bool matched = std::regex_match(line,sm,sexprr);
-      assert(matched);
-      std::cerr << "Index for event " << i << ": " << sm[1].str() << std::endl;
-      unsigned pos = std::stoi(sm[1].str());
-
+      unsigned pos = model[var++];
       new_prefix[pos] = prefix.branch(i);
     }
   }

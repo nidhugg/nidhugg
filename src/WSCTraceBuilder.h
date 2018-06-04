@@ -599,8 +599,7 @@ protected:
   /* Recompute the observation states on the symbolic events in v. */
   void recompute_observed(std::vector<Branch> &v) const;
   void try_sat(std::map<SymAddr,std::vector<int>> &);
-  template<class OStream>
-  void output_formula(OStream &out,
+  void output_formula(SatSolver &sat,
                       std::map<SymAddr,std::vector<int>> &,
                       const std::vector<bool> &);
   std::vector<bool> causal_past() const;

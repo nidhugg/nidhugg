@@ -21,6 +21,7 @@
 
 #include <llvm/Support/CommandLine.h>
 #include "Debug.h"
+#include "SmtlibSatSolver.h"
 
 extern llvm::cl::list<std::string> cl_program_arguments;
 
@@ -58,6 +59,16 @@ cl_memory_model(llvm::cl::NotHidden, llvm::cl::init(Configuration::MM_UNDEF),
                                 ,clEnumValEnd
 #endif
                                  ));
+
+static llvm::cl::opt<Configuration::SatSolverEnum>
+cl_sat(llvm::cl::NotHidden, llvm::cl::init(Configuration::SMTLIB),
+       llvm::cl::desc("Select SAT solver"),
+       llvm::cl::values(clEnumValN(Configuration::SMTLIB,"smtlib","External SMTLib process")
+#ifdef LLVM_CL_VALUES_USES_SENTINEL
+                                ,clEnumValEnd
+#endif
+                                 ));
+
 
 static llvm::cl::opt<Configuration::DPORAlgorithm>
 cl_dpor_algorithm(llvm::cl::NotHidden, llvm::cl::init(Configuration::SOURCE),
@@ -108,6 +119,7 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "disable-mutex-init-requirement",
     "max-search-depth",
     "sc","tso","pso","power","arm",
+    "smtlib",
     "source","optimal",
     "observers",
     "robustness",
@@ -138,6 +150,7 @@ void Configuration::assign_by_commandline(){
   print_progress = cl_print_progress || cl_print_progress_estimate;
   print_progress_estimate = cl_print_progress_estimate;
   debug_print_on_reset = cl_debug_print_on_reset;
+  sat_solver = cl_sat;
   argv.resize(1);
   argv[0] = get_default_program_name();
   for(std::string a : cl_program_arguments){
@@ -235,5 +248,14 @@ void Configuration::check_commandline(){
       Debug::warn("Configuration::check_commandline:dpor:mm")
         << "WARNING: Optimal-DPOR not implemented for memory model " << mm << ".\n";
     }
+  }
+}
+
+std::unique_ptr<SatSolver> Configuration::get_sat_solver() const {
+  switch (sat_solver) {
+  case SMTLIB:
+    return std::unique_ptr<SatSolver>(new SmtlibSatSolver());
+  default:
+    abort();
   }
 }

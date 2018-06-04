@@ -23,9 +23,11 @@
 #define __CONFIGURATION_H__
 
 #include "vecset.h"
+#include "SatSolver.h"
 
 #include <set>
 #include <string>
+#include <memory>
 
 /* A Configuration object keeps track of all configuration options
  * that should be used during a program analysis. The configuration
@@ -91,6 +93,7 @@ public:
     transform_loop_unroll = -1;
     print_progress = false;
     print_progress_estimate = false;
+    sat_solver = SMTLIB;
     argv.push_back(get_default_program_name());
   };
   /* Read the switches given to the program by the user. Assign
@@ -185,6 +188,11 @@ public:
    * traces.
    */
   bool print_progress_estimate;
+  /* Sat solver to use. */
+  enum SatSolverEnum {
+        SMTLIB,
+  } sat_solver;
+  std::unique_ptr<SatSolver> get_sat_solver() const;
   /* The arguments that will be passed to the program under test */
   std::vector<std::string> argv;
   /* The default program name to send to the program under test as
