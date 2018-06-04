@@ -48,8 +48,8 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   *alt = 0;
   if(replay){
     /* Are we done with the current Event? */
-    if(0 <= prefix_idx && threads[curev().iid.get_pid()].last_event_index() <
-       curev().iid.get_index() + curbranch().size - 1){
+    if (0 <= prefix_idx && threads[curev().iid.get_pid()].last_event_index() <
+        curev().iid.get_index() + curev().size - 1) {
       /* Continue executing the current Event */
       IPid pid = curev().iid.get_pid();
       *proc = pid/2;
@@ -58,37 +58,25 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       assert(threads[pid].available);
       threads[pid].event_indices.push_back(prefix_idx);
       return true;
-    }else if(prefix_idx + 1 == int(prefix.len()) && prefix.lastnode().size() == 0){
+    } else if(prefix_idx + 1 == int(prefix.size())) {
       /* We are done replaying. Continue below... */
       assert(prefix_idx < 0 || curev().sym.size() == sym_idx
              || (errors.size() && errors.back()->get_location()
-                 == IID<CPid>(threads[curbranch().pid].cpid,
+                 == IID<CPid>(threads[curev().iid.get_pid()].cpid,
                               curev().iid.get_index())));
       replay = false;
-    }else{
+    } else {
       /* Go to the next event. */
       assert(prefix_idx < 0 || curev().sym.size() == sym_idx
              || (errors.size() && errors.back()->get_location()
-                 == IID<CPid>(threads[curbranch().pid].cpid,
+                 == IID<CPid>(threads[curev().iid.get_pid()].cpid,
                               curev().iid.get_index())));
       sym_idx = 0;
       ++prefix_idx;
-      IPid pid;
-      if (prefix_idx < int(prefix.len())) {
-        /* The event is already in prefix */
-        pid = curev().iid.get_pid();
-      } else {
-        /* We are replaying from the wakeup tree */
-        pid = prefix.first_child().pid;
-        prefix.enter_first_child
-          (Event(IID<IPid>(pid,threads[pid].last_event_index() + 1),
-                 /* Jump a few hoops to get the next Branch before
-                  * calling enter_first_child() */
-                 prefix.parent_at(prefix_idx).begin().branch().sym));
-      }
+      IPid pid = curev().iid.get_pid();
       *proc = pid/2;
       *aux = pid % 2 - 1;
-      *alt = curbranch().alt;
+      *alt = curev().alt;
       assert(threads[pid].available);
       threads[pid].event_indices.push_back(prefix_idx);
       return true;
@@ -102,35 +90,32 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   // assert(prefix_idx < 0 || !!curev().sym.size() == curev().may_conflict);
 
   /* Should we merge the last two events? */
-  if(prefix.len() > 1 &&
-     prefix[prefix.len()-1].iid.get_pid()
-     == prefix[prefix.len()-2].iid.get_pid() &&
-     !prefix[prefix.len()-1].may_conflict){
-    assert(prefix.children_after(prefix.len()-1) == 0);
+  if(prefix.size() > 1 &&
+     prefix[prefix.size()-1].iid.get_pid()
+     == prefix[prefix.size()-2].iid.get_pid() &&
+     !prefix[prefix.size()-1].may_conflict){
     assert(curev().sym.empty()); /* Would need to be copied */
-    assert(curbranch().sym.empty()); /* Can't happen */
-    prefix.delete_last();
+    assert(curev().sym.empty()); /* Can't happen */
+    prefix.pop_back();
     --prefix_idx;
-    Branch b = curbranch();
-    ++b.size;
-    prefix.set_last_branch(std::move(b));
+    ++curev().size;
     assert(int(threads[curev().iid.get_pid()].event_indices.back()) == prefix_idx + 1);
     threads[curev().iid.get_pid()].event_indices.back() = prefix_idx;
   } else {
     /* Copy symbolic events to wakeup tree */
-    if (prefix.len() > 0) {
-      if (!curbranch().sym.empty()) {
+    if (prefix.size() > 0) {
+      if (!curev().sym.empty()) {
 #ifndef NDEBUG
         sym_ty expected = curev().sym;
         if (conf.observers) clear_observed(expected);
-        assert(curbranch().sym == expected);
+        assert(curev().sym == expected);
 #endif
       } else {
-        Branch b = curbranch();
-        b.sym = curev().sym;
-        if (conf.observers) clear_observed(b.sym);
-        for (SymEv &e : b.sym) e.purge_data();
-        prefix.set_last_branch(std::move(b));
+        // Branch b = curev();
+        // b.sym = curev().sym;
+        // if (conf.observers) clear_observed(b.sym);
+        // for (SymEv &e : b.sym) e.purge_data();
+        // prefix.set_last_branch(std::move(b));
       }
     }
   }
@@ -138,7 +123,7 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   /* Create a new Event */
   sym_idx = 0;
   ++prefix_idx;
-  assert(prefix_idx == int(prefix.len()));
+  assert(prefix_idx == int(prefix.size()));
 
   /* Find an available thread (auxiliary or real).
    *
@@ -151,8 +136,7 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
     if(threads[p].available &&
        (conf.max_search_depth < 0 || threads[p].last_event_index() < conf.max_search_depth)){
       threads[p].event_indices.push_back(prefix_idx);
-      prefix.push(Branch(IPid(p)),
-                  Event(IID<IPid>(IPid(p),threads[p].last_event_index())));
+      prefix.emplace_back(IID<IPid>(IPid(p),threads[p].last_event_index()));
       *proc = p/2;
       *aux = 0;
       return true;
@@ -163,15 +147,12 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
     if(threads[p].available &&
        (conf.max_search_depth < 0 || threads[p].last_event_index() < conf.max_search_depth)){
       threads[p].event_indices.push_back(prefix_idx);
-      prefix.push(Branch(IPid(p)),
-                  Event(IID<IPid>(IPid(p),threads[p].last_event_index())));
+      prefix.emplace_back(IID<IPid>(IPid(p),threads[p].last_event_index()));
       *proc = p/2;
       *aux = -1;
       return true;
     }
   }
-
-  compute_vclocks();
 
   compute_prefixes();
 
@@ -179,12 +160,11 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
 }
 
 void WSCTraceBuilder::refuse_schedule(){
-  assert(prefix_idx == int(prefix.len())-1);
-  assert(prefix.lastbranch().size == 1);
-  assert(!prefix.last().may_conflict);
-  assert(prefix.children_after(prefix_idx) == 0);
-  IPid last_pid = prefix.last().iid.get_pid();
-  prefix.delete_last();
+  assert(prefix_idx == int(prefix.size())-1);
+  assert(curev().size == 1);
+  assert(!curev().may_conflict);
+  IPid last_pid = curev().iid.get_pid();
+  prefix.pop_back();
   assert(int(threads[last_pid].event_indices.back()) == prefix_idx);
   threads[last_pid].event_indices.pop_back();
   --prefix_idx;
@@ -204,13 +184,13 @@ bool WSCTraceBuilder::is_replaying() const {
 }
 
 void WSCTraceBuilder::cancel_replay(){
+  abort(); /* What is this function used for? */
   if(!replay) return;
   replay = false;
-  while (prefix_idx + 1 < int(prefix.len())) prefix.delete_last();
-  if (prefix.node(prefix_idx).size()) {
-    prefix.enter_first_child(Event(IID<IPid>()));
-    prefix.delete_last();
-  }
+  /* XXX: Reset won't work right if we delete some prefix event
+   * corresponding to a decision node that will not be popped on reset.
+   */
+  while (prefix_idx + 1 < int(prefix.size())) prefix.pop_back();
 }
 
 void WSCTraceBuilder::metadata(const llvm::MDNode *md){
@@ -224,25 +204,11 @@ bool WSCTraceBuilder::sleepset_is_empty() const{
   return true;
 }
 
-bool WSCTraceBuilder::check_for_cycles(){
-  IID<IPid> i_iid;
-  if(!has_cycle(&i_iid)) return false;
-
-  /* Report cycle */
-  {
-    assert(prefix.len());
-    IID<CPid> c_iid(threads[i_iid.get_pid()].cpid,i_iid.get_index());
-    errors.push_back(new RobustnessError(c_iid));
-  }
-
-  return true;
-}
-
 Trace *WSCTraceBuilder::get_trace() const{
   std::vector<IID<CPid> > cmp;
   std::vector<const llvm::MDNode*> cmp_md;
   std::vector<Error*> errs;
-  for(unsigned i = 0; i < prefix.len(); ++i){
+  for(unsigned i = 0; i < prefix.size(); ++i){
     cmp.push_back(IID<CPid>(threads[prefix[i].iid.get_pid()].cpid,prefix[i].iid.get_index()));
     cmp_md.push_back(prefix[i].md);
   };
@@ -261,52 +227,50 @@ bool WSCTraceBuilder::reset(){
     llvm::dbgs() << " =============================\n";
   }
 
-#ifndef NDEBUG
-  /* The if-statement is just so we can control which test cases need to
-   *  satisfy this assertion for now. Eventually, all should.
-   */
-  if(conf.dpor_algorithm == Configuration::OPTIMAL){
-    check_symev_vclock_equiv();
-  }
-#endif
-
-  int i;
-  for(i = int(prefix.len())-1; 0 <= i; --i){
-    if(prefix.children_after(i)){
+  for(; !decisions.empty(); decisions.pop_back()) {
+    auto siblings = decisions.back().siblings;
+    for (auto it = siblings.begin(); it != siblings.end();) {
+      if (it->second.is_bottom()) {
+        it = siblings.erase(it);
+      } else {
+        ++it;
+      }
+    }
+    if(!siblings.empty()){
       break;
     }
   }
 
-  if(i < 0){
+  if(decisions.empty()){
     /* No more branching is possible. */
     return false;
   }
-  replay_point = i;
 
-  /* Setup the new Event at prefix[i] */
-  {
-    int sleep_branch_trace_count =
-      prefix[i].sleep_branch_trace_count + estimate_trace_count(i+1);
-    Event prev_evt = std::move(prefix[i]);
-    while (ssize_t(prefix.len()) > i) prefix.delete_last();
+  auto sit = decisions.back().siblings.begin();
+  Leaf l = std::move(sit->second);
+  decisions.back().siblings.erase(sit);
 
-    const Branch &br = prefix.first_child();
+  replay_point = l.prefix.size();
 
-    /* Find the index of br.pid. */
-    int br_idx = 1;
-    for(int j = i-1; br_idx == 1 && 0 <= j; --j){
-      if(prefix[j].iid.get_pid() == br.pid){
-        br_idx = prefix[j].iid.get_index() + prefix.branch(j).size;
+  std::vector<Event> new_prefix;
+  new_prefix.reserve(l.prefix.size());
+  std::vector<int> iid_map = iid_map_at(0);
+  for (const Branch &b : l.prefix) {
+    int index = iid_map[b.pid];
+    IID<IPid> iid(b.pid, index);
+    new_prefix.emplace_back(iid);
+    new_prefix.back().size = b.size;
+    if (Option<unsigned> i = find_process_event(b.pid, index)) {
+      if (prefix[*i].decision < int(decisions.size())) {
+        new_prefix.back().decision = prefix[*i].decision;
+        new_prefix.back().pinned = prefix[*i].pinned
+          || new_prefix.back().decision == int(decisions.size())-1;
       }
     }
-
-    Event evt(IID<IPid>(br.pid,br_idx));
-
-    evt.sym = br.sym; /* For replay sanity assertions only */
-    evt.sleep_branch_trace_count = sleep_branch_trace_count;
-
-    prefix.enter_first_child(std::move(evt));
+    iid_map_step(iid_map, new_prefix.back());
   }
+
+  prefix = std::move(new_prefix);
 
   CPS = CPidSystem();
   threads.clear();
@@ -337,18 +301,20 @@ static std::string rpad(std::string s, int n){
 }
 
 std::string WSCTraceBuilder::iid_string(std::size_t pos) const{
-  return iid_string(prefix.branch(pos), prefix[pos].iid.get_index());
+  return iid_string(prefix[pos]);
 }
 
-std::string WSCTraceBuilder::iid_string(const Branch &branch, int index) const{
+std::string WSCTraceBuilder::iid_string(const Event &event) const{
+  IPid pid = event.iid.get_pid();
+  int index = event.iid.get_index();
   std::stringstream ss;
-  ss << "(" << threads[branch.pid].cpid << "," << index;
-  if(branch.size > 1){
-    ss << "-" << index + branch.size - 1;
+  ss << "(" << threads[pid].cpid << "," << index;
+  if(event.size > 1){
+    ss << "-" << index + event.size - 1;
   }
   ss << ")";
-  if(branch.alt != 0){
-    ss << "-alt:" << branch.alt;
+  if(event.alt != 0){
+    ss << "-alt:" << event.alt;
   }
   return ss.str();
 }
@@ -363,45 +329,6 @@ str_join(const std::vector<std::string> &vec, const std::string &sep) {
   return res;
 }
 
-/* For debug-printing the wakeup tree; adds a node and its children to lines */
-void WSCTraceBuilder::wut_string_add_node
-(std::vector<std::string> &lines, std::vector<int> &iid_map,
- unsigned line, Branch branch, WakeupTreeRef<Branch> node) const{
-  unsigned offset = 2 + ((lines.size() < line)?0:lines[line].size());
-
-  std::vector<std::pair<Branch,WakeupTreeRef<Branch>>> nodes({{branch,node}});
-  iid_map_step(iid_map, branch);
-  unsigned l = line;
-  WakeupTreeRef<Branch> n = node;
-  Branch b = branch;
-  while (n.size()) {
-    b = n.begin().branch();
-    n = n.begin().node();
-    ++l;
-    nodes.push_back({b,n});
-    iid_map_step(iid_map, b);
-    if (l < lines.size()) offset = std::max(offset, unsigned(lines[l].size()));
-  }
-  if (lines.size() < l+1) lines.resize(l+1, "");
-  /* First node needs different padding, so we do it here */
-  lines[line] += " ";
-  while(lines[line].size() < offset) lines[line] += "-";
-
-  while(nodes.size()) {
-    l = line+nodes.size()-1;
-    b = nodes.back().first;
-    n = nodes.back().second;
-    for (auto ci = n.begin(); ci != n.end(); ++ci) {
-      if (ci == n.begin()) continue;
-      wut_string_add_node(lines, iid_map, l+1, ci.branch(), ci.node());
-    }
-    iid_map_step_rev(iid_map, b);
-    while(lines[l].size() < offset) lines[l] += " ";
-    lines[l] += " " + iid_string(b, iid_map[b.pid]);
-    nodes.pop_back();
-  }
-}
-
 #ifndef NDEBUG
 static std::string events_to_string(const llvm::SmallVectorImpl<SymEv> &e) {
   if (e.size() == 0) return "None()";
@@ -412,133 +339,28 @@ static std::string events_to_string(const llvm::SmallVectorImpl<SymEv> &e) {
   }
   return res;
 }
-
-void WSCTraceBuilder::check_symev_vclock_equiv() const {
-  /* Check for SymEv<->VClock equivalence
-   * SymEv considers that event i happens after event j iff there is a
-   * subsequence s of i..j including i and j s.t.
-   *   forall 0 <= k < len(s)-1. do_events_conflict(s[k], s[k+1])
-   * As checking all possible subseqences is exponential, we instead rely on
-   * the fact that we've already verified the SymEv<->VClock equivalence of
-   * any pair in 0..i-1. Thus, it is sufficient to check whether i has a
-   * conflict with some event k which has a vector clock strictly greater than
-   * j.
-   */
-  /* The frontier is the set of events such that e is the first event of pid
-   * that happen after the event.
-   */
-  std::vector<unsigned> frontier;
-  for (unsigned i = 0; i < prefix.len(); ++i) {
-    const Event &e = prefix[i];
-    const IPid pid = e.iid.get_pid();
-    const Event *prev
-      = (e.iid.get_index() == 1 ? nullptr
-         : &prefix[find_process_event(pid, e.iid.get_index()-1)]);
-    if (i == prefix.len() - 1 && errors.size() &&
-        errors.back()->get_location()
-        == IID<CPid>(threads[pid].cpid, e.iid.get_index())) {
-      /* Ignore dependency differences with the errored event in aborted
-       * executions
-       */
-      break;
-    }
-    for (unsigned j = i-1; j != unsigned(-1); --j) {
-      bool iafterj = false;
-      if (prefix[j].iid.get_pid() == pid
-          || do_events_conflict(e, prefix[j])) {
-        iafterj = true;
-        if (!prev || !prefix[j].clock.leq(prev->clock)) {
-          frontier.push_back(j);
-        }
-      } else if (prev && prefix[j].clock.leq(prev->clock)) {
-        iafterj = true;
-      } else {
-        for (unsigned k : frontier) {
-          if (prefix[j].clock.leq(prefix[k].clock)) {
-            iafterj = true;
-            break;
-          }
-        }
-      }
-
-      if (iafterj != prefix[j].clock.leq(e.clock)) {
-        if (iafterj) {
-          llvm::dbgs() << "SymEv thinks " << i << " happens after " << j
-                       << " but vclock does not\n";
-        } else {
-          llvm::dbgs() << "VClock thinks " << i << " happens after " << j
-                       << " but SymEv does not\n";
-        }
-        int ix_offs = 0;
-        int iid_offs = 0;
-        int clock_offs = 0;
-        for(unsigned k = 0; k < prefix.len(); ++k){
-          IPid ipid = prefix[k].iid.get_pid();
-          ix_offs = std::max(ix_offs,int(std::to_string(k).size()));
-          iid_offs = std::max(iid_offs,2*ipid+int(iid_string(k).size()));
-          clock_offs = std::max(clock_offs,int(prefix[k].clock.to_string().size()));
-        }
-
-        for(unsigned k = 0; k < prefix.len(); ++k){
-          IPid ipid = prefix[k].iid.get_pid();
-          llvm::dbgs() << rpad("",ix_offs-int(std::to_string(k).size()))
-                       << (k == i || k == j ? ANSIRed : "") << k
-                       << (k == i || k == j ? ANSIRst : "")
-                       << ":" << rpad("",2+ipid*2)
-                       << rpad(iid_string(k),iid_offs-ipid*2)
-                       << " " << rpad(prefix[k].clock.to_string(),clock_offs)
-                       << " " << events_to_string(prefix[k].sym)
-                       << "\n";
-        }
-        if(errors.size()){
-          llvm::dbgs() << "Errors:\n";
-          for(unsigned k = 0; k < errors.size(); ++k){
-            llvm::dbgs() << "  Error #" << k+1 << ": "
-                         << errors[k]->to_string() << "\n";
-          }
-        }
-      }
-      assert(iafterj == prefix[j].clock.leq(e.clock));
-    }
-
-    /* Cleanup */
-    frontier.clear();
-  }
-}
 #endif /* !defined(NDEBUG) */
 
 void WSCTraceBuilder::debug_print() const {
   llvm::dbgs() << "WSCTraceBuilder (debug print):\n";
   int iid_offs = 0;
   int clock_offs = 0;
-  std::vector<std::string> lines(prefix.len(), "");
+  std::vector<std::string> lines(prefix.size(), "");
 
-  for(unsigned i = 0; i < prefix.len(); ++i){
+  for(unsigned i = 0; i < prefix.size(); ++i){
     IPid ipid = prefix[i].iid.get_pid();
     iid_offs = std::max(iid_offs,2*ipid+int(iid_string(i).size()));
     clock_offs = std::max(clock_offs,int(prefix[i].clock.to_string().size()));
   }
 
-  /* Add wakeup tree */
-  std::vector<int> iid_map = iid_map_at(prefix.len());
-  for(int i = prefix.len()-1; 0 <= i; --i){
-    auto node = prefix.parent_at(i);
-    iid_map_step_rev(iid_map, prefix.branch(i));
-    for (auto it = node.begin(); it != node.end(); ++it) {
-      Branch b = it.branch();
-      if (b == prefix.branch(i)) continue; /* Only print others */
-      wut_string_add_node(lines, iid_map, i, it.branch(), it.node());
-    }
-  }
-
-  for(unsigned i = 0; i < prefix.len(); ++i){
+  for(unsigned i = 0; i < prefix.size(); ++i){
     IPid ipid = prefix[i].iid.get_pid();
     llvm::dbgs() << rpad("",2+ipid*2)
                  << rpad(iid_string(i),iid_offs-ipid*2)
                  << " " << rpad(prefix[i].clock.to_string(),clock_offs)
                  << lines[i] << "\n";
   }
-  for (unsigned i = prefix.len(); i < lines.size(); ++i){
+  for (unsigned i = prefix.size(); i < lines.size(); ++i){
     llvm::dbgs() << std::string(2+iid_offs + 1+clock_offs, ' ') << lines[i] << "\n";
   }
   if(errors.size()){
@@ -616,7 +438,7 @@ void WSCTraceBuilder::do_atomic_store(const SymData &sd){
   for(SymAddr b : ml){
     ByteInfo &bi = mem[b];
     int lu = bi.last_update;
-    assert(lu < int(prefix.len()));
+    assert(lu < int(prefix.size()));
     if(0 <= lu){
       IPid lu_tipid = 2*(prefix[lu].iid.get_pid() / 2);
       if(lu_tipid != tipid){
@@ -922,11 +744,11 @@ bool WSCTraceBuilder::cond_signal(const SymAddrSize &ml){
   if(cond_var.waiters.size() > 1){
     register_alternatives(cond_var.waiters.size());
   }
-  assert(0 <= curbranch().alt);
-  assert(cond_var.waiters.empty() || curbranch().alt < int(cond_var.waiters.size()));
+  assert(0 <= curev().alt);
+  assert(cond_var.waiters.empty() || curev().alt < int(cond_var.waiters.size()));
   if(cond_var.waiters.size()){
     /* Wake up the alt:th waiter. */
-    int i = cond_var.waiters[curbranch().alt];
+    int i = cond_var.waiters[curev().alt];
     assert(0 <= i && i < prefix_idx);
     IPid ipid = prefix[i].iid.get_pid();
     assert(!threads[ipid].available);
@@ -934,7 +756,7 @@ bool WSCTraceBuilder::cond_signal(const SymAddrSize &ml){
     seen_events.insert(i);
 
     /* Remove waiter from cond_var.waiters */
-    for(int j = curbranch().alt; j < int(cond_var.waiters.size())-1; ++j){
+    for(int j = curev().alt; j < int(cond_var.waiters.size())-1; ++j){
       cond_var.waiters[j] = cond_var.waiters[j+1];
     }
     cond_var.waiters.pop_back();
@@ -1049,8 +871,8 @@ int WSCTraceBuilder::cond_destroy(const SymAddrSize &ml){
 void WSCTraceBuilder::register_alternatives(int alt_count){
   curev().may_conflict = true;
   record_symbolic(SymEv::Nondet(alt_count));
-  if(curbranch().alt == 0) {
-    for(int i = curbranch().alt+1; i < alt_count; ++i){
+  if(curev().alt == 0) {
+    for(int i = curev().alt+1; i < alt_count; ++i){
       curev().races.push_back(Race::Nondet(prefix_idx, i));
     }
   }
@@ -1092,87 +914,6 @@ static void rev_recompute_data
       break;
     default:
       break;
-    }
-  }
-}
-
-void WSCTraceBuilder::recompute_cmpxhg_success
-(sym_ty &es, const std::vector<Branch> &v, int i) const {
-  for (auto ei = es.begin(); ei != es.end(); ++ei) {
-    SymEv &e = *ei;
-    if (e.kind == SymEv::CMPXHG || e.kind == SymEv::CMPXHGFAIL) {
-      SymData data(e.addr(), e.addr().size);
-      VecSet<SymAddr> needed(e.addr().begin(), e.addr().end());
-      std::memset(data.get_block(), 0, e.addr().size);
-
-      /* Scan in reverse for data */
-      rev_recompute_data(data, needed, ei, es.begin());
-      for (auto vi = v.end(); !needed.empty() && (vi != v.begin());){
-        const Branch &vb = *(--vi);
-        rev_recompute_data(data, needed, vb.sym.end(), vb.sym.begin());
-      }
-      for (int k = i-1; !needed.empty() && (k >= 0); --k){
-        const sym_ty &ps = prefix[k].sym;
-        rev_recompute_data(data, needed, ps.end(), ps.begin());
-      }
-
-      /* If needed isn't empty then the program reads uninitialised data. */
-      // assert(needed.empty());
-
-      bool will_succeed = memcmp(e.expected().get_block(), data.get_block(),
-                                 e.addr().size) == 0;
-      if (will_succeed) {
-        e = SymEv::CmpXhg(e.data(), e.expected().get_shared_block());
-      } else {
-        e = SymEv::CmpXhgFail(e.data(), e.expected().get_shared_block());
-      }
-    }
-  }
-}
-
-void WSCTraceBuilder::recompute_observed(std::vector<Branch> &v) const {
-  for (Branch &b : v) {
-    clear_observed(b.sym);
-  }
-
-  /* When !read_all, last_reads is the set of addresses that have been read
-   * (or "are live", if comparing to a liveness analysis).
-   * When read_all, last_reads is instead the set of addresses that have *not*
-   * been read. All addresses that are not in last_reads are read.
-   */
-  VecSet<SymAddr> last_reads;
-  bool read_all = false;
-
-  for (auto vi = v.end(); vi != v.begin();){
-    Branch &vb = *(--vi);
-    for (auto ei = vb.sym.end(); ei != vb.sym.begin();){
-      SymEv &e = *(--ei);
-      switch(e.kind){
-      case SymEv::LOAD:
-      case SymEv::CMPXHG: /* First a load, then a store */
-      case SymEv::CMPXHGFAIL:
-        if (read_all)
-          last_reads.erase (VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
-        else last_reads.insert(VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
-        break;
-      case SymEv::STORE:
-        assert(false); abort();
-      case SymEv::UNOBS_STORE:
-        if (read_all ^ last_reads.intersects
-            (VecSet<SymAddr>(e.addr().begin(), e.addr().end()))){
-          e = SymEv::Store(e.data());
-        }
-        if (read_all)
-          last_reads.insert(VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
-        else last_reads.erase (VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
-        break;
-      case SymEv::FULLMEM:
-        last_reads.clear();
-        read_all = true;
-        break;
-      default:
-        break;
-      }
     }
   }
 }
@@ -1308,16 +1049,16 @@ void WSCTraceBuilder::compute_vclocks(){
   /* Move LockFail races into the right event */
   std::vector<Race> final_lock_fail_races;
   for (Race &r : lock_fail_races){
-    if (r.second_event < int(prefix.len())) {
+    if (r.second_event < int(prefix.size())) {
       prefix[r.second_event].races.emplace_back(std::move(r));
     } else {
-      assert(r.second_event == int(prefix.len()));
+      assert(r.second_event == int(prefix.size()));
       final_lock_fail_races.emplace_back(std::move(r));
     }
   }
   lock_fail_races = std::move(final_lock_fail_races);
 
-  for (unsigned i = 0; i < prefix.len(); i++){
+  for (unsigned i = 0; i < prefix.size(); i++){
     IPid ipid = prefix[i].iid.get_pid();
     if (prefix[i].iid.get_index() > 1) {
       unsigned last = find_process_event(prefix[i].iid.get_pid(), prefix[i].iid.get_index()-1);
@@ -1398,6 +1139,60 @@ void WSCTraceBuilder::compute_vclocks(){
      * iterator invalidation. */
     races.resize(fill - races.begin(), races[0]);
   }
+}
+
+void WSCTraceBuilder::compute_unfolding() {
+  for (unsigned i = 0; i < prefix.size(); ++i) {
+    UnfoldingNodeChildren *parent_list;
+    const std::shared_ptr<UnfoldingNode> *parent;
+    IID<IPid> iid = prefix[i].iid;
+    IPid p = iid.get_pid();
+    if (iid.get_index() == 1) {
+      parent_list = &threads[p].first_events;
+    } else {
+      int par_idx = find_process_event(p, iid.get_index()-1);
+      parent = &prefix[par_idx].event;
+      parent_list = &(*parent)->children;
+    }
+    std::shared_ptr<UnfoldingNode> read_from;
+    if (prefix[i].read_from) {
+      read_from = prefix[*prefix[i].read_from].event;
+    }
+
+    prefix[i].event = find_unfolding_node(*parent_list, *parent, std::move(read_from));
+
+    if (int(i) >= replay_point) {
+      if (is_load(i)) {
+        int decision = decisions.size();
+        decisions.emplace_back();
+        prefix[i].decision = decision;
+      }
+    }
+  }
+}
+
+std::shared_ptr<WSCTraceBuilder::UnfoldingNode> WSCTraceBuilder::
+find_unfolding_node(UnfoldingNodeChildren &parent_list,
+                    const std::shared_ptr<UnfoldingNode> &parent,
+                    std::shared_ptr<UnfoldingNode> read_from) {
+  for (unsigned ci = 0; ci < parent_list.size();) {
+    std::shared_ptr<UnfoldingNode> c = parent_list[ci].lock();
+    if (!c) {
+      /* Delete the null element and continue */
+      std::swap(parent_list[ci], parent_list.back());
+      parent_list.pop_back();
+      continue;
+    }
+
+    if (c->read_from == read_from) {
+      assert(parent == c->parent);
+      return c;
+    }
+    ++ci;
+  }
+
+  /* Did not exist, create it. */
+  return std::make_shared<UnfoldingNode>(parent, std::move(read_from));
 }
 
 void WSCTraceBuilder::record_symbolic(SymEv event){
@@ -1501,6 +1296,23 @@ bool WSCTraceBuilder::is_observed_conflict
   return false;
 }
 
+bool WSCTraceBuilder::is_load(unsigned i) const {
+  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
+                     [](const SymEv &e) { return e.kind == SymEv::LOAD; });
+}
+
+bool WSCTraceBuilder::is_store(unsigned i) const {
+  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
+                     [](const SymEv &e) { return e.kind == SymEv::STORE; });
+}
+
+SymAddrSize WSCTraceBuilder::get_addr(unsigned i) const {
+  for (const SymEv &e : prefix[i].sym) {
+    if (e.has_addr()) return e.addr();
+  }
+  abort();
+}
+
 bool WSCTraceBuilder::is_observed_conflict
 (IPid fst_pid, const SymEv &fst,
  IPid snd_pid, const SymEv &snd,
@@ -1514,21 +1326,11 @@ bool WSCTraceBuilder::is_observed_conflict
 }
 
 void WSCTraceBuilder::compute_prefixes() {
+  compute_vclocks();
+
+  compute_unfolding();
+
   std::cerr << "Computing prefixes" << std::endl;
-  auto is_load = [&](unsigned i) {
-    return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
-                       [](const SymEv &e) { return e.kind == SymEv::LOAD; });
-  };
-  auto get_addr = [&](unsigned i) {
-    for (SymEv &e : prefix[i].sym) {
-      if (e.has_addr()) return e.addr();
-    }
-    abort();
-  };
-  auto is_store = [&](unsigned i) {
-    return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
-                       [](const SymEv &e) { return e.kind == SymEv::STORE; });
-  };
 
   auto pretty_index = [&] (int i) -> std::string {
     if (i==-1) return "init event";
@@ -1536,7 +1338,7 @@ void WSCTraceBuilder::compute_prefixes() {
   }; 
 
   std::map<SymAddr,std::vector<int>> writes_by_address;
-  for (unsigned j = 0; j < prefix.len(); ++j) {
+  for (unsigned j = 0; j < prefix.size(); ++j) {
     if (is_store(j)) {
       writes_by_address[get_addr(j).addr].push_back(j);
     }
@@ -1545,27 +1347,27 @@ void WSCTraceBuilder::compute_prefixes() {
   //   pair.second.push_back(-1);
   // }
 
-  for (unsigned i = 0; i < prefix.len(); ++i) {
-    if (!prefix.branch(i).pinned && is_load(i)) {
+  for (unsigned i = 0; i < prefix.size(); ++i) {
+    if (!prefix[i].pinned && is_load(i)) {
       auto addr = get_addr(i);
       const std::vector<int> &possible_writes = writes_by_address[addr.addr];
       int original_read_from = *prefix[i].read_from;
       assert(std::any_of(possible_writes.begin(), possible_writes.end(),
              [=](int i) { return i == original_read_from; })
            || original_read_from == -1);      
-      // assert(std::any_of(possible_writes.begin(), possible_writes.end(),
-      //        [](int i) { return i == -1; })
-      //      || original_read_from == -1);
 
+      DecisionNode &decision = decisions[prefix[i].decision];
 
       auto try_read_from = [&](int j) {
         if (j == original_read_from) return;
+        const std::shared_ptr<UnfoldingNode> &read_from = prefix[i].event;
+        if (decision.siblings.count(read_from)) return;
         prefix[i].read_from = j;
-        prefix.branch(i).pinned = true;
-	      std::cerr << "Trying to make " << pretty_index(i)
-                  << " read from " << pretty_index(j) << 
-                  " instead of " << pretty_index(original_read_from);
-        try_sat(writes_by_address);
+        std::cerr << "Trying to make " << pretty_index(i)
+                  << " read from " << pretty_index(j)
+                  << " instead of " << pretty_index(original_read_from);
+        Leaf solution = try_sat(prefix[i].decision, writes_by_address);
+        decision.siblings.emplace(read_from, std::move(solution));
       };
 
       for (int j : possible_writes) try_read_from(j);
@@ -1575,7 +1377,6 @@ void WSCTraceBuilder::compute_prefixes() {
       prefix[i].read_from = original_read_from;
     }
   }
-
 }
 
 void WSCTraceBuilder::output_formula
@@ -1596,14 +1397,14 @@ void WSCTraceBuilder::output_formula
 
   unsigned no_keep = 0;
   std::vector<unsigned> var;
-  for (unsigned i = 0; i < prefix.len(); ++i) {
+  for (unsigned i = 0; i < prefix.size(); ++i) {
     var.push_back(no_keep);
     if (keep[i]) no_keep++;
   }
 
   sat.alloc_variables(no_keep);
   /* PO */
-  for (unsigned i = 0; i < prefix.len(); ++i) {
+  for (unsigned i = 0; i < prefix.size(); ++i) {
     if (!keep[i]) continue;
     if (Option<unsigned> pred = po_predecessor(i)) {
       assert(*pred != i);
@@ -1612,7 +1413,7 @@ void WSCTraceBuilder::output_formula
   }
 
   /* Read-from and SC consistency */
-  for (unsigned r = 0; r < prefix.len(); ++r) {
+  for (unsigned r = 0; r < prefix.size(); ++r) {
     if (!keep[r] || !prefix[r].read_from) continue;
     int w = *prefix[r].read_from;
     assert(int(r) != w);
@@ -1632,7 +1433,7 @@ void WSCTraceBuilder::output_formula
   }
 
   /* Other happens-after edges (such as thread spawn and join) */
-  for (unsigned i = 0; i < prefix.len(); ++i) {
+  for (unsigned i = 0; i < prefix.size(); ++i) {
     if (!keep[i]) continue;
     for (unsigned j : prefix[i].happens_after) {
       sat.add_edge(var[j], var[i]);
@@ -1640,9 +1441,10 @@ void WSCTraceBuilder::output_formula
   }
 }
 
-void WSCTraceBuilder::try_sat
-(std::map<SymAddr,std::vector<int>> &writes_by_address){
-  std::vector<bool> keep = causal_past();
+WSCTraceBuilder::Leaf
+WSCTraceBuilder::try_sat
+(int decision, std::map<SymAddr,std::vector<int>> &writes_by_address){
+  std::vector<bool> keep = causal_past(decision);
   std::unique_ptr<SatSolver> sat = conf.get_sat_solver();
 
   output_formula(*sat, writes_by_address, keep);
@@ -1650,40 +1452,31 @@ void WSCTraceBuilder::try_sat
 
   if (!sat->check_sat()) {
     std::cerr << ": UNSAT\n";
-    return;
+    return Leaf();
   }
   std::cerr << ": SAT\n";
 
   std::vector<unsigned> model = sat->get_model();
 
   unsigned no_keep = 0;
-  for (unsigned i = 0; i < prefix.len(); ++i) {
+  for (unsigned i = 0; i < prefix.size(); ++i) {
     if (keep[i]) no_keep++;
   }
-  std::vector<Branch> new_prefix(no_keep, Branch(-1));
-  for (unsigned i = 0, var = 0; i < prefix.len(); ++i) {
+  std::vector<Branch> new_prefix(no_keep);
+  for (unsigned i = 0, var = 0; i < prefix.size(); ++i) {
     if (keep[i]) {
       unsigned pos = model[var++];
-      new_prefix[pos] = prefix.branch(i);
+      new_prefix[pos] = Branch(prefix[i].iid.get_pid(), prefix[i].size);
     }
   }
 
-  WakeupTreeRef<Branch> root = prefix.parent_at(0);
-  for (Branch &b : new_prefix) {
-    auto existing = root.begin();
-    while (existing != root.end() && !(existing.branch() == b)) ++existing;
-    if (existing != root.end()) {
-      root = existing.node();
-    } else {
-      root = root.put_child(b);
-    }
-  }
+  return Leaf(new_prefix);
 }
 
-std::vector<bool> WSCTraceBuilder::causal_past() const {
-  std::vector<bool> acc(prefix.len());
-  for (unsigned i = 0; i < prefix.len(); ++i) {
-    if (prefix.branch(i).pinned) {
+std::vector<bool> WSCTraceBuilder::causal_past(int decision) const {
+  std::vector<bool> acc(prefix.size());
+  for (unsigned i = 0; i < prefix.size(); ++i) {
+    if (prefix[i].pinned || prefix[i].decision <= decision) {
       causal_past_1(acc, i);
     }
   };
@@ -1707,18 +1500,18 @@ void WSCTraceBuilder::causal_past_1(std::vector<bool> &acc, unsigned i) const{
 std::vector<int> WSCTraceBuilder::iid_map_at(int event) const{
   std::vector<int> map(threads.size(), 1);
   for (int i = 0; i < event; ++i) {
-    iid_map_step(map, prefix.branch(i));
+    iid_map_step(map, prefix[i]);
   }
   return map;
 }
 
-void WSCTraceBuilder::iid_map_step(std::vector<int> &iid_map, const Branch &event) const{
-  if (iid_map.size() <= unsigned(event.pid)) iid_map.resize(event.pid+1, 1);
-  iid_map[event.pid] += event.size;
+void WSCTraceBuilder::iid_map_step(std::vector<int> &iid_map, const Event &event) const{
+  if (iid_map.size() <= unsigned(event.iid.get_pid())) iid_map.resize(event.iid.get_pid()+1, 1);
+  iid_map[event.iid.get_pid()] += event.size;
 }
 
-void WSCTraceBuilder::iid_map_step_rev(std::vector<int> &iid_map, const Branch &event) const{
-  iid_map[event.pid] -= event.size;
+void WSCTraceBuilder::iid_map_step_rev(std::vector<int> &iid_map, const Event &event) const{
+  iid_map[event.iid.get_pid()] -= event.size;
 }
 
 WSCTraceBuilder::Event WSCTraceBuilder::
@@ -1744,33 +1537,33 @@ reconstruct_lock_event(const Race &race) const {
   return ret;
 }
 
-inline std::pair<bool,unsigned> WSCTraceBuilder::
+inline Option<unsigned> WSCTraceBuilder::
 try_find_process_event(IPid pid, int index) const{
   assert(pid >= 0 && pid < int(threads.size()));
   assert(index >= 1);
   if (index > int(threads[pid].event_indices.size())){
-    return {false, ~0};
+    return nullptr;
   }
 
   unsigned k = threads[pid].event_indices[index-1];
-  assert(k < prefix.len());
-  assert(prefix.branch(k).size > 0);
+  assert(k < prefix.size());
+  assert(prefix[k].size > 0);
   assert(prefix[k].iid.get_pid() == pid
          && prefix[k].iid.get_index() <= index
-         && (prefix[k].iid.get_index() + prefix.branch(k).size) > index);
+         && (prefix[k].iid.get_index() + prefix[k].size) > index);
 
-  return {true, k};
+  return k;
 }
 
 inline unsigned WSCTraceBuilder::find_process_event(IPid pid, int index) const{
   assert(pid >= 0 && pid < int(threads.size()));
   assert(index >= 1 && index <= int(threads[pid].event_indices.size()));
   unsigned k = threads[pid].event_indices[index-1];
-  assert(k < prefix.len());
-  assert(prefix.branch(k).size > 0);
+  assert(k < prefix.size());
+  assert(prefix[k].size > 0);
   assert(prefix[k].iid.get_pid() == pid
          && prefix[k].iid.get_index() <= index
-         && (prefix[k].iid.get_index() + prefix.branch(k).size) > index);
+         && (prefix[k].iid.get_index() + prefix[k].size) > index);
 
   return k;
 }
@@ -1785,156 +1578,20 @@ bool WSCTraceBuilder::has_pending_store(IPid pid, SymAddr ml) const {
   return false;
 }
 
-bool WSCTraceBuilder::has_cycle(IID<IPid> *loc) const{
-  int proc_count = threads.size();
-  int pfx_size = prefix.len();
-
-  /* Identify all store events */
-  struct stupd_t{
-    /* The index part of the IID identifying a store event. */
-    int store;
-    /* The index in prefix of the corresponding update event. */
-    int update;
-  };
-  /* stores[proc] is all store events of process proc, ordered by
-   * store index.
-   */
-  std::vector<std::vector<stupd_t> > stores(proc_count);
-  for(int i = 0; i < pfx_size; ++i){
-    if(prefix[i].iid.get_pid() % 2){ // Update
-      assert(prefix[i].origin_iid.get_pid()
-             == prefix[i].iid.get_pid()-1);
-      stores[prefix[i].iid.get_pid() / 2].push_back
-        ({prefix[i].origin_iid.get_index(),i});
-    }
-  }
-
-  /* Attempt to replay computation under SC */
-  struct proc_t {
-    proc_t()
-      : pc(0), pfx_index(0), store_index(0), blocked(false), block_clock() {};
-    int pc; // Current program counter
-    int pfx_index; // Index into prefix
-    int store_index; // Index into stores
-    bool blocked; // Is the process currently blocked?
-    VClock<IPid> block_clock; // If blocked, what are we waiting for?
-  };
-  std::vector<proc_t> procs(proc_count);
-
-  int proc = 0; // The next scheduled process
-  /* alive keeps track of whether any process has been successfully
-   * scheduled lately
-   */
-  bool alive = false;
-  while(true){
-    // Advance pfx_index to the right Event in prefix
-    while(procs[proc].pfx_index < pfx_size &&
-          prefix[procs[proc].pfx_index].iid.get_pid() != proc*2){
-      ++procs[proc].pfx_index;
-    }
-    if(pfx_size <= procs[proc].pfx_index){
-      // This process is finished
-      proc = (proc+1)%proc_count;
-      if(proc == 0){
-        if(!alive) break;
-        alive = false;
-      }
-      continue;
-    }
-
-    int next_pc = procs[proc].pc+1;
-    const Event &evt = prefix[procs[proc].pfx_index];
-    const Branch &branch = prefix.branch(procs[proc].pfx_index);
-
-    if(!procs[proc].blocked){
-      assert(evt.iid.get_pid() == 2*proc);
-      assert(evt.iid.get_index() <= next_pc);
-      assert(next_pc < evt.iid.get_index() + branch.size);
-      procs[proc].block_clock = evt.clock;
-      assert(procs[proc].block_clock[proc*2] <= next_pc);
-      procs[proc].block_clock[proc*2] = next_pc;
-      if(procs[proc].store_index < int(stores[proc].size()) &&
-         stores[proc][procs[proc].store_index].store == next_pc){
-        // This is a store. Also consider the update's clock.
-        procs[proc].block_clock
-          += prefix[stores[proc][procs[proc].store_index].update].clock;
-        ++procs[proc].store_index;
-      }
-    }
-
-    // Is this process blocked?
-    // Is there some process we have to wait for?
-    {
-      int i;
-      procs[proc].blocked = false;
-      for(i = 0; i < proc_count; ++i){
-        if(i != proc && procs[i].pc < procs[proc].block_clock[i*2]){
-          procs[proc].blocked = true;
-          break;
-        }
-      }
-    }
-
-    // Are we still blocked?
-    if(procs[proc].blocked){
-      proc = (proc+1)%proc_count; // Try another process
-      if(proc == 0){
-        if(!alive) break;
-        alive = false;
-      }
-    }else{
-      alive = true;
-      procs[proc].pc = next_pc;
-      assert(next_pc == procs[proc].block_clock[proc*2]);
-
-      // Advance pc to next interesting event
-      next_pc = evt.iid.get_index() + branch.size - 1;
-      if(procs[proc].store_index < int(stores[proc].size()) &&
-         stores[proc][procs[proc].store_index].store-1 < next_pc){
-        next_pc = stores[proc][procs[proc].store_index].store-1;
-      }
-      assert(procs[proc].pc <= next_pc);
-      procs[proc].pc = next_pc;
-
-      if(next_pc + 1 == evt.iid.get_index() + branch.size){
-        // We are done with this Event
-        ++procs[proc].pfx_index;
-      }
-    }
-  }
-
-  // Did all processes finish, or are some still blocked?
-  {
-    int upd_idx = -1; // Index of the latest update involved in a cycle
-    bool has_cycle = false;
-    for(int i = 0; i < proc_count; ++i){
-      if(procs[i].blocked){
-        // There is a cycle
-        has_cycle = true;
-        int next_pc = procs[i].pc+1;
-        if(0 < procs[i].store_index && stores[i][procs[i].store_index-1].store == next_pc){
-          if(stores[i][procs[i].store_index-1].update > upd_idx){
-            upd_idx = stores[i][procs[i].store_index-1].update;
-            *loc = prefix[upd_idx].iid;
-          }
-        }
-      }
-    }
-    assert(!has_cycle || 0 <= upd_idx);
-    return has_cycle;
-  }
-}
-
 int WSCTraceBuilder::estimate_trace_count() const{
   return estimate_trace_count(0);
 }
 
+bool WSCTraceBuilder::check_for_cycles() {
+  return false;
+}
+
 int WSCTraceBuilder::estimate_trace_count(int idx) const{
-  if(idx > int(prefix.len())) return 0;
-  if(idx == int(prefix.len())) return 1;
+  if(idx > int(prefix.size())) return 0;
+  if(idx == int(prefix.size())) return 1;
 
   int count = 42;
-  for(int i = int(prefix.len())-1; idx <= i; --i){
+  for(int i = int(prefix.size())-1; idx <= i; --i){
     count += prefix[i].sleep_branch_trace_count;
     // count += std::max(0, int(prefix.children_after(i)))
     //   * (count / (1 + prefix[i].sleep.size()));

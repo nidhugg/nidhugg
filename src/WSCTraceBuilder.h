@@ -27,6 +27,8 @@
 #include "WakeupTrees.h"
 #include "Option.h"
 
+#include <unordered_map>
+
 typedef llvm::SmallVector<SymEv,1> sym_ty;
 
 class WSCTraceBuilder : public TSOPSOTraceBuilder{
@@ -127,12 +129,47 @@ protected:
     const llvm::MDNode *md;
   };
 
+  struct UnfoldingNode;
+  typedef llvm::SmallVector<std::weak_ptr<UnfoldingNode>,1> UnfoldingNodeChildren;
+  struct UnfoldingNode {
+  public:
+    UnfoldingNode(std::shared_ptr<UnfoldingNode> parent,
+                  std::shared_ptr<UnfoldingNode> read_from)
+      : parent(std::move(parent)), read_from(std::move(read_from)) {};
+    std::shared_ptr<UnfoldingNode> parent, read_from;
+    UnfoldingNodeChildren children;
+  };
+
+  struct Branch {
+  public:
+    Branch(int pid, int size) : pid(pid), size(size) {}
+    Branch() : Branch(-1, 0) {}
+    int pid, size;
+  };
+
+  struct Leaf {
+  public:
+    /* Construct a bottom-leaf. */
+    Leaf() : prefix() {}
+    /* Construct a prefix leaf. */
+    Leaf(std::vector<Branch> prefix) : prefix(prefix) {}
+    std::vector<Branch> prefix;
+
+    bool is_bottom() const { return prefix.empty(); }
+  };
+
+  struct DecisionNode {
+  public:
+    DecisionNode() : siblings() {}
+    std::unordered_map<std::shared_ptr<UnfoldingNode>, Leaf> siblings;
+  };
+
   /* Various information about a thread in the current execution.
    */
   class Thread{
   public:
     Thread(const CPid &cpid, int spawn_event)
-      : cpid(cpid), available(true), spawn_event(spawn_event) {};
+      : cpid(cpid), available(true), spawn_event(spawn_event), first_events() {};
     CPid cpid;
     /* Is the thread available for scheduling? */
     bool available;
@@ -149,6 +186,8 @@ protected:
      * Newer entries are further to the back.
      */
     std::vector<PendingStore> store_buffer;
+
+    UnfoldingNodeChildren first_events;
 
     /* The iid-index of the last event of this thread, or 0 if it has not
      * executed any events yet.
@@ -263,45 +302,6 @@ protected:
    */
   std::map<SymAddr,CondVar> cond_vars;
 
-  /* A Branch object is a pair of an IPid p and an alternative index
-   * (see Event::alt below) i. It will be tagged on an event in the
-   * execution to indicate that if instead of that event, p is allowed
-   * to execute (with alternative index i), then a different trace can
-   * be produced.
-   */
-  class Branch{
-  public:
-    Branch (IPid pid, int alt = 0, sym_ty sym = {})
-      : sym(std::move(sym)), pid(pid), alt(alt), size(1), pinned(false) {}
-    Branch (const Branch &base, sym_ty sym)
-      : sym(std::move(sym)), pid(base.pid), alt(base.alt), size(base.size), pinned(false) {}
-    /* Symbolic representation of the globally visible operation of this event.
-     */
-    sym_ty sym;
-    IPid pid;
-    /* Some instructions may execute in several alternative ways
-     * nondeterministically. (E.g. malloc may succeed or fail
-     * nondeterministically if Configuration::malloy_may_fail is set.)
-     * Branch::alt is the index of the alternative for the first event
-     * in this event sequence. The default execution alternative has
-     * index 0. All events in this sequence, except the first, are
-     * assumed to run their default execution alternative.
-     */
-    int alt;
-    /* The number of events in this sequence. */
-    int size;
-    /* If this event should have its read-from preserved. */
-    bool pinned;
-
-    bool operator<(const Branch &b) const{
-      return pid < b.pid || (pid == b.pid && alt < b.alt)
-         || (pid == b.pid && alt == b.alt && !pinned && b.pinned);
-    };
-    bool operator==(const Branch &b) const{
-      return pid == b.pid && alt == b.alt && pinned == b.pinned;
-    };
-  };
-
   struct Race {
   public:
     enum Kind {
@@ -365,9 +365,23 @@ protected:
    */
   class Event{
   public:
-    Event(const IID<IPid> &iid, sym_ty sym = {})
-      : iid(iid), origin_iid(iid), md(0), clock(), may_conflict(false),
-        sym(std::move(sym)), sleep_branch_trace_count(0) {};
+    Event(const IID<IPid> &iid, int alt = 0, sym_ty sym = {})
+      : alt(0), size(1), pinned(false),
+      iid(iid), origin_iid(iid), md(0), clock(), may_conflict(false),
+        sym(std::move(sym)), decision(-1), sleep_branch_trace_count(0) {};
+    /* Some instructions may execute in several alternative ways
+     * nondeterministically. (E.g. malloc may succeed or fail
+     * nondeterministically if Configuration::malloy_may_fail is set.)
+     * Branch::alt is the index of the alternative for the first event
+     * in this event sequence. The default execution alternative has
+     * index 0. All events in this sequence, except the first, are
+     * assumed to run their default execution alternative.
+     */
+    int alt;
+    /* The number of events in this sequence. */
+    int size;
+    /* If this event should have its read-from preserved. */
+    bool pinned;
     /* The identifier for the first event in this event sequence. */
     IID<IPid> iid;
     /* The IID of the program instruction which is the origin of this
@@ -392,6 +406,11 @@ protected:
      */
     bool may_conflict;
 
+    /* Index into decisions. */
+    int decision;
+    /* The unfolding event corresponding to this executed event. */
+    std::shared_ptr<UnfoldingNode> event;
+
     Option<int> read_from;
     /* Symbolic representation of the globally visible operation of this event.
      * Empty iff !may_conflict
@@ -411,7 +430,9 @@ protected:
    * execution, or the events executed followed by the subsequent
    * events that are determined in advance to be executed.
    */
-  WakeupTreeExplorationBuffer<Branch, Event> prefix;
+  std::vector<Event> prefix;
+
+  std::vector<DecisionNode> decisions;
 
   /* The index into prefix corresponding to the last event that was
    * scheduled. Has the value -1 when no events have been scheduled.
@@ -446,29 +467,14 @@ protected:
 
   Event &curev() {
     assert(0 <= prefix_idx);
-    assert(prefix_idx < int(prefix.len()));
+    assert(prefix_idx < int(prefix.size()));
     return prefix[prefix_idx];
   };
 
   const Event &curev() const {
     assert(0 <= prefix_idx);
-    assert(prefix_idx < int(prefix.len()));
+    assert(prefix_idx < int(prefix.size()));
     return prefix[prefix_idx];
-  };
-
-  const Branch &curbranch() const {
-    assert(0 <= prefix_idx);
-    assert(prefix_idx < int(prefix.len()));
-    return prefix.branch(prefix_idx);
-  };
-
-  /* Symbolic events in Branches in the wakeup tree do not record the
-   * data of memory accesses as these can change between executions.
-   * branch_with_symbolic_data(i) returns a Branch of the event i, but
-   * with data of memory accesses in the symbolic events.
-   */
-  Branch branch_with_symbolic_data(unsigned index) const {
-    return Branch(prefix.branch(index), prefix[index].sym);
   };
 
   /* Perform the logic of atomic_store(), aside from recording a
@@ -487,25 +493,13 @@ protected:
   /* Finds the index in prefix of the event of process pid that has iid-index
    * index.
    */
-  std::pair<bool,unsigned> try_find_process_event(IPid pid, int index) const;
+  Option<unsigned> try_find_process_event(IPid pid, int index) const;
   unsigned find_process_event(IPid pid, int index) const;
 
   /* Pretty-prints the iid of prefix[pos]. */
   std::string iid_string(std::size_t pos) const;
-  /* Pretty-prints the iid <branch.pid, index>. */
-  std::string iid_string(const Branch &branch, int index) const;
-  /* Pretty prints the wakeup tree subtree rooted at <branch,node>
-   * into the buffer lines starting at line line.
-   * iid_map needs to be an iid_map at <branch,node>. It is restored to
-   * the value it had when calling the function before returning.
-   */
-  void wut_string_add_node(std::vector<std::string> &lines,
-                           std::vector<int> &iid_map,
-                           unsigned line, Branch branch,
-                           WakeupTreeRef<Branch> node) const;
-#ifndef NDEBUG
-  void check_symev_vclock_equiv() const;
-#endif
+  /* Pretty-prints the iid of event. */
+  std::string iid_string(const Event &event) const;
   /* Adds a reversible co-enabled happens-before edge between the
    * current event and event.
    */
@@ -553,9 +547,9 @@ protected:
    */
   std::vector<int> iid_map_at(int event) const;
   /* Plays an iid_map forward by one event. */
-  void iid_map_step(std::vector<int> &iid_map, const Branch &event) const;
+  void iid_map_step(std::vector<int> &iid_map, const Event &event) const;
   /* Reverses an iid_map by one event. */
-  void iid_map_step_rev(std::vector<int> &iid_map, const Branch &event) const;
+  void iid_map_step_rev(std::vector<int> &iid_map, const Event &event) const;
   /* Add clocks and branches.
    *
    * All elements e in seen should either be indices into prefix, or
@@ -579,6 +573,12 @@ protected:
    * sequence from happens_after and race edges.
    */
   void compute_vclocks();
+  /* Assigns unfolding events to all executed steps. */
+  void compute_unfolding();
+  std::shared_ptr<UnfoldingNode> find_unfolding_node
+  (UnfoldingNodeChildren &parent_list,
+   const std::shared_ptr<UnfoldingNode> &parent,
+   std::shared_ptr<UnfoldingNode> read_from);
   /* Perform planning of future executions. Requires the trace to be
    * maximal or sleepset blocked, and that the vector clocks have been
    * computed.
@@ -587,33 +587,24 @@ protected:
   /* Records a symbolic representation of the current event.
    */
   void record_symbolic(SymEv event);
-  /* When planning a reversal with a compare-exchange, the symbolic event
-   * of the hoisted event must correctly indicate whether the
-   * compare-exchange will succeed or fail, otherwise sleep and
-   * wakeup-tree logic can break. This function updates all
-   * compare-exchange operations in one event es when preceeded by the
-   * events prefix[0..i] ++ v
-   */
-  void recompute_cmpxhg_success(sym_ty &es, const std::vector<Branch> &v, int i)
-    const;
-  /* Recompute the observation states on the symbolic events in v. */
-  void recompute_observed(std::vector<Branch> &v) const;
-  void try_sat(std::map<SymAddr,std::vector<int>> &);
+  Leaf try_sat(int, std::map<SymAddr,std::vector<int>> &);
   void output_formula(SatSolver &sat,
                       std::map<SymAddr,std::vector<int>> &,
                       const std::vector<bool> &);
-  std::vector<bool> causal_past() const;
+  std::vector<bool> causal_past(int decision) const;
   void causal_past_1(std::vector<bool> &acc, unsigned i) const;
   /* Returns true iff the thread pid has a pending store to some
    * memory location including the byte ml.
    */
   bool has_pending_store(IPid pid, SymAddr ml) const;
-  /* Helper for check_for_cycles. */
-  bool has_cycle(IID<IPid> *loc) const;
   /* Estimate the total number of traces that have the same prefix as
    * the current one, up to the first idx events.
    */
   int estimate_trace_count(int idx) const;
+
+  bool is_load(unsigned idx) const;
+  bool is_store(unsigned idx) const;
+  SymAddrSize get_addr(unsigned idx) const;
 };
 
 #endif
