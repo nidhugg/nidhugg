@@ -1150,7 +1150,7 @@ void WSCTraceBuilder::compute_unfolding() {
     IPid p = iid.get_pid();
     if (iid.get_index() == 1) {
       parent = &null_ptr;
-      parent_list = &threads[p].first_events;
+      parent_list = &first_events[threads[p].cpid];
     } else {
       int par_idx = find_process_event(p, iid.get_index()-1);
       parent = &prefix[par_idx].event;
@@ -1194,7 +1194,10 @@ find_unfolding_node(UnfoldingNodeChildren &parent_list,
   }
 
   /* Did not exist, create it. */
-  return std::make_shared<UnfoldingNode>(parent, std::move(read_from));
+  std::shared_ptr<UnfoldingNode> c =
+    std::make_shared<UnfoldingNode>(parent, std::move(read_from));
+  parent_list.emplace_back(c);
+  return c;
 }
 
 void WSCTraceBuilder::record_symbolic(SymEv event){

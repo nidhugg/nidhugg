@@ -169,7 +169,7 @@ protected:
   class Thread{
   public:
     Thread(const CPid &cpid, int spawn_event)
-      : cpid(cpid), available(true), spawn_event(spawn_event), first_events() {};
+      : cpid(cpid), available(true), spawn_event(spawn_event) {};
     CPid cpid;
     /* Is the thread available for scheduling? */
     bool available;
@@ -187,13 +187,14 @@ protected:
      */
     std::vector<PendingStore> store_buffer;
 
-    UnfoldingNodeChildren first_events;
-
     /* The iid-index of the last event of this thread, or 0 if it has not
      * executed any events yet.
      */
     int last_event_index() const { return event_indices.size(); }
   };
+
+  std::map<CPid,UnfoldingNodeChildren> first_events;
+
   /* The threads in the current execution, in the order they were
    * created. Threads on even indexes are real, threads on odd indexes
    * i are the auxiliary threads corresponding to the real threads at
