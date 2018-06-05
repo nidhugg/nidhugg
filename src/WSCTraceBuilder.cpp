@@ -1157,7 +1157,7 @@ void WSCTraceBuilder::compute_unfolding() {
       parent_list = &(*parent)->children;
     }
     std::shared_ptr<UnfoldingNode> read_from;
-    if (prefix[i].read_from) {
+    if (prefix[i].read_from && *prefix[i].read_from != -1) {
       read_from = prefix[*prefix[i].read_from].event;
     }
 
