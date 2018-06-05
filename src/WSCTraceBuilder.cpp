@@ -1144,10 +1144,12 @@ void WSCTraceBuilder::compute_vclocks(){
 void WSCTraceBuilder::compute_unfolding() {
   for (unsigned i = 0; i < prefix.size(); ++i) {
     UnfoldingNodeChildren *parent_list;
+    const std::shared_ptr<UnfoldingNode> null_ptr;
     const std::shared_ptr<UnfoldingNode> *parent;
     IID<IPid> iid = prefix[i].iid;
     IPid p = iid.get_pid();
     if (iid.get_index() == 1) {
+      parent = &null_ptr;
       parent_list = &threads[p].first_events;
     } else {
       int par_idx = find_process_event(p, iid.get_index()-1);
