@@ -49,6 +49,7 @@ public:
   virtual IID<CPid> get_iid() const;
 
   virtual void debug_print() const ;
+  virtual bool cond_branch(bool cnd) { return true; }
 
   virtual void spawn();
   virtual void store(const SymData &ml);
