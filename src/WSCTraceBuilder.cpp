@@ -1307,7 +1307,8 @@ void WSCTraceBuilder::compute_prefixes() {
 
       auto try_read_from = [&](int j) {
         if (j == original_read_from) return;
-        const std::shared_ptr<UnfoldingNode> &read_from = prefix[i].event;
+        const std::shared_ptr<UnfoldingNode> &read_from =
+          j == -1 ? nullptr : prefix[j].event;
         if (decision.siblings.count(read_from)) return;
         if (!can_rf_by_vclocks(i, original_read_from, j)) {
           decision.siblings.emplace(read_from, Leaf());
