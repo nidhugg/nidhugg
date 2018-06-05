@@ -228,7 +228,7 @@ bool WSCTraceBuilder::reset(){
   }
 
   for(; !decisions.empty(); decisions.pop_back()) {
-    auto siblings = decisions.back().siblings;
+    auto &siblings = decisions.back().siblings;
     for (auto it = siblings.begin(); it != siblings.end();) {
       if (it->second.is_bottom()) {
         it = siblings.erase(it);
