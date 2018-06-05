@@ -143,9 +143,13 @@ protected:
 
   struct Branch {
   public:
-    Branch(int pid, int size) : pid(pid), size(size) {}
-    Branch() : Branch(-1, 0) {}
-    int pid, size;
+    Branch(int pid, int size, int decision, bool pinned, sym_ty sym)
+      : pid(pid), size(size), decision(decision), pinned(pinned),
+        sym(std::move(sym)) {}
+    Branch() : Branch(-1, 0, -1, false, {}) {}
+    int pid, size, decision;
+    bool pinned;
+    sym_ty sym;
   };
 
   struct Leaf {

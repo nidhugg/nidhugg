@@ -255,18 +255,14 @@ bool WSCTraceBuilder::reset(){
   std::vector<Event> new_prefix;
   new_prefix.reserve(l.prefix.size());
   std::vector<int> iid_map = iid_map_at(0);
-  for (const Branch &b : l.prefix) {
+  for (Branch &b : l.prefix) {
     int index = iid_map[b.pid];
     IID<IPid> iid(b.pid, index);
     new_prefix.emplace_back(iid);
     new_prefix.back().size = b.size;
-    if (Option<unsigned> i = find_process_event(b.pid, index)) {
-      if (prefix[*i].decision < int(decisions.size())) {
-        new_prefix.back().decision = prefix[*i].decision;
-        new_prefix.back().pinned = prefix[*i].pinned
-          || new_prefix.back().decision == int(decisions.size())-1;
-      }
-    }
+    new_prefix.back().sym = std::move(b.sym);
+    new_prefix.back().pinned = b.pinned;
+    new_prefix.back().decision = b.decision;
     iid_map_step(iid_map, new_prefix.back());
   }
 
@@ -1471,7 +1467,13 @@ WSCTraceBuilder::try_sat
   for (unsigned i = 0, var = 0; i < prefix.size(); ++i) {
     if (keep[i]) {
       unsigned pos = model[var++];
-      new_prefix[pos] = Branch(prefix[i].iid.get_pid(), prefix[i].size);
+      bool is_the_changed_read = prefix[i].decision == decision;
+      int new_decision = std::min(prefix[i].decision, decision);
+      new_prefix[pos] = Branch(prefix[i].iid.get_pid(),
+                               is_the_changed_read ? 1 : prefix[i].size,
+                               new_decision,
+                               prefix[i].pinned || new_decision == decision,
+                               prefix[i].sym);
     }
   }
 
@@ -1481,7 +1483,8 @@ WSCTraceBuilder::try_sat
 std::vector<bool> WSCTraceBuilder::causal_past(int decision) const {
   std::vector<bool> acc(prefix.size());
   for (unsigned i = 0; i < prefix.size(); ++i) {
-    if (prefix[i].pinned || prefix[i].decision <= decision) {
+    assert(is_load(i) == (prefix[i].decision != -1));
+    if (prefix[i].decision != -1 && prefix[i].decision <= decision) {
       causal_past_1(acc, i);
     }
   };
