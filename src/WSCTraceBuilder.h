@@ -590,6 +590,10 @@ protected:
    * computed.
    */
   void compute_prefixes();
+  /* Check whether a read-from might be satisfiable according to the
+   * vector clocks.
+   */
+  bool can_rf_by_vclocks(int r, int ow, int w) const;
   /* Records a symbolic representation of the current event.
    */
   void record_symbolic(SymEv event);

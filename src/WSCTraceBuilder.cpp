@@ -1042,18 +1042,6 @@ void WSCTraceBuilder::compute_vclocks(){
     }
   }
 
-  /* Move LockFail races into the right event */
-  std::vector<Race> final_lock_fail_races;
-  for (Race &r : lock_fail_races){
-    if (r.second_event < int(prefix.size())) {
-      prefix[r.second_event].races.emplace_back(std::move(r));
-    } else {
-      assert(r.second_event == int(prefix.size()));
-      final_lock_fail_races.emplace_back(std::move(r));
-    }
-  }
-  lock_fail_races = std::move(final_lock_fail_races);
-
   for (unsigned i = 0; i < prefix.size(); i++){
     IPid ipid = prefix[i].iid.get_pid();
     if (prefix[i].iid.get_index() > 1) {
@@ -1070,70 +1058,10 @@ void WSCTraceBuilder::compute_vclocks(){
       prefix[i].clock += prefix[j].clock;
     }
 
-    /* Now we want add the possibly reversible edges, but first we must
-     * check for reversibility, since this information is lost (more
-     * accurately less easy to compute) once we add them to the clock.
-     */
-    std::vector<Race> &races = prefix[i].races;
-
-    /* First move all races that are not pairs (and thus cannot be
-     * subsumed by other events) to the front.
-     */
-    auto first_pair = partition(races.begin(), races.end(),
-                                [](const Race &r){
-                                  return r.kind == Race::NONDET;
-                                });
-
-    auto end = races.end();
-    bool changed;
-    do {
-      auto oldend = end;
-      changed = false;
-      end = partition
-        (first_pair, end,
-         [this,i](const Race &r){
-          return !prefix[r.first_event].clock.leq(prefix[i].clock);
-         });
-      for (auto it = end; it != oldend; ++it){
-        if (it->kind == Race::LOCK_SUC){
-          prefix[i].clock += prefix[it->unlock_event].clock;
-          changed = true;
-        }
-      }
-    } while (changed);
-    /* Then filter out subsumed */
-    auto fill = frontier_filter
-      (first_pair, end,
-       [this](const Race &f, const Race &s){
-        /* A virtual event does not contribute to the vclock and cannot
-         * subsume races. */
-        if (s.kind == Race::LOCK_FAIL) return false;
-        /* Also filter out observed races with nonfirst witness */
-        if (f.kind == Race::OBSERVED && s.kind == Race::OBSERVED
-            && f.first_event == s.first_event
-            && f.second_event == s.second_event){
-          /* N.B. We want the _first_ observer as the witness; thus
-           * the reversal of f and s.
-           */
-          return s.witness_event <= f.witness_event;
-        }
-        int se = s.kind == Race::LOCK_SUC ? s.unlock_event : s.first_event;
-        return prefix[f.first_event].clock.leq(prefix[se].clock);
-       });
-    /* Add clocks of remaining (reversible) races */
-    for (auto it = first_pair; it != fill; ++it){
-      if (it->kind == Race::LOCK_SUC){
-        assert(prefix[it->first_event].clock.leq
-               (prefix[it->unlock_event].clock));
-        prefix[i].clock += prefix[it->unlock_event].clock;
-      }else if (it->kind != Race::LOCK_FAIL){
-        prefix[i].clock += prefix[it->first_event].clock;
-      }
+    /* Then add read-from */
+    if (prefix[i].read_from && *prefix[i].read_from != -1) {
+      prefix[i].clock += prefix[*prefix[i].read_from].clock;
     }
-
-    /* Now delete the subsumed races. We delayed doing this to avoid
-     * iterator invalidation. */
-    races.resize(fill - races.begin(), races[0]);
   }
 }
 
@@ -1326,6 +1254,24 @@ bool WSCTraceBuilder::is_observed_conflict
   return thd.kind == SymEv::LOAD && thd.addr().overlaps(snd.addr());
 }
 
+bool WSCTraceBuilder::can_rf_by_vclocks(int r, int ow, int w) const {
+  /* Is the write after the read? */
+  if (w != -1 && prefix[r].clock.leq(prefix[w].clock)) return false;
+  /* Is the original write always before the read, and the new write
+   * before the original?
+   */
+  if (prefix[r].iid.get_index() != 1 && ow != -1) {
+    unsigned r_po_pred = find_process_event(prefix[r].iid.get_pid(),
+                                            prefix[r].iid.get_index()-1);
+    if (prefix[ow].clock.leq(prefix[r_po_pred].clock)
+        && (w == -1 || prefix[w].clock.leq(prefix[ow].clock))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 void WSCTraceBuilder::compute_prefixes() {
   compute_vclocks();
 
@@ -1363,6 +1309,11 @@ void WSCTraceBuilder::compute_prefixes() {
         if (j == original_read_from) return;
         const std::shared_ptr<UnfoldingNode> &read_from = prefix[i].event;
         if (decision.siblings.count(read_from)) return;
+        if (!can_rf_by_vclocks(i, original_read_from, j)) {
+          decision.siblings.emplace(read_from, Leaf());
+          return;
+        }
+
         prefix[i].read_from = j;
         std::cerr << "Trying to make " << pretty_index(i)
                   << " read from " << pretty_index(j)
