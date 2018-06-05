@@ -55,7 +55,14 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       *proc = pid/2;
       *aux = pid % 2 - 1;
       *alt = 0;
-      assert(threads[pid].available);
+      if(!(threads[pid].available)) {
+
+        std::cerr << "Trying to play process " << threads[pid].cpid << ", but it is blocked\n";
+        std::cerr << "At replay step " << prefix_idx << ", iid "
+                  << iid_string(IID<IPid>(pid, threads[curev().iid.get_pid()].last_event_index()))
+                  << "\n";
+        abort();
+      }
       threads[pid].event_indices.push_back(prefix_idx);
       return true;
     } else if(prefix_idx + 1 == int(prefix.size())) {
@@ -248,7 +255,13 @@ bool WSCTraceBuilder::reset(){
 
   auto sit = decisions.back().siblings.begin();
   Leaf l = std::move(sit->second);
+
+  std::cerr << "Backtracking to decision node " << (decisions.size()-1)
+            << ", replaying " << l.prefix.size() << " events to read from "
+            << (sit->first ? std::to_string(sit->first->seqno) : "init") << std::endl;
   decisions.back().siblings.erase(sit);
+
+  assert(!l.is_bottom());
 
   replay_point = l.prefix.size();
 
@@ -265,6 +278,13 @@ bool WSCTraceBuilder::reset(){
     new_prefix.back().decision = b.decision;
     iid_map_step(iid_map, new_prefix.back());
   }
+
+#ifndef NDEBUG
+  for (int d = 0; d < int(decisions.size()); ++d) {
+    assert(std::any_of(new_prefix.begin(), new_prefix.end(),
+                       [&](const Event &e) { return e.decision == d; }));
+  }
+#endif
 
   prefix = std::move(new_prefix);
 
@@ -338,23 +358,33 @@ static std::string events_to_string(const llvm::SmallVectorImpl<SymEv> &e) {
 #endif /* !defined(NDEBUG) */
 
 void WSCTraceBuilder::debug_print() const {
-  llvm::dbgs() << "WSCTraceBuilder (debug print):\n";
+  llvm::dbgs() << "WSCTraceBuilder (debug print, replay until " << replay_point << "):\n";
+  int idx_offs = 0;
   int iid_offs = 0;
+  int dec_offs = 0;
+  int unf_offs = 0;
   int clock_offs = 0;
   std::vector<std::string> lines(prefix.size(), "");
 
   for(unsigned i = 0; i < prefix.size(); ++i){
     IPid ipid = prefix[i].iid.get_pid();
+    idx_offs = std::max(idx_offs,int(std::to_string(i).size()));
     iid_offs = std::max(iid_offs,2*ipid+int(iid_string(i).size()));
+    dec_offs = std::max(dec_offs,int(std::to_string(prefix[i].decision).size()));
+    unf_offs = std::max(unf_offs,int(std::to_string(prefix[i].event->seqno).size()));
     clock_offs = std::max(clock_offs,int(prefix[i].clock.to_string().size()));
+    lines[i] = events_to_string(prefix[i].sym);
   }
 
   for(unsigned i = 0; i < prefix.size(); ++i){
     IPid ipid = prefix[i].iid.get_pid();
-    llvm::dbgs() << rpad("",2+ipid*2)
+    llvm::dbgs() << " " << rpad(std::to_string(i),idx_offs)
+                 << rpad("",1+ipid*2)
                  << rpad(iid_string(i),iid_offs-ipid*2)
+                 << " " << rpad(std::to_string(prefix[i].decision),dec_offs)
+                 << " " << rpad(std::to_string(prefix[i].event->seqno),unf_offs)
                  << " " << rpad(prefix[i].clock.to_string(),clock_offs)
-                 << lines[i] << "\n";
+                 << " " << lines[i] << "\n";
   }
   for (unsigned i = prefix.size(); i < lines.size(); ++i){
     llvm::dbgs() << std::string(2+iid_offs + 1+clock_offs, ' ') << lines[i] << "\n";
@@ -1281,7 +1311,9 @@ void WSCTraceBuilder::compute_prefixes() {
 
   auto pretty_index = [&] (int i) -> std::string {
     if (i==-1) return "init event";
-    return  iid_string(i) + events_to_string(prefix[i].sym);
+    return std::to_string(prefix[i].decision) + "("
+      + std::to_string(prefix[i].event->seqno) + "):"
+      + iid_string(i) + events_to_string(prefix[i].sym);
   }; 
 
   std::map<SymAddr,std::vector<int>> writes_by_address;

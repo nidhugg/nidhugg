@@ -31,6 +31,8 @@
 
 typedef llvm::SmallVector<SymEv,1> sym_ty;
 
+static unsigned unf_ctr = 0;
+
 class WSCTraceBuilder : public TSOPSOTraceBuilder{
 public:
   WSCTraceBuilder(const Configuration &conf = Configuration::default_conf);
@@ -136,9 +138,11 @@ protected:
   public:
     UnfoldingNode(std::shared_ptr<UnfoldingNode> parent,
                   std::shared_ptr<UnfoldingNode> read_from)
-      : parent(std::move(parent)), read_from(std::move(read_from)) {};
+      : parent(std::move(parent)), read_from(std::move(read_from)),
+        seqno(++unf_ctr) {};
     std::shared_ptr<UnfoldingNode> parent, read_from;
     UnfoldingNodeChildren children;
+    unsigned seqno;
   };
 
   struct Branch {
