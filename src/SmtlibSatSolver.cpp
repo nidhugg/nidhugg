@@ -206,12 +206,22 @@ std::vector<unsigned> SmtlibSatSolver::get_model() {
     const auto &l2 = e.list().elems;
     assert(l2.size() == 2);
     if (cl_bv) {
-      assert(l2[1].kind() == SExpr::TOKEN);
-      const std::string &t = l2[1].token().name;
-      assert(t.size() > 2 && t[0] == '#' && t[1] == 'x');
-      char *end;
-      res[i] = std::strtol(t.c_str()+2, &end, 16);
-      assert((end - t.c_str()) == long(t.size()));
+      if(l2[1].kind() == SExpr::TOKEN) {
+        const std::string &t = l2[1].token().name;
+        assert(t.size() > 2 && t[0] == '#' && t[1] == 'x');
+        char *end;
+        res[i] = std::strtol(t.c_str()+2, &end, 16);
+        assert((end - t.c_str()) == long(t.size()));
+      } else {
+        assert(l2[1].kind() == SExpr::LIST);
+        const auto &l3 = l2[1].list().elems;
+        assert(l3.size() == 3 && l3[1].kind() == SExpr::TOKEN);
+        const std::string &t = l3[1].token().name;
+        assert(t.size() > 2 && t[0] == 'b' && t[1] == 'v');
+        char *end;
+        res[i] = std::strtol(t.c_str()+2, &end, 10);
+        assert((end - t.c_str()) == long(t.size()));
+      }
   } else {
       assert(l2[1].kind() == SExpr::INT);
       res[i] = l2[1].num().value;
