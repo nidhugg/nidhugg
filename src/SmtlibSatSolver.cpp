@@ -32,11 +32,16 @@ cl_cmd("smtlib-cmd",llvm::cl::NotHidden,
        llvm::cl::init("z3 -in"),
        llvm::cl::desc("The SMTLib-compatible solver command."));
 
+static llvm::cl::opt<bool>
+cl_lia("smtlib-lia",llvm::cl::NotHidden,
+       llvm::cl::desc("Use logic QF_LIA rather than QF_IDL."));
+
 SmtlibSatSolver::SmtlibSatSolver()
   : out(), in(),
     z3(std::string(cl_cmd), boost::process::std_out > out, boost::process::std_in < in) {
   in << "(set-option :produce-models true)\n";
   if (cl_bv) in << "(set-logic QF_BV)\n";
+  else if (cl_lia) in << "(set-logic QF_LIA)\n";
   else in << "(set-logic QF_IDL)\n";
 }
 
