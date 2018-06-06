@@ -19,13 +19,17 @@
 
 #include "SmtlibSatSolver.h"
 
-#include <regex>
+#include <llvm/Support/CommandLine.h>
+#include <boost/variant.hpp>
+
+static llvm::cl::opt<std::string> cl_cmd("smtlib-cmd",llvm::cl::NotHidden,
+                                         llvm::cl::init("z3 -in"),
+                                         llvm::cl::desc("The SMTLib-compatible solver command."));
 
 SmtlibSatSolver::SmtlibSatSolver()
   : out(), in(),
-    z3("z3", "-in",
-       boost::process::std_out > out, boost::process::std_in < in,
-       boost::process::shell) {
+    z3(std::string(cl_cmd), boost::process::std_out > out, boost::process::std_in < in) {
+  in << "(set-option :produce-models true)\n";
   in << "(set-logic QF_IDL)\n";
 }
 
@@ -39,7 +43,7 @@ void SmtlibSatSolver::reset() {
 void SmtlibSatSolver::alloc_variables(unsigned count) {
   no_vars = count;
   for (unsigned i = 0; i < no_vars; ++i) {
-    in << "(declare-const e" << i << " Int)\n";
+    in << "(declare-fun e" << i << " () Int)\n";
     in << "(assert (>= e" << i << " 0))\n";
     in << "(assert (< e" << i << " " << no_vars << "))\n";
   }
@@ -71,6 +75,84 @@ bool SmtlibSatSolver::check_sat() {
   return true;
 }
 
+class SExpr final {
+public:
+    SExpr() : SExpr(List{{}}) {}
+    SExpr(int i) : SExpr(Int{i}) {}
+    SExpr(const char *s) : SExpr(Token{s}) {}
+    SExpr(std::string s) : SExpr(Token{std::move(s)}) {}
+    SExpr(std::vector<SExpr> l) : SExpr(List{std::move(l)}) {}
+    SExpr(std::initializer_list<SExpr> l) : SExpr(List{std::move(l)}) {}
+
+    enum Kind : int {
+        TOKEN,
+        INT,
+        LIST,
+    };
+
+    class Token {
+    public:
+        std::string name;
+    };
+
+    class Int {
+    public:
+        int value;
+    };
+
+    class List {
+    public:
+        std::vector<SExpr> elems;
+    };
+
+    Kind kind() const { return Kind(variant.which()); };
+    const Token &token() const { return boost::get<Token>(variant); }
+    const Int &num() const { return boost::get<Int>(variant); }
+    const List &list() const { return boost::get<List>(variant); }
+
+private:
+    typedef boost::variant<Token,Int,List> vartype;
+    SExpr(vartype variant) : variant(std::move(variant)) {}
+
+    vartype variant;
+};
+
+typedef std::logic_error parse_error;
+
+static bool endoftok(int c) {
+    return c == EOF || std::isspace(c) || c == ')' || c == '(';
+}
+
+std::istream &operator>>(std::istream &is, SExpr &sexp) {
+    std::ws(is);
+    int c = is.get();
+    assert(!(std::isspace(c)));
+    if (c == EOF) throw parse_error("Got EOF");
+    if (c == ')') throw parse_error("Unmatched closing paren");
+    if (c == '(') {
+        std::vector<SExpr> elems;
+        while (std::ws(is).peek() != ')') {
+            elems.emplace_back();
+            is >> elems.back();
+        }
+        c = is.get();
+        assert(c == ')');
+        sexp = SExpr(std::move(elems));
+    } else {
+        std::string str;
+        for(;!endoftok(c); c = is.get()) str.push_back(c);
+        is.putback(c);
+        char *end;
+        int num = std::strtol(str.c_str(), &end, 10);
+        if ((end - str.c_str()) != long(str.size())) {
+            sexp = SExpr(str);
+        } else {
+            sexp = SExpr(num);
+        }
+    }
+    return is;
+}
+
 std::vector<unsigned> SmtlibSatSolver::get_model() {
   std::vector<unsigned> res;
   res.reserve(no_vars);
@@ -81,16 +163,18 @@ std::vector<unsigned> SmtlibSatSolver::get_model() {
   }
   in << "))" << std::endl;
 
-  std::regex sexprr(R"([ (]\(e\d+ (\d+)\)+)");
+  SExpr sx;
+  out >> sx;
+  assert(sx.kind() == SExpr::LIST);
+  const auto &l = sx.list().elems;
+
   for (unsigned i = 0; i < no_vars; ++i) {
-    assert(out);
-    std::string line;
-    std::getline(out, line);
-    assert(!line.empty());
-    std::smatch sm;
-    bool matched = std::regex_match(line,sm,sexprr);
-    assert(matched);
-    res[i] = std::stoi(sm[1].str());
+    const SExpr &e = l[i];
+    assert(e.kind() == SExpr::LIST);
+    const auto &l2 = e.list().elems;
+    assert(l2.size() == 2);
+    assert(l2[1].kind() == SExpr::INT);
+    res[i] = l2[1].num().value;
   }
 
   return res;
