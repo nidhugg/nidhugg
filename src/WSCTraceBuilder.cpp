@@ -316,6 +316,10 @@ static std::string rpad(std::string s, int n){
   return s;
 }
 
+static std::string lpad(const std::string &s, int n){
+  return std::string(std::max(0, n - int(s.size())), ' ') + s;
+}
+
 std::string WSCTraceBuilder::iid_string(std::size_t pos) const{
   return iid_string(prefix[pos]);
 }
@@ -345,7 +349,6 @@ str_join(const std::vector<std::string> &vec, const std::string &sep) {
   return res;
 }
 
-#ifndef NDEBUG
 static std::string events_to_string(const llvm::SmallVectorImpl<SymEv> &e) {
   if (e.size() == 0) return "None()";
   std::string res;
@@ -355,7 +358,6 @@ static std::string events_to_string(const llvm::SmallVectorImpl<SymEv> &e) {
   }
   return res;
 }
-#endif /* !defined(NDEBUG) */
 
 void WSCTraceBuilder::debug_print() const {
   llvm::dbgs() << "WSCTraceBuilder (debug print, replay until " << replay_point << "):\n";
@@ -370,7 +372,8 @@ void WSCTraceBuilder::debug_print() const {
     IPid ipid = prefix[i].iid.get_pid();
     idx_offs = std::max(idx_offs,int(std::to_string(i).size()));
     iid_offs = std::max(iid_offs,2*ipid+int(iid_string(i).size()));
-    dec_offs = std::max(dec_offs,int(std::to_string(prefix[i].decision).size()));
+    dec_offs = std::max(dec_offs,int(std::to_string(prefix[i].decision).size())
+                        + (prefix[i].pinned ? 1 : 0));
     unf_offs = std::max(unf_offs,int(std::to_string(prefix[i].event->seqno).size()));
     clock_offs = std::max(clock_offs,int(prefix[i].clock.to_string().size()));
     lines[i] = events_to_string(prefix[i].sym);
@@ -378,11 +381,12 @@ void WSCTraceBuilder::debug_print() const {
 
   for(unsigned i = 0; i < prefix.size(); ++i){
     IPid ipid = prefix[i].iid.get_pid();
-    llvm::dbgs() << " " << rpad(std::to_string(i),idx_offs)
+    llvm::dbgs() << " " << lpad(std::to_string(i),idx_offs)
                  << rpad("",1+ipid*2)
                  << rpad(iid_string(i),iid_offs-ipid*2)
-                 << " " << rpad(std::to_string(prefix[i].decision),dec_offs)
-                 << " " << rpad(std::to_string(prefix[i].event->seqno),unf_offs)
+                 << " " << lpad((prefix[i].pinned ? "*" : "")
+                                + std::to_string(prefix[i].decision),dec_offs)
+                 << " " << lpad(std::to_string(prefix[i].event->seqno),unf_offs)
                  << " " << rpad(prefix[i].clock.to_string(),clock_offs)
                  << " " << lines[i] << "\n";
   }
