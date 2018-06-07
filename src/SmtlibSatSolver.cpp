@@ -213,9 +213,13 @@ std::vector<unsigned> SmtlibSatSolver::get_model() {
     if (cl_bv) {
       if(l2[1].kind() == SExpr::TOKEN) {
         const std::string &t = l2[1].token().name;
-        assert(t.size() > 2 && t[0] == '#' && t[1] == 'x');
+        assert(t.size() > 2 && t[0] == '#');
+        int base;
+        if (t[1] == 'x') base = 16;
+        else if (t[1] == 'b') base = 2;
+        else abort();
         char *end;
-        res[i] = std::strtol(t.c_str()+2, &end, 16);
+        res[i] = std::strtol(t.c_str()+2, &end, base);
         assert((end - t.c_str()) == long(t.size()));
       } else {
         assert(l2[1].kind() == SExpr::LIST);
