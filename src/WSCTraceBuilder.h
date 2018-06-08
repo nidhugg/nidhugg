@@ -28,6 +28,7 @@
 #include "Option.h"
 
 #include <unordered_map>
+#include <unordered_set>
 
 typedef llvm::SmallVector<SymEv,1> sym_ty;
 
@@ -171,6 +172,7 @@ protected:
   public:
     DecisionNode() : siblings() {}
     std::unordered_map<std::shared_ptr<UnfoldingNode>, Leaf> siblings;
+    std::unordered_set<std::shared_ptr<UnfoldingNode>> sleep;
   };
 
   /* Various information about a thread in the current execution.

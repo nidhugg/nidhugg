@@ -238,6 +238,7 @@ bool WSCTraceBuilder::reset(){
     auto &siblings = decisions.back().siblings;
     for (auto it = siblings.begin(); it != siblings.end();) {
       if (it->second.is_bottom()) {
+        decisions.back().sleep.emplace(std::move(it->first));
         it = siblings.erase(it);
       } else {
         ++it;
@@ -253,6 +254,15 @@ bool WSCTraceBuilder::reset(){
     return false;
   }
 
+  /* Insert current event in sleep */
+  for (unsigned i = 0;; ++i) {
+    if (prefix[i].decision == int(decisions.size()-1)
+        && !prefix[i].pinned) {
+      decisions.back().sleep.emplace(prefix[i].event->read_from);
+      break;
+    }
+    assert(i < prefix.size());
+  }
   auto sit = decisions.back().siblings.begin();
   Leaf l = std::move(sit->second);
 
@@ -1350,6 +1360,7 @@ void WSCTraceBuilder::compute_prefixes() {
         const std::shared_ptr<UnfoldingNode> &read_from =
           j == -1 ? nullptr : prefix[j].event;
         if (decision.siblings.count(read_from)) return;
+        if (decision.sleep.count(read_from)) return;
         if (!can_rf_by_vclocks(i, original_read_from, j)) {
           decision.siblings.emplace(read_from, Leaf());
           return;
@@ -1459,12 +1470,13 @@ WSCTraceBuilder::try_sat
   for (unsigned i = 0, var = 0; i < prefix.size(); ++i) {
     if (keep[i]) {
       unsigned pos = model[var++];
-      bool is_the_changed_read = prefix[i].decision == decision;
+      bool is_the_changed_read = prefix[i].decision == decision
+        && !prefix[i].pinned;
       int new_decision = std::min(prefix[i].decision, decision);
       new_prefix[pos] = Branch(prefix[i].iid.get_pid(),
                                is_the_changed_read ? 1 : prefix[i].size,
                                new_decision,
-                               prefix[i].pinned || new_decision == decision,
+                               prefix[i].pinned || (prefix[i].decision > decision),
                                prefix[i].sym);
     }
   }
