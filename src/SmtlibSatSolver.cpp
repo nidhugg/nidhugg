@@ -18,6 +18,7 @@
  */
 
 #include "SmtlibSatSolver.h"
+#include "SExpr.h"
 
 #include <llvm/Support/CommandLine.h>
 #include <boost/variant.hpp>
@@ -111,84 +112,6 @@ bool SmtlibSatSolver::check_sat() {
   if (res == "unsat") return false;
   assert(res == "sat");
   return true;
-}
-
-class SExpr final {
-public:
-    SExpr() : SExpr(List{{}}) {}
-    SExpr(int i) : SExpr(Int{i}) {}
-    SExpr(const char *s) : SExpr(Token{s}) {}
-    SExpr(std::string s) : SExpr(Token{std::move(s)}) {}
-    SExpr(std::vector<SExpr> l) : SExpr(List{std::move(l)}) {}
-    SExpr(std::initializer_list<SExpr> l) : SExpr(List{std::move(l)}) {}
-
-    enum Kind : int {
-        TOKEN,
-        INT,
-        LIST,
-    };
-
-    class Token {
-    public:
-        std::string name;
-    };
-
-    class Int {
-    public:
-        int value;
-    };
-
-    class List {
-    public:
-        std::vector<SExpr> elems;
-    };
-
-    Kind kind() const { return Kind(variant.which()); };
-    const Token &token() const { return boost::get<Token>(variant); }
-    const Int &num() const { return boost::get<Int>(variant); }
-    const List &list() const { return boost::get<List>(variant); }
-
-private:
-    typedef boost::variant<Token,Int,List> vartype;
-    SExpr(vartype variant) : variant(std::move(variant)) {}
-
-    vartype variant;
-};
-
-typedef std::logic_error parse_error;
-
-static bool endoftok(int c) {
-    return c == EOF || std::isspace(c) || c == ')' || c == '(';
-}
-
-std::istream &operator>>(std::istream &is, SExpr &sexp) {
-    std::ws(is);
-    int c = is.get();
-    assert(!(std::isspace(c)));
-    if (c == EOF) throw parse_error("Got EOF");
-    if (c == ')') throw parse_error("Unmatched closing paren");
-    if (c == '(') {
-        std::vector<SExpr> elems;
-        while (std::ws(is).peek() != ')') {
-            elems.emplace_back();
-            is >> elems.back();
-        }
-        c = is.get();
-        assert(c == ')');
-        sexp = SExpr(std::move(elems));
-    } else {
-        std::string str;
-        for(;!endoftok(c); c = is.get()) str.push_back(c);
-        is.putback(c);
-        char *end;
-        int num = std::strtol(str.c_str(), &end, 10);
-        if ((end - str.c_str()) != long(str.size())) {
-            sexp = SExpr(str);
-        } else {
-            sexp = SExpr(num);
-        }
-    }
-    return is;
 }
 
 std::vector<unsigned> SmtlibSatSolver::get_model() {

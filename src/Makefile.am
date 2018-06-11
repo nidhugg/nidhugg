@@ -27,6 +27,7 @@ libnidhugg_a_SOURCES = \
   PSOTraceBuilder.cpp PSOTraceBuilder.h \
   SigSegvHandler.cpp SigSegvHandler.h \
   SatSolver.h \
+  SExpr.h SExpr.cpp \
   SmtlibSatSolver.h SmtlibSatSolver.cpp \
   SpinAssumePass.cpp SpinAssumePass.h \
   StrModule.cpp StrModule.h \
