@@ -25,6 +25,7 @@ libnidhugg_a_SOURCES = \
   POWERARMTraceBuilder.cpp POWERARMTraceBuilder.tcc POWERARMTraceBuilder.h POWERARMTraceBuilder_decl.h \
   PSOInterpreter.cpp PSOInterpreter.h \
   PSOTraceBuilder.cpp PSOTraceBuilder.h \
+  SaturatedGraph.h \
   SigSegvHandler.cpp SigSegvHandler.h \
   SatSolver.h \
   SExpr.h SExpr.cpp \
