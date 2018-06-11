@@ -73,8 +73,9 @@ void SmtlibSatSolver::alloc_variables(unsigned count) {
   for (unsigned i = 0; i < no_vars; ++i) {
     if (cl_bv) {
       in << "(declare-fun e" << i << " () (_ BitVec " << (hexdigs*4) << "))\n";
-      in << "(assert (bvult e" << i << " #x"
-         << std::setfill('0') << std::setw(hexdigs) << std::hex << no_vars << std::dec << "))\n";
+      if (count != (1u << (hexdigs*4)))
+        in << "(assert (bvult e" << i << " #x"
+           << std::setfill('0') << std::setw(hexdigs) << std::hex << no_vars << std::dec << "))\n";
     } else {
       in << "(declare-fun e" << i << " () Int)\n";
       in << "(assert (>= e" << i << " 0))\n";
@@ -209,7 +210,8 @@ std::vector<unsigned> SmtlibSatSolver::get_model() {
     const SExpr &e = l[i];
     assert(e.kind() == SExpr::LIST);
     const auto &l2 = e.list().elems;
-    assert(l2.size() == 2);
+    assert(l2.size() == 2 && l2[0].kind() == SExpr::TOKEN
+           && l2[0].token().name == ("e" + std::to_string(i)));
     if (cl_bv) {
       if(l2[1].kind() == SExpr::TOKEN) {
         const std::string &t = l2[1].token().name;
