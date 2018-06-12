@@ -21,24 +21,73 @@
 #ifndef __SATURATED_GRAPH_H__
 #define __SATURATED_GRAPH_H__
 
+#include "SymAddr.h"
+#include "VClock.h"
+#include "Option.h"
+
 #include <vector>
+#include <immer/vector.hpp>
+#include <immer/flex_vector.hpp>
+#include <immer/map.hpp>
+#include <immer/box.hpp>
+#include <immer/set.hpp>
 
 class SaturatedGraph {
 public:
-  /* Create an initial SaturatedGraph from an array of processes, each
-   * represented as an array of the events executed by that process, and
-   * a collection of extra happens-before edges (excluding program
-   * order), mapping each event to a set of events it happens after
-   */
-  SaturatedGraph(std::vector<std::vector<unsigned>> process_events,
-                 std::vector<std::vector<unsigned>> happens_after_edges);
+  SaturatedGraph();
+
   /* write == -1 means init */
-  void add_read_from(unsigned read, int write);
+  enum EventKind {
+    NONE,
+    STORE,
+    LOAD,
+  };
+  /* read_from is an event id.
+   * Events must be added in program order
+   */
+  void add_event(unsigned pid, unsigned id, EventKind kind,
+                 SymAddr addr, Option<unsigned> read_from,
+                 const std::vector<unsigned> &happens_after);
   /* Returns true if the graph is still acyclic. */
   bool saturate();
-  bool is_saturated() const;
+  bool is_saturated() const { return wq_empty(); }
 private:
-  /* TODO */
+  struct Event {
+    Event() { abort(); }
+    Event(EventKind kind, SymAddr addr, immer::vector<unsigned> read_froms,
+          Option<unsigned> po_predecessor, immer::vector<unsigned> happens_after)
+      : kind(kind), addr(addr), read_froms(std::move(read_froms)),
+        po_predecessor(po_predecessor), happens_after(std::move(happens_after)) {};
+    EventKind kind;
+    SymAddr addr;
+    /* If this is a write event, the events that read from us. If this
+     * is a read event, either empty, meaning we read from init, or a
+     * singleton vector of the event we read from.
+     */
+    immer::vector<unsigned> read_froms;
+    Option<unsigned> po_predecessor;
+    /* All but po and read-from edges, which are in po_predecessor and
+     * read_froms, respectively.
+     */
+    immer::vector<unsigned> happens_after;
+    /* All but read-from edges, which are in read_froms */
+    immer::vector<unsigned> happens_before;
+  };
+
+  immer::map<unsigned,Event> events;
+  immer::map<SymAddr,immer::vector<unsigned>> writes_by_address;
+  immer::map<unsigned,unsigned> last_event_by_pid;
+  typedef VClock<int> VC;
+  immer::map<unsigned,immer::box<VClock<int>>> vclocks;
+
+  VC recompute_vc_for_event(const Event &e) const;
+  void add_successors_to_wq(const Event &e);
+
+  immer::flex_vector<unsigned> wq_queue;
+  immer::set<unsigned> wq_set;
+  void wq_add(unsigned id);
+  bool wq_empty() const;
+  unsigned wq_pop();
 };
 
 #endif
