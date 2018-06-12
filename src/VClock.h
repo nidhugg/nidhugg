@@ -112,6 +112,7 @@ public:
   VClock(const std::vector<int> &m);
   /* Create a vector clock which is a copy of vc. */
   VClock(const VClock<int> &vc);
+  VClock(VClock<int> &&vc);
   /* Create a vector clock that is a translation of vc, where the
    * clock of t[i] is initialized to vc[i]. The clocks of all d which
    * do not occur in t are initialized to 0.
@@ -127,6 +128,7 @@ public:
   VClock(const std::initializer_list<int> &il);
   virtual ~VClock();
   VClock &operator=(const VClock<int> &vc);
+  VClock &operator=(VClock<int> &&vc);
   /* A vector clock v such that the clock of d in v takes the value
    * max((*this)[d],vc[d]) for all d.
    */

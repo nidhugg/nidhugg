@@ -31,6 +31,8 @@ VClock<int>::VClock(const std::vector<int> &v) : vec(v) {
 
 VClock<int>::VClock(const VClock &vc) : vec(vc.vec) {}
 
+VClock<int>::VClock(VClock &&vc) : vec(std::move(vc.vec)) {}
+
 VClock<int>::VClock(const std::initializer_list<int> &il) : vec(il) {
 #ifndef NDEBUG
   for(unsigned i = 0; i < vec.size(); ++i){
@@ -43,6 +45,11 @@ VClock<int>::~VClock(){}
 
 VClock<int> &VClock<int>::operator=(const VClock<int> &vc){
   vec = vc.vec;
+  return *this;
+}
+
+VClock<int> &VClock<int>::operator=(VClock<int> &&vc){
+  vec = std::move(vc.vec);
   return *this;
 }
 
