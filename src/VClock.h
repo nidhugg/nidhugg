@@ -142,6 +142,12 @@ public:
   /* Returns the number of processes with non-zero clocks. */
   int get_nonzero_count() const;
 
+  /* Returns the length of the shortest prefix that includes the last
+   * nonzero element.
+   */
+  std::size_t size() const;
+  std::size_t size_ub() const { return vec.size(); }
+
   bool includes(const IID<int> &iid) const {
     return iid.get_index() <= (*this)[iid.get_pid()];
   };

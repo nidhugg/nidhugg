@@ -43,6 +43,12 @@ VClock<int>::VClock(const std::initializer_list<int> &il) : vec(il) {
 
 VClock<int>::~VClock(){}
 
+std::size_t VClock<int>::size() const{
+  std::size_t s = vec.size();
+  while(s > 0 && vec[s - 1] == 0) --s;
+  return s;
+}
+
 VClock<int> &VClock<int>::operator=(const VClock<int> &vc){
   vec = vc.vec;
   return *this;
