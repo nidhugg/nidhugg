@@ -51,13 +51,21 @@ public:
   /* Returns true if the graph is still acyclic. */
   bool saturate();
   bool is_saturated() const { return wq_empty(); }
+
+  void print_graph(std::ostream &o, std::function<std::string(unsigned)> event_str
+                   = (std::string(&)(unsigned))std::to_string) const;
+
 private:
   struct Event {
     Event() { abort(); }
-    Event(EventKind kind, SymAddr addr, immer::vector<unsigned> read_froms,
-          Option<unsigned> po_predecessor, immer::vector<unsigned> happens_after)
-      : kind(kind), addr(addr), read_froms(std::move(read_froms)),
-        po_predecessor(po_predecessor), happens_after(std::move(happens_after)) {};
+    Event(IID<unsigned> iid, EventKind kind, SymAddr addr,
+          immer::vector<unsigned> read_froms, Option<unsigned> po_predecessor,
+          immer::vector<unsigned> in,
+          immer::vector<unsigned> out)
+      : iid(iid), kind(kind), addr(addr), read_froms(std::move(read_froms)),
+        po_predecessor(po_predecessor), in(std::move(in)),
+        out(std::move(out)) {};
+    IID<unsigned> iid;
     EventKind kind;
     SymAddr addr;
     /* If this is a write event, the events that read from us. If this
@@ -69,23 +77,36 @@ private:
     /* All but po and read-from edges, which are in po_predecessor and
      * read_froms, respectively.
      */
-    immer::vector<unsigned> happens_after;
+    immer::vector<unsigned> in;
     /* All but read-from edges, which are in read_froms */
-    immer::vector<unsigned> happens_before;
+    immer::vector<unsigned> out;
   };
 
   immer::map<unsigned,Event> events;
   immer::map<SymAddr,immer::vector<unsigned>> writes_by_address;
-  immer::map<unsigned,unsigned> last_event_by_pid;
+  immer::map<SymAddr,immer::vector<unsigned>> reads_from_init;
+  immer::map<unsigned,immer::vector<unsigned>> events_by_pid;
   typedef VClock<int> VC;
   immer::map<unsigned,immer::box<VClock<int>>> vclocks;
 
+  void add_edges(const std::vector<std::pair<unsigned,unsigned>> &);
+  unsigned get_process_event(unsigned pid, unsigned index) const;
+  VC initial_vc_for_event(IID<unsigned> iid) const;
+  VC initial_vc_for_event(const Event &e) const;
   VC recompute_vc_for_event(const Event &e) const;
   void add_successors_to_wq(const Event &e);
+  bool is_in_cycle(const Event &e, const VC &vc) const;
+
+#ifndef NDEBUG
+  void check_graph_consistency() const;
+#else
+  void check_graph_consistency() const {};
+#endif
 
   immer::flex_vector<unsigned> wq_queue;
   immer::set<unsigned> wq_set;
   void wq_add(unsigned id);
+  void wq_add_first(unsigned id);
   bool wq_empty() const;
   unsigned wq_pop();
 };
