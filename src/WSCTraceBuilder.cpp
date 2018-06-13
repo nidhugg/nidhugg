@@ -19,6 +19,7 @@
 
 #include "Debug.h"
 #include "WSCTraceBuilder.h"
+#include "SaturatedGraph.h"
 
 #include <sstream>
 #include <stdexcept>
@@ -1370,7 +1371,7 @@ void WSCTraceBuilder::compute_prefixes() {
         std::cerr << "Trying to make " << pretty_index(i)
                   << " read from " << pretty_index(j)
                   << " instead of " << pretty_index(original_read_from);
-        Leaf solution = try_sat(prefix[i].decision, writes_by_address);
+        Leaf solution = try_sat(i, writes_by_address);
         decision.siblings.emplace(read_from, std::move(solution));
       };
 
@@ -1447,8 +1448,36 @@ void WSCTraceBuilder::output_formula
 
 WSCTraceBuilder::Leaf
 WSCTraceBuilder::try_sat
-(int decision, std::map<SymAddr,std::vector<int>> &writes_by_address){
+(int changed_event, std::map<SymAddr,std::vector<int>> &writes_by_address){
+  int decision = prefix[changed_event].decision;
   std::vector<bool> keep = causal_past(decision);
+
+  {
+    SaturatedGraph g;
+    const auto add_event = [&g,this](unsigned i) {
+        SaturatedGraph::EventKind kind = SaturatedGraph::NONE;
+        SymAddr addr;
+        if (is_load(i)) kind = SaturatedGraph::LOAD;
+        else if (is_store(i)) kind = SaturatedGraph::STORE;
+        if (kind != SaturatedGraph::NONE) addr = get_addr(i).addr;
+        Option<unsigned> read_from;
+        if (prefix[i].read_from && *prefix[i].read_from != -1)
+          read_from = unsigned(*prefix[i].read_from);
+        g.add_event(unsigned(prefix[i].iid.get_pid()), i, kind, addr,
+                    read_from, prefix[i].happens_after);
+      };
+    for (unsigned i = 0; i < prefix.size(); ++i) {
+      if (keep[i] && int(i) != changed_event) {
+        add_event(i);
+      }
+    }
+    add_event(changed_event);
+    if (!g.saturate()) {
+      std::cerr << ": Saturation yielded cycle\n";
+      return Leaf();
+    }
+  }
+
   std::unique_ptr<SatSolver> sat = conf.get_sat_solver();
 
   output_formula(*sat, writes_by_address, keep);
