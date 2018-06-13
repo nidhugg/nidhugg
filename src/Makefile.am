@@ -1,7 +1,7 @@
-AUTOMAKE_OPTIONS = -Wno-override ## Make autotools quit complaining about explicit rule for nidhuggc.
+AUTOMAKE_OPTIONS = -Wno-override ## Make autotools quit complaining about explicit rule for swscc.
 
-noinst_LIBRARIES = libnidhugg.a
-libnidhugg_a_SOURCES = \
+noinst_LIBRARIES = libswsc.a
+libswsc_a_SOURCES = \
   AddLibPass.cpp AddLibPass.h \
   BVClock.cpp BVClock.h \
   CheckModule.cpp CheckModule.h \
@@ -43,15 +43,15 @@ libnidhugg_a_SOURCES = \
   WSCTraceBuilder.cpp WSCTraceBuilder.h \
   VClock.cpp VClock.h VClock.tcc \
   vecset.h vecset.tcc
-libnidhugg_a_CXXFLAGS = -fno-rtti
+libswsc_a_CXXFLAGS = -fno-rtti
 
-EXTRA_PROGRAMS = nidhuggc
-bin_PROGRAMS = nidhugg @NIDHUGGCBIN@
-nidhugg_SOURCES = main.cpp
-nidhugg_LDADD = @BOOST_SYSTEM_LIB@ libnidhugg.a
-nidhugg_LDFLAGS = -pthread
-nidhugg_CXXFLAGS = -fno-rtti
-nidhuggc_SOURCES = nidhuggc.py
+EXTRA_PROGRAMS = swscc
+bin_PROGRAMS = swsc @SWSCCBIN@
+swsc_SOURCES = main.cpp
+swsc_LDADD = @BOOST_SYSTEM_LIB@ libswsc.a
+swsc_LDFLAGS = -pthread
+swsc_CXXFLAGS = -fno-rtti
+swscc_SOURCES = swscc.py
 
 TESTS = unittest
 check_PROGRAMS = unittest
@@ -78,7 +78,7 @@ unittest_SOURCES = \
   VClock_CPid_test.cpp \
   VClock_int_test.cpp \
   unittest.cpp
-unittest_LDADD=@BOOST_SYSTEM_LIB@ @BOOST_UNIT_TEST_FRAMEWORK_LIB@ libnidhugg.a
+unittest_LDADD=@BOOST_SYSTEM_LIB@ @BOOST_UNIT_TEST_FRAMEWORK_LIB@ libswsc.a
 unittest_LDFLAGS=-pthread
 
 
@@ -96,10 +96,10 @@ valtest: unittest
 	valgrind --leak-check=full ./unittest $(BOOSTTESTFLAGS) --show_progress \
 		`test -z "$(UTEST)" || echo "--run_test=$(UTEST)"`
 
-nidhuggc$(EXEEXT): $(srcdir)/nidhuggc.py
-	cat $(srcdir)/nidhuggc.py \
+swscc$(EXEEXT): $(srcdir)/swscc.py
+	cat $(srcdir)/swscc.py \
 	| sed 's|%%PYTHON%%|@PYTHON@|g' \
 	| sed 's|%%CLANG%%|@CLANG@|g' \
 	| sed 's|%%CLANGXX%%|@CLANGXX@|g' \
-	> nidhuggc
-	chmod a+x nidhuggc
+	> swscc
+	chmod a+x swscc

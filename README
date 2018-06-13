@@ -1,9 +1,9 @@
-Nidhugg is a bug-finding tool which targets bugs caused by concurrency
+Swsc is a bug-finding tool which targets bugs caused by concurrency
 and relaxed memory consistency in concurrent programs. It works on the
 level of LLVM internal representation, which means that it can be used
 for programs written in languages such as C or C++.
 
-Currently Nidhugg supports the SC, TSO, PSO, POWER and ARM memory
+Currently Swsc supports the SC, TSO, PSO, POWER and ARM memory
 models. Target programs should use pthreads for concurrency, and each
 thread should be deterministic when run in isolation.
 
@@ -11,23 +11,23 @@ Documentation
 *************
 
 The main documentation can be found in the git repository at
-https://github.com/nidhugg/nidhugg/blob/master/doc/manual.pdf , or in
+https://github.com/swsc/swsc/blob/master/doc/manual.pdf , or in
 the source at doc/manual.pdf, or if installed at
-PREFIX/share/doc/nidhugg/manual.pdf .
+PREFIX/share/doc/swsc/manual.pdf .
 
 Installation
 ************
 
-Nidhugg can be compiled and installed on UNIX-like systems.
+Swsc can be compiled and installed on UNIX-like systems.
 
 Requirements
 ============
 
    1. A C++ compiler supporting C++11. For example g++ version 4.7 or
       higher, or clang++ version 3.1 or higher. (For compiling the
-      tool Nidhugg.)
+      tool Swsc.)
 
-   2. The C compiler clang. (For use by Nidhugg as a frontend for C
+   2. The C compiler clang. (For use by Swsc as a frontend for C
       compilation.)
 
    3. Standard C/C++ libraries.
@@ -62,23 +62,23 @@ For Users of Debian-like Systems
    Optional:
    libboost-test-dev, valgrind, texlive-latex-base, texlive-base
 
-Getting Nidhugg
+Getting Swsc
 ===============
 
-   Git users can clone Nidhugg as follows:
+   Git users can clone Swsc as follows:
 
-   $ git clone https://github.com/nidhugg/nidhugg.git
+   $ git clone https://github.com/swsc/swsc.git
 
    Non git users may find it easier to download the latest revision as
    a zip archive:
 
-   https://github.com/nidhugg/nidhugg/archive/master.zip
+   https://github.com/swsc/swsc/archive/master.zip
 
 Basic Installation
 ==================
 
    The following assumes that you are in a shell in the main directory
-   of Nidhugg.
+   of Swsc.
 
    1. Use GNU Autotools to build the configure script:
 
@@ -112,7 +112,7 @@ Installation Options
 Changing Installation Directory
 -------------------------------
 
-   The command 'make install' will install Nidhugg and its
+   The command 'make install' will install Swsc and its
    documentation in the directories which are standard on your
    system. To override this behavior add the switch --prefix to the
    './configure' command:
@@ -169,14 +169,14 @@ Compiling LLVM
 License
 *******
 
-   Nidhugg is licensed under GPLv3. See COPYING.
+   Swsc is licensed under GPLv3. See COPYING.
 
-   Nidhugg is free software: you can redistribute it and/or modify it
+   Swsc is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
    the Free Software Foundation, either version 3 of the License, or
    (at your option) any later version.
 
-   Nidhugg is distributed in the hope that it will be useful, but
+   Swsc is distributed in the hope that it will be useful, but
    WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
    General Public License for more details.
