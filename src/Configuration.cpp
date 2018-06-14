@@ -47,7 +47,7 @@ cl_max_search_depth("max-search-depth",
                     llvm::cl::desc("Bound the length of the analysed computations (# instructions/events per process)"));
 
 static llvm::cl::opt<Configuration::MemoryModel>
-cl_memory_model(llvm::cl::NotHidden, llvm::cl::init(Configuration::MM_UNDEF),
+cl_memory_model(llvm::cl::NotHidden, llvm::cl::init(Configuration::WEAK_SC),
                 llvm::cl::desc("Select memory model"),
                 llvm::cl::values(clEnumValN(Configuration::SC,"sc","Sequential Consistency"),
                                  clEnumValN(Configuration::WEAK_SC,"wsc","Weak Sequential Consistency"),
