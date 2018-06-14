@@ -740,6 +740,18 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [Define if llvm::cl::getRegisteredOptions takes an argument.])],
         [AC_MSG_RESULT([no])])
 
+## Checking if llvm::cl::VersionPrinterTy takes a llvm::raw_ostream
+AC_MSG_CHECKING([if llvm::cl::VersionPrinterTy takes a llvm::raw_ostream.])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Support/CommandLine.h>
+]],[[
+  void (*vpr)(llvm::raw_ostream&);
+  llvm::cl::SetVersionPrinter(vpr);
+]])],
+        [AC_MSG_RESULT([yes])
+         AC_DEFINE([LLVM_CL_VERSIONPRINTER_TAKES_RAW_OSTREAM],[1],
+         [Define if llvm::cl::VersionPrinterTy takes a llvm::raw_ostream.])],
+        [AC_MSG_RESULT([no])])
 
 ## Check if loads in assembly should explicitly state their return type
 AC_MSG_CHECKING([if assembly loads explicitly state their return type])
