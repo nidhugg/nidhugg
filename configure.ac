@@ -891,6 +891,20 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
    [Define if the DataLayout field of ExecutionEngine is a pointer.])],
   [AC_MSG_RESULT([no])])
 
+## Check if llvm::LoopInfo::erase exists
+AC_MSG_CHECKING([for llvm::LoopInfo::erase])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Analysis/LoopPass.h>
+]],[[
+  llvm::Loop * L = 0;
+  llvm::LoopInfo *LI = 0;
+  LI->erase(L);
+]])],
+  [AC_MSG_RESULT([yes])
+   AC_DEFINE([HAVE_LLVM_LOOPINFO_ERASE],[1],
+   [Define if llvm::LoopInfo::erase exists])],
+  [AC_MSG_RESULT([no])])
+
 ## Check if llvm::LoopInfo::markAsRemoved exists
 AC_MSG_CHECKING([for llvm::LoopInfo::markAsRemoved])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

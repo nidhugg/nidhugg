@@ -207,7 +207,10 @@ bool SpinAssumePass::runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM){
   bool modified = false;
   if(is_spin(L)){
     if(assumify_loop(L,LPM)){
-#ifdef HAVE_LLVM_LOOPINFO_MARK_AS_REMOVED
+#ifdef HAVE_LLVM_LOOPINFO_ERASE
+      LPM.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().erase(L);
+      LPM.markLoopAsDeleted(*L);
+#elif defined(HAVE_LLVM_LOOPINFO_MARK_AS_REMOVED)
       LPM.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().markAsRemoved(L);
 #else
       LPM.deleteLoopFromQueue(L);
