@@ -1,0 +1,31 @@
+# Results of run nidhugg "count-weak-trace" on all C small-but-challenging tests.
+# Nidhugg 0.2 (4f6f552, Release, with LLVM-3.8.1:RelWithDebInfo)
+# nidhuggc --sc TEST.c 
+# The tests where executed using test-nidhugg.py.
+# Date: 180614-12:38
+
+n_writers_a_reader_1 Forbid : 2
+n_writers_a_reader_2 Forbid : 3
+n_writers_a_reader_3 Forbid : 4
+n_writers_a_reader_4 Forbid : 5
+n_writes_a_read_two_threads_1 Forbid : 3
+n_writes_a_read_two_threads_2 Forbid : 5
+n_writes_a_read_two_threads_3 Forbid : 7
+n_writes_a_read_two_threads_4 Forbid : 9
+readers_1 Forbid : 2
+readers_2 Forbid : 4
+readers_3 Forbid : 8
+readers_4 Forbid : 16
+redundant_co_1 Forbid : 7
+redundant_co_2 Forbid : 19
+redundant_co_3 Forbid : 37
+redundant_co_4 Forbid : 61
+lastzero_1 Forbid : 2
+lastzero_2 Forbid : 5
+lastzero_3 Forbid : 12
+lastzero_4 Forbid : 28
+fib_one_variable_1 Forbid : 31
+fib_bench_true_1 Forbid : 11
+fib_bench_true_2 Forbid : 140
+# Total number of traces: 421
+# Total running time: 4.86 s
