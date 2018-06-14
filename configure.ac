@@ -538,6 +538,30 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
         ],
         [AC_MSG_RESULT([llvm::MDOperand])])
 
+## Check the metadata version number for LLVM
+AC_MSG_CHECKING([the LLVM metadata version number])
+AC_RUN_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_IR_METADATA_H)
+#include <llvm/IR/Metadata.h>
+#elif defined(HAVE_LLVM_METADATA_H)
+#include <llvm/Metadata.h>
+#endif
+#include <iostream>
+]],[[
+  std::cout << llvm::DEBUG_METADATA_VERSION << std::endl;
+]])],
+  [VN=`./conftest$EXEEXT`
+   AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER],[$VN],
+             [The LLVM metadata version number.])
+   AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER_STR],["$VN"],
+             [The LLVM metadata version number.])
+  ],
+  [AC_MSG_RESULT(0)
+   AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER],[0],
+             [The LLVM metadata version number.])
+   AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER_STR],["0"],
+             [The LLVM metadata version number.])])
+
 ## Check if llvm.dbg.declare should take two arguments (or three)
 AC_MSG_CHECKING([for number of arguments to llvm.dbg.declare])
 AC_RUN_IFELSE([AC_LANG_PROGRAM([[
@@ -580,7 +604,9 @@ define i8* @p(i8* %arg){
   ret i8* null
 }
 declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
+!llvm.module.flags = !{!1}
 !0 = metadata !{i32 0}
+!1 = !{i32 2, !"Debug Info Version", i32 )" LLVM_METADATA_VERSION_NUMBER_STR R"(}
 )";
 #else
   std::string src = R"(
@@ -589,7 +615,9 @@ define i8* @p(i8* %arg){
   ret i8* null
 }
 declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
+!llvm.module.flags = !{!1}
 !0 = !{i32 0}
+!1 = !{i32 2, !"Debug Info Version", i32 )" LLVM_METADATA_VERSION_NUMBER_STR R"(}
 )";
 #endif
   llvm::Module *mod;
@@ -612,30 +640,6 @@ declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
    AC_DEFINE([LLVM_DBG_DECLARE_TWO_ARGS],[1],
    [Define if llvm.dbg.declare takes two arguments (rather than three).])],
   [AC_MSG_RESULT(3)])
-
-## Check the metadata version number for LLVM
-AC_MSG_CHECKING([the LLVM metadata version number])
-AC_RUN_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_IR_METADATA_H)
-#include <llvm/IR/Metadata.h>
-#elif defined(HAVE_LLVM_METADATA_H)
-#include <llvm/Metadata.h>
-#endif
-#include <iostream>
-]],[[
-  std::cout << llvm::DEBUG_METADATA_VERSION << std::endl;
-]])],
-  [VN=`./conftest$EXEEXT`
-   AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER],[$VN],
-             [The LLVM metadata version number.])
-   AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER_STR],["$VN"],
-             [The LLVM metadata version number.])
-  ],
-  [AC_MSG_RESULT(0)
-   AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER],[0],
-             [The LLVM metadata version number.])
-   AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER_STR],["0"],
-             [The LLVM metadata version number.])])
 
 ## Check the parameter type for ExecutionEngine::runFunction
 AC_MSG_CHECKING([for parameter type for ExecutionEngine::runFunction])
