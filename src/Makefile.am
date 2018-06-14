@@ -87,7 +87,7 @@ unittest_LDFLAGS=-pthread
 ## $ make test UTEST='some filter'
 UTEST ?=
 
-.PHONY: test valtest
+.PHONY: test valtest litmus
 BOOSTTESTFLAGS=--report_level=short --log_level=warning
 test: unittest
 	./unittest $(BOOSTTESTFLAGS) `test -z "$(UTEST)" || echo "--run_test=$(UTEST)"`
@@ -95,6 +95,8 @@ test: unittest
 valtest: unittest
 	valgrind --leak-check=full ./unittest $(BOOSTTESTFLAGS) --show_progress \
 		`test -z "$(UTEST)" || echo "--run_test=$(UTEST)"`
+litmus: 
+	cd $(top_builddir)/tests/litmus && python3 ./test-swsc.py all
 
 swscc$(EXEEXT): $(srcdir)/swscc.py
 	cat $(srcdir)/swscc.py \

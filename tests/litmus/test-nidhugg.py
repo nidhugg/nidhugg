@@ -16,7 +16,7 @@ LITMUSDIR = curDir + '/C-litmus'
 OUTPUTTFILE = curDir + '/nidhugg.results.txt'
 LISTFILE = curDir + '/listfile.txt'
 # FIX ME
-NIDHUGGBIN = '/home/osboxes/nidhugg-count/nidhugg/src/nidhuggc'
+NIDHUGGBIN = 'nidhuggc'
 
 
 
