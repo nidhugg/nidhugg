@@ -27,5 +27,8 @@ lastzero_4 Forbid : 28
 fib_one_variable_1 Forbid : 31
 fib_bench_true_1 Forbid : 11
 fib_bench_true_2 Forbid : 140
-# Total number of traces: 421
+fib_true_too_few Forbid : 5
+fib_true_sw_too_few Forbid : 25
+fib_true_sw_too_many Forbid : 13
+# Total number of traces: 464
 # Total running time: 4.86 s
