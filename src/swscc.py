@@ -20,6 +20,7 @@ swsccparams = [
     {'name':'--version','help':'Prints the swsc version.','param':False},
     {'name':'--c','help':'Interpret input FILE as C code. (Compile with clang.)','param':False},
     {'name':'--cxx','help':'Interpret input FILE as C++ code. (Compile with clang++.)','param':False},
+    {'name':'--ll','help':'Interpret input FILE as LLVM IR code. (Preprocess with cpp.)','param':False},
     {'name':'--clang','help':'Specify the path to clang.','param':'PATH'},
     {'name':'--clangxx','help':'Specify the path to clang++.','param':'PATH'},
     {'name':'--swsc','help':'Specify the path to the swsc binary.','param':'PATH'},
@@ -35,6 +36,7 @@ swsccparamaliases = {
     '-V':'--version',
     '-c':'--c',
     '-cxx':'--cxx',
+    '-ll':'--ll',
     '-clang':'--clang',
     '-clangxx':'--clangxx',
     '-swsc':'--swsc',
@@ -173,20 +175,28 @@ def print_version():
 def get_lang(swsccargs):
     c = 'C'
     cxx = 'C++'
+    ll = 'LL'
+    langargs = {'--c', '--cxx', '--ll'}
     if not('--input' in swsccargs):
         print_help()
         raise Exception('No input file specified.')
+    langswitches = (swsccargs.keys() & langargs)
+    if len(langswitches) > 1:
+        raise Exception('Contradicting switches {} and {} were given.'.format(
+            langswitches.pop(), langswitches.pop()))
     if '--c' in swsccargs:
-        if '--cxx' in swsccargs:
-            raise Exception('Contradicting switches --c and --cxx were given.')
         return c
     if '--cxx' in swsccargs:
         return cxx
+    if '--ll' in swsccargs:
+        return ll
     fname = swsccargs['--input']
     if fname.endswith('.c') or fname.endswith('.C'):
         return c
     if len(fname) >= 4 and fname[-4:] in ['.cpp','.cxx','.c++','.C++','.hpp','.tcc']:
         return cxx
+    if fname.endswith('.ll'):
+        return ll
     print("WARNING: Unable to infer the input language for input source code.")
     print("WARNING: Guessing C.")
     return c
@@ -199,9 +209,11 @@ def get_IR(swsccargs,compilerargs):
         raise Exception('No input file specified.')
     init_tmpdir()
     inputfname = swsccargs['--input']
+    lang=get_lang(swsccargs)
+    if lang == 'LL':
+        return inputfname
     (fd,outputfname) = tempfile.mkstemp(suffix='.ll',dir=tmpdir)
     os.close(fd)
-    lang=get_lang(swsccargs)
     if lang == 'C':
         cmd = [CLANG,'-o',outputfname,'-S','-emit-llvm','-g']
         cmd.extend(compilerargs)
