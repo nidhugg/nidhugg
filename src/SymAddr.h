@@ -136,11 +136,13 @@ public:
                         = (std::string(&)(int))std::to_string) const;
 };
 
-template<> struct std::hash<SymAddr>{
+namespace std {
+template<> struct hash<SymAddr>{
 public:
   hash();
   std::size_t operator()(const SymAddr &a) const;
 };
+}
 
 struct SymAddrSize {
 public:
