@@ -23,6 +23,7 @@ libswsc_a_SOURCES = \
   POWERExecution.cpp \
   POWERInterpreter.cpp POWERInterpreter.h \
   POWERARMTraceBuilder.cpp POWERARMTraceBuilder.tcc POWERARMTraceBuilder.h POWERARMTraceBuilder_decl.h \
+  PrefixHeuristic.h PrefixHeuristic.cpp \
   PSOInterpreter.cpp PSOInterpreter.h \
   PSOTraceBuilder.cpp PSOTraceBuilder.h \
   SaturatedGraph.h SaturatedGraph.cpp \

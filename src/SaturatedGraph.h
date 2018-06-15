@@ -55,6 +55,16 @@ public:
   void print_graph(std::ostream &o, std::function<std::string(unsigned)> event_str
                    = (std::string(&)(unsigned))std::to_string) const;
 
+  /* Accessors */
+  EventKind event_kind(unsigned id) const;
+  SymAddr event_addr(unsigned id) const;
+  typedef VClock<int> VC;
+  const VC &event_vc(unsigned id) const;
+  std::vector<unsigned> event_ids() const;
+  std::vector<unsigned> event_in(unsigned id) const;
+
+  void add_edge(unsigned from, unsigned to);
+
 private:
   struct Event {
     Event() { abort(); }
@@ -86,7 +96,6 @@ private:
   immer::map<SymAddr,immer::vector<unsigned>> writes_by_address;
   immer::map<SymAddr,immer::vector<unsigned>> reads_from_init;
   immer::map<unsigned,immer::vector<unsigned>> events_by_pid;
-  typedef VClock<int> VC;
   immer::map<unsigned,immer::box<VClock<int>>> vclocks;
 
   void add_edges(const std::vector<std::pair<unsigned,unsigned>> &);

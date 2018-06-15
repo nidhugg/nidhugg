@@ -20,6 +20,7 @@
 #include "Debug.h"
 #include "WSCTraceBuilder.h"
 #include "SaturatedGraph.h"
+#include "PrefixHeuristic.h"
 
 #include <sstream>
 #include <stdexcept>
@@ -1476,6 +1477,16 @@ WSCTraceBuilder::try_sat
       std::cerr << ": Saturation yielded cycle\n";
       return Leaf();
     }
+
+    if (Option<std::vector<unsigned>> res = try_generate_prefix(std::move(g))) {
+      std::cerr << ": Heuristic found prefix\n";
+      std::cerr << "[";
+      for (unsigned i : *res) {
+        std::cerr << i << ",";
+      }
+      std::cerr << "]\n";
+      return order_to_leaf(decision, *res);
+    }
   }
 
   std::unique_ptr<SatSolver> sat = conf.get_sat_solver();
@@ -1495,19 +1506,36 @@ WSCTraceBuilder::try_sat
   for (unsigned i = 0; i < prefix.size(); ++i) {
     if (keep[i]) no_keep++;
   }
-  std::vector<Branch> new_prefix(no_keep);
+  std::vector<unsigned> order(no_keep);
   for (unsigned i = 0, var = 0; i < prefix.size(); ++i) {
     if (keep[i]) {
       unsigned pos = model[var++];
-      bool is_the_changed_read = prefix[i].decision == decision
-        && !prefix[i].pinned;
-      int new_decision = std::min(prefix[i].decision, decision);
-      new_prefix[pos] = Branch(prefix[i].iid.get_pid(),
-                               is_the_changed_read ? 1 : prefix[i].size,
-                               new_decision,
-                               prefix[i].pinned || (prefix[i].decision > decision),
-                               prefix[i].sym);
+      order[pos] = i;
     }
+  }
+
+  std::cerr << "[";
+  for (unsigned i : order) {
+    std::cerr << i << ",";
+  }
+  std::cerr << "]\n";
+
+      return order_to_leaf(decision, order);
+}
+
+WSCTraceBuilder::Leaf WSCTraceBuilder::order_to_leaf
+(int decision, const std::vector<unsigned> order) const{
+  std::vector<Branch> new_prefix;
+  new_prefix.reserve(order.size());
+  for (unsigned i : order) {
+    bool is_the_changed_read = prefix[i].decision == decision
+      && !prefix[i].pinned;
+    int new_decision = std::min(prefix[i].decision, decision);
+    new_prefix.emplace_back(prefix[i].iid.get_pid(),
+                            is_the_changed_read ? 1 : prefix[i].size,
+                            new_decision,
+                            prefix[i].pinned || (prefix[i].decision > decision),
+                            prefix[i].sym);
   }
 
   return Leaf(new_prefix);

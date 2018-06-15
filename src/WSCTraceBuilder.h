@@ -604,6 +604,7 @@ protected:
    */
   void record_symbolic(SymEv event);
   Leaf try_sat(int, std::map<SymAddr,std::vector<int>> &);
+  Leaf order_to_leaf(int decision, const std::vector<unsigned> order) const;
   void output_formula(SatSolver &sat,
                       std::map<SymAddr,std::vector<int>> &,
                       const std::vector<bool> &);

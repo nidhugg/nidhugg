@@ -23,7 +23,11 @@
 #include <immer/vector_transient.hpp>
 #include <iostream>
 
-#define IFTRACE(X) X
+#ifdef TRACE
+#  define IFTRACE(X) X
+#else
+#  define IFTRACE(X) ((void)0)
+#endif
 
 SaturatedGraph::SaturatedGraph() {}
 
@@ -57,6 +61,7 @@ void SaturatedGraph::add_event(unsigned pid, unsigned id, EventKind kind,
                               orig_in.end()).transient();
   if (read_from) {
     assert(events.count(*read_from));
+    IFTRACE(std::cout << "Adding read-from between " << *read_from << " and " << id << "\n");
     read_froms.push_back(*read_from);
     events = std::move(events).update(*read_from, [id](Event w) {
         w.read_froms = std::move(w.read_froms).push_back(id);
@@ -104,7 +109,8 @@ void SaturatedGraph::add_event(unsigned pid, unsigned id, EventKind kind,
       (addr, [id] (auto &&vec) { return vec.push_back(id); });
   }
 
-  vclocks = std::move(vclocks).set(id, initial_vc_for_event(iid));
+  /* Needed? */
+  vclocks = std::move(vclocks).set(id, {});
   wq_add(id);
 }
 
@@ -120,9 +126,13 @@ bool SaturatedGraph::saturate() {
       const VC &old_vc = vclocks[id];
       if (is_in_cycle(e, vc)) {
         check_graph_consistency();
+        IFTRACE(std::cout << "Cycle found\n");
         return false;
       }
-      if (vc == old_vc) continue;
+      if (vc == old_vc) {
+        IFTRACE(std::cout << id << " unchanged\n");
+        continue;
+      }
       /* Saturation logic */
       if (e.kind != NONE) {
         for (unsigned pid = 0; pid < unsigned(vc.size_ub()); ++pid) {
@@ -132,6 +142,7 @@ bool SaturatedGraph::saturate() {
           for (int pi = vc[pid]; pi > old_vc[pid];
                --pi, pe_id = *pe->po_predecessor) {
             pe = &events.at(pe_id);
+            if (pe_id == id) continue;
             if (pe->kind == STORE && pe->addr == e.addr) {
               /* Add edges */
               if (e.kind == STORE) {
@@ -148,6 +159,7 @@ bool SaturatedGraph::saturate() {
                   /* pe must happen after us since we're loading from
                    * init. Cycle detected.
                    */
+                  IFTRACE(std::cout << "Cycle found\n");
                   check_graph_consistency();
                   return false;
                 }
@@ -165,6 +177,7 @@ bool SaturatedGraph::saturate() {
       }
 
       add_successors_to_wq(e);
+      IFTRACE(std::cout << "Updating " << id << ": " << vc << "\n");
       vclocks = vclocks.set(id, std::move(vc));
     }
     events = std::move(events).update(id, [&new_in](Event e) {
@@ -179,6 +192,7 @@ bool SaturatedGraph::saturate() {
           return std::move(be);
         });
     }
+    if (!new_in.empty()) wq_add_first(id);
     add_edges(new_edges);
   }
   check_graph_consistency();
@@ -200,15 +214,7 @@ void SaturatedGraph::add_edges(const std::vector<std::pair<unsigned,unsigned>> &
   for (auto pair : edges) {
     unsigned from = pair.first;
     unsigned to = pair.second;
-    events = std::move(events).update(from, [to](Event fe) {
-                       fe.out = fe.out.push_back(to);
-                       return std::move(fe);
-                     });
-    events = std::move(events).update(to, [from](Event te) {
-                     te.in = te.in.push_back(from);
-                     return std::move(te);
-                   });
-    wq_add(to);
+    add_edge(from, to);
   }
 }
 
@@ -331,4 +337,48 @@ void SaturatedGraph::print_graph
   }
 
   o << "}\n";
+}
+
+std::vector<unsigned> SaturatedGraph::event_ids() const {
+  std::vector<unsigned> ret;
+  immer::for_each(events, [&ret](const auto &pair) { ret.push_back(pair.first); });
+  return ret;
+}
+
+SaturatedGraph::EventKind SaturatedGraph::event_kind(unsigned id) const {
+  return events.at(id).kind;
+}
+
+SymAddr SaturatedGraph::event_addr(unsigned id) const {
+  assert(events.at(id).kind != NONE);
+  return events.at(id).addr;
+}
+
+const SaturatedGraph::VC &SaturatedGraph::event_vc(unsigned id) const {
+  assert(is_saturated());
+  return vclocks.at(id);
+}
+
+std::vector<unsigned> SaturatedGraph::event_in(unsigned id) const {
+  std::vector<unsigned> ret;
+  const Event &e = events.at(id);
+  ret.reserve(e.in.size() + 2);
+  immer::for_each(e.in, [&ret](unsigned e) { ret.push_back(e); });
+  if (e.po_predecessor) ret.push_back(*e.po_predecessor);
+  if (e.kind == LOAD)
+      immer::for_each(e.read_froms, [&ret](unsigned e) { ret.push_back(e); });
+  return ret;
+}
+
+void SaturatedGraph::add_edge(unsigned from, unsigned to) {
+  events = std::move(events).update(from, [to](Event fe) {
+                                            fe.out = fe.out.push_back(to);
+                                            return std::move(fe);
+                                          });
+  events = std::move(events).update(to, [from](Event te) {
+                                          te.in = te.in.push_back(from);
+                                          return std::move(te);
+                                        });
+  wq_add(to);
+
 }
