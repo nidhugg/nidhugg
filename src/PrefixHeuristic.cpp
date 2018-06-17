@@ -87,7 +87,7 @@ static void toposort(unsigned id, const SaturatedGraph &g, std::vector<bool> &ma
 }
 
 std::vector<unsigned> toposort(const SaturatedGraph &g, std::vector<unsigned> ids) {
-  std::vector<bool> mark(*std::max_element(ids.begin(), ids.end()));
+  std::vector<bool> mark(*std::max_element(ids.begin(), ids.end())+1);
   std::vector<unsigned> ret;
   ret.reserve(ids.size());
 
