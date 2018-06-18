@@ -5,10 +5,10 @@
 *.trs
 *.aux
 *.toc
-src/nidhugg
-src/nidhuggc
+src/swsc
+src/swscc
 src/unittest
-src/libnidhugg.a
+src/libswsc.a
 Makefile
 Makefile.in
 aclocal.m4
