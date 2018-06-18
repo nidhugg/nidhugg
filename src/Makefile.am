@@ -96,10 +96,10 @@ test: unittest
 valtest: unittest
 	valgrind --leak-check=full ./unittest $(BOOSTTESTFLAGS) --show_progress \
 		`test -z "$(UTEST)" || echo "--run_test=$(UTEST)"`
-litmus: 
+litmus: swsc$(EXEEXT) swscc$(EXEEXT)
 	cd $(top_builddir)/tests/litmus && python3 ./test-swsc.py all
 
-mustpass:
+mustpass: swsc$(EXEEXT) swscc$(EXEEXT)
 	cd $(top_builddir)/tests/smallbutchallenging && python3 ./test-swsc.py all
 
 swscc$(EXEEXT): $(srcdir)/swscc.py
