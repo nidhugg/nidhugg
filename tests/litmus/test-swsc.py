@@ -18,7 +18,11 @@ LISTFILE = curDir + '/nidhugg.results.txt'
 # FIX ME
 SWSCBIN = 'swscc'
 
-
+class bcolors:
+    FAIL = '\033[91m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    ENDC = '\033[0m'
 
 
 def get_expected(fname):
@@ -38,14 +42,11 @@ def get_expected(fname):
     return l
 
 
-
-
-
 def res_to_string(tst):
     s = tst['tstname']
     
     if not('swsc allow' in tst):
-        s = s + ' FAILURE: '
+        s = s + bcolors.FAIL + ' FAILURE: ' + bcolors.ENDC
         if 'failure' in tst:
             s = s + tst['failure']
         else:
@@ -53,21 +54,17 @@ def res_to_string(tst):
         return s
 
     if tst['swsc allow'] != tst['expect allow']:
-        s = s + ' FAILURE: unexpected result ' + ('Allow' if tst['nidhugg allow'] else 'Forbid')
+        s = s + bcolors.FAIL + ' FAILURE: unexpected result ' + ('Allow' if tst['nidhugg allow'] else 'Forbid') + bcolors.ENDC
         return s
     else:
     	s = s + ' ' + ('Allow' if tst['swsc allow'] else 'Forbid')
 
     if tst['expected trace count'] != tst['swsc trace count']:
-    	s = s + ' FAILURE: not same trace as ' + str(tst['expected trace count'])
+    	s = s + bcolors.FAIL + ' FAILURE: not same trace as ' + str(tst['expected trace count']) + bcolors.ENDC
 
-    s = s + ' OK '
-    
+    s = s + bcolors.OKGREEN + ' OK ' + bcolors.ENDC
+
     return s
-
-
-
-
 
     
 def runallswsc():
@@ -117,10 +114,6 @@ def runallswsc():
     logfile.close()
 
 
-
-
-
-
 def runoneswsc(filename):
     tracecount = 0
     found = False
@@ -152,9 +145,6 @@ def runoneswsc(filename):
 
     if found == False:
         print('Test case was not found!')
-        
-
-
 
 
 def help_print():
@@ -163,8 +153,6 @@ def help_print():
     print('\t2. python3 ./test-swsc.py one testname(without_dot_c)')
 
 
-    
-    
 ####################################################
     
 tests = get_expected(LISTFILE)
