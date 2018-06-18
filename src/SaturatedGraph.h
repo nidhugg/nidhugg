@@ -56,7 +56,7 @@ public:
                    = (std::string(&)(unsigned))std::to_string) const;
 
   /* Accessors */
-  EventKind event_kind(unsigned id) const;
+  bool event_is_store(unsigned id) const;
   SymAddr event_addr(unsigned id) const;
   typedef VClock<int> VC;
   const VC &event_vc(unsigned id) const;
@@ -68,27 +68,30 @@ public:
 private:
   struct Event {
     Event() { abort(); }
-    Event(IID<unsigned> iid, EventKind kind, SymAddr addr,
-          immer::vector<unsigned> read_froms, Option<unsigned> po_predecessor,
-          immer::vector<unsigned> in,
+    Event(IID<unsigned> iid, bool is_load, bool is_store, SymAddr addr,
+          Option<unsigned> read_from, immer::vector<unsigned> readers,
+          Option<unsigned> po_predecessor, immer::vector<unsigned> in,
           immer::vector<unsigned> out)
-      : iid(iid), kind(kind), addr(addr), read_froms(std::move(read_froms)),
+      : iid(iid), is_load(is_load), is_store(is_store), addr(addr),
+        read_from(read_from), readers(std::move(readers)),
         po_predecessor(po_predecessor), in(std::move(in)),
         out(std::move(out)) {};
     IID<unsigned> iid;
-    EventKind kind;
+    bool is_load;
+    bool is_store;
     SymAddr addr;
-    /* If this is a write event, the events that read from us. If this
-     * is a read event, either empty, meaning we read from init, or a
-     * singleton vector of the event we read from.
+    /* Either empty, meaning we read from init, or a singleton vector of
+     * the event we read from.
      */
-    immer::vector<unsigned> read_froms;
+    Option<unsigned> read_from;
+    /* The events that read from us. */
+    immer::vector<unsigned> readers;
     Option<unsigned> po_predecessor;
     /* All but po and read-from edges, which are in po_predecessor and
-     * read_froms, respectively.
+     * read_from, respectively.
      */
     immer::vector<unsigned> in;
-    /* All but read-from edges, which are in read_froms */
+    /* All but read-from edges, which are in readers */
     immer::vector<unsigned> out;
   };
 

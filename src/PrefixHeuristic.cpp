@@ -35,7 +35,7 @@ Option<std::vector<unsigned>> try_generate_prefix(SaturatedGraph g) {
 
 
   for (unsigned w : ids) {
-    if (g.event_kind(w) != SaturatedGraph::STORE) continue;
+    if (!g.event_is_store(w)) continue;
     const auto &wc = g.event_vc(w);
     SymAddr a = g.event_addr(w);
 
