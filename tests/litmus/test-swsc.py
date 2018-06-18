@@ -2,7 +2,7 @@
 
 # Copyright (C) 2018 Magnus Lång and Tuan Phong Ngo
 # Based on source code of Carl Leonardsson
-# Run swsc on all C litmus tests.
+# Run swsc on all C tests.
 
 import datetime
 import subprocess
@@ -12,7 +12,7 @@ import os
 import time
 
 curDir = os.getcwd()
-LITMUSDIR = curDir + '/C-litmus'
+LITMUSDIR = curDir + '/C-tests'
 OUTPUTTFILE = curDir + '/swsc.results.txt'
 LISTFILE = curDir + '/nidhugg.results.txt'
 # FIX ME
@@ -72,7 +72,7 @@ def res_to_string(tst):
     
 def runallswsc():
     logfile = open(OUTPUTTFILE, 'w')
-    logfile.write('# Results of running swsc to all C litmus tests.\n')
+    logfile.write('# Results of running swsc to all C tests.\n')
     version = subprocess.check_output([SWSCBIN, '--version'], stderr = subprocess.STDOUT).decode()
     logfile.write('# ' + version)
     logfile.write('# swsc --wsc TEST.c \n')

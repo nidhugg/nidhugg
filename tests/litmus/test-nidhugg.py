@@ -2,7 +2,7 @@
 
 # Copyright (C) 2018 Magnus Lång and Tuan Phong Ngo
 # Based on source code of Carl Leonardsson
-# Run nidhugg "count-weak-trace" on all C litmus tests.
+# Run nidhugg "count-weak-trace" on all C tests.
 
 import datetime
 import subprocess
@@ -12,7 +12,7 @@ import os
 import time
 
 curDir = os.getcwd()
-LITMUSDIR = curDir + '/C-litmus'
+LITMUSDIR = curDir + '/C-tests'
 OUTPUTTFILE = curDir + '/nidhugg.results.txt'
 LISTFILE = curDir + '/listfile.txt'
 # FIX ME
@@ -63,7 +63,7 @@ def res_to_string(tst):
 
 def runallnidhugg():
     logfile = open(OUTPUTTFILE,'w')
-    logfile.write('# Results of run nidhugg "count-weak-trace" on all C litmus tests.\n')
+    logfile.write('# Results of run nidhugg "count-weak-trace" on all C tests.\n')
     version = subprocess.check_output([NIDHUGGBIN, '--version'], stderr = subprocess.STDOUT).decode()
     logfile.write('# ' + version)
     logfile.write('# nidhuggc --sc TEST.c \n')
