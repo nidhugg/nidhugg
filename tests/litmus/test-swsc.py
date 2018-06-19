@@ -11,6 +11,7 @@ import tempfile
 import os
 import time
 import argparse
+import multiprocessing
 
 curDir = os.getcwd()
 LITMUSDIR = curDir + '/C-tests'
@@ -68,7 +69,7 @@ def res_to_string(tst, res):
     return s
 
     
-def runallswsc():
+def runallswsc(jobs):
     logfile = open(OUTPUTTFILE, 'w')
     logfile.write('# Results of running swsc to all C tests.\n')
     version = subprocess.check_output([SWSCBIN, '--version'], stderr = subprocess.STDOUT).decode()
@@ -80,21 +81,51 @@ def runallswsc():
     
     totaltracecount = 0
     tests = get_expected(LISTFILE)
-    n = 0
+    initial_count = len(tests)
     t0 = time.time()
 
-    for tst in tests:
-        n = n + 1
-        res = run_test(tst)
+    q = multiprocessing.Queue()
+    workers = []
+    work = dict()
+
+    def give_work(w, p):
+        if len(tests) > 0:
+            tst = tests.pop()
+            n = initial_count - len(tests)
+            p.send((n,tst))
+            work[n] = (tst,w,p)
+        else:
+            p.send('die')
+            w.join()
+
+    for _ in range(min(len(tests), jobs)):
+        (o, i) = multiprocessing.Pipe(False)
+        p = multiprocessing.Process(target=slave, args=(q, o))
+        p.start()
+        workers.append((p, i))
+        give_work(p, i)
+
+    while len(work) > 0:
+        (done_n, res) = q.get()
+        (tst,w,p) = work.pop(done_n)
         totaltracecount += res['tracecount']
-        print('{0:4}: '.format(n), end = '')
+        print('{0:4}: '.format(done_n), end = '')
         print(res_to_string(tst, res))
         logfile.write(res_to_string(tst, res)  + '\n')
+        give_work(w, p)
 
     runtime = time.time() - t0
     logfile.write('# Total number of traces: ' + str(totaltracecount) + '\n')
     logfile.write('# Total running time: {0:.2f} s\n'.format(runtime))
     logfile.close()
+
+def slave(q, p):
+    while True:
+        cmd = p.recv()
+        if cmd == 'die': break
+        (n,tst) = cmd
+        res = run_test(tst)
+        q.put((n, res))
 
 def run_test(tst):
     res = dict()
@@ -134,13 +165,15 @@ def runoneswsc(filename):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument('-j', dest='jobs', metavar='N', type=int, default=1,
+                        help='Numer or parallel jobs')
     modes = parser.add_subparsers(metavar='mode',dest='mode')
     all_parser = modes.add_parser('all', help='Run all tests')
     one_parser = modes.add_parser('one', help='Run single test')
     one_parser.add_argument('test', help='testname(without_dot_c)');
     args = parser.parse_args()
     if (args.mode == "all"):
-        runallswsc()
+        runallswsc(args.jobs)
         sys.exit(0)
     elif (args.mode == "one"):
         runoneswsc(args.test)
