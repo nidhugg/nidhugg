@@ -165,8 +165,15 @@ def runoneswsc(filename):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-j', dest='jobs', metavar='N', type=int, default=1,
-                        help='Numer or parallel jobs')
+    # How many threads we want (default, number of CPUs in the system)
+    threads = os.getenv("THREADS", "")
+    if threads == "":
+        try:
+            threads = str(multiprocessing.cpu_count())
+        except:
+            threads = "1"
+    parser.add_argument('-j', dest='jobs', metavar='N', type=int,
+                        default=int(threads), help='Numer or parallel jobs')
     modes = parser.add_subparsers(metavar='mode',dest='mode')
     all_parser = modes.add_parser('all', help='Run all tests')
     one_parser = modes.add_parser('one', help='Run single test')
