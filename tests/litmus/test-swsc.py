@@ -10,6 +10,7 @@ import sys
 import tempfile
 import os
 import time
+import argparse
 
 curDir = os.getcwd()
 LITMUSDIR = curDir + '/C-tests'
@@ -129,24 +130,20 @@ def runoneswsc(filename):
     if found == False:
         print('Test case was not found!')
 
-
-def help_print():
-    print('Possible commands:')
-    print('\t1. python3 ./test-swsc.py all')
-    print('\t2. python3 ./test-swsc.py one testname(without_dot_c)')
-
-
 ####################################################
 
 if __name__ == "__main__":
-    if (len(sys.argv) >= 2):
-        if (sys.argv[1] == "all"):
-            runallswsc()
-            sys.exit(0)
-        elif (sys.argv[1] == "one"):
-            if (len(sys.argv) == 3):
-                runoneswsc(sys.argv[2])
-                sys.exit(0)
-    
-    print('Syntax error!')
-    help_print()
+    parser = argparse.ArgumentParser()
+    modes = parser.add_subparsers(metavar='mode',dest='mode')
+    all_parser = modes.add_parser('all', help='Run all tests')
+    one_parser = modes.add_parser('one', help='Run single test')
+    one_parser.add_argument('test', help='testname(without_dot_c)');
+    args = parser.parse_args()
+    if (args.mode == "all"):
+        runallswsc()
+        sys.exit(0)
+    elif (args.mode == "one"):
+        runoneswsc(args.test)
+        sys.exit(0)
+    else:
+        parser.print_help()
