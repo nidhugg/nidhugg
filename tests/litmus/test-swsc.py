@@ -42,10 +42,10 @@ def get_expected(fname):
     return l
 
 
-def res_to_string(tst):
+def res_to_string(tst, res):
     s = tst['tstname']
     
-    if not('swsc allow' in tst):
+    if not('allow' in res):
         s = s + bcolors.FAIL + ' FAILURE: ' + bcolors.ENDC
         if 'failure' in tst:
             s = s + tst['failure']
@@ -53,16 +53,16 @@ def res_to_string(tst):
             s = s + '(unknown)'
         return s
 
-    if tst['swsc allow'] != tst['expect allow']:
+    if res['allow'] != tst['expect allow']:
         s = s + bcolors.FAIL + ' FAILURE: unexpected result ' + ('Allow' if tst['nidhugg allow'] else 'Forbid') + bcolors.ENDC
         return s
     else:
-    	s = s + ' ' + ('Allow' if tst['swsc allow'] else 'Forbid')
+        s = s + ' ' + ('Allow' if res['allow'] else 'Forbid')
 
-    if tst['expected trace count'] != tst['swsc trace count']:
+    if tst['expected trace count'] != res['tracecount']:
     	s = s + bcolors.FAIL + ' FAILURE: not same trace as ' + str(tst['expected trace count']) + bcolors.ENDC
 
-    s = s + bcolors.OKGREEN + ' OK ' + bcolors.ENDC
+    s = s + bcolors.OKGREEN + ' OK ' + bcolors.ENDC + ' : ' + str(res['tracecount'])
 
     return s
 
@@ -78,70 +78,53 @@ def runallswsc():
     logfile.write('\n')
     
     totaltracecount = 0
-    tracecount = 0
     tests = get_expected(LISTFILE)
     n = 0
     t0 = time.time()
 
     for tst in tests:
         n = n + 1
-        try:
-            out = subprocess.check_output([SWSCBIN, '--wsc',
-                                           LITMUSDIR + '/' + tst['tstname'] + '.c'],
-                                          stderr = subprocess.STDOUT).decode()
-            parts_0 = out.split("\n")
-            error_info = parts_0[-6]
-            trace_info = parts_0[-7]
-            tracecount = int(trace_info.split(":")[1].split()[0])
-            totaltracecount += tracecount
-            if out.find('No errors were detected') >= 0:
-                tst['swsc allow'] = False
-            else:
-                tst['swsc allow'] = True
-        except subprocess.CalledProcessError:
-            tst['failure'] = 'swsc'
-            tracecount = -1
-            continue
-        finally:
-            tst['swsc trace count'] = tracecount
-            print('{0:4}: '.format(n), end = '')
-            print(res_to_string(tst) + ' : ' + str(tracecount))
-            logfile.write(res_to_string(tst) + ' : ' + str(tracecount) + '\n')
+        res = run_test(tst)
+        totaltracecount += res['tracecount']
+        print('{0:4}: '.format(n), end = '')
+        print(res_to_string(tst, res))
+        logfile.write(res_to_string(tst, res)  + '\n')
 
     runtime = time.time() - t0
     logfile.write('# Total number of traces: ' + str(totaltracecount) + '\n')
     logfile.write('# Total running time: {0:.2f} s\n'.format(runtime))
     logfile.close()
 
+def run_test(tst):
+    res = dict()
+    try:
+        out = subprocess.check_output([SWSCBIN, '--wsc',
+                                       LITMUSDIR + '/' + tst['tstname'] + '.c'],
+                                      stderr = subprocess.STDOUT).decode()
+        parts_0 = out.split("\n")
+        error_info = parts_0[-6]
+        trace_info = parts_0[-7]
+        res['tracecount'] = int(trace_info.split(":")[1].split()[0])
+        if out.find('No errors were detected') >= 0:
+            res['allow'] = False
+        else:
+            res['allow'] = True
+    except subprocess.CalledProcessError:
+        res['failure'] = SWSCBIN
+        res['tracecount'] = -1
+    return res
 
 def runoneswsc(filename):
-    tracecount = 0
     found = False
 
-    for tst in tests:
+    for tst in get_expected(LISTFILE):
         if tst['tstname'] != filename:
             continue
         else:
             found = True
-            try:
-                out = subprocess.check_output([SWSCBIN, '--wsc',
-                                               LITMUSDIR + '/' + tst['tstname'] + '.c'],
-                                              stderr = subprocess.STDOUT).decode()
-                parts_0 = out.split("\n")
-                error_info = parts_0[-6]
-                trace_info = parts_0[-7]
-                tracecount = int(trace_info.split(":")[1].split()[0])
-                if out.find('No errors were detected') >= 0:
-                    tst['swsc allow'] = False
-                else:
-                    tst['swsc allow'] = True
-            except subprocess.CalledProcessError:
-                tst['failure'] = 'swsc'
-                tracecount = -1
-            finally:
-                tst['swsc trace count'] = tracecount
-                print(res_to_string(tst) + ' : ' + str(tracecount))
-                break
+            res = run_test(tst)
+            print(res_to_string(tst, res))
+            break
 
     if found == False:
         print('Test case was not found!')
@@ -154,8 +137,6 @@ def help_print():
 
 
 ####################################################
-    
-tests = get_expected(LISTFILE)
 
 if __name__ == "__main__":
     if (len(sys.argv) >= 2):
