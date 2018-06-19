@@ -27,7 +27,7 @@ void *t1(void* arg) {
       	uint64_t tmpi = ij;
 		ij = IJ(I(tmpi)+J(tmpj), J(tmpj));
     }
-	return NULL;
+    return NULL;
 }
 
 void *t2(void* arg) {
@@ -37,7 +37,8 @@ void *t2(void* arg) {
       	uint64_t tmpj = ij;
       	ij = IJ(I(tmpi), I(tmpi)+J(tmpj));
     }
-  }
+    return NULL;
+}
 
 int fib(int n) {
     int cur = 1, prev = 0;
