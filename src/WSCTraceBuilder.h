@@ -590,7 +590,7 @@ protected:
   std::shared_ptr<UnfoldingNode> find_unfolding_node
   (UnfoldingNodeChildren &parent_list,
    const std::shared_ptr<UnfoldingNode> &parent,
-   std::shared_ptr<UnfoldingNode> read_from);
+   const std::shared_ptr<UnfoldingNode> &read_from);
   /* Perform planning of future executions. Requires the trace to be
    * maximal or sleepset blocked, and that the vector clocks have been
    * computed.

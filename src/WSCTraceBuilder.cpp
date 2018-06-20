@@ -1129,12 +1129,12 @@ void WSCTraceBuilder::compute_unfolding() {
       prefix[i].event = *parent;
       continue;
     }
-    std::shared_ptr<UnfoldingNode> read_from;
+    const std::shared_ptr<UnfoldingNode> *read_from = &null_ptr;
     if (prefix[i].read_from && *prefix[i].read_from != -1) {
-      read_from = prefix[*prefix[i].read_from].event;
+      read_from = &prefix[*prefix[i].read_from].event;
     }
 
-    prefix[i].event = find_unfolding_node(*parent_list, *parent, std::move(read_from));
+    prefix[i].event = find_unfolding_node(*parent_list, *parent, *read_from);
 
     if (int(i) >= replay_point) {
       if (is_load(i)) {
@@ -1149,7 +1149,7 @@ void WSCTraceBuilder::compute_unfolding() {
 std::shared_ptr<WSCTraceBuilder::UnfoldingNode> WSCTraceBuilder::
 find_unfolding_node(UnfoldingNodeChildren &parent_list,
                     const std::shared_ptr<UnfoldingNode> &parent,
-                    std::shared_ptr<UnfoldingNode> read_from) {
+                    const std::shared_ptr<UnfoldingNode> &read_from) {
   for (unsigned ci = 0; ci < parent_list.size();) {
     std::shared_ptr<UnfoldingNode> c = parent_list[ci].lock();
     if (!c) {
