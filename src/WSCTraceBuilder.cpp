@@ -377,6 +377,7 @@ void WSCTraceBuilder::debug_print() const {
   int iid_offs = 0;
   int dec_offs = 0;
   int unf_offs = 0;
+  int rf_offs = 0;
   int clock_offs = 0;
   std::vector<std::string> lines(prefix.size(), "");
 
@@ -387,6 +388,9 @@ void WSCTraceBuilder::debug_print() const {
     dec_offs = std::max(dec_offs,int(std::to_string(prefix[i].decision).size())
                         + (prefix[i].pinned ? 1 : 0));
     unf_offs = std::max(unf_offs,int(std::to_string(prefix[i].event->seqno).size()));
+    rf_offs = std::max(rf_offs,prefix[i].read_from ?
+                       int(std::to_string(*prefix[i].read_from).size())
+                       : 1);
     clock_offs = std::max(clock_offs,int(prefix[i].clock.to_string().size()));
     lines[i] = events_to_string(prefix[i].sym);
   }
@@ -399,6 +403,7 @@ void WSCTraceBuilder::debug_print() const {
                  << " " << lpad((prefix[i].pinned ? "*" : "")
                                 + std::to_string(prefix[i].decision),dec_offs)
                  << " " << lpad(std::to_string(prefix[i].event->seqno),unf_offs)
+                 << " " << lpad(prefix[i].read_from ? std::to_string(*prefix[i].read_from) : "-",rf_offs)
                  << " " << rpad(prefix[i].clock.to_string(),clock_offs)
                  << " " << lines[i] << "\n";
   }
