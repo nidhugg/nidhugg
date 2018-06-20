@@ -1,35 +1,37 @@
-// /home/osboxes/nidhugg_tests/gen-litmuts/power-tests/S+PPO030.litmus
+/* Copyright (C) 2018 Magnus Lång and Tuan Phong Ngo
+ * This benchmark is part of SWSC */
 
 #include <assert.h>
 #include <stdint.h>
+#include <stdatomic.h>
 #include <pthread.h>
 
-volatile int vars[5]; 
-volatile int atom_1_r1_1; 
+atomic_int vars[5]; 
+atomic_int atom_1_r1_1; 
 
 void *t0(void *arg){
 label_1:;
-  vars[0] = 2;
+  atomic_store_explicit(&vars[0], 2, memory_order_seq_cst);
 
-  vars[1] = 1;
+  atomic_store_explicit(&vars[1], 1, memory_order_seq_cst);
   return NULL;
 }
 
 void *t1(void *arg){
 label_2:;
-  int v2_r1 = vars[1];
+  int v2_r1 = atomic_load_explicit(&vars[1], memory_order_seq_cst);
   int v3_r3 = v2_r1 ^ v2_r1;
-  int v6_r4 = vars[2+v3_r3];
+  int v6_r4 = atomic_load_explicit(&vars[2+v3_r3], memory_order_seq_cst);
   int v7_r6 = v6_r4 ^ v6_r4;
-  vars[3+v7_r6] = 1;
-  vars[3] = 2;
-  int v9_r10 = vars[3];
+  atomic_store_explicit(&vars[3+v7_r6], 1, memory_order_seq_cst);
+  atomic_store_explicit(&vars[3], 2, memory_order_seq_cst);
+  int v9_r10 = atomic_load_explicit(&vars[3], memory_order_seq_cst);
   int v10_r11 = v9_r10 ^ v9_r10;
-  int v13_r12 = vars[4+v10_r11];
+  int v13_r12 = atomic_load_explicit(&vars[4+v10_r11], memory_order_seq_cst);
   int v14_r14 = v13_r12 ^ v13_r12;
-  vars[0+v14_r14] = 1;
+  atomic_store_explicit(&vars[0+v14_r14], 1, memory_order_seq_cst);
   int v22 = (v2_r1 == 1);
-  atom_1_r1_1 = v22;
+  atomic_store_explicit(&atom_1_r1_1, v22, memory_order_seq_cst);
   return NULL;
 }
 
@@ -37,12 +39,12 @@ int main(int argc, char *argv[]){
   pthread_t thr0; 
   pthread_t thr1; 
 
-  vars[0] = 0;
-  vars[3] = 0;
-  vars[4] = 0;
-  vars[2] = 0;
-  vars[1] = 0;
-  atom_1_r1_1 = 0;
+  atomic_init(&vars[3], 0);
+  atomic_init(&vars[0], 0);
+  atomic_init(&vars[4], 0);
+  atomic_init(&vars[2], 0);
+  atomic_init(&vars[1], 0);
+  atomic_init(&atom_1_r1_1, 0);
 
   pthread_create(&thr0, NULL, t0, NULL);
   pthread_create(&thr1, NULL, t1, NULL);
@@ -50,11 +52,11 @@ int main(int argc, char *argv[]){
   pthread_join(thr0, NULL);
   pthread_join(thr1, NULL);
 
-  int v15 = vars[3];
+  int v15 = atomic_load_explicit(&vars[3], memory_order_seq_cst);
   int v16 = (v15 == 2);
-  int v17 = vars[0];
+  int v17 = atomic_load_explicit(&vars[0], memory_order_seq_cst);
   int v18 = (v17 == 2);
-  int v19 = atom_1_r1_1;
+  int v19 = atomic_load_explicit(&atom_1_r1_1, memory_order_seq_cst);
   int v20_conj = v18 & v19;
   int v21_conj = v16 & v20_conj;
   if (v21_conj == 1) assert(0);

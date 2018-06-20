@@ -1,8 +1,8 @@
-# Results of run nidhugg "count-weak-trace" on all C litmus tests.
+# Results of run nidhugg "count-weak-trace" on all C tests.
 # Nidhugg 0.2 (4f6f552, Release, with LLVM-3.8.1:RelWithDebInfo)
 # nidhuggc --sc TEST.c 
-# The tests where executed using test-nidhugg-count.py.
-# Date: 180614-05:03
+# The tests where executed using test-nidhugg.py.
+# Date: 180620-13:13
 
 2+2W0000 Forbid : 4
 2+2W0001 Forbid : 3
@@ -8067,4 +8067,4 @@ Z6.5+sync+sync+lwsync Forbid : 7
 Z6.5+sync+sync+po Forbid : 7
 Z6.5+sync+sync+rfi-addr Forbid : 10
 # Total number of traces: 120599
-# Total running time: 1454.83 s
+# Total running time: 1380.75 s

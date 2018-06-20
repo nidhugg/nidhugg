@@ -1,37 +1,39 @@
-// /home/osboxes/nidhugg_tests/gen-litmuts/power-tests/DETOUR1196.litmus
+/* Copyright (C) 2018 Magnus Lång and Tuan Phong Ngo
+ * This benchmark is part of SWSC */
 
 #include <assert.h>
 #include <stdint.h>
+#include <stdatomic.h>
 #include <pthread.h>
 
-volatile int vars[2]; 
-volatile int atom_1_r1_1; 
-volatile int atom_1_r3_2; 
+atomic_int vars[2]; 
+atomic_int atom_1_r1_1; 
+atomic_int atom_1_r3_2; 
 
 void *t0(void *arg){
 label_1:;
-  vars[0] = 2;
+  atomic_store_explicit(&vars[0], 2, memory_order_seq_cst);
 
-  vars[1] = 1;
+  atomic_store_explicit(&vars[1], 1, memory_order_seq_cst);
   return NULL;
 }
 
 void *t1(void *arg){
 label_2:;
-  int v2_r1 = vars[1];
-  int v4_r3 = vars[1];
-  vars[1] = 3;
-  vars[0] = 1;
+  int v2_r1 = atomic_load_explicit(&vars[1], memory_order_seq_cst);
+  int v4_r3 = atomic_load_explicit(&vars[1], memory_order_seq_cst);
+  atomic_store_explicit(&vars[1], 3, memory_order_seq_cst);
+  atomic_store_explicit(&vars[0], 1, memory_order_seq_cst);
   int v11 = (v2_r1 == 1);
-  atom_1_r1_1 = v11;
+  atomic_store_explicit(&atom_1_r1_1, v11, memory_order_seq_cst);
   int v12 = (v4_r3 == 2);
-  atom_1_r3_2 = v12;
+  atomic_store_explicit(&atom_1_r3_2, v12, memory_order_seq_cst);
   return NULL;
 }
 
 void *t2(void *arg){
 label_3:;
-  vars[1] = 2;
+  atomic_store_explicit(&vars[1], 2, memory_order_seq_cst);
   return NULL;
 }
 
@@ -40,10 +42,10 @@ int main(int argc, char *argv[]){
   pthread_t thr1; 
   pthread_t thr2; 
 
-  vars[1] = 0;
-  vars[0] = 0;
-  atom_1_r1_1 = 0;
-  atom_1_r3_2 = 0;
+  atomic_init(&vars[0], 0);
+  atomic_init(&vars[1], 0);
+  atomic_init(&atom_1_r1_1, 0);
+  atomic_init(&atom_1_r3_2, 0);
 
   pthread_create(&thr0, NULL, t0, NULL);
   pthread_create(&thr1, NULL, t1, NULL);
@@ -53,10 +55,10 @@ int main(int argc, char *argv[]){
   pthread_join(thr1, NULL);
   pthread_join(thr2, NULL);
 
-  int v5 = vars[0];
+  int v5 = atomic_load_explicit(&vars[0], memory_order_seq_cst);
   int v6 = (v5 == 2);
-  int v7 = atom_1_r1_1;
-  int v8 = atom_1_r3_2;
+  int v7 = atomic_load_explicit(&atom_1_r1_1, memory_order_seq_cst);
+  int v8 = atomic_load_explicit(&atom_1_r3_2, memory_order_seq_cst);
   int v9_conj = v7 & v8;
   int v10_conj = v6 & v9_conj;
   if (v10_conj == 1) assert(0);

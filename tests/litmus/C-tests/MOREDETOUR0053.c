@@ -1,48 +1,50 @@
-// /home/osboxes/nidhugg_tests/gen-litmuts/power-tests/MOREDETOUR0053.litmus
+/* Copyright (C) 2018 Magnus Lång and Tuan Phong Ngo
+ * This benchmark is part of SWSC */
 
 #include <assert.h>
 #include <stdint.h>
+#include <stdatomic.h>
 #include <pthread.h>
 
-volatile int vars[2]; 
-volatile int atom_0_r3_0; 
-volatile int atom_0_r6_1; 
-volatile int atom_1_r1_1; 
-volatile int atom_2_r1_3; 
-volatile int atom_2_r4_0; 
+atomic_int vars[2]; 
+atomic_int atom_0_r3_0; 
+atomic_int atom_0_r6_1; 
+atomic_int atom_1_r1_1; 
+atomic_int atom_2_r1_3; 
+atomic_int atom_2_r4_0; 
 
 void *t0(void *arg){
 label_1:;
-  vars[0] = 1;
-  int v2_r3 = vars[1];
-  vars[1] = 1;
-  int v4_r6 = vars[1];
-  vars[1] = 3;
+  atomic_store_explicit(&vars[0], 1, memory_order_seq_cst);
+  int v2_r3 = atomic_load_explicit(&vars[1], memory_order_seq_cst);
+  atomic_store_explicit(&vars[1], 1, memory_order_seq_cst);
+  int v4_r6 = atomic_load_explicit(&vars[1], memory_order_seq_cst);
+  atomic_store_explicit(&vars[1], 3, memory_order_seq_cst);
   int v25 = (v2_r3 == 0);
-  atom_0_r3_0 = v25;
+  atomic_store_explicit(&atom_0_r3_0, v25, memory_order_seq_cst);
   int v26 = (v4_r6 == 1);
-  atom_0_r6_1 = v26;
+  atomic_store_explicit(&atom_0_r6_1, v26, memory_order_seq_cst);
   return NULL;
 }
 
 void *t1(void *arg){
 label_2:;
-  int v6_r1 = vars[1];
-  vars[1] = 2;
+  int v6_r1 = atomic_load_explicit(&vars[1], memory_order_seq_cst);
+  atomic_store_explicit(&vars[1], 2, memory_order_seq_cst);
   int v27 = (v6_r1 == 1);
-  atom_1_r1_1 = v27;
+  atomic_store_explicit(&atom_1_r1_1, v27, memory_order_seq_cst);
   return NULL;
 }
 
 void *t2(void *arg){
 label_3:;
-  int v8_r1 = vars[1];
+  int v8_r1 = atomic_load_explicit(&vars[1], memory_order_seq_cst);
   int v9_r3 = v8_r1 ^ v8_r1;
-  int v12_r4 = vars[0+v9_r3];
+  int v12_r4 = atomic_load_explicit(&vars[0+v9_r3], memory_order_seq_cst);
   int v28 = (v8_r1 == 3);
-  atom_2_r1_3 = v28;
+  atomic_store_explicit(&atom_2_r1_3, v28, memory_order_seq_cst);
   int v29 = (v12_r4 == 0);
-  atom_2_r4_0 = v29;
+  atomic_store_explicit(&atom_2_r4_0, v29, memory_order_seq_cst);
   return NULL;
 }
 
@@ -51,13 +53,13 @@ int main(int argc, char *argv[]){
   pthread_t thr1; 
   pthread_t thr2; 
 
-  vars[1] = 0;
-  vars[0] = 0;
-  atom_0_r3_0 = 0;
-  atom_0_r6_1 = 0;
-  atom_1_r1_1 = 0;
-  atom_2_r1_3 = 0;
-  atom_2_r4_0 = 0;
+  atomic_init(&vars[1], 0);
+  atomic_init(&vars[0], 0);
+  atomic_init(&atom_0_r3_0, 0);
+  atomic_init(&atom_0_r6_1, 0);
+  atomic_init(&atom_1_r1_1, 0);
+  atomic_init(&atom_2_r1_3, 0);
+  atomic_init(&atom_2_r4_0, 0);
 
   pthread_create(&thr0, NULL, t0, NULL);
   pthread_create(&thr1, NULL, t1, NULL);
@@ -67,13 +69,13 @@ int main(int argc, char *argv[]){
   pthread_join(thr1, NULL);
   pthread_join(thr2, NULL);
 
-  int v13 = atom_0_r3_0;
-  int v14 = atom_0_r6_1;
-  int v15 = vars[1];
+  int v13 = atomic_load_explicit(&atom_0_r3_0, memory_order_seq_cst);
+  int v14 = atomic_load_explicit(&atom_0_r6_1, memory_order_seq_cst);
+  int v15 = atomic_load_explicit(&vars[1], memory_order_seq_cst);
   int v16 = (v15 == 3);
-  int v17 = atom_1_r1_1;
-  int v18 = atom_2_r1_3;
-  int v19 = atom_2_r4_0;
+  int v17 = atomic_load_explicit(&atom_1_r1_1, memory_order_seq_cst);
+  int v18 = atomic_load_explicit(&atom_2_r1_3, memory_order_seq_cst);
+  int v19 = atomic_load_explicit(&atom_2_r4_0, memory_order_seq_cst);
   int v20_conj = v18 & v19;
   int v21_conj = v17 & v20_conj;
   int v22_conj = v16 & v21_conj;

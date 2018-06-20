@@ -1,28 +1,30 @@
-// /home/osboxes/nidhugg_tests/gen-litmuts/power-tests/ppc-iwp2.2-amd2.litmus
+/* Copyright (C) 2018 Magnus Lång and Tuan Phong Ngo
+ * This benchmark is part of SWSC */
 
 #include <assert.h>
 #include <stdint.h>
+#include <stdatomic.h>
 #include <pthread.h>
 
-volatile int vars[2]; 
-volatile int atom_0_r6_66; 
-volatile int atom_1_r5_55; 
+atomic_int vars[2]; 
+atomic_int atom_0_r6_66; 
+atomic_int atom_1_r5_55; 
 
 void *t0(void *arg){
 label_1:;
-  int v2_r6 = vars[0];
-  vars[1] = 55;
+  int v2_r6 = atomic_load_explicit(&vars[0], memory_order_seq_cst);
+  atomic_store_explicit(&vars[1], 55, memory_order_seq_cst);
   int v8 = (v2_r6 == 66);
-  atom_0_r6_66 = v8;
+  atomic_store_explicit(&atom_0_r6_66, v8, memory_order_seq_cst);
   return NULL;
 }
 
 void *t1(void *arg){
 label_2:;
-  int v4_r5 = vars[1];
-  vars[0] = 66;
+  int v4_r5 = atomic_load_explicit(&vars[1], memory_order_seq_cst);
+  atomic_store_explicit(&vars[0], 66, memory_order_seq_cst);
   int v9 = (v4_r5 == 55);
-  atom_1_r5_55 = v9;
+  atomic_store_explicit(&atom_1_r5_55, v9, memory_order_seq_cst);
   return NULL;
 }
 
@@ -30,10 +32,10 @@ int main(int argc, char *argv[]){
   pthread_t thr0; 
   pthread_t thr1; 
 
-  vars[0] = 0;
-  vars[1] = 0;
-  atom_0_r6_66 = 0;
-  atom_1_r5_55 = 0;
+  atomic_init(&vars[1], 0);
+  atomic_init(&vars[0], 0);
+  atomic_init(&atom_0_r6_66, 0);
+  atomic_init(&atom_1_r5_55, 0);
 
   pthread_create(&thr0, NULL, t0, NULL);
   pthread_create(&thr1, NULL, t1, NULL);
@@ -41,8 +43,8 @@ int main(int argc, char *argv[]){
   pthread_join(thr0, NULL);
   pthread_join(thr1, NULL);
 
-  int v5 = atom_0_r6_66;
-  int v6 = atom_1_r5_55;
+  int v5 = atomic_load_explicit(&atom_0_r6_66, memory_order_seq_cst);
+  int v6 = atomic_load_explicit(&atom_1_r5_55, memory_order_seq_cst);
   int v7_conj = v5 & v6;
   if (v7_conj == 1) assert(0);
   return 0;
