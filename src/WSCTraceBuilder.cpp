@@ -1556,11 +1556,16 @@ WSCTraceBuilder::Leaf WSCTraceBuilder::order_to_leaf
   for (unsigned i : order) {
     bool is_the_changed_read = prefix[i].decision == decision
       && !prefix[i].pinned;
-    int new_decision = std::min(prefix[i].decision, decision);
+    bool new_pinned = prefix[i].pinned || (prefix[i].decision > decision);
+    int new_decision = prefix[i].decision;
+    if (new_decision > decision) {
+      new_pinned = true;
+      new_decision = -1;
+    }
     new_prefix.emplace_back(prefix[i].iid.get_pid(),
                             is_the_changed_read ? 1 : prefix[i].size,
                             new_decision,
-                            prefix[i].pinned || (prefix[i].decision > decision),
+                            new_pinned,
                             prefix[i].sym);
   }
 
@@ -1570,7 +1575,7 @@ WSCTraceBuilder::Leaf WSCTraceBuilder::order_to_leaf
 std::vector<bool> WSCTraceBuilder::causal_past(int decision) const {
   std::vector<bool> acc(prefix.size());
   for (unsigned i = 0; i < prefix.size(); ++i) {
-    assert(is_load(i) == (prefix[i].decision != -1));
+    assert(is_load(i) == ((prefix[i].decision != -1) ^ prefix[i].pinned));
     if (prefix[i].decision != -1 && prefix[i].decision <= decision) {
       causal_past_1(acc, i);
     }
