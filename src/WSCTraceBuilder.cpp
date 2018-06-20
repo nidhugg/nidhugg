@@ -1286,7 +1286,13 @@ bool WSCTraceBuilder::is_store(unsigned i) const {
 
 SymAddrSize WSCTraceBuilder::get_addr(unsigned i) const {
   for (const SymEv &e : prefix[i].sym) {
-    if (e.has_addr()) return e.addr();
+    if (e.has_addr()) {
+      assert(std::all_of(prefix[i].sym.begin(), prefix[i].sym.end(),
+                         [&e](const SymEv &f) {
+                           return !f.has_addr() || f.addr() == e.addr();
+                         }));
+      return e.addr();
+    }
   }
   abort();
 }
