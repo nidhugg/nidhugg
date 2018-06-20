@@ -27,6 +27,12 @@ static llvm::cl::opt<bool>
 cl_no_heuristic("no-heuristic",llvm::cl::NotHidden,
                 llvm::cl::desc("Disable prefix heuristic."));
 
+#ifdef TRACE
+#  define IFTRACE(X) X
+#else
+#  define IFTRACE(X) ((void)0)
+#endif
+
 Option<std::vector<unsigned>> try_generate_prefix(SaturatedGraph g) {
   if (cl_no_heuristic) return nullptr;
   std::vector<unsigned> ids = g.event_ids();
@@ -57,12 +63,12 @@ Option<std::vector<unsigned>> try_generate_prefix(SaturatedGraph g) {
 
     if (ins_ptr != total_co[a].begin()) {
       unsigned i = *std::prev(ins_ptr);
-      // std::cout << "Guessing coherence order from " << i << " to " << w << "\n";
+      IFTRACE(std::cout << "Guessing coherence order from " << i << " to " << w << "\n");
       g.add_edge(i, w);
     }
     if (ins_ptr != total_co[a].end()) {
       unsigned j = *ins_ptr;
-      // std::cout << "Guessing coherence order from " << w << " to " << j << "\n";
+      IFTRACE(std::cout << "Guessing coherence order from " << w << " to " << j << "\n");
       g.add_edge(w, j);
     }
     total_co[a].insert(ins_ptr, w);
