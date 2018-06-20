@@ -254,7 +254,7 @@ bool WSCTraceBuilder::reset(){
   for (unsigned i = 0;; ++i) {
     if (prefix[i].decision == int(decisions.size()-1)
         && !prefix[i].pinned) {
-      decisions.back().sleep.emplace(prefix[i].event->read_from);
+      decisions.back().sleep.emplace(std::move(prefix[i].event));
       break;
     }
     assert(i < prefix.size());
@@ -1173,6 +1173,20 @@ find_unfolding_node(UnfoldingNodeChildren &parent_list,
   return c;
 }
 
+std::shared_ptr<WSCTraceBuilder::UnfoldingNode> WSCTraceBuilder::alternative
+(unsigned i, const std::shared_ptr<UnfoldingNode> &read_from) {
+  std::shared_ptr<UnfoldingNode> &parent = prefix[i].event->parent;
+  UnfoldingNodeChildren *parent_list;
+  if (parent) {
+    parent_list = &parent->children;
+  } else {
+    IPid p = prefix[i].iid.get_pid();
+    parent_list = &first_events[threads[p].cpid];
+  }
+
+  return find_unfolding_node(*parent_list, parent, read_from);
+}
+
 void WSCTraceBuilder::record_symbolic(SymEv event){
   if (!replay) {
     assert(sym_idx == curev().sym.size());
@@ -1372,10 +1386,11 @@ void WSCTraceBuilder::compute_prefixes() {
         if (j == original_read_from) return;
         const std::shared_ptr<UnfoldingNode> &read_from =
           j == -1 ? nullptr : prefix[j].event;
-        if (decision.siblings.count(read_from)) return;
-        if (decision.sleep.count(read_from)) return;
+        std::shared_ptr<UnfoldingNode> unf = alternative(i, read_from);
+        if (decision.siblings.count(unf)) return;
+        if (decision.sleep.count(unf)) return;
         if (!can_rf_by_vclocks(i, original_read_from, j)) {
-          decision.siblings.emplace(read_from, Leaf());
+          decision.siblings.emplace(unf, Leaf());
           return;
         }
 
@@ -1384,7 +1399,7 @@ void WSCTraceBuilder::compute_prefixes() {
                   << " read from " << pretty_index(j)
                   << " instead of " << pretty_index(original_read_from);
         Leaf solution = try_sat(i, writes_by_address);
-        decision.siblings.emplace(read_from, std::move(solution));
+        decision.siblings.emplace(unf, std::move(solution));
       };
 
       for (int j : possible_writes) try_read_from(j);
