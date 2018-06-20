@@ -21,8 +21,14 @@
 #include <list>
 #include <iostream>
 #include <fstream>
+#include <llvm/Support/CommandLine.h>
+
+static llvm::cl::opt<bool>
+cl_no_heuristic("no-heuristic",llvm::cl::NotHidden,
+                llvm::cl::desc("Disable prefix heuristic."));
 
 Option<std::vector<unsigned>> try_generate_prefix(SaturatedGraph g) {
+  if (cl_no_heuristic) return nullptr;
   std::vector<unsigned> ids = g.event_ids();
   std::sort(ids.begin(), ids.end());
 
