@@ -56,6 +56,9 @@ void SaturatedGraph::add_event(unsigned pid, unsigned id, EventKind kind,
       return std::move(v).push_back(id);
     });
 
+  IFTRACE(for(unsigned after : orig_in)
+            std::cout << "Adding edge between " << after << " and " << id << "\n");
+
   immer::vector_transient<unsigned> out;
   immer::vector_transient<unsigned> in
     = immer::vector<unsigned>(orig_in.begin(),
