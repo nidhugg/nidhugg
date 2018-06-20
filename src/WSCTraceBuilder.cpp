@@ -230,12 +230,6 @@ Trace *WSCTraceBuilder::get_trace() const{
 }
 
 bool WSCTraceBuilder::reset(){
-  if(conf.debug_print_on_reset){
-    llvm::dbgs() << " === WSCTraceBuilder reset ===\n";
-    debug_print();
-    llvm::dbgs() << " =============================\n";
-  }
-
   for(; !decisions.empty(); decisions.pop_back()) {
     auto &siblings = decisions.back().siblings;
     for (auto it = siblings.begin(); it != siblings.end();) {
@@ -1331,6 +1325,12 @@ void WSCTraceBuilder::compute_prefixes() {
   compute_vclocks();
 
   compute_unfolding();
+
+  if(conf.debug_print_on_reset){
+    llvm::dbgs() << " === WSCTraceBuilder state ===\n";
+    debug_print();
+    llvm::dbgs() << " =============================\n";
+  }
 
   std::cerr << "Computing prefixes" << std::endl;
 
