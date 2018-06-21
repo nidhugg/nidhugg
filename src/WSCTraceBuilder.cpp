@@ -24,7 +24,6 @@
 
 #include <sstream>
 #include <stdexcept>
-#include <iostream>
 
 #define ANSIRed "\x1b[91m"
 #define ANSIRst "\x1b[m"
@@ -58,11 +57,10 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       *aux = pid % 2 - 1;
       *alt = 0;
       if(!(threads[pid].available)) {
-
-        std::cerr << "Trying to play process " << threads[pid].cpid << ", but it is blocked\n";
-        std::cerr << "At replay step " << prefix_idx << ", iid "
-                  << iid_string(IID<IPid>(pid, threads[curev().iid.get_pid()].last_event_index()))
-                  << "\n";
+        llvm::dbgs() << "Trying to play process " << threads[pid].cpid << ", but it is blocked\n";
+        llvm::dbgs() << "At replay step " << prefix_idx << ", iid "
+                     << iid_string(IID<IPid>(pid, threads[curev().iid.get_pid()].last_event_index()))
+                     << "\n";
         abort();
       }
       threads[pid].event_indices.push_back(prefix_idx);
@@ -262,9 +260,10 @@ bool WSCTraceBuilder::reset(){
   auto sit = decisions.back().siblings.begin();
   Leaf l = std::move(sit->second);
 
-  std::cerr << "Backtracking to decision node " << (decisions.size()-1)
-            << ", replaying " << l.prefix.size() << " events to read from "
-            << (sit->first ? std::to_string(sit->first->seqno) : "init") << std::endl;
+  if (conf.debug_print_on_reset)
+      llvm::dbgs() << "Backtracking to decision node " << (decisions.size()-1)
+                   << ", replaying " << l.prefix.size() << " events to read from "
+                   << (sit->first ? std::to_string(sit->first->seqno) : "init") << "\n";
   decisions.back().siblings.erase(sit);
 
   assert(!l.is_bottom());
@@ -1352,7 +1351,8 @@ void WSCTraceBuilder::compute_prefixes() {
     llvm::dbgs() << " =============================\n";
   }
 
-  std::cerr << "Computing prefixes" << std::endl;
+  if (conf.debug_print_on_reset)
+    llvm::dbgs() << "Computing prefixes\n";
 
   auto pretty_index = [&] (int i) -> std::string {
     if (i==-1) return "init event";
@@ -1395,9 +1395,10 @@ void WSCTraceBuilder::compute_prefixes() {
         }
 
         prefix[i].read_from = j;
-        std::cerr << "Trying to make " << pretty_index(i)
-                  << " read from " << pretty_index(j)
-                  << " instead of " << pretty_index(original_read_from);
+        if (conf.debug_print_on_reset)
+          llvm::dbgs() << "Trying to make " << pretty_index(i)
+                       << " read from " << pretty_index(j)
+                       << " instead of " << pretty_index(original_read_from);
         Leaf solution = try_sat(i, writes_by_address);
         decision.siblings.emplace(unf, std::move(solution));
       };
@@ -1500,17 +1501,20 @@ WSCTraceBuilder::try_sat
     }
     add_event(changed_event);
     if (!g.saturate()) {
-      std::cerr << ": Saturation yielded cycle\n";
+      if (conf.debug_print_on_reset)
+        llvm::dbgs() << ": Saturation yielded cycle\n";
       return Leaf();
     }
 
     if (Option<std::vector<unsigned>> res = try_generate_prefix(std::move(g))) {
-      std::cerr << ": Heuristic found prefix\n";
-      std::cerr << "[";
-      for (unsigned i : *res) {
-        std::cerr << i << ",";
+      if (conf.debug_print_on_reset) {
+        llvm::dbgs() << ": Heuristic found prefix\n";
+        llvm::dbgs() << "[";
+        for (unsigned i : *res) {
+          llvm::dbgs() << i << ",";
+        }
+        llvm::dbgs() << "]\n";
       }
-      std::cerr << "]\n";
       return order_to_leaf(decision, *res);
     }
   }
@@ -1521,10 +1525,10 @@ WSCTraceBuilder::try_sat
   //output_formula(std::cerr, writes_by_address, keep);
 
   if (!sat->check_sat()) {
-    std::cerr << ": UNSAT\n";
+    if (conf.debug_print_on_reset) llvm::dbgs() << ": UNSAT\n";
     return Leaf();
   }
-  std::cerr << ": SAT\n";
+  if (conf.debug_print_on_reset) llvm::dbgs() << ": SAT\n";
 
   std::vector<unsigned> model = sat->get_model();
 
@@ -1540,13 +1544,15 @@ WSCTraceBuilder::try_sat
     }
   }
 
-  std::cerr << "[";
-  for (unsigned i : order) {
-    std::cerr << i << ",";
+  if (conf.debug_print_on_reset) {
+    llvm::dbgs() << "[";
+    for (unsigned i : order) {
+      llvm::dbgs() << i << ",";
+    }
+    llvm::dbgs() << "]\n";
   }
-  std::cerr << "]\n";
 
-      return order_to_leaf(decision, order);
+  return order_to_leaf(decision, order);
 }
 
 WSCTraceBuilder::Leaf WSCTraceBuilder::order_to_leaf
