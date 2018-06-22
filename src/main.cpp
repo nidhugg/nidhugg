@@ -46,8 +46,13 @@ cl_program_arguments(llvm::cl::desc("[-- <program arguments>...]"),
                      llvm::cl::Positional,
                      llvm::cl::ZeroOrMore);
 
+#ifdef LLVM_CL_VERSIONPRINTER_TAKES_RAW_OSTREAM
+void print_version(llvm::raw_ostream &out){
+#else
 void print_version(){
-  std::cout << PACKAGE_STRING
+  auto &out = std::cout;
+#endif
+  out << PACKAGE_STRING
             << " ("
 #ifdef GIT_COMMIT
             << GIT_COMMIT << ", "
