@@ -2583,6 +2583,65 @@ declare void @__VERIFIER_assume(i32)
   BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
 }
 
+BOOST_AUTO_TEST_CASE(Assume_2){
+  Configuration conf = DPORDriver_test::get_sc_conf();
+  std::string module = StrModule::portasm(R"(
+@var = global i32 0, align 4
+
+define i8* @t1(i8*) {
+  %2 = load volatile i32, i32* @var, align 4
+  %3 = icmp eq i32 %2, 2
+  %4 = zext i1 %3 to i32
+  tail call void @__VERIFIER_assume(i32 %4)
+  store volatile i32 1, i32* @var, align 4
+  ret i8* null
+}
+
+define i8* @t2(i8*) {
+  %2 = bitcast i8* %0 to i64*
+  store volatile i32 2, i32* @var, align 4
+  %3 = load i64, i64* %2, align 8
+  %4 = tail call i32 @pthread_join(i64 %3, i8** null)
+  ret i8* null
+}
+
+define i32 @main() {
+  %1 = alloca i64, align 8
+  %2 = alloca i64, align 8
+  %3 = bitcast i64* %1 to i8*
+  %4 = bitcast i64* %2 to i8*
+  %5 = call i32 @pthread_create(i64* %1, %attr_t* null, i8* (i8*)* @t1, i8* null)
+  %6 = call i32 @pthread_create(i64* %2, %attr_t* null, i8* (i8*)* @t2, i8* %3)
+  %7 = load i64, i64* %2, align 8
+  %8 = call i32 @pthread_join(i64 %7, i8** null)
+  %9 = load volatile i32, i32* @var, align 4
+  %10 = icmp eq i32 %9, 1
+  br i1 %10, label %exit, label %error
+error:
+  call void @__assert_fail()
+  unreachable
+exit:
+  ret i32 0
+}
+
+%attr_t = type {i64, [48 x i8]}
+declare i32 @pthread_join(i64, i8**) nounwind
+declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*) nounwind
+declare void @__VERIFIER_assume(i32)
+declare void @__assert_fail()
+)");
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result res = driver->run();
+  delete driver;
+  BOOST_CHECK(!res.has_errors());
+
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
+  delete driver;
+  BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
+}
+
 BOOST_AUTO_TEST_CASE(Atexit_multithreaded){
   Debug::warn("sctestatexitmultithreaded")
     << "WARNING: Missing support for multithreaded atexit.\n";
