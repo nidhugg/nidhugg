@@ -602,6 +602,11 @@ protected:
    * vector clocks.
    */
   bool can_rf_by_vclocks(int r, int ow, int w) const;
+  /* Assuming that r and w are RMW, that r immediately preceeds w in
+   * coherence order, checks whether swapping r and w is possible
+   * according to the vector clocks.
+   */
+  bool can_swap_by_vclocks(int r, int w) const;
   /* Records a symbolic representation of the current event.
    */
   void record_symbolic(SymEv event);

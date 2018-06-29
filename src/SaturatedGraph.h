@@ -41,6 +41,7 @@ public:
     NONE,
     STORE,
     LOAD,
+    RMW,
   };
   /* read_from is an event id.
    * Events must be added in program order

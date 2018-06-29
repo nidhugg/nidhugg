@@ -1,8 +1,8 @@
-# Results of run nidhugg "count-weak-trace" on all C small-but-challenging tests.
-# Nidhugg 0.2 (4f6f552, Release, with LLVM-3.8.1:RelWithDebInfo)
+# Results of run nidhugg "count-weak-trace" on all C tests.
+# Nidhugg 0.2 (3b0b7c51, Release, with LLVM-5.0.2:Release)
 # nidhuggc --sc TEST.c 
 # The tests where executed using test-nidhugg.py.
-# Date: 180614-12:38
+# Date: 180629-16:40
 
 n_writers_a_reader_1 Forbid : 2
 n_writers_a_reader_2 Forbid : 3
@@ -30,5 +30,7 @@ fib_bench_true_2 Forbid : 140
 fib_true_too_few Forbid : 5
 fib_true_sw_too_few Forbid : 25
 fib_true_sw_too_many Forbid : 13
-# Total number of traces: 464
-# Total running time: 4.86 s
+pthread-demo-xchg Forbid : 58
+rmw_test2 Forbid : 300
+# Total number of traces: 822
+# Total running time: 4.19 s

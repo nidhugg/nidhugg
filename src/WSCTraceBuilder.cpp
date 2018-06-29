@@ -1322,21 +1322,37 @@ bool WSCTraceBuilder::is_observed_conflict
   return thd.kind == SymEv::LOAD && thd.addr().overlaps(snd.addr());
 }
 
-bool WSCTraceBuilder::can_rf_by_vclocks(int r, int ow, int w) const {
+bool WSCTraceBuilder::can_rf_by_vclocks
+(int r, int ow, int w) const {
   /* Is the write after the read? */
   if (w != -1 && prefix[r].clock.leq(prefix[w].clock)) return false;
+
   /* Is the original write always before the read, and the new write
    * before the original?
    */
-  if (prefix[r].iid.get_index() != 1 && ow != -1) {
-    unsigned r_po_pred = find_process_event(prefix[r].iid.get_pid(),
-                                            prefix[r].iid.get_index()-1);
-    if (prefix[ow].clock.leq(prefix[r_po_pred].clock)
-        && (w == -1 || prefix[w].clock.leq(prefix[ow].clock))) {
-      return false;
+  if (ow != -1 && (w == -1 || prefix[w].clock.leq(prefix[ow].clock))) {
+    if (prefix[r].iid.get_index() != 1) {
+      unsigned r_po_pred = find_process_event(prefix[r].iid.get_pid(),
+                                              prefix[r].iid.get_index()-1);
+      if (prefix[ow].clock.leq(prefix[r_po_pred].clock)) return false;
+    }
+    for (unsigned pred : prefix[r].happens_after) {
+      if (prefix[ow].clock.leq(prefix[pred].clock)) return false;
     }
   }
 
+  return true;
+}
+
+bool WSCTraceBuilder::can_swap_by_vclocks(int r, int w) const {
+  if (prefix[w].iid.get_index() != 1) {
+    unsigned w_po_pred = find_process_event(prefix[w].iid.get_pid(),
+                                            prefix[w].iid.get_index()-1);
+    if (prefix[r].clock.leq(prefix[w_po_pred].clock)) return false;
+  }
+  for (unsigned pred : prefix[w].happens_after) {
+    if (prefix[r].clock.leq(prefix[pred].clock)) return false;
+  }
   return true;
 }
 
@@ -1383,24 +1399,44 @@ void WSCTraceBuilder::compute_prefixes() {
       DecisionNode &decision = decisions[prefix[i].decision];
 
       auto try_read_from = [&](int j) {
-        if (j == original_read_from) return;
-        const std::shared_ptr<UnfoldingNode> &read_from =
-          j == -1 ? nullptr : prefix[j].event;
-        std::shared_ptr<UnfoldingNode> unf = alternative(i, read_from);
-        if (decision.siblings.count(unf)) return;
-        if (decision.sleep.count(unf)) return;
-        if (!can_rf_by_vclocks(i, original_read_from, j)) {
-          decision.siblings.emplace(unf, Leaf());
-          return;
-        }
+        if (j == original_read_from || j == int(i)) return;
+        if (j != -1 && j > int(i) && is_store(i) && is_load(j)) {
+          /* RMW pair */
+          /* Can only swap ajacent RMWs */
+          if (*prefix[j].read_from != int(i)) return;
+          std::shared_ptr<UnfoldingNode> j_unf
+            = alternative(j, prefix[i].event->read_from);
+          std::shared_ptr<UnfoldingNode> unf = alternative(i, j_unf);
+          if (decision.siblings.count(unf)) return;
+          if (decision.sleep.count(unf)) return;
+          if (!can_swap_by_vclocks(i, j)) return;
+          if (conf.debug_print_on_reset)
+            llvm::dbgs() << "Trying to swap " << pretty_index(i)
+                         << " and " << pretty_index(j)
+                         << ", reading from " << pretty_index(original_read_from);
+          prefix[j].read_from = original_read_from;
+          prefix[i].read_from = j;
 
-        prefix[i].read_from = j;
-        if (conf.debug_print_on_reset)
-          llvm::dbgs() << "Trying to make " << pretty_index(i)
-                       << " read from " << pretty_index(j)
-                       << " instead of " << pretty_index(original_read_from);
-        Leaf solution = try_sat(i, writes_by_address);
-        decision.siblings.emplace(unf, std::move(solution));
+          Leaf solution = try_sat(i, writes_by_address);
+          decision.siblings.emplace(unf, std::move(solution));
+
+          /* Reset read-from */
+          prefix[j].read_from = i;
+        } else {
+          const std::shared_ptr<UnfoldingNode> &read_from =
+            j == -1 ? nullptr : prefix[j].event;
+          std::shared_ptr<UnfoldingNode> unf = alternative(i, read_from);
+          if (decision.siblings.count(unf)) return;
+          if (decision.sleep.count(unf)) return;
+          if (!can_rf_by_vclocks(i, original_read_from, j)) return;
+          if (conf.debug_print_on_reset)
+            llvm::dbgs() << "Trying to make " << pretty_index(i)
+                         << " read from " << pretty_index(j)
+                         << " instead of " << pretty_index(original_read_from);
+          prefix[i].read_from = j;
+          Leaf solution = try_sat(i, writes_by_address);
+          decision.siblings.emplace(unf, std::move(solution));
+        }
       };
 
       for (int j : possible_writes) try_read_from(j);
@@ -1452,13 +1488,13 @@ void WSCTraceBuilder::output_formula
     assert(int(r) != w);
     if (w == -1) {
       for (int j : writes_by_address[get_addr(r).addr]) {
-        if (!keep[j]) continue;
+        if (j == r || !keep[j]) continue;
         sat.add_edge(var[r], var[j]);
       }
     } else {
       sat.add_edge(var[w], var[r]);
       for (int j : writes_by_address[get_addr(r).addr]) {
-        if (j == w || !keep[j]) continue;
+        if (j == w || j == r || !keep[j]) continue;
         sat.add_edge_disj(var[j], var[w],
                           var[r], var[j]);
       }
@@ -1485,8 +1521,10 @@ WSCTraceBuilder::try_sat
     const auto add_event = [&g,this](unsigned i) {
         SaturatedGraph::EventKind kind = SaturatedGraph::NONE;
         SymAddr addr;
-        if (is_load(i)) kind = SaturatedGraph::LOAD;
-        else if (is_store(i)) kind = SaturatedGraph::STORE;
+        if (is_load(i)) {
+          if (is_store(i)) kind = SaturatedGraph::RMW;
+          else kind = SaturatedGraph::LOAD;
+        } else if (is_store(i)) kind = SaturatedGraph::STORE;
         if (kind != SaturatedGraph::NONE) addr = get_addr(i).addr;
         Option<unsigned> read_from;
         if (prefix[i].read_from && *prefix[i].read_from != -1)

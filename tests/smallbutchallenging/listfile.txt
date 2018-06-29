@@ -34,3 +34,7 @@ fib_bench_true_2.c
 fib_true_too_few.c
 fib_true_sw_too_few.c
 fib_true_sw_too_many.c
+
+#
+pthread-demo-xchg.c
+rmw_test2.c

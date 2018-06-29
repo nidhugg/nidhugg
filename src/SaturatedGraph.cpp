@@ -39,8 +39,8 @@ void SaturatedGraph::add_event(unsigned pid, unsigned id, EventKind kind,
       o.out = std::move(o.out).push_back(id);
       return std::move(o);
     };
-  bool is_load = kind == LOAD;
-  bool is_store = kind == STORE;
+  bool is_load = kind == LOAD || kind == RMW;
+  bool is_store = kind == STORE || kind == RMW;
   Option<unsigned> po_predecessor;
   int index = 1;
   if (events_by_pid.count(pid)) {
@@ -63,6 +63,17 @@ void SaturatedGraph::add_event(unsigned pid, unsigned id, EventKind kind,
   immer::vector_transient<unsigned> in
     = immer::vector<unsigned>(orig_in.begin(),
                               orig_in.end()).transient();
+  if (is_store) {
+    /* TODO: Optimise; only add the first write of each process */
+    /* We do stores first so that in the case of RMW we do not find
+     * ourselves in reads_from_init.
+     */
+    for (unsigned r : reads_from_init[addr]) {
+      IFTRACE(std::cout << "Adding from-read between " << r << " and " << id << "\n");
+      in.push_back(r);
+      events = std::move(events).update(r, add_out);
+    }
+  }
   if (read_from) {
     assert(events.count(*read_from));
     IFTRACE(std::cout << "Adding read-from between " << *read_from << " and " << id << "\n");
@@ -85,14 +96,6 @@ void SaturatedGraph::add_event(unsigned pid, unsigned id, EventKind kind,
           return std::move(we);
         });
       wq_add(w);
-    }
-  }
-  if (is_store) {
-    /* TODO: Optimise; only add the first write of each process */
-    for (unsigned r : reads_from_init[addr]) {
-      IFTRACE(std::cout << "Adding from-read between " << r << " and " << id << "\n");
-      in.push_back(r);
-      events = std::move(events).update(r, add_out);
     }
   }
 
@@ -149,6 +152,7 @@ bool SaturatedGraph::saturate() {
               /* Add edges */
               if (e.is_store) {
                 for (unsigned r : pe->readers) {
+                  if (r == id) continue; /* RMW we're reading from */
                   /* from-read */
                   assert(events.at(r).is_load && events.at(r).addr == e.addr);
                   IFTRACE(std::cout << "Adding from-read from " << r << " to " << id << "\n");
@@ -292,7 +296,7 @@ void SaturatedGraph::check_graph_consistency() const {
       const unsigned w = *e.read_from;
       assert(events.at(w).is_store && events.at(w).addr == e.addr);
       assert(!immer::all_of(events.at(w).readers, is_not_id));
-      assert(immer::all_of(e.in, [w](unsigned v) { return v != w; }));
+      // assert(immer::all_of(e.in, [w](unsigned v) { return v != w; }));
     }
     if (e.po_predecessor) {
       assert(!immer::all_of(events.at(*e.po_predecessor).out, is_not_id));
@@ -307,9 +311,12 @@ void SaturatedGraph::check_graph_consistency() const {
     if (e.is_store) {
       for (unsigned r : e.readers) {
         const Event &reade = events.at(r);
-        assert(reade.is_load && reade.read_from && *reade.read_from == id);
-        assert(immer::all_of(e.out, [r](unsigned v) { return v != r; })
-               || (reade.po_predecessor && *reade.po_predecessor == id));
+        assert(reade.is_load);
+        assert(reade.read_from);
+        assert(*reade.read_from == id);
+        // !immer::all_of(reade.read_froms, is_not_id)
+        // assert(immer::all_of(e.out, [r](unsigned v) { return v != r; })
+        //        || (reade.po_predecessor && *reade.po_predecessor == id));
       }
     }
   }
