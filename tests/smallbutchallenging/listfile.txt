@@ -38,3 +38,10 @@ fib_true_sw_too_many.c
 #
 pthread-demo-xchg.c
 rmw_test2.c
+
+# DCDPOR Benchmarks
+opt_lock_2.c
+opt_lock_3.c
+sigma_false_3.c
+sigma_false_4.c
+parker_2.c
