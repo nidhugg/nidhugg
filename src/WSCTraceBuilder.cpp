@@ -28,8 +28,6 @@
 #define ANSIRed "\x1b[91m"
 #define ANSIRst "\x1b[m"
 
-static void clear_observed(sym_ty &syms);
-
 WSCTraceBuilder::WSCTraceBuilder(const Configuration &conf) : TSOPSOTraceBuilder(conf) {
   threads.push_back(Thread(CPid(), -1));
   threads.push_back(Thread(CPS.new_aux(CPid()), -1));
@@ -108,23 +106,6 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
     ++curev().size;
     assert(int(threads[curev().iid.get_pid()].event_indices.back()) == prefix_idx + 1);
     threads[curev().iid.get_pid()].event_indices.back() = prefix_idx;
-  } else {
-    /* Copy symbolic events to wakeup tree */
-    if (prefix.size() > 0) {
-      if (!curev().sym.empty()) {
-#ifndef NDEBUG
-        sym_ty expected = curev().sym;
-        if (conf.observers) clear_observed(expected);
-        assert(curev().sym == expected);
-#endif
-      } else {
-        // Branch b = curev();
-        // b.sym = curev().sym;
-        // if (conf.observers) clear_observed(b.sym);
-        // for (SymEv &e : b.sym) e.purge_data();
-        // prefix.set_last_branch(std::move(b));
-      }
-    }
   }
 
   /* Create a new Event */
@@ -342,16 +323,6 @@ std::string WSCTraceBuilder::iid_string(const Event &event) const{
     ss << "-alt:" << event.alt;
   }
   return ss.str();
-}
-
-static std::string
-str_join(const std::vector<std::string> &vec, const std::string &sep) {
-  std::string res;
-  for (auto it = vec.begin(); it != vec.end(); ++it) {
-    if (it != vec.begin()) res += sep;
-    res += *it;
-  }
-  return res;
 }
 
 static std::string events_to_string(const llvm::SmallVectorImpl<SymEv> &e) {
@@ -918,23 +889,6 @@ void WSCTraceBuilder::register_alternatives(int alt_count){
   }
 }
 
-static bool symev_does_load(const SymEv &e) {
-  return e.kind == SymEv::LOAD || e.kind == SymEv::CMPXHG
-    || e.kind == SymEv::CMPXHGFAIL || e.kind == SymEv::FULLMEM;
-}
-
-static void clear_observed(SymEv &e){
-  if (e.kind == SymEv::STORE){
-    e.set_observed(false);
-  }
-}
-
-static void clear_observed(sym_ty &syms){
-  for (SymEv &e : syms){
-    clear_observed(e);
-  }
-}
-
 template <class Iter>
 static void rev_recompute_data
 (SymData &data, VecSet<SymAddr> &needed, Iter end, Iter begin){
@@ -1459,11 +1413,6 @@ void WSCTraceBuilder::output_formula
     abort();
   };
 
-  auto pretty_index = [&] (int i) -> std::string {
-    if (i==-1) return "init event";
-    return  iid_string(i) + events_to_string(prefix[i].sym);
-  }; 
-
   unsigned no_keep = 0;
   std::vector<unsigned> var;
   for (unsigned i = 0; i < prefix.size(); ++i) {
@@ -1488,13 +1437,13 @@ void WSCTraceBuilder::output_formula
     assert(int(r) != w);
     if (w == -1) {
       for (int j : writes_by_address[get_addr(r).addr]) {
-        if (j == r || !keep[j]) continue;
+        if (j == int(r) || !keep[j]) continue;
         sat.add_edge(var[r], var[j]);
       }
     } else {
       sat.add_edge(var[w], var[r]);
       for (int j : writes_by_address[get_addr(r).addr]) {
-        if (j == w || j == r || !keep[j]) continue;
+        if (j == w || j == int(r) || !keep[j]) continue;
         sat.add_edge_disj(var[j], var[w],
                           var[r], var[j]);
       }
