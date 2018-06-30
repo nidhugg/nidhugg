@@ -158,7 +158,7 @@ namespace DPORDriver_test {
     for(unsigned i = 0; i < spec.size(); ++i){
       bool found = false;
       int prev_match = -1;
-      for(unsigned(j) = 0; j < res.all_traces.size(); ++j){
+      for(unsigned j = 0; j < res.all_traces.size(); ++j){
         if(res.all_traces[j]->is_blocked()) continue;
         if(check_trace(static_cast<const IIDSeqTrace*>(res.all_traces[j]),spec[i])){
           if(found){
