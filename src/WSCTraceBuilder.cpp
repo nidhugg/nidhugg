@@ -231,9 +231,9 @@ bool WSCTraceBuilder::reset(){
 
   /* Insert current event in sleep */
   for (unsigned i = 0;; ++i) {
-    if (prefix[i].decision == int(decisions.size()-1)
-        && !prefix[i].pinned) {
-      decisions.back().sleep.emplace(std::move(prefix[i].event));
+    if (prefix[i].decision == int(decisions.size()-1)) {
+      assert(!prefix[i].pinned);
+      decisions.back().sleep.emplace(prefix[i].event->read_from);
       break;
     }
     assert(i < prefix.size());
@@ -1121,7 +1121,7 @@ find_unfolding_node(UnfoldingNodeChildren &parent_list,
 
   /* Did not exist, create it. */
   std::shared_ptr<UnfoldingNode> c =
-    std::make_shared<UnfoldingNode>(parent, std::move(read_from));
+    std::make_shared<UnfoldingNode>(parent, read_from);
   parent_list.emplace_back(c);
   return c;
 }
@@ -1358,13 +1358,12 @@ void WSCTraceBuilder::compute_prefixes() {
           /* RMW pair */
           /* Can only swap ajacent RMWs */
           if (*prefix[j].read_from != int(i)) return;
-          std::shared_ptr<UnfoldingNode> j_unf
+          std::shared_ptr<UnfoldingNode> read_from
             = alternative(j, prefix[i].event->read_from);
-          std::shared_ptr<UnfoldingNode> unf = alternative(i, j_unf);
-          if (decision.siblings.count(unf)) return;
-          if (decision.sleep.count(unf)) return;
+          if (decision.siblings.count(read_from)) return;
+          if (decision.sleep.count(read_from)) return;
           if (!can_swap_by_vclocks(i, j)) {
-            decision.siblings.emplace(unf, Leaf());
+            decision.siblings.emplace(read_from, Leaf());
             return;
           }
           if (conf.debug_print_on_reset)
@@ -1375,18 +1374,17 @@ void WSCTraceBuilder::compute_prefixes() {
           prefix[i].read_from = j;
 
           Leaf solution = try_sat(i, writes_by_address);
-          decision.siblings.emplace(unf, std::move(solution));
+          decision.siblings.emplace(read_from, std::move(solution));
 
           /* Reset read-from */
           prefix[j].read_from = i;
         } else {
           const std::shared_ptr<UnfoldingNode> &read_from =
             j == -1 ? nullptr : prefix[j].event;
-          std::shared_ptr<UnfoldingNode> unf = alternative(i, read_from);
-          if (decision.siblings.count(unf)) return;
-          if (decision.sleep.count(unf)) return;
+          if (decision.siblings.count(read_from)) return;
+          if (decision.sleep.count(read_from)) return;
           if (!can_rf_by_vclocks(i, original_read_from, j)) {
-            decision.siblings.emplace(unf, Leaf());
+            decision.siblings.emplace(read_from, Leaf());
             return;
           }
           if (conf.debug_print_on_reset)
@@ -1395,7 +1393,7 @@ void WSCTraceBuilder::compute_prefixes() {
                          << " instead of " << pretty_index(original_read_from);
           prefix[i].read_from = j;
           Leaf solution = try_sat(i, writes_by_address);
-          decision.siblings.emplace(unf, std::move(solution));
+          decision.siblings.emplace(read_from, std::move(solution));
         }
       };
 
