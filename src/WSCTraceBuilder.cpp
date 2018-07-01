@@ -1363,7 +1363,10 @@ void WSCTraceBuilder::compute_prefixes() {
           std::shared_ptr<UnfoldingNode> unf = alternative(i, j_unf);
           if (decision.siblings.count(unf)) return;
           if (decision.sleep.count(unf)) return;
-          if (!can_swap_by_vclocks(i, j)) return;
+          if (!can_swap_by_vclocks(i, j)) {
+            decision.siblings.emplace(unf, Leaf());
+            return;
+          }
           if (conf.debug_print_on_reset)
             llvm::dbgs() << "Trying to swap " << pretty_index(i)
                          << " and " << pretty_index(j)
@@ -1382,7 +1385,10 @@ void WSCTraceBuilder::compute_prefixes() {
           std::shared_ptr<UnfoldingNode> unf = alternative(i, read_from);
           if (decision.siblings.count(unf)) return;
           if (decision.sleep.count(unf)) return;
-          if (!can_rf_by_vclocks(i, original_read_from, j)) return;
+          if (!can_rf_by_vclocks(i, original_read_from, j)) {
+            decision.siblings.emplace(unf, Leaf());
+            return;
+          }
           if (conf.debug_print_on_reset)
             llvm::dbgs() << "Trying to make " << pretty_index(i)
                          << " read from " << pretty_index(j)
