@@ -56,7 +56,7 @@ def res_to_string(tst, res):
         return (s, False)
 
     if res['allow'] != tst['expect allow']:
-        s = s + bcolors.FAIL + ' FAILURE: unexpected result ' + ('Allow' if tst['nidhugg allow'] else 'Forbid') + bcolors.ENDC
+        s = s + bcolors.FAIL + ' FAILURE: unexpected result ' + ('Allow' if res['allow'] else 'Forbid') + bcolors.ENDC
         return (s, False)
     else:
         s = s + ' ' + ('Allow' if res['allow'] else 'Forbid')
