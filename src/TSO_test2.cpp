@@ -86,6 +86,77 @@ declare i32 @pthread_mutex_unlock(i32*) nounwind
                                                 ));
 }
 
+BOOST_AUTO_TEST_CASE(Mutex_trylock_2){
+  Configuration conf = DPORDriver_test::get_tso_conf();
+  std::string module = StrModule::portasm(R"(
+@lck = global i32 0, align 8
+
+define i8* @l(i8*) {
+  call i32 @pthread_mutex_lock(i32* @lck)
+  call i32 @pthread_mutex_unlock(i32* @lck)
+  ret i8* null
+}
+
+define i8* @tl(i8*) {
+  %lckret = call i32 @pthread_mutex_trylock(i32* @lck)
+  %lcksuc = icmp eq i32 %lckret, 0
+  br i1 %lcksuc, label %CS, label %exit
+CS:
+  call i32 @pthread_mutex_unlock(i32* @lck)
+  br label %exit
+exit:
+  ret i8* null
+}
+
+define i32 @main() {
+  %il1 = alloca i64, align 8
+  %il2 = alloca i64, align 8
+  %itl = alloca i64, align 8
+  call i32 @pthread_mutex_init(i32* @lck, i32* null) #3
+  call i32 @pthread_create(i64* %il1, %attr_t* null, i8* (i8*)* @l, i8* null) #3
+  call i32 @pthread_create(i64* %itl, %attr_t* null, i8* (i8*)* @tl, i8* null) #3
+  call i32 @pthread_create(i64* %il2, %attr_t* null, i8* (i8*)* @l, i8* null) #3
+  ret i32 0
+}
+
+%attr_t = type { i64, [48 x i8] }
+declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*)
+declare i32 @pthread_mutex_lock(i32*)
+declare i32 @pthread_mutex_unlock(i32*)
+declare i32 @pthread_mutex_trylock(i32*)
+declare i32 @pthread_mutex_init(i32*, i32*)
+)");
+
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  /* TODO: Optimal-DPOR */
+  // conf.dpor_algorithm = Configuration::OPTIMAL;
+  // driver = DPORDriver::parseIR(module,conf);
+  // DPORDriver::Result opt_res = driver->run();
+  // delete driver;
+
+  CPid P0, PL1 = P0.spawn(0), PTL = P0.spawn(1), PL2 = P0.spawn(2);
+  IID<CPid> lck1(PL1,1), ulck1(PL1,2), lck2(PL2,1), ulck2(PL2,2),
+    tlck(PTL,1), tulck(PTL,4);
+  DPORDriver_test::trace_set_spec expected =
+    {{{ulck1,lck2},{ulck2,tlck}},             // L1, L2,      TL
+     {{ulck1,lck2},{lck2,tlck},{tlck,ulck2}}, // L1, L2,      TL-fail
+     {{ulck1,tlck},{tulck,lck2}},             // L1, TL,      L2
+     {{lck1,tlck},{tlck,ulck1},{ulck1,lck2}}, // L1, TL-fail, L2
+     {{tulck,lck1},{ulck1,lck2}},             // TL, L1,      L2
+     {{tulck,lck2},{ulck2,lck1}},             // TL, L2,      L1
+     {{ulck2,lck1},{ulck1,tlck}},             // L2, L1,      TL
+     {{ulck2,lck1},{lck1,tlck},{tlck,ulck1}}, // L2, L1,      TL-fail
+     {{ulck2,tlck},{tulck,lck1}},             // L2, TL,      L1
+     {{lck2,tlck},{tlck,ulck2},{ulck2,lck1}}, // L2, TL-fail, L1
+    };
+  BOOST_CHECK(!res.has_errors());
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf// ,&opt_res
+                                                ));
+}
+
 BOOST_AUTO_TEST_CASE(Condvar_1){
   Configuration conf = DPORDriver_test::get_tso_conf();
   std::string module = StrModule::portasm(R"(
