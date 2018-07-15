@@ -62,31 +62,34 @@ tests.append({'tstname' : 'co10'})
 tests.append({'tstname' : 'co4'})
 
 
-def write_a_line(outputfile, name, execs1, execs2, time1, time2):
+def write_a_line(outputfile, name, execs1, execs2, execs3, time1, time2, time3):
 	outputfile.write(' {0:30}'.format(name))
 	outputfile.write('{0:15}'.format(execs1))
 	outputfile.write('{0:15}'.format(execs2))
+	outputfile.write('{0:15}'.format(execs3))
 	outputfile.write('{0:15}'.format(time1))
-	outputfile.write('{0:15}\n'.format(time2))
+	outputfile.write('{0:15}'.format(time2))
+	outputfile.write('{0:15}\n'.format(time3))
 
 
 def main():
 
 	for tst in tests:
 		get_result(tst, LOGFILE, "nidhugg")
+		get_result(tst, LOGFILE, "observer")
 		get_result(tst, LOGFILE, "swsc")
 
 	outputfile=open(TABLEFILE,'w')
 	
-	outputfile.write('-' * 88 + '\n')
-	write_a_line(outputfile, "Program", "Nidhugg execs", "SWSC execs", "Nidhugg Time", "SWSC Time")
-	outputfile.write('-' * 88 + '\n')
+	outputfile.write('-' * 120 + '\n')
+	write_a_line(outputfile, "Program", "Nidhugg execs", "Observer execs", "SWSC execs", "Nidhugg Time", "Observer Time", "SWSC Time")
+	outputfile.write('-' * 120 + '\n')
 	for tst in tests:
 		#print('name:'+tst['tstname']+'\n')
 		#print('cds exes'+tst['CDSChecker execs']+'\n')
-		write_a_line(outputfile, tst['tstname'], tst['nidhugg execs'], tst['swsc execs'], tst['nidhugg time'], tst['swsc time'])
+		write_a_line(outputfile, tst['tstname'], tst['nidhugg execs'], tst['observer execs'], tst['swsc execs'], tst['nidhugg time'], tst['observer time'], tst['swsc time'])
 
-	outputfile.write('-' * 88 + '\n')
+	outputfile.write('-' * 120 + '\n')
 	outputfile.close()
 
 

@@ -146,7 +146,7 @@ void *dequeuethread(void *arg)
       		if (empty()!=EMPTY) {
         		_stored_elements_i = atomic_load_explicit(&stored_elements[i], memory_order_seq_cst);
         		if (!(dequeue() == _stored_elements_i)) {
-          			MODEL_ASSERT(0);
+          			assert(0);
         		}
       		}
     	}

@@ -66,7 +66,9 @@ TESTS+=" ./from_TRACER/co4.c"
 
 TOOL_NIDHUGG="nidhuggc"
 MODEL_ARGS_NIDHUGG=" --sc "
-
+#
+MODEL_ARGS_NIDHUGG_OBS=" --sc --observers --optimal "
+#
 TOOL_SWSC="swscc"
 MODEL_ARGS_SWSC=" --wsc "
 
@@ -74,14 +76,16 @@ COUNT=0
 
 function run_test {
 	TOOL=$1
-	ARGS=$2	
-	t=$3
 	shift
+	t=$1
+	shift
+
+	ARGS=$@
 
 	echo "-----------------------------------------------"
 	echo 
 	echo "< Running test ${COUNT} (${t}) with tool ${TOOL} and argument ${ARGS} >"
-	(time ${RUN} ${TOOL} ${t} ${ARGS} 2>&1) 2>&1
+	(time ${RUN} ${TOOL} ${ARGS} ${t}  2>&1) 2>&1
 	echo
 	echo "Test done; sleeping for a few seconds"
 	echo
@@ -89,19 +93,26 @@ function run_test {
 	let COUNT++
 }
 
+
 function run_all_tests {
 	echo ${DATE}
 	
 	COUNT=0
 	for t in ${TESTS}
 	do
-		run_test ${TOOL_NIDHUGG} ${MODEL_ARGS_NIDHUGG} ${t} 
+		run_test ${TOOL_NIDHUGG} ${t} ${MODEL_ARGS_NIDHUGG} 
+	done
+
+	COUNT=0
+	for t in ${TESTS}
+	do
+		run_test ${TOOL_NIDHUGG} ${t} ${MODEL_ARGS_NIDHUGG_OBS} 
 	done
 	
 	COUNT=0
 	for t in ${TESTS}
 	do
-		run_test ${TOOL_SWSC} ${MODEL_ARGS_SWSC} ${t} 
+		run_test ${TOOL_SWSC} ${t} ${MODEL_ARGS_SWSC}  
 	done
 
 
