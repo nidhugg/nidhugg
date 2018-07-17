@@ -63,13 +63,14 @@ tests.append({'tstname' : 'co4'})
 
 
 def write_a_line(outputfile, name, execs1, execs2, execs3, time1, time2, time3):
-	outputfile.write(' {0:30}'.format(name))
-	outputfile.write('{0:15}'.format(execs1))
-	outputfile.write('{0:15}'.format(execs2))
-	outputfile.write('{0:15}'.format(execs3))
-	outputfile.write('{0:15}'.format(time1))
-	outputfile.write('{0:15}'.format(time2))
-	outputfile.write('{0:15}\n'.format(time3))
+	outputfile.write(' {0:27} '.format(name))
+	outputfile.write(' {0:>7} '.format(execs1))
+	outputfile.write(' {0:>7} '.format(execs2))
+	outputfile.write(' {0:>7} '.format(execs3))
+	outputfile.write(' ')
+	outputfile.write(' {0:>9} '.format(time1))
+	outputfile.write(' {0:>9} '.format(time2))
+	outputfile.write(' {0:>9}\n'.format(time3))
 
 
 def main():
@@ -81,15 +82,17 @@ def main():
 
 	outputfile=open(TABLEFILE,'w')
 	
-	outputfile.write('-' * 120 + '\n')
-	write_a_line(outputfile, "Program", "Nidhugg execs", "Observer execs", "SWSC execs", "Nidhugg Time", "Observer Time", "SWSC Time")
-	outputfile.write('-' * 120 + '\n')
+	cols = 90
+	outputfile.write('=' * cols + '\n')
+	outputfile.write("                              --- Number of Traces ----   ------- Execution Time -------- \n")
+	outputfile.write(" Program name                 Nidhugg  Observers   SWSC    Nidhugg   Observers      SWSC\n")
+	outputfile.write('=' * cols + '\n')
 	for tst in tests:
 		#print('name:'+tst['tstname']+'\n')
 		#print('cds exes'+tst['CDSChecker execs']+'\n')
 		write_a_line(outputfile, tst['tstname'], tst['nidhugg execs'], tst['observer execs'], tst['swsc execs'], tst['nidhugg time'], tst['observer time'], tst['swsc time'])
 
-	outputfile.write('-' * 120 + '\n')
+	outputfile.write('=' * cols + '\n')
 	outputfile.close()
 
 
