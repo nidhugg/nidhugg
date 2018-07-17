@@ -20,17 +20,6 @@ fi
 RUN="timeout -s 9 "$TIMEOUT
 
 TESTS=" "
-# SV-COMP
-#TESTS+=" ./SV-COMP/pthread_demo.c"
-#TESTS+=" ./SV-COMP/gcd.c"
-TESTS+=" ./SV-COMP/fibonacci.c"
-#TESTS+=" ./SV-COMP/indexer.c"
-TESTS+=" ./SV-COMP/sigma.c"
-TESTS+=" ./SV-COMP/dekker.c"
-TESTS+=" ./SV-COMP/szymanski.c"
-TESTS+=" ./SV-COMP/lamport.c"
-#TESTS+=" ./SV-COMP/stack_true.c"
-#TESTS+=" ./SV-COMP/queue_ok.c"
 # From RCMC
 TESTS+=" ./from_RCMC/ainc.c"
 TESTS+=" ./from_RCMC/binc.c"
@@ -63,6 +52,18 @@ TESTS+=" ./from_TRACER/CO-S.c"
 TESTS+=" ./from_TRACER/co1.c"
 TESTS+=" ./from_TRACER/co10.c"
 TESTS+=" ./from_TRACER/co4.c"
+# SV-COMP
+TESTS+=" ./SV-COMP/sigma.c"
+TESTS+=" ./SV-COMP/dekker.c"
+TESTS+=" ./SV-COMP/szymanski.c"
+TESTS+=" ./SV-COMP/lamport.c"
+TESTS+=" ./SV-COMP/fibonacci.c"
+#TESTS+=" ./SV-COMP/stack_true.c"
+#TESTS+=" ./SV-COMP/queue_ok.c"
+#TESTS+=" ./SV-COMP/pthread_demo.c"
+#TESTS+=" ./SV-COMP/gcd.c"
+#TESTS+=" ./SV-COMP/indexer.c"
+
 
 TOOL_NIDHUGG="nidhuggc"
 MODEL_ARGS_NIDHUGG=" --sc "
