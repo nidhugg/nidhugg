@@ -66,12 +66,12 @@ void *t(void *arg)
   	if (ok==0) return NULL;
 
   	// critical section
-    atomic_store_explicit(&x, tid, memory_order_seq_cst);
-    assert(atomic_load_explicit(&x, memory_order_seq_cst) == tid);
+	atomic_store_explicit(&x, tid, memory_order_seq_cst);
+	assert(atomic_load_explicit(&x, memory_order_seq_cst) == tid);
   
   	atomic_store_explicit(&passed[tid], 0, memory_order_seq_cst);
   	atomic_store_explicit(&interested[tid], 0, memory_order_seq_cst);
-
+	return NULL;
 }
 
 int arg[N];

@@ -1,4 +1,4 @@
-/* This benchmark is in the journal JACM 2017
+/* This benchmark is from the following JACM journal article
    https://dl.acm.org/citation.cfm?id=3073408
 */
 
@@ -28,6 +28,7 @@ void *thread_writer(void *arg)
 	atomic_store_explicit(&array[j],
 			      atomic_load_explicit(&array[j - 1], memory_order_seq_cst) + 1,
 			      memory_order_seq_cst);
+	return NULL;
 }
 
 
