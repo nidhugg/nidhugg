@@ -640,10 +640,15 @@ static bool symev_is_store(const SymEv &e) {
   return e.kind == SymEv::UNOBS_STORE || e.kind == SymEv::STORE;
 }
 
+static bool symev_does_store(const SymEv &e) {
+  return e.kind == SymEv::UNOBS_STORE || e.kind == SymEv::STORE
+    || e.kind == SymEv::CMPXHG;
+}
+
 static SymAddrSize sym_get_last_write(const sym_ty &sym, SymAddr addr){
   for (auto it = sym.end(); it != sym.begin();){
     const SymEv &e = *(--it);
-    if (symev_is_store(e) && e.addr().includes(addr)) return e.addr();
+    if (symev_does_store(e) && e.addr().includes(addr)) return e.addr();
   }
   assert(false && "No write touching addr found");
   abort();
