@@ -45,3 +45,6 @@ opt_lock_3.c
 sigma_false_3.c
 sigma_false_4.c
 parker_2.c
+
+#
+cmpxhg_test_3.c

@@ -628,7 +628,21 @@ protected:
 
   bool is_load(unsigned idx) const;
   bool is_store(unsigned idx) const;
+  bool is_store_when_reading_from(unsigned idx, int read_from) const;
+  bool is_cmpxhgfail(unsigned idx) const;
   SymAddrSize get_addr(unsigned idx) const;
+  SymData get_data(int idx, const SymAddrSize &addr) const;
+  struct CmpXhgUndoLog {
+    enum {
+          NONE,
+          SUCCEED,
+          FAIL,
+    } kind;
+    unsigned idx;
+    SymEv *e;
+  };
+  CmpXhgUndoLog recompute_cmpxhg_success(unsigned idx, std::vector<int> &writes);
+  void undo_cmpxhg_recomputation(CmpXhgUndoLog log, std::vector<int> &writes);
 };
 
 #endif

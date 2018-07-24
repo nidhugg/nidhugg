@@ -1,8 +1,8 @@
 # Results of run nidhugg "count-weak-trace" on all C tests.
-# Nidhugg 0.2 (13bb4e8c, Release, with LLVM-3.8.1:RelWithDebInfo)
+# Nidhugg 0.2 (e27cc312, Release, with LLVM-5.0.2:Release)
 # nidhuggc --sc TEST.c 
 # The tests where executed using test-nidhugg.py.
-# Date: 180630-00:02
+# Date: 180723-17:16
 
 n_writers_a_reader_1 Forbid : 2
 n_writers_a_reader_2 Forbid : 3
@@ -37,5 +37,6 @@ opt_lock_3 Forbid : 31
 sigma_false_3 Forbid : 12
 sigma_false_4 Forbid : 64
 parker_2 Forbid : 97
-# Total number of traces: 1045
-# Total running time: 9.29 s
+cmpxhg_test_3 Forbid : 5
+# Total number of traces: 1050
+# Total running time: 5.16 s

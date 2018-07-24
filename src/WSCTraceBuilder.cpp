@@ -1243,12 +1243,33 @@ bool WSCTraceBuilder::is_observed_conflict
 
 bool WSCTraceBuilder::is_load(unsigned i) const {
   return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
-                     [](const SymEv &e) { return e.kind == SymEv::LOAD; });
+    [](const SymEv &e) {
+      return e.kind == SymEv::LOAD || e.kind == SymEv::CMPXHG
+        || e.kind == SymEv::CMPXHGFAIL; });
 }
 
 bool WSCTraceBuilder::is_store(unsigned i) const {
   return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
-                     [](const SymEv &e) { return e.kind == SymEv::STORE; });
+    [](const SymEv &e) {
+      return e.kind == SymEv::STORE || e.kind == SymEv::CMPXHG;
+    });
+}
+
+bool WSCTraceBuilder::is_cmpxhgfail(unsigned i) const {
+  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
+    [](const SymEv &e) { return e.kind == SymEv::CMPXHGFAIL; });
+}
+
+bool WSCTraceBuilder::is_store_when_reading_from(unsigned i, int read_from) const {
+  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
+    [read_from,this](const SymEv &e) {
+      if (e.kind == SymEv::STORE) return true;
+      if (e.kind != SymEv::CMPXHG && e.kind != SymEv::CMPXHGFAIL) return false;
+      SymData expected = e.expected();
+      SymData actual = get_data(read_from, e.addr());
+      assert(e.addr() == actual.get_ref());
+      return memcmp(expected.get_block(), actual.get_block(), e.addr().size) == 0;
+    });
 }
 
 SymAddrSize WSCTraceBuilder::get_addr(unsigned i) const {
@@ -1262,6 +1283,79 @@ SymAddrSize WSCTraceBuilder::get_addr(unsigned i) const {
     }
   }
   abort();
+}
+
+SymData WSCTraceBuilder::get_data(int i, const SymAddrSize &addr) const {
+  if (i == -1) {
+    SymData ret(addr, addr.size);
+    memset(ret.get_block(), 0, addr.size);
+    return ret;
+  }
+  for (auto eit = prefix[i].sym.begin(); eit != prefix[i].sym.end(); ++eit) {
+    const SymEv &e = *eit;
+    if (e.has_data()) {
+      assert(std::all_of(eit+1, prefix[i].sym.end(),
+                         [&e](const SymEv &f) {
+                           return !f.has_data() /* || f.data() == e.data() */;
+                         }));
+      assert(e.addr() == addr);
+      return e.data();
+    }
+  }
+  abort();
+}
+
+static void delete_from_back(std::vector<int> &vec, int val) {
+  for (auto it = vec.end(); it != vec.begin();) {
+    --it;
+    if (val == *it) {
+      std::swap(*it, vec.back());
+      vec.pop_back();
+      return;
+    }
+  }
+  assert(false && "unreachable");
+}
+
+WSCTraceBuilder::CmpXhgUndoLog WSCTraceBuilder::
+recompute_cmpxhg_success(unsigned idx, std::vector<int> &writes) {
+  for (SymEv &e : prefix[idx].sym) {
+    if (e.kind != SymEv::CMPXHG && e.kind != SymEv::CMPXHGFAIL) continue;
+    bool before = e.kind == SymEv::CMPXHG;
+    SymData expected = e.expected();
+    SymData actual = get_data(*prefix[idx].read_from, e.addr());
+    bool after = memcmp(expected.get_block(), actual.get_block(), e.addr().size) == 0;
+    if (after) {
+      e = SymEv::CmpXhg(e.data(), e.expected().get_shared_block());
+    } else {
+      e = SymEv::CmpXhgFail(e.data(), e.expected().get_shared_block());
+    }
+    // assert(recompute_cmpxhg_success(idx, writes).kind == CmpXhgUndoLog::NONE);
+    auto kind = CmpXhgUndoLog::NONE;
+    if (after && !before) {
+      kind = CmpXhgUndoLog::FAIL;
+      writes.push_back(idx);
+    } else if (before && !after) {
+      kind = CmpXhgUndoLog::SUCCEED;
+      delete_from_back(writes, idx);
+    }
+    return CmpXhgUndoLog{kind, idx, &e};
+  }
+  return CmpXhgUndoLog{CmpXhgUndoLog::NONE, idx, nullptr};
+}
+
+void WSCTraceBuilder::
+undo_cmpxhg_recomputation(CmpXhgUndoLog log, std::vector<int> &writes) {
+  if (log.kind == CmpXhgUndoLog::NONE) return;
+  SymEv &e = *log.e;
+  if (log.kind == CmpXhgUndoLog::SUCCEED) {
+    e = SymEv::CmpXhg(e.data(), e.expected().get_shared_block());
+    writes.push_back(log.idx);
+  } else {
+    assert(log.kind == CmpXhgUndoLog::FAIL);
+    e = SymEv::CmpXhgFail(e.data(), e.expected().get_shared_block());
+    delete_from_back(writes, log.idx);
+  }
 }
 
 bool WSCTraceBuilder::is_observed_conflict
@@ -1332,10 +1426,10 @@ void WSCTraceBuilder::compute_prefixes() {
   }; 
 
   std::map<SymAddr,std::vector<int>> writes_by_address;
+  std::map<SymAddr,std::vector<int>> cmpxhgfail_by_address;
   for (unsigned j = 0; j < prefix.size(); ++j) {
-    if (is_store(j)) {
-      writes_by_address[get_addr(j).addr].push_back(j);
-    }
+    if (is_store(j))      writes_by_address    [get_addr(j).addr].push_back(j);
+    if (is_cmpxhgfail(j)) cmpxhgfail_by_address[get_addr(j).addr].push_back(j);
   }
   // for (std::pair<SymAddr,std::vector<int>> &pair : writes_by_address) {
   //   pair.second.push_back(-1);
@@ -1344,7 +1438,7 @@ void WSCTraceBuilder::compute_prefixes() {
   for (unsigned i = 0; i < prefix.size(); ++i) {
     if (!prefix[i].pinned && is_load(i)) {
       auto addr = get_addr(i);
-      const std::vector<int> &possible_writes = writes_by_address[addr.addr];
+      std::vector<int> &possible_writes = writes_by_address[addr.addr];
       int original_read_from = *prefix[i].read_from;
       assert(std::any_of(possible_writes.begin(), possible_writes.end(),
              [=](int i) { return i == original_read_from; })
@@ -1352,32 +1446,42 @@ void WSCTraceBuilder::compute_prefixes() {
 
       DecisionNode &decision = decisions[prefix[i].decision];
 
+      auto try_read_from_rmw = [&](int j) {
+        assert(j != -1 && j > int(i) && is_store(i) && is_load(j)
+               && is_store_when_reading_from(j, original_read_from));
+        /* Can only swap ajacent RMWs */
+        if (*prefix[j].read_from != int(i)) return;
+        std::shared_ptr<UnfoldingNode> read_from
+          = alternative(j, prefix[i].event->read_from);
+        if (decision.siblings.count(read_from)) return;
+        if (decision.sleep.count(read_from)) return;
+        if (!can_swap_by_vclocks(i, j)) {
+          decision.siblings.emplace(read_from, Leaf());
+          return;
+        }
+        if (conf.debug_print_on_reset)
+          llvm::dbgs() << "Trying to swap " << pretty_index(i)
+                       << " and " << pretty_index(j)
+                       << ", reading from " << pretty_index(original_read_from);
+        prefix[j].read_from = original_read_from;
+        prefix[i].read_from = j;
+        auto undoj = recompute_cmpxhg_success(j, possible_writes);
+        auto undoi = recompute_cmpxhg_success(i, possible_writes);
+
+        Leaf solution = try_sat(i, writes_by_address);
+        decision.siblings.emplace(read_from, std::move(solution));
+
+        /* Reset read-from */
+        prefix[j].read_from = i;
+        undo_cmpxhg_recomputation(undoi, possible_writes);
+        undo_cmpxhg_recomputation(undoj, possible_writes);
+      };
       auto try_read_from = [&](int j) {
         if (j == original_read_from || j == int(i)) return;
         if (j != -1 && j > int(i) && is_store(i) && is_load(j)) {
+          if (!is_store_when_reading_from(j, original_read_from)) return;
           /* RMW pair */
-          /* Can only swap ajacent RMWs */
-          if (*prefix[j].read_from != int(i)) return;
-          std::shared_ptr<UnfoldingNode> read_from
-            = alternative(j, prefix[i].event->read_from);
-          if (decision.siblings.count(read_from)) return;
-          if (decision.sleep.count(read_from)) return;
-          if (!can_swap_by_vclocks(i, j)) {
-            decision.siblings.emplace(read_from, Leaf());
-            return;
-          }
-          if (conf.debug_print_on_reset)
-            llvm::dbgs() << "Trying to swap " << pretty_index(i)
-                         << " and " << pretty_index(j)
-                         << ", reading from " << pretty_index(original_read_from);
-          prefix[j].read_from = original_read_from;
-          prefix[i].read_from = j;
-
-          Leaf solution = try_sat(i, writes_by_address);
-          decision.siblings.emplace(read_from, std::move(solution));
-
-          /* Reset read-from */
-          prefix[j].read_from = i;
+          try_read_from_rmw(j);
         } else {
           const std::shared_ptr<UnfoldingNode> &read_from =
             j == -1 ? nullptr : prefix[j].event;
@@ -1392,13 +1496,24 @@ void WSCTraceBuilder::compute_prefixes() {
                          << " read from " << pretty_index(j)
                          << " instead of " << pretty_index(original_read_from);
           prefix[i].read_from = j;
+          auto undoi = recompute_cmpxhg_success(i, possible_writes);
+
           Leaf solution = try_sat(i, writes_by_address);
           decision.siblings.emplace(read_from, std::move(solution));
+
+          undo_cmpxhg_recomputation(undoi, possible_writes);
         }
       };
 
       for (int j : possible_writes) try_read_from(j);
-      try_read_from(-1); 
+      try_read_from(-1);
+      if (is_store(i)) {
+        for (int j : cmpxhgfail_by_address[addr.addr]) {
+          if (j > int(i) && is_store_when_reading_from(j, original_read_from)) {
+            try_read_from_rmw(j);
+          }
+        }
+      }
 
       /* Reset read from, but leave pinned = true */
       prefix[i].read_from = original_read_from;
