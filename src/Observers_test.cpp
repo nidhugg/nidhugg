@@ -1146,6 +1146,43 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
   BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
 }
 
+BOOST_AUTO_TEST_CASE(CASw4){
+  /* Regression test: Check that cmpxhg is considered an observer */
+  Configuration conf = sc_obs_conf();
+  std::string module = StrModule::portasm(R"(
+@x = global i32 0, align 4
+
+define i8* @t(i8* %arg){
+)"
+#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
+R"(  cmpxchg i32* @x, i32 0, i32 1 seq_cst seq_cst)"
+#else
+R"(  cmpxchg i32* @x, i32 0, i32 1 seq_cst)"
+#endif
+R"(
+  store i32 1, i32* @x, align 4
+  ret i8* null
+}
+
+define i32 @main(){
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @t, i8* null)
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @t, i8* null)
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @t, i8* null)
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @t, i8* null)
+  ret i32 0
+}
+
+%attr_t = type {i64*, [48 x i8]}
+declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
+)");
+
+  std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
+  DPORDriver::Result res = driver->run();
+
+  BOOST_CHECK(res.trace_count == 524);
+  BOOST_CHECK(!res.has_errors());
+}
+
 BOOST_AUTO_TEST_CASE(overlapping_write){
   Configuration conf = sc_obs_conf();
   std::string module = StrModule::portasm(R"(

@@ -1822,7 +1822,7 @@ bool TSOTraceBuilder::is_observed_conflict
   assert(snd.kind == SymEv::STORE);
   assert(fst.addr().overlaps(snd.addr()));
   if (thd.kind == SymEv::FULLMEM) return true;
-  return thd.kind == SymEv::LOAD && thd.addr().overlaps(snd.addr());
+  return symev_does_load(thd) && thd.addr().overlaps(snd.addr());
 }
 
 void TSOTraceBuilder::do_race_detect() {
