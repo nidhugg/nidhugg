@@ -1305,16 +1305,17 @@ SymData WSCTraceBuilder::get_data(int i, const SymAddrSize &addr) const {
   abort();
 }
 
-static void delete_from_back(std::vector<int> &vec, int val) {
-  for (auto it = vec.end(); it != vec.begin();) {
+static std::ptrdiff_t delete_from_back(std::vector<int> &vec, int val) {
+  for (auto it = vec.end();;) {
+    assert(it != vec.begin() && "Element must exist");
     --it;
     if (val == *it) {
       std::swap(*it, vec.back());
+      auto pos = it - vec.begin();
       vec.pop_back();
-      return;
+      return pos;
     }
   }
-  assert(false && "unreachable");
 }
 
 WSCTraceBuilder::CmpXhgUndoLog WSCTraceBuilder::
@@ -1332,16 +1333,18 @@ recompute_cmpxhg_success(unsigned idx, std::vector<int> &writes) {
     }
     // assert(recompute_cmpxhg_success(idx, writes).kind == CmpXhgUndoLog::NONE);
     auto kind = CmpXhgUndoLog::NONE;
+    unsigned pos;
     if (after && !before) {
       kind = CmpXhgUndoLog::FAIL;
+      pos = writes.size();
       writes.push_back(idx);
     } else if (before && !after) {
       kind = CmpXhgUndoLog::SUCCEED;
-      delete_from_back(writes, idx);
+      pos = delete_from_back(writes, idx);
     }
-    return CmpXhgUndoLog{kind, idx, &e};
+    return CmpXhgUndoLog{kind, idx, pos, &e};
   }
-  return CmpXhgUndoLog{CmpXhgUndoLog::NONE, idx, nullptr};
+  return CmpXhgUndoLog{CmpXhgUndoLog::NONE, idx, 0, nullptr};
 }
 
 void WSCTraceBuilder::
@@ -1351,10 +1354,13 @@ undo_cmpxhg_recomputation(CmpXhgUndoLog log, std::vector<int> &writes) {
   if (log.kind == CmpXhgUndoLog::SUCCEED) {
     e = SymEv::CmpXhg(e.data(), e.expected().get_shared_block());
     writes.push_back(log.idx);
+    std::swap(writes.back(), writes[log.pos]);
   } else {
     assert(log.kind == CmpXhgUndoLog::FAIL);
     e = SymEv::CmpXhgFail(e.data(), e.expected().get_shared_block());
-    delete_from_back(writes, log.idx);
+    assert(writes.back() == int(log.idx));
+    assert(writes.size()-1 == log.pos);
+    writes.pop_back();
   }
 }
 
@@ -1505,7 +1511,8 @@ void WSCTraceBuilder::compute_prefixes() {
         }
       };
 
-      for (int j : possible_writes) try_read_from(j);
+      for (unsigned ji = 0; ji < possible_writes.size(); ++ji)
+        try_read_from(possible_writes[ji]);
       try_read_from(-1);
       if (is_store(i)) {
         for (int j : cmpxhgfail_by_address[addr.addr]) {

@@ -638,7 +638,7 @@ protected:
           SUCCEED,
           FAIL,
     } kind;
-    unsigned idx;
+    unsigned idx, pos;
     SymEv *e;
   };
   CmpXhgUndoLog recompute_cmpxhg_success(unsigned idx, std::vector<int> &writes);
