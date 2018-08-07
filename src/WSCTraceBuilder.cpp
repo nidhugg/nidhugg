@@ -632,13 +632,9 @@ void WSCTraceBuilder::join(int tgt_proc){
 void WSCTraceBuilder::mutex_lock(const SymAddrSize &ml){
   record_symbolic(SymEv::MLock(ml));
   fence();
-  if(!conf.mutex_require_init && !mutexes.count(ml.addr)){
-    // Assume static initialization
-    mutexes[ml.addr] = Mutex();
-  }
-  assert(mutexes.count(ml.addr));
   curev().may_conflict = true;
 
+  assert(!conf.mutex_require_init || mutexes.count(ml.addr));
   Mutex &mutex = mutexes[ml.addr];
 
   if(mutex.last_lock < 0){
@@ -654,11 +650,7 @@ void WSCTraceBuilder::mutex_lock(const SymAddrSize &ml){
 }
 
 void WSCTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
-  if(!conf.mutex_require_init && !mutexes.count(ml.addr)){
-    // Assume static initialization
-    mutexes[ml.addr] = Mutex();
-  }
-  assert(mutexes.count(ml.addr));
+  assert(!conf.mutex_require_init || mutexes.count(ml.addr));
   Mutex &mutex = mutexes[ml.addr];
   assert(0 <= mutex.last_lock);
   add_lock_fail_race(mutex, mutex.last_lock);
@@ -669,15 +661,11 @@ void WSCTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
 }
 
 void WSCTraceBuilder::mutex_trylock(const SymAddrSize &ml){
-  record_symbolic(SymEv::MLock(ml));
-  fence();
-  if(!conf.mutex_require_init && !mutexes.count(ml.addr)){
-    // Assume static initialization
-    mutexes[ml.addr] = Mutex();
-  }
-  assert(mutexes.count(ml.addr));
-  curev().may_conflict = true;
+  assert(!conf.mutex_require_init || mutexes.count(ml.addr));
   Mutex &mutex = mutexes[ml.addr];
+  record_symbolic(mutex.locked ? SymEv::MTryLockFail(ml) : SymEv::MTryLock(ml));
+  fence();
+  curev().may_conflict = true;
   see_events({mutex.last_access,last_full_memory_conflict});
 
   mutex.last_access = prefix_idx;
@@ -690,11 +678,7 @@ void WSCTraceBuilder::mutex_trylock(const SymAddrSize &ml){
 void WSCTraceBuilder::mutex_unlock(const SymAddrSize &ml){
   record_symbolic(SymEv::MUnlock(ml));
   fence();
-  if(!conf.mutex_require_init && !mutexes.count(ml.addr)){
-    // Assume static initialization
-    mutexes[ml.addr] = Mutex();
-  }
-  assert(mutexes.count(ml.addr));
+  assert(!conf.mutex_require_init || mutexes.count(ml.addr));
   Mutex &mutex = mutexes[ml.addr];
   curev().may_conflict = true;
   assert(0 <= mutex.last_access);

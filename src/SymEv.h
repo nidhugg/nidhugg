@@ -43,6 +43,8 @@ struct SymEv {
 
     M_INIT,
     M_LOCK,
+    M_TRYLOCK,
+    M_TRYLOCK_FAIL,
     M_UNLOCK,
     M_DELETE,
 
@@ -87,6 +89,8 @@ struct SymEv {
 
   static SymEv MInit(SymAddrSize addr) { return {M_INIT, addr}; }
   static SymEv MLock(SymAddrSize addr) { return {M_LOCK, addr}; }
+  static SymEv MTryLock(SymAddrSize addr) { return {M_TRYLOCK, addr}; }
+  static SymEv MTryLockFail(SymAddrSize addr) { return {M_TRYLOCK_FAIL, addr}; }
   static SymEv MUnlock(SymAddrSize addr) { return {M_UNLOCK, addr}; }
   static SymEv MDelete(SymAddrSize addr) { return {M_DELETE, addr}; }
 

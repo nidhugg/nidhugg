@@ -34,6 +34,7 @@ void SymEv::set(SymEv other) {
     switch(kind) {
     case LOAD:
     case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
+    case M_TRYLOCK: case M_TRYLOCK_FAIL:
     case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
     case C_WAIT: case C_AWAKE:
     case CMPXHG: case CMPXHGFAIL:
@@ -83,6 +84,9 @@ std::string SymEv::to_string(std::function<std::string(int)> pid_str) const {
 
     case M_INIT:   return "MInit("   + arg.addr.to_string(pid_str) + ")";
     case M_LOCK:   return "MLock("   + arg.addr.to_string(pid_str) + ")";
+    case M_TRYLOCK: return "MTryLock(" + arg.addr.to_string(pid_str) + ")";
+    case M_TRYLOCK_FAIL: return "MTryLockFail(" + arg.addr.to_string(pid_str)
+        + ")";
     case M_UNLOCK: return "MUnlock(" + arg.addr.to_string(pid_str) + ")";
     case M_DELETE: return "MDelete(" + arg.addr.to_string(pid_str) + ")";
 
@@ -115,6 +119,7 @@ bool SymEv::has_addr() const {
   switch(kind) {
   case LOAD: case STORE:
   case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
+  case M_TRYLOCK: case M_TRYLOCK_FAIL:
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
   case C_WAIT: case C_AWAKE:
   case UNOBS_STORE:
@@ -136,6 +141,7 @@ bool SymEv::has_num() const {
   case FULLMEM:
   case LOAD: case STORE:
   case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
+  case M_TRYLOCK: case M_TRYLOCK_FAIL:
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
   case UNOBS_STORE:
   case CMPXHG: case CMPXHGFAIL:
@@ -155,6 +161,7 @@ bool SymEv::has_data() const {
   case FULLMEM:
   case LOAD:
   case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
+  case M_TRYLOCK: case M_TRYLOCK_FAIL:
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
     return false;
   }
@@ -172,6 +179,7 @@ bool SymEv::has_expected() const {
   case LOAD:
   case STORE: case UNOBS_STORE:
   case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
+  case M_TRYLOCK: case M_TRYLOCK_FAIL:
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
     return false;
   }
