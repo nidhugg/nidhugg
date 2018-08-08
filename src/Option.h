@@ -21,6 +21,7 @@
 #define __OPTION_H__
 
 #include <algorithm>
+#include <cassert>
 
 template<typename Value>
 class Option {
@@ -47,10 +48,15 @@ public:
   }
 
   operator bool() const noexcept { return has_value; }
-  Value const& operator *() const { return value; }
-  Value& operator *() { return value; }
-  Value const *operator ->() const { return &value; }
-  Value *operator ->() { return &value; }
+  Value const& operator *() const { assert(has_value); return value; }
+  Value& operator *() { assert(has_value); return value; }
+  Value const *operator ->() const { assert(has_value); return &value; }
+  Value *operator ->() { assert(has_value); return &value; }
+
+  Value const &value_or(const Value &def) const {
+    if (has_value) return value;
+    else return def;
+  }
 private:
   bool has_value;
   union{

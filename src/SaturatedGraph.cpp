@@ -145,7 +145,8 @@ bool SaturatedGraph::saturate() {
           unsigned pe_id = get_process_event(pid, vc[pid]);
           const Event *pe;
           for (int pi = vc[pid]; pi > old_vc[pid];
-               --pi, pe_id = *pe->po_predecessor) {
+               --pi, pe_id = pe->po_predecessor.value_or(~0)) {
+            assert(pe_id != ~0u);
             pe = &events.at(pe_id);
             if (pe_id == id) continue;
             if (pe->is_store && pe->addr == e.addr) {
