@@ -61,6 +61,26 @@ For Users of Debian-like Systems
 
    Optional:
    libboost-test-dev, valgrind, texlive-latex-base, texlive-base
+   
+For Users of openSUSE (RPM-based distribution) Systems
+--------------------------------
+
+   On an openSUSE tumbleweed (RPM-based distribution), satisfy
+   the requirements by installing the following packages:
+
+   Mandatory:
+   llvm, llvm-devel, autoconf, automake, clang, libffi-devel
+   make, python3
+
+   Optional (Not fully tested):
+   libboost-test{VERSION}-devel, valgrind, texlive-latex
+   
+   An example of the libboost-test-devel package:
+   libboost_test1_64_0-devel
+   
+   Note: In case that gcc-g++ is already installed speciy clang++ as
+   the compiler.
+   
 
 Getting Nidhugg
 ===============
