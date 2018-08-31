@@ -640,10 +640,15 @@ static bool symev_is_store(const SymEv &e) {
   return e.kind == SymEv::UNOBS_STORE || e.kind == SymEv::STORE;
 }
 
+static bool symev_does_store(const SymEv &e) {
+  return e.kind == SymEv::UNOBS_STORE || e.kind == SymEv::STORE
+    || e.kind == SymEv::CMPXHG;
+}
+
 static SymAddrSize sym_get_last_write(const sym_ty &sym, SymAddr addr){
   for (auto it = sym.end(); it != sym.begin();){
     const SymEv &e = *(--it);
-    if (symev_is_store(e) && e.addr().includes(addr)) return e.addr();
+    if (symev_does_store(e) && e.addr().includes(addr)) return e.addr();
   }
   assert(false && "No write touching addr found");
   abort();
@@ -1299,6 +1304,22 @@ TSOTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep,
 
   if (conf.observers) {
     for (const SymEv &e : sym) {
+      /* Now check for readers */
+      if (e.kind == SymEv::FULLMEM) {
+        /* Reads all; observes all */
+        sleep.must_read.clear();
+      } else if (symev_does_load(e)) {
+        const SymAddrSize &esas = e.addr();
+        for (int i = 0; i < int(sleep.must_read.size());) {
+          if (sleep.must_read[i].overlaps(esas)) {
+            /* Efficient unordered set delete */
+            std::swap(sleep.must_read[i], sleep.must_read.back());
+            sleep.must_read.pop_back();
+          } else {
+            ++i;
+          }
+        }
+      }
       if (symev_is_store(e)) {
         /* Now check for shadowing of needed observations */
         const SymAddrSize &esas = e.addr();
@@ -1316,22 +1337,6 @@ TSOTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep,
                           })) {
             assert(!it->second.not_if_read || *it->second.not_if_read == esas);
             it->second.not_if_read = esas;
-          }
-        }
-      }
-      /* Now check for readers */
-      if (e.kind == SymEv::FULLMEM) {
-        /* Reads all; observes all */
-        sleep.must_read.clear();
-      } else if (symev_does_load(e)) {
-        const SymAddrSize &esas = e.addr();
-        for (int i = 0; i < int(sleep.must_read.size());) {
-          if (sleep.must_read[i].overlaps(esas)) {
-            /* Efficient unordered set delete */
-            std::swap(sleep.must_read[i], sleep.must_read.back());
-            sleep.must_read.pop_back();
-          } else {
-            ++i;
           }
         }
       }
@@ -1817,7 +1822,7 @@ bool TSOTraceBuilder::is_observed_conflict
   assert(snd.kind == SymEv::STORE);
   assert(fst.addr().overlaps(snd.addr()));
   if (thd.kind == SymEv::FULLMEM) return true;
-  return thd.kind == SymEv::LOAD && thd.addr().overlaps(snd.addr());
+  return symev_does_load(thd) && thd.addr().overlaps(snd.addr());
 }
 
 void TSOTraceBuilder::do_race_detect() {

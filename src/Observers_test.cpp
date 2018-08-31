@@ -1103,6 +1103,86 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
   BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
 }
 
+BOOST_AUTO_TEST_CASE(CASw2){
+  /* Regression test: Check that the overlap check considers CAS to be a
+   * write */
+  Configuration conf = sc_obs_conf();
+  std::string module = StrModule::portasm(R"(
+@x = global i32 0, align 4
+
+define i8* @t(i8* %arg){
+)"
+#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
+R"(  cmpxchg i32* @x, i32 0, i32 1 seq_cst seq_cst)"
+#else
+R"(  cmpxchg i32* @x, i32 0, i32 1 seq_cst)"
+#endif
+R"(
+  store i32 1, i32* @x, align 4
+  ret i8* null
+}
+
+define i32 @main(){
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @t, i8* null)
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @t, i8* null)
+  ret i32 0
+}
+
+%attr_t = type {i64*, [48 x i8]}
+declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
+)");
+
+  std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
+  DPORDriver::Result res = driver->run();
+
+  CPid P0, P1 = P0.spawn(0), P2 = P0.spawn(1);
+  IID<CPid> cas1(P1,1), cas2(P2,1), w1(P1,2), w2(P2,2);
+  DPORDriver_test::trace_set_spec expected =
+    {{{cas1,cas2},{cas2,w1}},
+     {{w1,cas2}},
+     {{cas2,cas1},{cas1,w2}},
+     {{w2,cas1}},
+   };
+  BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
+}
+
+BOOST_AUTO_TEST_CASE(CASw4){
+  /* Regression test: Check that cmpxhg is considered an observer */
+  Configuration conf = sc_obs_conf();
+  std::string module = StrModule::portasm(R"(
+@x = global i32 0, align 4
+
+define i8* @t(i8* %arg){
+)"
+#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
+R"(  cmpxchg i32* @x, i32 0, i32 1 seq_cst seq_cst)"
+#else
+R"(  cmpxchg i32* @x, i32 0, i32 1 seq_cst)"
+#endif
+R"(
+  store i32 1, i32* @x, align 4
+  ret i8* null
+}
+
+define i32 @main(){
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @t, i8* null)
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @t, i8* null)
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @t, i8* null)
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @t, i8* null)
+  ret i32 0
+}
+
+%attr_t = type {i64*, [48 x i8]}
+declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
+)");
+
+  std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
+  DPORDriver::Result res = driver->run();
+
+  BOOST_CHECK(res.trace_count == 524);
+  BOOST_CHECK(!res.has_errors());
+}
+
 BOOST_AUTO_TEST_CASE(overlapping_write){
   Configuration conf = sc_obs_conf();
   std::string module = StrModule::portasm(R"(
