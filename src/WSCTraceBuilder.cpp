@@ -21,12 +21,21 @@
 #include "WSCTraceBuilder.h"
 #include "SaturatedGraph.h"
 #include "PrefixHeuristic.h"
+#include "Timing.h"
 
 #include <sstream>
 #include <stdexcept>
 
 #define ANSIRed "\x1b[91m"
 #define ANSIRst "\x1b[m"
+
+
+static Timing::Context analysis_context("analysis");
+static Timing::Context vclocks_context("vclocks");
+static Timing::Context unfolding_context("unfolding");
+static Timing::Context neighbours_context("neighbours");
+static Timing::Context graph_context("graph");
+static Timing::Context sat_context("sat");
 
 WSCTraceBuilder::WSCTraceBuilder(const Configuration &conf) : TSOPSOTraceBuilder(conf) {
   threads.push_back(Thread(CPid(), -1));
@@ -1018,6 +1027,7 @@ static It frontier_filter(It first, It last, LessFn less){
 }
 
 void WSCTraceBuilder::compute_vclocks(){
+  auto timing_context = vclocks_context.enter();
   /* The first event of a thread happens after the spawn event that
    * created it.
    */
@@ -1051,6 +1061,7 @@ void WSCTraceBuilder::compute_vclocks(){
 }
 
 void WSCTraceBuilder::compute_unfolding() {
+  auto timing_context = unfolding_context.enter();
   for (unsigned i = 0; i < prefix.size(); ++i) {
     UnfoldingNodeChildren *parent_list;
     const std::shared_ptr<UnfoldingNode> null_ptr;
@@ -1398,6 +1409,7 @@ bool WSCTraceBuilder::can_swap_by_vclocks(int r, int w) const {
 }
 
 void WSCTraceBuilder::compute_prefixes() {
+  auto timing_guard = analysis_context.enter();
   compute_vclocks();
 
   compute_unfolding();
@@ -1408,6 +1420,7 @@ void WSCTraceBuilder::compute_prefixes() {
     llvm::dbgs() << " =============================\n";
   }
 
+  auto timing_guard_2 = neighbours_context.enter();
   if (conf.debug_print_on_reset)
     llvm::dbgs() << "Computing prefixes\n";
 
@@ -1575,6 +1588,7 @@ void WSCTraceBuilder::output_formula
 WSCTraceBuilder::Leaf
 WSCTraceBuilder::try_sat
 (int changed_event, std::map<SymAddr,std::vector<int>> &writes_by_address){
+  auto timing_guard = graph_context.enter();
   int decision = prefix[changed_event].decision;
   std::vector<bool> keep = causal_past(decision);
 
@@ -1620,16 +1634,19 @@ WSCTraceBuilder::try_sat
   }
 
   std::unique_ptr<SatSolver> sat = conf.get_sat_solver();
+  {
+    auto timing_context = sat_context.enter();
 
-  output_formula(*sat, writes_by_address, keep);
-  //output_formula(std::cerr, writes_by_address, keep);
+    output_formula(*sat, writes_by_address, keep);
+    //output_formula(std::cerr, writes_by_address, keep);
 
-  if (!sat->check_sat()) {
-    if (conf.debug_print_on_reset) llvm::dbgs() << ": UNSAT\n";
-    return Leaf();
+    if (!sat->check_sat()) {
+      if (conf.debug_print_on_reset) llvm::dbgs() << ": UNSAT\n";
+      return Leaf();
+    }
+    if (conf.debug_print_on_reset) llvm::dbgs() << ": SAT\n";
+
   }
-  if (conf.debug_print_on_reset) llvm::dbgs() << ": SAT\n";
-
   std::vector<unsigned> model = sat->get_model();
 
   unsigned no_keep = 0;

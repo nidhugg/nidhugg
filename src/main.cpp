@@ -23,6 +23,7 @@
 #include "DPORDriver.h"
 #include "GlobalContext.h"
 #include "Transform.h"
+#include "Timing.h"
 
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/ManagedStatic.h>
@@ -45,6 +46,12 @@ llvm::cl::list<std::string>
 cl_program_arguments(llvm::cl::desc("[-- <program arguments>...]"),
                      llvm::cl::Positional,
                      llvm::cl::ZeroOrMore);
+
+llvm::cl::opt<bool>
+cl_time("time", llvm::cl::desc("Print timing information."),
+        llvm::cl::NotHidden);
+
+static Timing::Context global_timing_context("global");
 
 #ifdef LLVM_CL_VERSIONPRINTER_TAKES_RAW_OSTREAM
 void print_version(llvm::raw_ostream &out){
@@ -98,6 +105,7 @@ int main(int argc, char *argv[]){
 
   bool errors_detected = false;
   try{
+    auto timing_guard = global_timing_context.enter();
     Configuration conf;
     conf.assign_by_commandline();
     conf.check_commandline();
@@ -136,6 +144,9 @@ int main(int argc, char *argv[]){
     llvm::llvm_shutdown();
     return 1;
   }
+
+  if (cl_time)
+    Timing::print_report();
 
   return (errors_detected ? VERIFICATION_FAILURE : EXIT_OK);
 }

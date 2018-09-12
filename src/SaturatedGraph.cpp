@@ -19,6 +19,7 @@
 
 #include "SaturatedGraph.h"
 
+#include "Timing.h"
 #include <immer/algorithm.hpp>
 #include <immer/vector_transient.hpp>
 #include <iostream>
@@ -28,6 +29,8 @@
 #else
 #  define IFTRACE(X) ((void)0)
 #endif
+
+static Timing::Context saturate_timing("saturate");
 
 SaturatedGraph::SaturatedGraph() {}
 
@@ -120,6 +123,7 @@ void SaturatedGraph::add_event(unsigned pid, unsigned id, EventKind kind,
 }
 
 bool SaturatedGraph::saturate() {
+  auto timing_guard = saturate_timing.enter();
   check_graph_consistency();
   while (!wq_empty()) {
     const unsigned id = wq_pop();

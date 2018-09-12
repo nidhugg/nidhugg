@@ -35,6 +35,7 @@ libswsc_a_SOURCES = \
   StrModule.cpp StrModule.h \
   SymEv.cpp SymEv.h \
   SymAddr.cpp SymAddr.h \
+  Timing.cpp Timing.h \
   Trace.cpp Trace.h \
   TraceBuilder.cpp TraceBuilder.h \
   Transform.cpp Transform.h \
