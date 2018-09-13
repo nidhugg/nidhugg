@@ -20,6 +20,7 @@
 #include "Timing.h"
 #include <vector>
 #include <iostream>
+#include <algorithm>
 
 namespace Timing {
   namespace {
@@ -66,8 +67,14 @@ namespace Timing {
   }
 
   void print_report() {
+    std::vector<Context*> vec;
+    for (Context *c = all_contexts; c; c = c->next) vec.push_back(c);
+    std::sort(vec.begin(), vec.end(), [](const Context *a, const Context *b) {
+                                        return a->inclusive > b->inclusive;
+                                      });
+
     std::cerr << "Name\tCount\tInclusive\tExclusive\n";
-    for (Context *c = all_contexts; c; c = c->next) {
+    for (Context *c : vec) {
       using namespace std::chrono;
       std::cerr << c->name << "\t" << c->count
                 << "\t" << duration_cast<microseconds>(c->inclusive).count()
