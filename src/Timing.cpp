@@ -23,14 +23,21 @@
 
 namespace Timing {
   namespace {
-    std::vector<Context*> all_contexts;
+    Context *all_contexts;
     clock global_clock;
     Guard *current_guard = nullptr;
   }
 
   Context::Context(std::string name)
-    : name(name), inclusive(0), exclusive(0), count(0) {
-    all_contexts.push_back(this);
+    : name(name), inclusive(0), exclusive(0), count(0), next(all_contexts) {
+    all_contexts = this;
+  }
+
+  Context::~Context() {
+    /* Find us in all_contexts and unlink */
+    Context **c = &all_contexts;
+    while (*c != this) c = &(*c)->next;
+    *c = next;
   }
 
   std::unique_ptr<Guard> Context::enter() {
@@ -60,7 +67,7 @@ namespace Timing {
 
   void print_report() {
     std::cerr << "Name\tCount\tInclusive\tExclusive\n";
-    for (Context *c : all_contexts) {
+    for (Context *c = all_contexts; c; c = c->next) {
       using namespace std::chrono;
       std::cerr << c->name << "\t" << c->count
                 << "\t" << duration_cast<microseconds>(c->inclusive).count()

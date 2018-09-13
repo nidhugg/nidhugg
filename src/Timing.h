@@ -30,12 +30,16 @@ namespace Timing {
 
   class Guard;
   class Context {
+    Context(Context &) = delete;
+    Context & operator =(Context &other) = delete;
   public:
     std::unique_ptr<Guard> enter();
     Context(std::string name);
+    ~Context();
     std::string name;
     clock::duration inclusive, exclusive;
     unsigned long count;
+    Context *next;
   };
 
   class Guard {
