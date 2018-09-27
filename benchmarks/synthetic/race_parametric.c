@@ -8,23 +8,26 @@
 #endif
 
 #define T 2
+#define B 42
 
 atomic_int v;
 atomic_int local[T];
 
 void *t(void* arg) {
   intptr_t tid = (intptr_t)arg;
-  for (int i = 0; i < N; ++i) {
+  for (int i = 0; i < B; ++i) {
     local[tid] = i;
     (void)local[tid];
   }
-  v = tid;
-  (void)v;
+  for (int i = 0; i < N; ++i) {
+      v = tid;
+      (void)v;
+  }
   return NULL;
 }
 
 int main(int argc, char **argv) {
-  pthread_t tid[T];
+  pthread_t tid[N];
   for (int i = 0; i < T; ++i) {
     pthread_create(tid+i, NULL, t, (void*)(intptr_t)i);
   }
