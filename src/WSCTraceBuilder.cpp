@@ -19,7 +19,6 @@
 
 #include "Debug.h"
 #include "WSCTraceBuilder.h"
-#include "SaturatedGraph.h"
 #include "PrefixHeuristic.h"
 #include "Timing.h"
 
@@ -249,6 +248,7 @@ bool WSCTraceBuilder::reset(){
   }
   auto sit = decisions.back().siblings.begin();
   Leaf l = std::move(sit->second);
+  decisions.back().saturatedGraph = std::move(l.saturatedGraph);
 
   if (conf.debug_print_on_reset)
       llvm::dbgs() << "Backtracking to decision node " << (decisions.size()-1)
@@ -1090,11 +1090,49 @@ void WSCTraceBuilder::compute_unfolding() {
     if (int(i) >= replay_point) {
       if (is_load(i)) {
         int decision = decisions.size();
-        decisions.emplace_back();
         prefix[i].decision = decision;
+        decisions.emplace_back(std::move(compute_minimal_saturation(i)));
       }
     }
   }
+}
+
+SaturatedGraph WSCTraceBuilder::compute_minimal_saturation(unsigned changed_event) const {
+  SaturatedGraph g;
+  int decision = prefix[changed_event].decision;
+  std::vector<bool> keep = causal_past(decision);
+
+  int lastDecision = -1;
+  for (unsigned i = 0; i < changed_event; ++i) {
+     if (keep[i] && prefix[i].decision > lastDecision) {
+        lastDecision = prefix[i].decision;
+     }
+  }
+  if (lastDecision != -1)
+    g = decisions[lastDecision].saturatedGraph;
+
+  const auto add_event = [&g,this](unsigned i) {
+      SaturatedGraph::EventKind kind = SaturatedGraph::NONE;
+      SymAddr addr;
+      if (is_load(i)) {
+        if (is_store(i)) kind = SaturatedGraph::RMW;
+        else kind = SaturatedGraph::LOAD;
+      } else if (is_store(i)) kind = SaturatedGraph::STORE;
+      if (kind != SaturatedGraph::NONE) addr = get_addr(i).addr;
+      Option<unsigned> read_from;
+      if (prefix[i].read_from && *prefix[i].read_from != -1)
+        read_from = unsigned(*prefix[i].read_from);
+
+      g.add_event(unsigned(prefix[i].iid.get_pid()), i, kind, addr,
+                  read_from, prefix[i].happens_after);
+    };
+  for (unsigned i = 0; i < prefix.size(); ++i) {
+    if (keep[i] && i != changed_event && !g.has_event(i)) {
+      add_event(i);
+    }
+  }
+  add_event(changed_event);
+  return g;
 }
 
 std::shared_ptr<WSCTraceBuilder::UnfoldingNode> WSCTraceBuilder::
@@ -1592,46 +1630,61 @@ WSCTraceBuilder::try_sat
   int decision = prefix[changed_event].decision;
   std::vector<bool> keep = causal_past(decision);
 
-  {
-    SaturatedGraph g;
-    const auto add_event = [&g,this](unsigned i) {
-        SaturatedGraph::EventKind kind = SaturatedGraph::NONE;
-        SymAddr addr;
-        if (is_load(i)) {
-          if (is_store(i)) kind = SaturatedGraph::RMW;
-          else kind = SaturatedGraph::LOAD;
-        } else if (is_store(i)) kind = SaturatedGraph::STORE;
-        if (kind != SaturatedGraph::NONE) addr = get_addr(i).addr;
-        Option<unsigned> read_from;
-        if (prefix[i].read_from && *prefix[i].read_from != -1)
-          read_from = unsigned(*prefix[i].read_from);
-        g.add_event(unsigned(prefix[i].iid.get_pid()), i, kind, addr,
-                    read_from, prefix[i].happens_after);
-      };
-    for (unsigned i = 0; i < prefix.size(); ++i) {
-      if (keep[i] && int(i) != changed_event) {
-        add_event(i);
-      }
-    }
-    add_event(changed_event);
-    if (!g.saturate()) {
-      if (conf.debug_print_on_reset)
-        llvm::dbgs() << ": Saturation yielded cycle\n";
-      return Leaf();
-    }
-
-    if (Option<std::vector<unsigned>> res = try_generate_prefix(std::move(g))) {
-      if (conf.debug_print_on_reset) {
-        llvm::dbgs() << ": Heuristic found prefix\n";
-        llvm::dbgs() << "[";
-        for (unsigned i : *res) {
-          llvm::dbgs() << i << ",";
-        }
-        llvm::dbgs() << "]\n";
-      }
-      return order_to_leaf(decision, *res);
+  llvm::dbgs() << "try sat 1\n";
+  SaturatedGraph g;
+  const auto add_event = [&g,this](unsigned i) {
+      SaturatedGraph::EventKind kind = SaturatedGraph::NONE;
+      SymAddr addr;
+      if (is_load(i)) {
+        if (is_store(i)) kind = SaturatedGraph::RMW;
+        else kind = SaturatedGraph::LOAD;
+      } else if (is_store(i)) kind = SaturatedGraph::STORE;
+      if (kind != SaturatedGraph::NONE) addr = get_addr(i).addr;
+      Option<unsigned> read_from;
+      if (prefix[i].read_from && *prefix[i].read_from != -1)
+        read_from = unsigned(*prefix[i].read_from);
+      g.add_event(unsigned(prefix[i].iid.get_pid()), i, kind, addr,
+                  read_from, prefix[i].happens_after);
+    };
+  /*********************************************************/
+  /* Reuse the saturated graph from the last decision node 
+   * that we has calculated its minimal saturated graph */
+  int lastDecision = -1;
+  for (int i = 0; i < changed_event; ++i) {
+     if (keep[i] && prefix[i].decision > lastDecision) {
+        lastDecision = prefix[i].decision;
+     }
+  }
+  g = decisions[lastDecision].saturatedGraph;
+  /*********************************************************/
+  llvm::dbgs() << "Last decision is " << lastDecision << "\n";
+  for (unsigned i = 0; i < prefix.size(); ++i) {
+    if (keep[i] && int(i) != changed_event && !g.has_event(i)) {
+      add_event(i);
     }
   }
+  add_event(changed_event);
+  llvm::dbgs() << "try sat 2\n";
+  if (!g.saturate()) {
+    if (conf.debug_print_on_reset)
+      llvm::dbgs() << ": Saturation yielded cycle\n";
+    return Leaf();
+  }
+  llvm::dbgs() << "try sat 3\n";
+  /* We need to preserve g */
+  if (Option<std::vector<unsigned>> res = try_generate_prefix(g)) {
+    if (conf.debug_print_on_reset) {
+      llvm::dbgs() << ": Heuristic found prefix\n";
+      llvm::dbgs() << "[";
+      for (unsigned i : *res) {
+        llvm::dbgs() << i << ",";
+      }
+      llvm::dbgs() << "]\n";
+    }
+    /*********************************************************/
+    return order_to_leaf(decision, *res, std::move(g));
+  }
+  llvm::dbgs() << "try sat 4\n";
 
   std::unique_ptr<SatSolver> sat = conf.get_sat_solver();
   {
@@ -1669,11 +1722,11 @@ WSCTraceBuilder::try_sat
     llvm::dbgs() << "]\n";
   }
 
-  return order_to_leaf(decision, order);
+  return order_to_leaf(decision, order, std::move(g));
 }
 
 WSCTraceBuilder::Leaf WSCTraceBuilder::order_to_leaf
-(int decision, const std::vector<unsigned> order) const{
+(int decision, const std::vector<unsigned> order, SaturatedGraph g) const{
   std::vector<Branch> new_prefix;
   new_prefix.reserve(order.size());
   for (unsigned i : order) {
@@ -1692,13 +1745,14 @@ WSCTraceBuilder::Leaf WSCTraceBuilder::order_to_leaf
                             prefix[i].sym);
   }
 
-  return Leaf(new_prefix);
+  return Leaf(new_prefix, std::move(g));
 }
 
 std::vector<bool> WSCTraceBuilder::causal_past(int decision) const {
   std::vector<bool> acc(prefix.size());
   for (unsigned i = 0; i < prefix.size(); ++i) {
-    assert(is_load(i) == ((prefix[i].decision != -1) ^ prefix[i].pinned));
+    assert(!((prefix[i].decision != -1) && prefix[i].pinned));
+    assert(is_load(i) == ((prefix[i].decision != -1) || prefix[i].pinned));
     if (prefix[i].decision != -1 && prefix[i].decision <= decision) {
       causal_past_1(acc, i);
     }

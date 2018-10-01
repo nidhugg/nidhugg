@@ -52,6 +52,7 @@ public:
   /* Returns true if the graph is still acyclic. */
   bool saturate();
   bool is_saturated() const { return wq_empty(); }
+  bool has_event(unsigned id) const {return (events.count(id)  != 0); }
 
   void print_graph(std::ostream &o, std::function<std::string(unsigned)> event_str
                    = (std::string(&)(unsigned))std::to_string) const;

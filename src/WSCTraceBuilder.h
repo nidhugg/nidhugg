@@ -26,6 +26,7 @@
 #include "SymEv.h"
 #include "WakeupTrees.h"
 #include "Option.h"
+#include "SaturatedGraph.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -163,7 +164,14 @@ protected:
     Leaf() : prefix() {}
     /* Construct a prefix leaf. */
     Leaf(std::vector<Branch> prefix) : prefix(prefix) {}
+    /* Construct a prefix leaf with saturated graph. */
+    Leaf(std::vector<Branch> prefix, SaturatedGraph saturatedGraph) 
+      : prefix(prefix), saturatedGraph(saturatedGraph){}
     std::vector<Branch> prefix;
+    /*********************************************************/
+    /* The minimal saturated graph based on happens-before relations */
+    SaturatedGraph saturatedGraph;
+    /*********************************************************/
 
     bool is_bottom() const { return prefix.empty(); }
   };
@@ -171,8 +179,14 @@ protected:
   struct DecisionNode {
   public:
     DecisionNode() : siblings() {}
+    DecisionNode(SaturatedGraph saturatedGraph) 
+      : siblings(), saturatedGraph(saturatedGraph) {}
     std::unordered_map<std::shared_ptr<UnfoldingNode>, Leaf> siblings;
     std::unordered_set<std::shared_ptr<UnfoldingNode>> sleep;
+    /*********************************************************/
+    /* The minimal saturated graph based on happens-before relations */
+    SaturatedGraph saturatedGraph;
+    /*********************************************************/
   };
 
   /* Various information about a thread in the current execution.
@@ -588,6 +602,8 @@ protected:
   void compute_vclocks();
   /* Assigns unfolding events to all executed steps. */
   void compute_unfolding();
+  /* Perform saturation based on happens-before relation */
+  SaturatedGraph compute_minimal_saturation(unsigned changed_event) const;
   std::shared_ptr<UnfoldingNode> find_unfolding_node
   (UnfoldingNodeChildren &parent_list,
    const std::shared_ptr<UnfoldingNode> &parent,
@@ -612,7 +628,7 @@ protected:
    */
   void record_symbolic(SymEv event);
   Leaf try_sat(int, std::map<SymAddr,std::vector<int>> &);
-  Leaf order_to_leaf(int decision, const std::vector<unsigned> order) const;
+  Leaf order_to_leaf(int decision, const std::vector<unsigned> order, SaturatedGraph g) const;
   void output_formula(SatSolver &sat,
                       std::map<SymAddr,std::vector<int>> &,
                       const std::vector<bool> &);
