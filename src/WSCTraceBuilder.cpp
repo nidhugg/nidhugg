@@ -248,7 +248,7 @@ bool WSCTraceBuilder::reset(){
   }
   auto sit = decisions.back().siblings.begin();
   Leaf l = std::move(sit->second);
-  decisions.back().saturatedGraph = std::move(l.saturatedGraph);
+  // decisions.back().saturatedGraph = std::move(l.saturatedGraph);
 
   if (conf.debug_print_on_reset)
       llvm::dbgs() << "Backtracking to decision node " << (decisions.size()-1)
@@ -1091,8 +1091,13 @@ void WSCTraceBuilder::compute_unfolding() {
       if (is_load(i)) {
         int decision = decisions.size();
         prefix[i].decision = decision;
-        decisions.emplace_back(std::move(compute_minimal_saturation(i)));
+        decisions.emplace_back();
       }
+    }
+    if (is_load(i) && !prefix[i].pinned) {
+      int decision = prefix[i].decision;
+      assert(decision != -1);
+      decisions[decision].saturatedGraph = compute_minimal_saturation(i);
     }
   }
 }
@@ -1655,7 +1660,8 @@ WSCTraceBuilder::try_sat
         lastDecision = prefix[i].decision;
      }
   }
-  g = decisions[lastDecision].saturatedGraph;
+  if (lastDecision != -1)
+    g = decisions[lastDecision].saturatedGraph;
   /*********************************************************/
   llvm::dbgs() << "Last decision is " << lastDecision << "\n";
   for (unsigned i = 0; i < prefix.size(); ++i) {
@@ -1745,7 +1751,8 @@ WSCTraceBuilder::Leaf WSCTraceBuilder::order_to_leaf
                             prefix[i].sym);
   }
 
-  return Leaf(new_prefix, std::move(g));
+  return Leaf(new_prefix// , std::move(g)
+      );
 }
 
 std::vector<bool> WSCTraceBuilder::causal_past(int decision) const {
@@ -1755,8 +1762,10 @@ std::vector<bool> WSCTraceBuilder::causal_past(int decision) const {
     assert(is_load(i) == ((prefix[i].decision != -1) || prefix[i].pinned));
     if (prefix[i].decision != -1 && prefix[i].decision <= decision) {
       causal_past_1(acc, i);
+      if (prefix[i].decision == decision)
+        break;
     }
-  };
+  }
   return acc;
 }
 

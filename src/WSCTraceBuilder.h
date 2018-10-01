@@ -165,13 +165,13 @@ protected:
     /* Construct a prefix leaf. */
     Leaf(std::vector<Branch> prefix) : prefix(prefix) {}
     /* Construct a prefix leaf with saturated graph. */
-    Leaf(std::vector<Branch> prefix, SaturatedGraph saturatedGraph) 
-      : prefix(prefix), saturatedGraph(saturatedGraph){}
+    // Leaf(std::vector<Branch> prefix, SaturatedGraph saturatedGraph) 
+    //   : prefix(prefix), saturatedGraph(saturatedGraph){}
     std::vector<Branch> prefix;
-    /*********************************************************/
-    /* The minimal saturated graph based on happens-before relations */
-    SaturatedGraph saturatedGraph;
-    /*********************************************************/
+    // /*********************************************************/
+    // /* The minimal saturated graph based on happens-before relations */
+    // SaturatedGraph saturatedGraph;
+    // /*********************************************************/
 
     bool is_bottom() const { return prefix.empty(); }
   };
