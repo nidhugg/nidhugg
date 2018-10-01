@@ -1137,6 +1137,7 @@ SaturatedGraph WSCTraceBuilder::compute_minimal_saturation(unsigned changed_even
     }
   }
   add_event(changed_event);
+  g.saturate();
   return g;
 }
 
