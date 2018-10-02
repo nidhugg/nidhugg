@@ -165,7 +165,7 @@ protected:
     /* Construct a prefix leaf. */
     Leaf(std::vector<Branch> prefix) : prefix(prefix) {}
     /* Construct a prefix leaf with saturated graph. */
-    // Leaf(std::vector<Branch> prefix, SaturatedGraph saturatedGraph) 
+    // Leaf(std::vector<Branch> prefix, SaturatedGraph saturatedGraph)
     //   : prefix(prefix), saturatedGraph(saturatedGraph){}
     std::vector<Branch> prefix;
     // /*********************************************************/
@@ -179,14 +179,14 @@ protected:
   struct DecisionNode {
   public:
     DecisionNode() : siblings() {}
-    DecisionNode(SaturatedGraph saturatedGraph) 
-      : siblings(), saturatedGraph(saturatedGraph) {}
+    // DecisionNode(SaturatedGraph saturatedGraph)
+    //   : siblings(), saturatedGraph(saturatedGraph) {}
     std::unordered_map<std::shared_ptr<UnfoldingNode>, Leaf> siblings;
     std::unordered_set<std::shared_ptr<UnfoldingNode>> sleep;
-    /*********************************************************/
-    /* The minimal saturated graph based on happens-before relations */
-    SaturatedGraph saturatedGraph;
-    /*********************************************************/
+    // /*********************************************************/
+    // /* The minimal saturated graph based on happens-before relations */
+    // SaturatedGraph saturatedGraph;
+    // /*********************************************************/
   };
 
   /* Various information about a thread in the current execution.
@@ -627,7 +627,8 @@ protected:
   /* Records a symbolic representation of the current event.
    */
   void record_symbolic(SymEv event);
-  Leaf try_sat(int, std::map<SymAddr,std::vector<int>> &);
+  Leaf try_sat(int, std::map<SymAddr,std::vector<int>> &,
+               SaturatedGraph &);
   Leaf order_to_leaf(int decision, const std::vector<unsigned> order, SaturatedGraph g) const;
   void output_formula(SatSolver &sat,
                       std::map<SymAddr,std::vector<int>> &,
@@ -663,4 +664,3 @@ protected:
 };
 
 #endif
-
