@@ -83,12 +83,10 @@ private:
     Event() { abort(); }
     Event(IID<Pid> iid, ExtID ext_id, bool is_load, bool is_store, SymAddr addr,
           Option<ID> read_from, immer::vector<ID> readers,
-          Option<ID> po_predecessor, immer::vector<ID> in,
-          immer::vector<ID> out)
+          Option<ID> po_predecessor)
       : iid(iid), ext_id(ext_id), is_load(is_load), is_store(is_store), addr(addr),
         read_from(read_from), readers(std::move(readers)),
-        po_predecessor(po_predecessor), in(std::move(in)),
-        out(std::move(out)) {};
+        po_predecessor(po_predecessor) {};
     IID<Pid> iid;
     ExtID ext_id;
     bool is_load;
@@ -101,16 +99,12 @@ private:
     /* The events that read from us. */
     immer::vector<ID> readers;
     Option<ID> po_predecessor;
-    /* All but po and read-from edges, which are in po_predecessor and
-     * read_from, respectively.
-     */
-    immer::vector<ID> in;
-    /* All but read-from edges, which are in readers */
-    immer::vector<ID> out;
   };
 
   immer::map<ExtID,ID> extid_to_id;
   immer::vector<Event> events;
+  immer::vector<immer::vector<ID>> ins;
+  immer::vector<immer::vector<ID>> outs;
   immer::map<SymAddr,immer::vector<ID>> writes_by_address;
   immer::map<SymAddr,immer::vector<ID>> reads_from_init;
   immer::map<Pid,immer::vector<ID>> events_by_pid;
@@ -120,9 +114,9 @@ private:
   ID get_process_event(Pid pid, unsigned index) const;
   VC initial_vc_for_event(IID<Pid> iid) const;
   VC initial_vc_for_event(const Event &e) const;
-  VC recompute_vc_for_event(const Event &e) const;
-  void add_successors_to_wq(const Event &e);
-  bool is_in_cycle(const Event &e, const VC &vc) const;
+  VC recompute_vc_for_event(const Event &e, const immer::vector<ID> &in) const;
+  void add_successors_to_wq(ID id, const Event &e);
+  bool is_in_cycle(const Event &e, const immer::vector<ID> &in, const VC &vc) const;
 
 #ifndef NDEBUG
   void check_graph_consistency() const;
