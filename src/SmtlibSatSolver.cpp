@@ -156,7 +156,7 @@ std::vector<unsigned> SmtlibSatSolver::get_model() {
         res[i] = std::strtol(t.c_str()+2, &end, 10);
         assert((end - t.c_str()) == long(t.size()));
       }
-  } else {
+    } else {
       assert(l2[1].kind() == SExpr::INT);
       res[i] = l2[1].num().value;
     }
