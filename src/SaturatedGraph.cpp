@@ -43,7 +43,6 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
   Timing::Guard timing_guard(add_event_timing);
   ID id = events.size();
   extid_to_id = std::move(extid_to_id).set(extid, id);
-  assert(events.count(id) == 0);
   const auto add_out = [id](Event o) {
       o.out = std::move(o.out).push_back(id);
       return std::move(o);
@@ -56,9 +55,7 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
     assert(events_by_pid.at(pid).size() != 0);
     po_predecessor = events_by_pid.at(pid).back();
     IFTRACE(std::cout << "Adding PO between " << *po_predecessor << " and " << id << "\n");
-    assert(events.count(*po_predecessor));
     index = events.at(*po_predecessor).iid.get_index() + 1;
-    assert(events.count(*po_predecessor));
     events = std::move(events).update(*po_predecessor, add_out);
   }
   events_by_pid = std::move(events_by_pid).update(pid, [id](auto v) {
@@ -87,7 +84,6 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
     }
   }
   if (read_from) {
-    assert(events.count(*read_from));
     IFTRACE(std::cout << "Adding read-from between " << *read_from << " and " << id << "\n");
     events = std::move(events).update(*read_from, [id](Event w) {
         w.readers = std::move(w.readers).push_back(id);
@@ -112,23 +108,21 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
   }
 
   for (ID after : in) {
-    assert(events.count(after));
     events = std::move(events).update(after, add_out);
   }
 
   IID<Pid> iid(pid, index);
-  events = std::move(events).set
-    (id, Event(iid, extid, is_load, is_store, addr, read_from, {},
-               po_predecessor,
-               std::move(in).persistent(), std::move(out).persistent()));
+  events = std::move(events).push_back
+    (Event(iid, extid, is_load, is_store, addr, read_from, {}, po_predecessor,
+           std::move(in).persistent(), std::move(out).persistent()));
 
   if (is_store) {
     writes_by_address = std::move(writes_by_address).update
       (addr, [id] (auto &&vec) { return std::move(vec).push_back(id); });
   }
 
-  /* Needed? */
-  vclocks = std::move(vclocks).set(id, {});
+  assert(vclocks.size() == id);
+  vclocks = std::move(vclocks).push_back({});
   wq_add(id);
 }
 
@@ -138,10 +132,11 @@ bool SaturatedGraph::saturate() {
   while (!wq_empty()) {
     Timing::Guard saturate1_guard(saturate1_timing);
     const ID id = wq_pop();
+    assert(id < events.size());
     std::vector<ID> new_in;
     std::vector<std::pair<ID,ID>> new_edges;
     {
-      Event e = events.at(id);
+      Event e = events[id];
       VC vc = recompute_vc_for_event(e);
       const VC &old_vc = vclocks[id];
       if (is_in_cycle(e, vc)) {
@@ -157,12 +152,12 @@ bool SaturatedGraph::saturate() {
       if (e.is_load || e.is_store) {
         for (unsigned pid = 0; pid < unsigned(vc.size_ub()); ++pid) {
           if (old_vc[pid] == vc[pid]) continue;
-          unsigned pe_id = get_process_event(pid, vc[pid]);
+          ID pe_id = get_process_event(pid, vc[pid]);
           const Event *pe;
           for (int pi = vc[pid]; pi > old_vc[pid];
                --pi, pe_id = pe->po_predecessor.value_or(~0)) {
-            assert(pe_id != ~0u);
-            pe = &events.at(pe_id);
+            assert(pe_id != ~0u && pe_id < events.size());
+            pe = &events[pe_id];
             if (pe_id == id) continue;
             if (pe->is_store && pe->addr == e.addr) {
               /* Add edges */
@@ -170,10 +165,10 @@ bool SaturatedGraph::saturate() {
                 for (unsigned r : pe->readers) {
                   if (r == id) continue; /* RMW we're reading from */
                   /* from-read */
-                  assert(events.at(r).is_load && events.at(r).addr == e.addr);
+                  assert(events[r].is_load && events[r].addr == e.addr);
                   IFTRACE(std::cout << "Adding from-read from " << r << " to " << id << "\n");
                   new_in.push_back(r);
-                  pe = &events.at(pe_id);
+                  pe = &events[pe_id];
                 }
               }
               if (e.is_load) {
@@ -223,7 +218,7 @@ bool SaturatedGraph::saturate() {
 
 bool SaturatedGraph::is_in_cycle(const Event &e, const VC &vc) const {
   const auto vc_different = [&vc,this](unsigned other) {
-                              return vclocks.at(other).get() != vc;
+                              return vclocks[other].get() != vc;
                             };
   if (e.po_predecessor && !vc_different(*e.po_predecessor)) return true;
   if (e.read_from && !vc_different(*e.read_from)) return true;
@@ -240,7 +235,8 @@ void SaturatedGraph::add_edges(const std::vector<std::pair<ID,ID>> &edges) {
   }
 }
 
-unsigned SaturatedGraph::get_process_event(unsigned pid, unsigned index) const {
+SaturatedGraph::ID SaturatedGraph::
+get_process_event(unsigned pid, unsigned index) const {
   assert(index <= events_by_pid.at(pid).size());
   return events_by_pid.at(pid)[index-1];
 }
@@ -257,8 +253,9 @@ SaturatedGraph::VC SaturatedGraph::initial_vc_for_event(const Event &e) const {
 
 SaturatedGraph::VC SaturatedGraph::recompute_vc_for_event(const Event &e) const {
   VC vc = initial_vc_for_event(e);;
-  const auto add_to_vc = [&vc,this](unsigned id) {
-                           vc += vclocks.at(id);
+  const auto add_to_vc = [&vc,this](ID id) {
+                           assert(id < vclocks.size());
+                           vc += vclocks[id];
                          };
   if (e.po_predecessor)
     add_to_vc(*e.po_predecessor);
@@ -300,10 +297,9 @@ unsigned SaturatedGraph::wq_pop() {
 
 #ifndef NDEBUG
 void SaturatedGraph::check_graph_consistency() const {
-  for (const auto &pair : events) {
-    const unsigned id = pair.first;
+  for (ID id = 0; id < events.size(); ++id) {
     const auto is_not_id = [id](unsigned v) { return v != id; };
-    const Event &e = pair.second;
+    const Event &e = events.at(id);
     /* All incoming types */
     for (unsigned in : e.in) {
       assert(!immer::all_of(events.at(in).out, is_not_id));
@@ -342,9 +338,8 @@ void SaturatedGraph::check_graph_consistency() const {
 void SaturatedGraph::print_graph
 (std::ostream &o, std::function<std::string(unsigned)> event_str) const {
   o << "digraph {\n";
-  for (const auto &pair : events) {
-    unsigned id = pair.first;
-    const Event &e = pair.second;
+  for (ID id = 0; id < events.size(); ++id) {
+    const Event &e = events[id];
     o << id << " [label=\"" << event_str(id) << "\"];\n";
     if (e.read_from) {
       o << *e.read_from << " -> " << id << " [label=\"rf\"];\n";
@@ -362,34 +357,34 @@ void SaturatedGraph::print_graph
 
 std::vector<SaturatedGraph::ExtID> SaturatedGraph::event_ids() const {
   std::vector<ExtID> ret;
-  immer::for_each(events, [&ret](const auto &pair) { ret.push_back(pair.second.ext_id); });
+  immer::for_each(events, [&ret](const Event &e) { ret.push_back(e.ext_id); });
   return ret;
 }
 
 bool SaturatedGraph::event_is_store(ExtID eid) const {
-  return events.at(extid_to_id.at(eid)).is_store;
+  return events[extid_to_id.at(eid)].is_store;
 }
 
 SymAddr SaturatedGraph::event_addr(ExtID eid) const {
   ID id = extid_to_id.at(eid);
-  assert(events.at(id).is_load || events.at(id).is_store);
-  return events.at(id).addr;
+  assert(events[id].is_load || events[id].is_store);
+  return events[id].addr;
 }
 
 const SaturatedGraph::VC &SaturatedGraph::event_vc(ExtID eid) const {
   assert(is_saturated());
-  return vclocks.at(extid_to_id.at(eid));
+  return vclocks[extid_to_id.at(eid)];
 }
 
 std::vector<SaturatedGraph::ExtID> SaturatedGraph::event_in(ExtID eid) const {
   std::vector<unsigned> ret;
-  const Event &e = events.at(extid_to_id.at(eid));
+  const Event &e = events[extid_to_id.at(eid)];
   ret.reserve(e.in.size() + 2);
   immer::for_each
-    (e.in, [&ret,this](ID e) { ret.push_back(events.at(e).ext_id); });
-  if (e.po_predecessor) ret.push_back(events.at(*e.po_predecessor).ext_id);
+    (e.in, [&ret,this](ID e) { ret.push_back(events[e].ext_id); });
+  if (e.po_predecessor) ret.push_back(events[*e.po_predecessor].ext_id);
   if (e.read_from)
-    ret.push_back(events.at(*e.read_from).ext_id);
+    ret.push_back(events[*e.read_from].ext_id);
   return ret;
 }
 

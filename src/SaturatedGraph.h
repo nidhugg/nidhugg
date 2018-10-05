@@ -104,11 +104,11 @@ private:
   };
 
   immer::map<ExtID,ID> extid_to_id;
-  immer::map<ID,Event> events;
+  immer::vector<Event> events;
   immer::map<SymAddr,immer::vector<ID>> writes_by_address;
   immer::map<SymAddr,immer::vector<ID>> reads_from_init;
   immer::map<Pid,immer::vector<ID>> events_by_pid;
-  immer::map<ID,immer::box<VClock<int>>> vclocks;
+  immer::vector<immer::box<VClock<int>>> vclocks;
 
   void add_edges(const std::vector<std::pair<ID,ID>> &);
   ID get_process_event(Pid pid, unsigned index) const;
