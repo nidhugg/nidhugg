@@ -36,6 +36,9 @@ class SaturatedGraph {
 public:
   SaturatedGraph();
 
+  typedef unsigned ExtID;
+  typedef unsigned Pid;
+
   /* write == -1 means init */
   enum EventKind {
     NONE,
@@ -46,65 +49,70 @@ public:
   /* read_from is an event id.
    * Events must be added in program order
    */
-  void add_event(unsigned pid, unsigned id, EventKind kind,
-                 SymAddr addr, Option<unsigned> read_from,
-                 const std::vector<unsigned> &happens_after);
+  void add_event(Pid pid, ExtID id, EventKind kind,
+                 SymAddr addr, Option<ExtID> read_from,
+                 const std::vector<ExtID> &happens_after);
   /* Returns true if the graph is still acyclic. */
   bool saturate();
   bool is_saturated() const { return wq_empty(); }
 
-  void print_graph(std::ostream &o, std::function<std::string(unsigned)> event_str
-                   = (std::string(&)(unsigned))std::to_string) const;
+  void print_graph(std::ostream &o, std::function<std::string(ExtID)> event_str
+                   = (std::string(&)(ExtID))std::to_string) const;
 
   /* Accessors */
-  bool event_is_store(unsigned id) const;
-  SymAddr event_addr(unsigned id) const;
+  bool event_is_store(ExtID id) const;
+  SymAddr event_addr(ExtID id) const;
   typedef VClock<int> VC;
-  const VC &event_vc(unsigned id) const;
-  std::vector<unsigned> event_ids() const;
-  std::vector<unsigned> event_in(unsigned id) const;
+  const VC &event_vc(ExtID id) const;
+  std::vector<ExtID> event_ids() const;
+  std::vector<ExtID> event_in(ExtID id) const;
 
-  void add_edge(unsigned from, unsigned to);
+  void add_edge(ExtID from, ExtID to);
 
 private:
+  typedef unsigned ID;
+  void add_edge_internal(ID from, ID to);
+
   struct Event {
     Event() { abort(); }
-    Event(IID<unsigned> iid, bool is_load, bool is_store, SymAddr addr,
-          Option<unsigned> read_from, immer::vector<unsigned> readers,
-          Option<unsigned> po_predecessor, immer::vector<unsigned> in,
-          immer::vector<unsigned> out)
-      : iid(iid), is_load(is_load), is_store(is_store), addr(addr),
+    Event(IID<Pid> iid, ExtID ext_id, bool is_load, bool is_store, SymAddr addr,
+          Option<ID> read_from, immer::vector<ID> readers,
+          Option<ID> po_predecessor, immer::vector<ID> in,
+          immer::vector<ID> out)
+      : iid(iid), ext_id(ext_id), is_load(is_load), is_store(is_store), addr(addr),
         read_from(read_from), readers(std::move(readers)),
         po_predecessor(po_predecessor), in(std::move(in)),
         out(std::move(out)) {};
-    IID<unsigned> iid;
+    IID<Pid> iid;
+    ExtID ext_id;
     bool is_load;
     bool is_store;
     SymAddr addr;
     /* Either empty, meaning we read from init, or a singleton vector of
      * the event we read from.
      */
-    Option<unsigned> read_from;
+    Option<ID> read_from;
     /* The events that read from us. */
-    immer::vector<unsigned> readers;
-    Option<unsigned> po_predecessor;
+    immer::vector<ID> readers;
+    Option<ID> po_predecessor;
     /* All but po and read-from edges, which are in po_predecessor and
      * read_from, respectively.
      */
-    immer::vector<unsigned> in;
+    immer::vector<ID> in;
     /* All but read-from edges, which are in readers */
-    immer::vector<unsigned> out;
+    immer::vector<ID> out;
   };
 
-  immer::map<unsigned,Event> events;
-  immer::map<SymAddr,immer::vector<unsigned>> writes_by_address;
-  immer::map<SymAddr,immer::vector<unsigned>> reads_from_init;
-  immer::map<unsigned,immer::vector<unsigned>> events_by_pid;
-  immer::map<unsigned,immer::box<VClock<int>>> vclocks;
+  immer::map<ExtID,ID> extid_to_id;
+  immer::map<ID,Event> events;
+  immer::map<SymAddr,immer::vector<ID>> writes_by_address;
+  immer::map<SymAddr,immer::vector<ID>> reads_from_init;
+  immer::map<Pid,immer::vector<ID>> events_by_pid;
+  immer::map<ID,immer::box<VClock<int>>> vclocks;
 
-  void add_edges(const std::vector<std::pair<unsigned,unsigned>> &);
-  unsigned get_process_event(unsigned pid, unsigned index) const;
-  VC initial_vc_for_event(IID<unsigned> iid) const;
+  void add_edges(const std::vector<std::pair<ID,ID>> &);
+  ID get_process_event(Pid pid, unsigned index) const;
+  VC initial_vc_for_event(IID<Pid> iid) const;
   VC initial_vc_for_event(const Event &e) const;
   VC recompute_vc_for_event(const Event &e) const;
   void add_successors_to_wq(const Event &e);
@@ -116,12 +124,12 @@ private:
   void check_graph_consistency() const {};
 #endif
 
-  immer::flex_vector<unsigned> wq_queue;
-  immer::set<unsigned> wq_set;
-  void wq_add(unsigned id);
-  void wq_add_first(unsigned id);
+  immer::flex_vector<ID> wq_queue;
+  immer::set<ID> wq_set;
+  void wq_add(ID id);
+  void wq_add_first(ID id);
   bool wq_empty() const;
-  unsigned wq_pop();
+  ID wq_pop();
 };
 
 #endif

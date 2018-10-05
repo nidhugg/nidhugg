@@ -37,10 +37,12 @@ static Timing::Context add_event_timing("add_event");
 
 SaturatedGraph::SaturatedGraph() {}
 
-void SaturatedGraph::add_event(unsigned pid, unsigned id, EventKind kind,
-                               SymAddr addr, Option<unsigned> read_from,
-                               const std::vector<unsigned> &orig_in) {
+void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
+                               SymAddr addr, Option<ExtID> ext_read_from,
+                               const std::vector<ExtID> &orig_in) {
   Timing::Guard timing_guard(add_event_timing);
+  ID id = events.size();
+  extid_to_id = std::move(extid_to_id).set(extid, id);
   assert(events.count(id) == 0);
   const auto add_out = [id](Event o) {
       o.out = std::move(o.out).push_back(id);
@@ -48,7 +50,7 @@ void SaturatedGraph::add_event(unsigned pid, unsigned id, EventKind kind,
     };
   bool is_load = kind == LOAD || kind == RMW;
   bool is_store = kind == STORE || kind == RMW;
-  Option<unsigned> po_predecessor;
+  Option<ID> po_predecessor;
   int index = 1;
   if (events_by_pid.count(pid)) {
     assert(events_by_pid.at(pid).size() != 0);
@@ -63,19 +65,22 @@ void SaturatedGraph::add_event(unsigned pid, unsigned id, EventKind kind,
       return std::move(v).push_back(id);
     });
 
-  IFTRACE(for(unsigned after : orig_in)
-            std::cout << "Adding edge between " << after << " and " << id << "\n");
+  auto extid_to_id = [this](ExtID i) { return this->extid_to_id.at(i); };
+  Option<ID> read_from = ext_read_from.map(extid_to_id);
 
-  immer::vector_transient<unsigned> out;
-  immer::vector_transient<unsigned> in
-    = immer::vector<unsigned>(orig_in.begin(),
-                              orig_in.end()).transient();
+  IFTRACE(for(ExtID after : orig_in)
+            std::cout << "Adding edge between " << after << " and " << extid << "\n");
+
+  immer::vector_transient<ID> out;
+  immer::vector_transient<ID> in;
+  for (const ExtID &i : orig_in)
+    in.push_back(extid_to_id(i));
   if (is_store) {
     /* TODO: Optimise; only add the first write of each process */
     /* We do stores first so that in the case of RMW we do not find
      * ourselves in reads_from_init.
      */
-    for (unsigned r : reads_from_init[addr]) {
+    for (ID r : reads_from_init[addr]) {
       IFTRACE(std::cout << "Adding from-read between " << r << " and " << id << "\n");
       in.push_back(r);
       events = std::move(events).update(r, add_out);
@@ -91,10 +96,10 @@ void SaturatedGraph::add_event(unsigned pid, unsigned id, EventKind kind,
   } else if (is_load) {
     /* Read from init */
     reads_from_init = std::move(reads_from_init).update
-      (addr, [id](immer::vector<unsigned> v) {
+      (addr, [id](immer::vector<ID> v) {
                return std::move(v).push_back(id);
              });
-    for (unsigned w : writes_by_address[addr]) {
+    for (ID w : writes_by_address[addr]) {
       /* TODO: Optimise; only add the first write of each process */
       IFTRACE(std::cout << "Adding from-read between " << id << " and " << w << "\n");
       out.push_back(w);
@@ -106,14 +111,15 @@ void SaturatedGraph::add_event(unsigned pid, unsigned id, EventKind kind,
     }
   }
 
-  for (unsigned after : in) {
+  for (ID after : in) {
     assert(events.count(after));
     events = std::move(events).update(after, add_out);
   }
 
-  IID<unsigned> iid(pid, index);
+  IID<Pid> iid(pid, index);
   events = std::move(events).set
-    (id, Event(iid, is_load, is_store, addr, read_from, {}, po_predecessor,
+    (id, Event(iid, extid, is_load, is_store, addr, read_from, {},
+               po_predecessor,
                std::move(in).persistent(), std::move(out).persistent()));
 
   if (is_store) {
@@ -130,10 +136,10 @@ bool SaturatedGraph::saturate() {
   Timing::Guard saturate_guard(saturate_timing);
   check_graph_consistency();
   while (!wq_empty()) {
-    const unsigned id = wq_pop();
-    std::vector<unsigned> new_in;
-    std::vector<std::pair<unsigned,unsigned>> new_edges;
     Timing::Guard saturate1_guard(saturate1_timing);
+    const ID id = wq_pop();
+    std::vector<ID> new_in;
+    std::vector<std::pair<ID,ID>> new_edges;
     {
       Event e = events.at(id);
       VC vc = recompute_vc_for_event(e);
@@ -225,12 +231,12 @@ bool SaturatedGraph::is_in_cycle(const Event &e, const VC &vc) const {
   return false;
 }
 
-void SaturatedGraph::add_edges(const std::vector<std::pair<unsigned,unsigned>> &edges) {
+void SaturatedGraph::add_edges(const std::vector<std::pair<ID,ID>> &edges) {
   if (edges.size() == 0) return;
   for (auto pair : edges) {
     unsigned from = pair.first;
     unsigned to = pair.second;
-    add_edge(from, to);
+    add_edge_internal(from, to);
   }
 }
 
@@ -354,38 +360,44 @@ void SaturatedGraph::print_graph
   o << "}\n";
 }
 
-std::vector<unsigned> SaturatedGraph::event_ids() const {
-  std::vector<unsigned> ret;
-  immer::for_each(events, [&ret](const auto &pair) { ret.push_back(pair.first); });
+std::vector<SaturatedGraph::ExtID> SaturatedGraph::event_ids() const {
+  std::vector<ExtID> ret;
+  immer::for_each(events, [&ret](const auto &pair) { ret.push_back(pair.second.ext_id); });
   return ret;
 }
 
-bool SaturatedGraph::event_is_store(unsigned id) const {
-  return events.at(id).is_store;
+bool SaturatedGraph::event_is_store(ExtID eid) const {
+  return events.at(extid_to_id.at(eid)).is_store;
 }
 
-SymAddr SaturatedGraph::event_addr(unsigned id) const {
+SymAddr SaturatedGraph::event_addr(ExtID eid) const {
+  ID id = extid_to_id.at(eid);
   assert(events.at(id).is_load || events.at(id).is_store);
   return events.at(id).addr;
 }
 
-const SaturatedGraph::VC &SaturatedGraph::event_vc(unsigned id) const {
+const SaturatedGraph::VC &SaturatedGraph::event_vc(ExtID eid) const {
   assert(is_saturated());
-  return vclocks.at(id);
+  return vclocks.at(extid_to_id.at(eid));
 }
 
-std::vector<unsigned> SaturatedGraph::event_in(unsigned id) const {
+std::vector<SaturatedGraph::ExtID> SaturatedGraph::event_in(ExtID eid) const {
   std::vector<unsigned> ret;
-  const Event &e = events.at(id);
+  const Event &e = events.at(extid_to_id.at(eid));
   ret.reserve(e.in.size() + 2);
-  immer::for_each(e.in, [&ret](unsigned e) { ret.push_back(e); });
-  if (e.po_predecessor) ret.push_back(*e.po_predecessor);
+  immer::for_each
+    (e.in, [&ret,this](ID e) { ret.push_back(events.at(e).ext_id); });
+  if (e.po_predecessor) ret.push_back(events.at(*e.po_predecessor).ext_id);
   if (e.read_from)
-    ret.push_back(*e.read_from);
+    ret.push_back(events.at(*e.read_from).ext_id);
   return ret;
 }
 
-void SaturatedGraph::add_edge(unsigned from, unsigned to) {
+void SaturatedGraph::add_edge(ExtID from, ExtID to) {
+  add_edge_internal(extid_to_id.at(from), extid_to_id.at(to));
+}
+
+void SaturatedGraph::add_edge_internal(ID from, ID to) {
   Timing::Guard timing_guard(add_edge_timing);
   events = std::move(events).update(from, [to](Event fe) {
                                             fe.out = fe.out.push_back(to);
