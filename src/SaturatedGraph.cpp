@@ -31,12 +31,16 @@
 #endif
 
 static Timing::Context saturate_timing("saturate");
+static Timing::Context saturate1_timing("saturate_one");
+static Timing::Context add_edge_timing("add_edge");
+static Timing::Context add_event_timing("add_event");
 
 SaturatedGraph::SaturatedGraph() {}
 
 void SaturatedGraph::add_event(unsigned pid, unsigned id, EventKind kind,
                                SymAddr addr, Option<unsigned> read_from,
                                const std::vector<unsigned> &orig_in) {
+  auto timing_guard = add_event_timing.enter();
   assert(events.count(id) == 0);
   const auto add_out = [id](Event o) {
       o.out = std::move(o.out).push_back(id);
@@ -126,6 +130,7 @@ bool SaturatedGraph::saturate() {
   auto timing_guard = saturate_timing.enter();
   check_graph_consistency();
   while (!wq_empty()) {
+    auto timing_guard = saturate1_timing.enter();
     const unsigned id = wq_pop();
     std::vector<unsigned> new_in;
     std::vector<std::pair<unsigned,unsigned>> new_edges;
@@ -381,6 +386,7 @@ std::vector<unsigned> SaturatedGraph::event_in(unsigned id) const {
 }
 
 void SaturatedGraph::add_edge(unsigned from, unsigned to) {
+  auto timing_guard = add_edge_timing.enter();
   events = std::move(events).update(from, [to](Event fe) {
                                             fe.out = fe.out.push_back(to);
                                             return std::move(fe);
