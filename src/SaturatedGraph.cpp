@@ -59,7 +59,7 @@ void SaturatedGraph::add_event(unsigned pid, unsigned id, EventKind kind,
     assert(events.count(*po_predecessor));
     events = std::move(events).update(*po_predecessor, add_out);
   }
-  events_by_pid = events_by_pid.update(pid, [id](auto v) {
+  events_by_pid = std::move(events_by_pid).update(pid, [id](auto v) {
       return std::move(v).push_back(id);
     });
 
@@ -98,7 +98,7 @@ void SaturatedGraph::add_event(unsigned pid, unsigned id, EventKind kind,
       /* TODO: Optimise; only add the first write of each process */
       IFTRACE(std::cout << "Adding from-read between " << id << " and " << w << "\n");
       out.push_back(w);
-      events = events.update(w, [id](Event we) {
+      events = std::move(events).update(w, [id](Event we) {
           we.in = std::move(we.in).push_back(id);
           return std::move(we);
         });
@@ -112,13 +112,13 @@ void SaturatedGraph::add_event(unsigned pid, unsigned id, EventKind kind,
   }
 
   IID<unsigned> iid(pid, index);
-  events = events.set
+  events = std::move(events).set
     (id, Event(iid, is_load, is_store, addr, read_from, {}, po_predecessor,
                std::move(in).persistent(), std::move(out).persistent()));
 
   if (is_store) {
     writes_by_address = std::move(writes_by_address).update
-      (addr, [id] (auto &&vec) { return vec.push_back(id); });
+      (addr, [id] (auto &&vec) { return std::move(vec).push_back(id); });
   }
 
   /* Needed? */
