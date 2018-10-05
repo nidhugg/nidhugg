@@ -1027,7 +1027,7 @@ static It frontier_filter(It first, It last, LessFn less){
 }
 
 void WSCTraceBuilder::compute_vclocks(){
-  auto timing_context = vclocks_context.enter();
+  Timing::Guard timing_guard(vclocks_context);
   /* The first event of a thread happens after the spawn event that
    * created it.
    */
@@ -1061,7 +1061,7 @@ void WSCTraceBuilder::compute_vclocks(){
 }
 
 void WSCTraceBuilder::compute_unfolding() {
-  auto timing_context = unfolding_context.enter();
+  Timing::Guard timing_guard(unfolding_context);
   for (unsigned i = 0; i < prefix.size(); ++i) {
     UnfoldingNodeChildren *parent_list;
     const std::shared_ptr<UnfoldingNode> null_ptr;
@@ -1409,7 +1409,7 @@ bool WSCTraceBuilder::can_swap_by_vclocks(int r, int w) const {
 }
 
 void WSCTraceBuilder::compute_prefixes() {
-  auto timing_guard = analysis_context.enter();
+  Timing::Guard analysis_timing_guard(analysis_context);
   compute_vclocks();
 
   compute_unfolding();
@@ -1420,7 +1420,7 @@ void WSCTraceBuilder::compute_prefixes() {
     llvm::dbgs() << " =============================\n";
   }
 
-  auto timing_guard_2 = neighbours_context.enter();
+  Timing::Guard neighbours_timing_guard(neighbours_context);
   if (conf.debug_print_on_reset)
     llvm::dbgs() << "Computing prefixes\n";
 
@@ -1588,7 +1588,7 @@ void WSCTraceBuilder::output_formula
 WSCTraceBuilder::Leaf
 WSCTraceBuilder::try_sat
 (int changed_event, std::map<SymAddr,std::vector<int>> &writes_by_address){
-  auto timing_guard = graph_context.enter();
+  Timing::Guard timing_guard(graph_context);
   int decision = prefix[changed_event].decision;
   std::vector<bool> keep = causal_past(decision);
 
@@ -1635,7 +1635,7 @@ WSCTraceBuilder::try_sat
 
   std::unique_ptr<SatSolver> sat = conf.get_sat_solver();
   {
-    auto timing_context = sat_context.enter();
+    Timing::Guard timing_guard(sat_context);
 
     output_formula(*sat, writes_by_address, keep);
     //output_formula(std::cerr, writes_by_address, keep);
