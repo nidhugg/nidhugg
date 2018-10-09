@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <type_traits>
 
 template<typename Value>
 class Option {
@@ -57,6 +58,14 @@ public:
     if (has_value) return value;
     else return def;
   }
+
+  /* Monadic bind; transform the value of the option (if any) */
+  template<typename F> auto map(F f) ->
+    Option<typename std::result_of<F(Value&)>::type> {
+    if (!has_value) return Option();
+    else return Option(f(value));
+  }
+
 private:
   bool has_value;
   union{

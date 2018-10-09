@@ -1032,7 +1032,7 @@ static It frontier_filter(It first, It last, LessFn less){
 }
 
 void WSCTraceBuilder::compute_vclocks(){
-  auto timing_context = vclocks_context.enter();
+  Timing::Guard timing_guard(vclocks_context);
   /* The first event of a thread happens after the spawn event that
    * created it.
    */
@@ -1042,11 +1042,13 @@ void WSCTraceBuilder::compute_vclocks(){
     }
   }
 
+  std::vector<std::vector<unsigned>> happens_after(prefix.size());
   for (unsigned i = 0; i < prefix.size(); i++){
     IPid ipid = prefix[i].iid.get_pid();
     if (prefix[i].iid.get_index() > 1) {
       unsigned last = find_process_event(prefix[i].iid.get_pid(), prefix[i].iid.get_index()-1);
       prefix[i].clock = prefix[last].clock;
+      happens_after[last].push_back(i);
     } else {
       prefix[i].clock = {};
     }
@@ -1056,17 +1058,38 @@ void WSCTraceBuilder::compute_vclocks(){
     for (unsigned j : prefix[i].happens_after){
       assert(j < i);
       prefix[i].clock += prefix[j].clock;
+      happens_after[j].push_back(i);
     }
+
+    prefix[i].above_clock = prefix[i].clock;
 
     /* Then add read-from */
     if (prefix[i].read_from && *prefix[i].read_from != -1) {
       prefix[i].clock += prefix[*prefix[i].read_from].clock;
+      happens_after[*prefix[i].read_from].push_back(i);
+    }
+  }
+
+  /* The top of our vector clock lattice, initial value of the below
+   * clock (excluding itself) for evey event */
+  VClock<IPid> top;
+  for (unsigned i = 0; i < threads.size(); ++i)
+    top[i] = threads[i].event_indices.size();
+
+  for (unsigned i = prefix.size();;) {
+    if (i == 0) break;
+    Event &e = prefix[--i];
+    e.below_clock = top;
+    e.below_clock[e.iid.get_pid()] = e.iid.get_index();
+    for (unsigned j : happens_after[i]) {
+      assert (i < j);
+      prefix[i].below_clock -= prefix[j].below_clock;
     }
   }
 }
 
 void WSCTraceBuilder::compute_unfolding() {
-  auto timing_context = unfolding_context.enter();
+  Timing::Guard timing_guard(unfolding_context);
   for (unsigned i = 0; i < prefix.size(); ++i) {
     UnfoldingNodeChildren *parent_list;
     const std::shared_ptr<UnfoldingNode> null_ptr;
@@ -1460,7 +1483,7 @@ bool WSCTraceBuilder::can_swap_by_vclocks(int r, int w) const {
 }
 
 void WSCTraceBuilder::compute_prefixes() {
-  auto timing_guard = analysis_context.enter();
+  Timing::Guard analysis_timing_guard(analysis_context);
   compute_vclocks();
 
   compute_unfolding();
@@ -1471,7 +1494,7 @@ void WSCTraceBuilder::compute_prefixes() {
     llvm::dbgs() << " =============================\n";
   }
 
-  auto timing_guard_2 = neighbours_context.enter();
+  Timing::Guard neighbours_timing_guard(neighbours_context);
   if (conf.debug_print_on_reset)
     llvm::dbgs() << "Computing prefixes\n";
 
@@ -1484,8 +1507,13 @@ void WSCTraceBuilder::compute_prefixes() {
 
   std::map<SymAddr,std::vector<int>> writes_by_address;
   std::map<SymAddr,std::vector<int>> cmpxhgfail_by_address;
+  std::vector<std::unordered_map<SymAddr,std::vector<unsigned>>>
+    writes_by_process_and_address(threads.size());
   for (unsigned j = 0; j < prefix.size(); ++j) {
     if (is_store(j))      writes_by_address    [get_addr(j).addr].push_back(j);
+    if (is_store(j))
+      writes_by_process_and_address[prefix[j].iid.get_pid()][get_addr(j).addr]
+        .push_back(j);
     if (is_cmpxhgfail(j)) cmpxhgfail_by_address[get_addr(j).addr].push_back(j);
   }
   // for (std::pair<SymAddr,std::vector<int>> &pair : writes_by_address) {
@@ -1564,8 +1592,33 @@ void WSCTraceBuilder::compute_prefixes() {
         }
       };
 
-      for (unsigned ji = 0; ji < possible_writes.size(); ++ji)
-        try_read_from(possible_writes[ji]);
+      const VClock<IPid> &above = prefix[i].above_clock;
+      const VClock<IPid> &below = prefix[i].below_clock;
+      for (unsigned p = 0; p < threads.size(); ++p) {
+        const std::vector<unsigned> &writes
+          = writes_by_process_and_address[p][addr.addr];
+        auto start = std::upper_bound(writes.begin(), writes.end(), above[p],
+                                      [this](int index, unsigned w) {
+                                        return index < prefix[w].iid.get_index();
+                                      });
+        if (start != writes.begin()) --start;
+
+        auto end = std::lower_bound(writes.begin(), writes.end(), below[p],
+                                    [this](unsigned w, int index) {
+                                      return prefix[w].iid.get_index() < index;
+                                    });
+        /* Ugly hack:
+         * If i and *end are rmw's, we need to consider swapping i and
+         * *end. Since this is considered by calling
+         * try_read_from(*end), we make sure that *end is not filtered
+         * here, even though it's not in the visible set.
+         */
+        if (is_store(i) && end != writes.end() && is_load(*end)) ++end;
+        assert(start <= end);
+        for (auto it = start; it != end; ++it) {
+          try_read_from(*it);
+        }
+      }
       try_read_from(-1);
       if (is_store(i)) {
         for (int j : cmpxhgfail_by_address[addr.addr]) {
@@ -1642,7 +1695,7 @@ WSCTraceBuilder::Leaf
 WSCTraceBuilder::try_sat
 (int changed_event, std::map<SymAddr,std::vector<int>> &writes_by_address,
  SaturatedGraph &graph_cache){
-  auto timing_guard = graph_context.enter();
+  Timing::Guard timing_guard(graph_context);
   int decision = prefix[changed_event].decision;
   std::vector<bool> keep = causal_past(decision);
 
@@ -1712,7 +1765,7 @@ WSCTraceBuilder::try_sat
 
   std::unique_ptr<SatSolver> sat = conf.get_sat_solver();
   {
-    auto timing_context = sat_context.enter();
+    Timing::Guard timing_guard(sat_context);
 
     output_formula(*sat, writes_by_address, keep);
     //output_formula(std::cerr, writes_by_address, keep);

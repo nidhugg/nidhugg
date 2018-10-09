@@ -81,6 +81,28 @@ VClock<int> &VClock<int>::operator+=(const VClock<int> &vc){
   return *this;
 }
 
+VClock<int> VClock<int>::operator-(const VClock<int> &vc) const{
+  VClock<int> vc2;
+  vc2.vec.resize(std::max(vec.size(),vc.vec.size()));
+  for(unsigned i = 0; i < vc2.vec.size(); ++i){
+    vc2.vec[i] = std::min((*this)[i],vc[i]);
+  }
+  return vc2;
+}
+
+VClock<int> &VClock<int>::operator-=(const VClock<int> &vc){
+  const unsigned sz = vc.vec.size();
+  if(vec.size() < sz){
+    vec.resize(vc.vec.size(),0);
+  }
+  for(unsigned i = 0; i < sz; ++i){
+    if(vc.vec[i] < vec[i]){
+      vec[i] = vc.vec[i];
+    }
+  }
+  return *this;
+}
+
 int VClock<int>::operator[](int i) const{
   assert(i >= 0);
   if(i < int(vec.size())){

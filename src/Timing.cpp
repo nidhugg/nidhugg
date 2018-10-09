@@ -24,7 +24,7 @@
 
 namespace Timing {
   namespace {
-    Context *all_contexts;
+    Context *all_contexts = nullptr;
     clock global_clock;
     Guard *current_guard = nullptr;
   }
@@ -41,16 +41,10 @@ namespace Timing {
     *c = next;
   }
 
-  std::unique_ptr<Guard> Context::enter() {
-    auto ret = std::make_unique<Guard>
-      (this, current_guard, global_clock.now());
-    current_guard = ret.get();
-    return std::move(ret);
-  }
-
-  Guard::Guard(Context *context, Guard *outer_scope, clock::time_point start)
-    : context(context), outer_scope(outer_scope), subcontext_time(0),
-      start(start) {
+  Guard::Guard(Context &context)
+    : context(&context), outer_scope(current_guard), subcontext_time(0),
+      start(global_clock.now()) {
+    current_guard = this;
   }
 
   Guard::~Guard() {

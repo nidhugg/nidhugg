@@ -37,7 +37,7 @@ cl_no_heuristic("no-heuristic",llvm::cl::NotHidden,
 #endif
 
 Option<std::vector<unsigned>> try_generate_prefix(SaturatedGraph g) {
-  auto timing_guard = heuristic_context.enter();
+  Timing::Guard timing_guard(heuristic_context);
   if (cl_no_heuristic) return nullptr;
   std::vector<unsigned> ids = g.event_ids();
   std::sort(ids.begin(), ids.end());

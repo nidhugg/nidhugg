@@ -105,7 +105,7 @@ int main(int argc, char *argv[]){
 
   bool errors_detected = false;
   try{
-    auto timing_guard = global_timing_context.enter();
+    Timing::Guard timing_guard(global_timing_context);
     Configuration conf;
     conf.assign_by_commandline();
     conf.check_commandline();

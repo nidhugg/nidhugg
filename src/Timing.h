@@ -28,12 +28,10 @@
 namespace Timing {
   typedef std::chrono::steady_clock clock;
 
-  class Guard;
   class Context {
     Context(Context &) = delete;
     Context & operator =(Context &other) = delete;
   public:
-    std::unique_ptr<Guard> enter();
     Context(std::string name);
     ~Context();
     std::string name;
@@ -44,7 +42,7 @@ namespace Timing {
 
   class Guard {
   public:
-    Guard(Context*, Guard*, clock::time_point);
+    Guard(Context &);
     Guard(Guard &) = delete;
     Guard & operator =(Guard &other) = delete;
     ~Guard();
