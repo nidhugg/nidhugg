@@ -50,9 +50,15 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
   bool is_store = kind == STORE || kind == RMW;
   Option<ID> po_predecessor;
   int index = 1;
-  if (events_by_pid.count(pid)) {
-    assert(events_by_pid.at(pid).size() != 0);
-    po_predecessor = events_by_pid.at(pid).back();
+  if (events_by_pid.size() <= pid) {
+    auto transient = std::move(events_by_pid).transient();
+    while (transient.size() <= pid)
+      transient.push_back({});
+    events_by_pid = std::move(transient).persistent();
+  }
+  if (events_by_pid[pid].size()) {
+    assert(events_by_pid[pid].size() != 0);
+    po_predecessor = events_by_pid[pid].back();
     IFTRACE(std::cerr << "Adding PO between " << *po_predecessor << " and " << id << "\n");
     index = events.at(*po_predecessor).iid.get_index() + 1;
     outs = std::move(outs).update(*po_predecessor, add_out);
@@ -240,8 +246,9 @@ void SaturatedGraph::add_edges(const std::vector<std::pair<ID,ID>> &edges) {
 
 SaturatedGraph::ID SaturatedGraph::
 get_process_event(unsigned pid, unsigned index) const {
-  assert(index <= events_by_pid.at(pid).size());
-  return events_by_pid.at(pid)[index-1];
+  assert(pid < events_by_pid.size());
+  assert(index <= events_by_pid[pid].size());
+  return events_by_pid[pid][index-1];
 }
 
 SaturatedGraph::VC SaturatedGraph::initial_vc_for_event(IID<unsigned> iid) const {

@@ -107,7 +107,7 @@ private:
   immer::vector<immer::vector<ID>> outs;
   immer::map<SymAddr,immer::vector<ID>> writes_by_address;
   immer::map<SymAddr,immer::vector<ID>> reads_from_init;
-  immer::map<Pid,immer::vector<ID>> events_by_pid;
+  immer::vector<immer::vector<ID>> events_by_pid;
   immer::vector<immer::box<VClock<int>>> vclocks;
 
   void add_edges(const std::vector<std::pair<ID,ID>> &);
