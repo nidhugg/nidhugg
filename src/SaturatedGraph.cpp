@@ -77,17 +77,6 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
     IFTRACE(std::cerr << "Adding edge between " << i << " and " << id << "\n");
     in.push_back(i);
   }
-  if (is_store) {
-    /* TODO: Optimise; only add the first write of each process */
-    /* We do stores first so that in the case of RMW we do not find
-     * ourselves in reads_from_init.
-     */
-    for (ID r : reads_from_init[addr]) {
-      IFTRACE(std::cerr << "Adding from-read between " << r << " and " << id << "\n");
-      in.push_back(r);
-      outs = std::move(outs).update(r, add_out);
-    }
-  }
   if (read_from) {
     IFTRACE(std::cerr << "Adding read-from between " << *read_from << " and " << id << "\n");
     events = std::move(events).update(*read_from, [id](Event w) {
@@ -95,12 +84,11 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
         return std::move(w);
       });
   } else if (is_load) {
-    /* Read from init */
-    reads_from_init = std::move(reads_from_init).update
-      (addr, [id](immer::vector<ID> v) {
-               return std::move(v).push_back(id);
-             });
-    for (ID w : writes_by_address[addr]) {
+    /* We do loads first so that in the case of RMW we do not find
+     * ourselves in writes_by_address.
+     */
+    for (std::pair<Pid,ID> p: writes_by_address[addr]) {
+      ID w = p.second;
       /* TODO: Optimise; only add the first write of each process */
       IFTRACE(std::cerr << "Adding from-read between " << id << " and " << w << "\n");
       out.push_back(w);
@@ -108,6 +96,24 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
           return std::move(v).push_back(id);
         });
       wq_add(w);
+    }
+  }
+  if (is_store) {
+    /* TODO: Optimise: Only add from-read from last read per
+     * process&addr (might be easier without incremental). */
+    if (!writes_by_address[addr].count(pid)) {
+      /* We are the first write by pid to addr; add from-read from all
+       * readers of init.
+       */
+      for (ID r : reads_from_init[addr]) {
+        IFTRACE(std::cerr << "Adding from-read between " << r << " and " << id << "\n");
+        in.push_back(r);
+        outs = std::move(outs).update(r, add_out);
+      }
+      writes_by_address = std::move(writes_by_address).update
+        (addr, [pid,id] (immer::map<Pid,ID> m) {
+                 return std::move(m).set(pid, id);
+               });
     }
   }
 
@@ -120,14 +126,18 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
   events = std::move(events).push_back
     (Event(iid, extid, is_load, is_store, addr, read_from, {}, po_predecessor));
 
+
   assert(ins.size() == id);
   ins = std::move(ins).push_back(std::move(in).persistent());
   assert(outs.size() == id);
   outs = std::move(outs).push_back(std::move(out).persistent());
 
-  if (is_store) {
-    writes_by_address = std::move(writes_by_address).update
-      (addr, [id] (auto &&vec) { return std::move(vec).push_back(id); });
+  if (!read_from && is_load) {
+    /* Read from init */
+    reads_from_init = std::move(reads_from_init).update
+      (addr, [id](immer::vector<ID> v) {
+               return std::move(v).push_back(id);
+             });
   }
 
   assert(vclocks.size() == id);

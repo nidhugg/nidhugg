@@ -105,7 +105,7 @@ private:
   immer::vector<Event> events;
   immer::vector<immer::vector<ID>> ins;
   immer::vector<immer::vector<ID>> outs;
-  immer::map<SymAddr,immer::vector<ID>> writes_by_address;
+  immer::map<SymAddr,immer::map<Pid,ID>> writes_by_address;
   immer::map<SymAddr,immer::vector<ID>> reads_from_init;
   immer::vector<immer::vector<ID>> events_by_pid;
   immer::vector<immer::box<VClock<int>>> vclocks;
