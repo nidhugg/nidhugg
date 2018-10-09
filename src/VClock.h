@@ -135,6 +135,12 @@ public:
   VClock operator+(const VClock<int> &vc) const;
   /* Assign this vector clock to (*this + vc). */
   VClock &operator+=(const VClock<int> &vc);
+  /* A vector clock v such that the clock of d in v takes the value
+   * min((*this)[d],vc[d]) for all d.
+   */
+  VClock operator-(const VClock<int> &vc) const;
+  /* Assign this vector clock to (*this + vc). */
+  VClock &operator-=(const VClock<int> &vc);
   /* The value of the clock of d. */
   int operator[](int d) const;
   int &operator[](int d);

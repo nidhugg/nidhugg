@@ -406,8 +406,10 @@ protected:
     const llvm::MDNode *md;
     /* The clock of the first event in this sequence. Only computed
      * after a full execution sequence has been explored.
+     * above_clock excludes reversible incoming edges, and below_clock
+     * encodes happens-before rather than happens-after.
      */
-    VClock<IPid> clock;
+    VClock<IPid> clock, above_clock, below_clock;
     /* Indices into prefix of events that happen before this one. */
     std::vector<unsigned> happens_after;
     /* Possibly reversible races found in the current execution
