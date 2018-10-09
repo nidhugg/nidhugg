@@ -37,6 +37,15 @@ static Timing::Context add_event_timing("add_event");
 
 SaturatedGraph::SaturatedGraph() {}
 
+template <typename T> void
+enlarge(immer::vector<T> &vec, std::size_t size, T val = {}) {
+  if (vec.size() >= size) return;
+  auto transient = std::move(vec).transient();
+  while (transient.size() <= size)
+    transient.push_back(val);
+  vec = std::move(transient).persistent();
+}
+
 void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
                                SymAddr addr, Option<ExtID> ext_read_from,
                                const std::vector<ExtID> &orig_in) {
@@ -50,12 +59,8 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
   bool is_store = kind == STORE || kind == RMW;
   Option<ID> po_predecessor;
   int index = 1;
-  if (events_by_pid.size() <= pid) {
-    auto transient = std::move(events_by_pid).transient();
-    while (transient.size() <= pid)
-      transient.push_back({});
-    events_by_pid = std::move(transient).persistent();
-  }
+  enlarge(events_by_pid, pid+1);
+  enlarge(writes_by_process_and_address, pid+1);
   if (events_by_pid[pid].size()) {
     assert(events_by_pid[pid].size() != 0);
     po_predecessor = events_by_pid[pid].back();
@@ -115,6 +120,13 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
                  return std::move(m).set(pid, id);
                });
     }
+
+    writes_by_process_and_address = std::move(writes_by_process_and_address)
+      .update(pid, [id,addr](immer::map<SymAddr,immer::vector<ID>> m) {
+          return std::move(m).update(addr, [id](immer::vector<ID> v){
+                return std::move(v).push_back(id);
+              });
+        });
   }
 
   for (ID after : in) {
@@ -172,42 +184,51 @@ bool SaturatedGraph::saturate() {
       if (e.is_load || e.is_store) {
         for (unsigned pid = 0; pid < unsigned(vc.size_ub()); ++pid) {
           if (old_vc[pid] == vc[pid]) continue;
-          ID pe_id = get_process_event(pid, vc[pid]);
-          const Event *pe;
-          for (int pi = vc[pid]; pi > old_vc[pid];
-               --pi, pe_id = pe->po_predecessor.value_or(~0)) {
-            assert(pe_id != ~0u && pe_id < events.size());
-            pe = &events[pe_id];
-            if (pe_id == id) continue;
-            if (pe->is_store && pe->addr == e.addr) {
-              /* Add edges */
-              if (e.is_store) {
-                for (unsigned r : pe->readers) {
-                  if (r == id) continue; /* RMW we're reading from */
-                  /* from-read */
-                  assert(events[r].is_load && events[r].addr == e.addr);
-                  IFTRACE(std::cerr << "Adding from-read from " << r << " to " << id << "\n");
-                  new_in.push_back(r);
-                  pe = &events[pe_id];
-                }
-              }
-              if (e.is_load) {
-                if (!e.read_from) {
-                  /* pe must happen after us since we're loading from
-                   * init. Cycle detected.
-                   */
-                  IFTRACE(std::cerr << "Cycle found\n");
-                  check_graph_consistency();
-                  return false;
-                }
-                unsigned my_read_from = *e.read_from;
-                if (pe_id != my_read_from) {
-                  /* coherence order */
-                  IFTRACE(std::cerr << "Adding coherence order from " << pe_id << " to " << my_read_from << "\n");
-                  new_edges.emplace_back(pe_id, my_read_from);
-                }
-              }
-              break;
+          assert(old_vc[pid] < vc[pid]);
+          const immer::vector<ID> &writes
+            = writes_by_process_and_address[pid][e.addr];
+          int pi = vc[pid];
+          auto ub = std::upper_bound(writes.begin(), writes.end(), pi,
+                                     [this](int index, ID w){
+                                       return index < events[w].iid.get_index();
+                                     });
+          if (ub == writes.begin()) continue;
+          else --ub;
+          /* We cannot read ourselves */
+          if (*ub == id) {
+            if (ub == writes.begin()) continue;
+            else --ub;
+          }
+          const ID pe_id = *ub;
+          const Event &pe = events[pe_id];
+          assert(pe_id != id);
+          if (pe.iid.get_index() <= old_vc[pid]) continue;
+          assert(pe.iid.get_index() <= vc[pid]);
+
+          /* Add edges */
+          if (e.is_store) {
+            for (unsigned r : pe.readers) {
+              if (r == id) continue; /* RMW we're reading from */
+              /* from-read */
+              assert(events[r].is_load && events[r].addr == e.addr);
+              IFTRACE(std::cerr << "Adding from-read from " << r << " to " << id << "\n");
+              new_in.push_back(r);
+            }
+          }
+          if (e.is_load) {
+            if (!e.read_from) {
+              /* pe must happen after us since we're loading from
+               * init. Cycle detected.
+               */
+              IFTRACE(std::cerr << "Cycle found\n");
+              check_graph_consistency();
+              return false;
+            }
+            unsigned my_read_from = *e.read_from;
+            if (pe_id != my_read_from) {
+              /* coherence order */
+              IFTRACE(std::cerr << "Adding coherence order from " << pe_id << " to " << my_read_from << "\n");
+              new_edges.emplace_back(pe_id, my_read_from);
             }
           }
         }
