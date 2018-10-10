@@ -39,8 +39,6 @@ static Timing::Context sat_context("sat");
 
 WSCTraceBuilder::WSCTraceBuilder(const Configuration &conf) : TSOPSOTraceBuilder(conf) {
   threads.push_back(Thread(CPid(), -1));
-  threads.push_back(Thread(CPS.new_aux(CPid()), -1));
-  threads[1].available = false; // Store buffer is empty.
   prefix_idx = -1;
   replay = false;
   last_full_memory_conflict = -1;
@@ -54,14 +52,14 @@ WSCTraceBuilder::~WSCTraceBuilder(){
 bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   *dryrun = false;
   *alt = 0;
+  *aux = -1; /* No auxilliary threads in SC */
   if(replay){
     /* Are we done with the current Event? */
     if (0 <= prefix_idx && threads[curev().iid.get_pid()].last_event_index() <
         curev().iid.get_index() + curev().size - 1) {
       /* Continue executing the current Event */
       IPid pid = curev().iid.get_pid();
-      *proc = pid/2;
-      *aux = pid % 2 - 1;
+      *proc = pid;
       *alt = 0;
       if(!(threads[pid].available)) {
         llvm::dbgs() << "Trying to play process " << threads[pid].cpid << ", but it is blocked\n";
@@ -88,8 +86,7 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       sym_idx = 0;
       ++prefix_idx;
       IPid pid = curev().iid.get_pid();
-      *proc = pid/2;
-      *aux = pid % 2 - 1;
+      *proc = pid;
       *alt = curev().alt;
       assert(threads[pid].available);
       threads[pid].event_indices.push_back(prefix_idx);
@@ -122,31 +119,14 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   ++prefix_idx;
   assert(prefix_idx == int(prefix.size()));
 
-  /* Find an available thread (auxiliary or real).
-   *
-   * Prioritize auxiliary before real, and older before younger
-   * threads.
-   */
+  /* Find an available thread. */
   const unsigned sz = threads.size();
-  unsigned p;
-  for(p = 1; p < sz; p += 2){ // Loop through auxiliary threads
+  for(unsigned p = 0; p < sz; ++p){ // Loop through real threads
     if(threads[p].available &&
        (conf.max_search_depth < 0 || threads[p].last_event_index() < conf.max_search_depth)){
       threads[p].event_indices.push_back(prefix_idx);
       prefix.emplace_back(IID<IPid>(IPid(p),threads[p].last_event_index()));
-      *proc = p/2;
-      *aux = 0;
-      return true;
-    }
-  }
-
-  for(p = 0; p < sz; p += 2){ // Loop through real threads
-    if(threads[p].available &&
-       (conf.max_search_depth < 0 || threads[p].last_event_index() < conf.max_search_depth)){
-      threads[p].event_indices.push_back(prefix_idx);
-      prefix.emplace_back(IID<IPid>(IPid(p),threads[p].last_event_index()));
-      *proc = p/2;
-      *aux = -1;
+      *proc = p;
       return true;
     }
   }
@@ -165,7 +145,7 @@ void WSCTraceBuilder::refuse_schedule(){
   assert(int(threads[last_pid].event_indices.back()) == prefix_idx);
   threads[last_pid].event_indices.pop_back();
   --prefix_idx;
-  mark_unavailable(last_pid/2,last_pid % 2 - 1);
+  mark_unavailable(last_pid);
 }
 
 void WSCTraceBuilder::mark_available(int proc, int aux){
@@ -286,8 +266,6 @@ bool WSCTraceBuilder::reset(){
   CPS = CPidSystem();
   threads.clear();
   threads.push_back(Thread(CPid(),-1));
-  threads.push_back(Thread(CPS.new_aux(CPid()),-1));
-  threads[1].available = false; // Store buffer is empty.
   mutexes.clear();
   cond_vars.clear();
   mem.clear();
@@ -395,19 +373,14 @@ void WSCTraceBuilder::debug_print() const {
 void WSCTraceBuilder::spawn(){
   IPid parent_ipid = curev().iid.get_pid();
   CPid child_cpid = CPS.spawn(threads[parent_ipid].cpid);
-  /* TODO: First event of thread happens before parents spawn */
   threads.push_back(Thread(child_cpid,prefix_idx));
-  threads.push_back(Thread(CPS.new_aux(child_cpid),prefix_idx));
-  threads.back().available = false; // Empty store buffer
   curev().may_conflict = true;
-  record_symbolic(SymEv::Spawn(threads.size() / 2 - 1));
+  record_symbolic(SymEv::Spawn(threads.size() - 1));
 }
 
 void WSCTraceBuilder::store(const SymData &sd){
-  curev().may_conflict = true; /* prefix_idx might become bad otherwise */
-  IPid ipid = curev().iid.get_pid();
-  threads[ipid].store_buffer.push_back(PendingStore(sd.get_ref(),prefix_idx,last_md));
-  threads[ipid+1].available = true;
+  assert(false && "Cannot happen");
+  abort();
 }
 
 void WSCTraceBuilder::atomic_store(const SymData &sd){
@@ -418,39 +391,10 @@ void WSCTraceBuilder::atomic_store(const SymData &sd){
   do_atomic_store(sd);
 }
 
-static bool symev_is_store(const SymEv &e) {
-  return e.kind == SymEv::UNOBS_STORE || e.kind == SymEv::STORE;
-}
-
-static SymAddrSize sym_get_last_write(const sym_ty &sym, SymAddr addr){
-  for (auto it = sym.end(); it != sym.begin();){
-    const SymEv &e = *(--it);
-    if (symev_is_store(e) && e.addr().includes(addr)) return e.addr();
-  }
-  assert(false && "No write touching addr found");
-  abort();
-}
-
 void WSCTraceBuilder::do_atomic_store(const SymData &sd){
   const SymAddrSize &ml = sd.get_ref();
   IPid ipid = curev().iid.get_pid();
   curev().may_conflict = true;
-  bool is_update = ipid % 2;
-
-  IPid uipid = ipid; // ID of the thread changing the memory
-  IPid tipid = is_update ? ipid-1 : ipid; // ID of the (real) thread that issued the store
-
-  if(is_update){ // Add the clock of the store instruction
-    assert(threads[tipid].store_buffer.size());
-    const PendingStore &pst = threads[tipid].store_buffer.front();
-    assert(pst.store_event != (unsigned)prefix_idx);
-    add_happens_after(prefix_idx, pst.store_event);
-    curev().origin_iid = prefix[pst.store_event].iid;
-    curev().md = pst.md;
-  }else{ // Add the clock of the auxiliary thread (because of fence semantics)
-    assert(threads[tipid].store_buffer.empty());
-    add_happens_after_thread(prefix_idx, tipid+1);
-  }
 
   VecSet<int> seen_accesses;
 
@@ -460,45 +404,18 @@ void WSCTraceBuilder::do_atomic_store(const SymData &sd){
     int lu = bi.last_update;
     assert(lu < int(prefix.size()));
     if(0 <= lu){
-      IPid lu_tipid = 2*(prefix[lu].iid.get_pid() / 2);
-      if(lu_tipid != tipid){
-        if(conf.observers){
-          SymAddrSize lu_addr = sym_get_last_write(prefix[lu].sym, b);
-          if (lu_addr != ml) {
-            /* When there is "partial overlap", observers requires
-             * writes to be unconditionally racing
-             */
-            seen_accesses.insert(bi.last_update);
-            bi.unordered_updates.clear();
-          }
-        }else{
-          seen_accesses.insert(bi.last_update);
-        }
+      IPid lu_tipid = prefix[lu].iid.get_pid();
+      if(lu_tipid != ipid){
+        seen_accesses.insert(bi.last_update);
       }
     }
     for(int i : bi.last_read){
-      if(0 <= i && prefix[i].iid.get_pid() != tipid) seen_accesses.insert(i);
+      if(0 <= i && prefix[i].iid.get_pid() != ipid) seen_accesses.insert(i);
     }
 
     /* Register in memory */
-    if (conf.observers) {
-      bi.unordered_updates.insert_geq(prefix_idx);
-    }
     bi.last_update = prefix_idx;
     bi.last_update_ml = ml;
-    if(is_update && threads[tipid].store_buffer.front().last_rowe >= 0){
-      bi.last_read[tipid/2] = threads[tipid].store_buffer.front().last_rowe;
-    }
-  }
-
-  if(is_update){ /* Remove pending store from buffer */
-    for(unsigned i = 0; i < threads[tipid].store_buffer.size()-1; ++i){
-      threads[tipid].store_buffer[i] = threads[tipid].store_buffer[i+1];
-    }
-    threads[tipid].store_buffer.pop_back();
-    if(threads[tipid].store_buffer.empty()){
-      threads[uipid].available = false;
-    }
   }
 
   seen_accesses.insert(last_full_memory_conflict);
@@ -515,16 +432,6 @@ void WSCTraceBuilder::do_load(const SymAddrSize &ml){
   curev().may_conflict = true;
   IPid ipid = curev().iid.get_pid();
 
-  /* Check if this is a ROWE */
-  for(int i = int(threads[ipid].store_buffer.size())-1; 0 <= i; --i){
-    if(threads[ipid].store_buffer[i].ml.addr == ml.addr){
-      /* ROWE */
-      threads[ipid].store_buffer[i].last_rowe = prefix_idx;
-      return;
-    }
-  }
-
-  /* Load from memory */
   VecSet<int> seen_accesses;
 
   /* See all updates to the read bytes. */
@@ -540,7 +447,7 @@ void WSCTraceBuilder::do_load(const SymAddrSize &ml){
     do_load(mem[b]);
 
     /* Register load in memory */
-    mem[b].last_read[ipid/2] = prefix_idx;
+    mem[b].last_read[ipid] = prefix_idx;
   }
 
   seen_accesses.insert(last_full_memory_conflict);
@@ -591,51 +498,23 @@ void WSCTraceBuilder::do_load(ByteInfo &m){
 
   int lu = m.last_update;
   curev().read_from = lu;
-  const SymAddrSize &lu_ml = m.last_update_ml;
   if(0 <= lu){
     IPid lu_tipid = prefix[lu].iid.get_pid() & ~0x1;
     if(lu_tipid != ipid){
       seen_accesses.insert(lu);
     }
-    if (conf.observers) {
-      /* Update last_update to be an observed store */
-      for (auto it = prefix[lu].sym.end();;){
-        assert(it != prefix[lu].sym.begin());
-        --it;
-        if((it->kind == SymEv::STORE || it->kind == SymEv::CMPXHG)
-           && it->addr() == lu_ml) break;
-        if (it->kind == SymEv::UNOBS_STORE && it->addr() == lu_ml) {
-          *it = SymEv::Store(it->data());
-          break;
-        }
-      }
-      /* Add races */
-      for (int u : m.unordered_updates){
-        if (prefix[lu].iid != prefix[u].iid) {
-          seen_pairs.insert(std::pair<int,int>(u, lu));
-        }
-      }
-      m.unordered_updates.clear();
-    }
   }
-  assert(m.unordered_updates.size() == 0);
   see_events(seen_accesses);
   see_event_pairs(seen_pairs);
 }
 
 void WSCTraceBuilder::fence(){
-  IPid ipid = curev().iid.get_pid();
-  assert(ipid % 2 == 0);
-  assert(threads[ipid].store_buffer.empty());
-  add_happens_after_thread(prefix_idx, ipid+1);
 }
 
 void WSCTraceBuilder::join(int tgt_proc){
   record_symbolic(SymEv::Join(tgt_proc));
   curev().may_conflict = true;
-  assert(threads[tgt_proc*2].store_buffer.empty());
-  add_happens_after_thread(prefix_idx, tgt_proc*2);
-  add_happens_after_thread(prefix_idx, tgt_proc*2+1);
+  add_happens_after_thread(prefix_idx, tgt_proc);
 }
 
 void WSCTraceBuilder::mutex_lock(const SymAddrSize &ml){
@@ -1222,7 +1101,7 @@ bool WSCTraceBuilder::do_events_conflict
  IPid snd_pid, const sym_ty &snd) const{
   if (fst_pid == snd_pid) return true;
   for (const SymEv &fe : fst) {
-    if (symev_has_pid(fe) && fe.num() == (snd_pid / 2)) return true;
+    if (symev_has_pid(fe) && fe.num() == snd_pid) return true;
     for (const SymEv &se : snd) {
       if (do_symevs_conflict(fst_pid, fe, snd_pid, se)) {
         return true;
@@ -1230,7 +1109,7 @@ bool WSCTraceBuilder::do_events_conflict
     }
   }
   for (const SymEv &se : snd) {
-    if (symev_has_pid(se) && se.num() == (fst_pid / 2)) return true;
+    if (symev_has_pid(se) && se.num() == fst_pid) return true;
   }
   return false;
 }
@@ -1843,16 +1722,6 @@ inline unsigned WSCTraceBuilder::find_process_event(IPid pid, int index) const{
          && (prefix[k].iid.get_index() + prefix[k].size) > index);
 
   return k;
-}
-
-bool WSCTraceBuilder::has_pending_store(IPid pid, SymAddr ml) const {
-  const std::vector<PendingStore> &sb = threads[pid].store_buffer;
-  for(unsigned i = 0; i < sb.size(); ++i){
-    if(sb[i].ml.includes(ml)){
-      return true;
-    }
-  }
-  return false;
 }
 
 int WSCTraceBuilder::estimate_trace_count() const{

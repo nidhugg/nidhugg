@@ -3446,6 +3446,7 @@ void Interpreter::run() {
   int aux;
   bool rerun = false;
   while(rerun || TB.schedule(&CurrentThread,&aux,&CurrentAlt,&DryRun)){
+    assert(0 <= CurrentThread && CurrentThread < long(Threads.size()));
     rerun = false;
     if(0 <= aux){ // Run some auxiliary thread
       runAux(CurrentThread,aux);
