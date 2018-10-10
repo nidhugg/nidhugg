@@ -32,6 +32,8 @@
 
 static Timing::Context saturate_timing("saturate");
 static Timing::Context saturate1_timing("saturate_one");
+static Timing::Context saturate_vc_timing("saturate_vc");
+static Timing::Context saturate_loop_timing("saturate_loop");
 static Timing::Context add_edge_timing("add_edge");
 static Timing::Context add_event_timing("add_event");
 
@@ -185,6 +187,7 @@ bool SaturatedGraph::saturate() {
         for (unsigned pid = 0; pid < unsigned(vc.size_ub()); ++pid) {
           if (old_vc[pid] == vc[pid]) continue;
           assert(old_vc[pid] < vc[pid]);
+          Timing::Guard saturate_loop_guard(saturate_loop_timing);
           const immer::vector<ID> &writes
             = writes_by_process_and_address[pid][e.addr];
           int pi = vc[pid];
@@ -294,6 +297,7 @@ SaturatedGraph::VC SaturatedGraph::initial_vc_for_event(const Event &e) const {
 
 SaturatedGraph::VC SaturatedGraph::
 recompute_vc_for_event(const Event &e, const immer::vector<ID> &in) const {
+  Timing::Guard timing_guard(saturate_vc_timing);
   VC vc = initial_vc_for_event(e);;
   const auto add_to_vc = [&vc,this](ID id) {
                            assert(id < vclocks.size());
