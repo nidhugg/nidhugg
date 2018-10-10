@@ -1666,6 +1666,7 @@ WSCTraceBuilder::try_sat
         add_event(i);
       }
     }
+    assert(keep[changed_event]);
     add_event(changed_event);
     if (!g.saturate()) {
       if (conf.debug_print_on_reset)
