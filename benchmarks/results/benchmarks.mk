@@ -1,6 +1,6 @@
 SHELL = /bin/bash -o pipefail
 
-TIME_LIMIT = 60 # seconds
+TIME_LIMIT ?= 60 # seconds
 
 SRCDIR = ../../..
 CLANG = clang
