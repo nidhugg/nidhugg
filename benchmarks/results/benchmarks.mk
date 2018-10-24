@@ -1,6 +1,7 @@
 SHELL = /bin/bash -o pipefail
 
 TIME_LIMIT ?= 60 # seconds
+STACK_LIMIT ?= 65536 # kB
 
 SRCDIR = ../../..
 CLANG = clang
@@ -16,7 +17,8 @@ RCMC ?= rcmc
 CDSC_DIR ?= /opt/cdschecker
 TIME = env time -f 'real %e\nres %M'
 TIMEOUT = timeout $(TIME_LIMIT)
-RUN = -$(TIMEOUT) $(TIME)
+ULIMIT = ulimit -Ss $(STACK_LIMIT) &&
+RUN = -$(ULIMIT) $(TIMEOUT) $(TIME)
 TABULATE = ../../tabulate.sh
 
 TOOLS = source optimal observers swsc rcmc # cdsc
