@@ -34,10 +34,12 @@ static Timing::Context saturate_timing("saturate");
 static Timing::Context saturate1_timing("saturate_one");
 static Timing::Context saturate_vc_timing("saturate_vc");
 static Timing::Context saturate_loop_timing("saturate_loop");
+static Timing::Context saturate_rev_timing("saturate_reverse");
+static Timing::Context saturate_rev1_timing("saturate_reverse_one");
 static Timing::Context add_edge_timing("add_edge");
 static Timing::Context add_event_timing("add_event");
 
-SaturatedGraph::SaturatedGraph() {}
+SaturatedGraph::SaturatedGraph() : saturated_until(0) {}
 
 template <typename T> void
 enlarge(immer::vector<T> &vec, std::size_t size, T val = {}) {
@@ -66,7 +68,7 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
   if (events_by_pid[pid].size()) {
     assert(events_by_pid[pid].size() != 0);
     po_predecessor = events_by_pid[pid].back();
-    IFTRACE(std::cerr << "Adding PO between " << *po_predecessor << " and " << id << "\n");
+    IFTRACE(std::cerr << "Adding PO(" << pid << ") between " << *po_predecessor << " and " << id << "\n");
     index = events.at(*po_predecessor).iid.get_index() + 1;
     outs = std::move(outs).update(*po_predecessor, add_out);
   }
@@ -162,6 +164,7 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
 bool SaturatedGraph::saturate() {
   Timing::Guard saturate_guard(saturate_timing);
   check_graph_consistency();
+  reverse_saturate();
   while (!wq_empty()) {
     Timing::Guard saturate1_guard(saturate1_timing);
     const ID id = wq_pop();
@@ -449,4 +452,113 @@ void SaturatedGraph::add_edge_internal(ID from, ID to) {
                                     return std::move(v).push_back(from);
                                   });
   wq_add(to);
+}
+
+/* Reverse saturation is needed to infer the from-read edges that are
+ * missed by forward saturation in the incremental case, where a reader
+ * is added after the writer has been updated by forward saturation.
+ *
+ * Fortuately, we don't need to iterate with a workqueue. Any such
+ * changes will be picked up by forward saturation later anyway.
+ */
+void SaturatedGraph::reverse_saturate() {
+  Timing::Guard saturate_guard(saturate_rev_timing);
+  if (saturated_until != 0 && saturated_until != events.size()) {
+    IFTRACE(std::cerr << "Doing reverse saturation " << saturated_until
+            << ".." << events.size() << "\n");
+    struct care care = reverse_care_set();
+    IFTRACE(std::cerr << "Care set: ");
+    IFTRACE(for (ID id : care.vec) std::cerr << id << " ");
+    IFTRACE(std::cerr << "\n");
+
+    std::vector<VC> below_clocks(events.size());
+    const VC top = this->top();
+    for (ID id : care.vec) {
+      Timing::Guard saturate1_guard(saturate_rev1_timing);
+      const Event &e = events[id];
+      VC &vc = below_clocks[id] = top;
+      vc[e.iid.get_pid()] = e.iid.get_index();
+      foreach_succ(id, e, [&vc,&below_clocks](ID o){vc-=below_clocks[o];});
+      if (e.is_store) {
+        std::vector<ID> new_out;
+        for (unsigned r : e.readers) {
+          if (r >= saturated_until)
+            new_out.push_back(r);
+        }
+        if (new_out.empty()) continue;
+        for (unsigned pid = 0; pid < unsigned(vc.size()); ++pid) {
+          const immer::vector<ID> &writes
+            = writes_by_process_and_address[pid][e.addr];
+          int pi = vc[pid];
+          auto lb = std::lower_bound(writes.begin(), writes.end(), pi,
+                                     [this](ID w, int index){
+                                       return events[w].iid.get_index() < index;
+                                     });
+          if (lb == writes.end()) continue;
+          if (*lb == id) {
+            if (++lb == writes.end()) continue;
+          }
+          const ID pe_id = *lb;
+          assert(pe_id != id);
+#ifndef NDEBUG
+          const Event &pe = events[pe_id];
+          assert(pe.is_store && pe.addr == e.addr && vc.lt(below_clocks[pe_id]));
+#endif
+          for (unsigned r : new_out) {
+            IFTRACE(std::cerr << "Adding missed from-read from " << r << " to " << pe_id << "\n");
+            add_edge_internal(r, pe_id);
+          }
+        }
+      }
+    }
+  }
+  saturated_until = events.size();
+}
+
+/* Note: the returned vector is reverse topologically sorted */
+auto SaturatedGraph::reverse_care_set() const -> struct care {
+  struct care care(events.size());
+  for (unsigned id = saturated_until; id < events.size(); ++id) {
+    const Event &e = events[id];
+    if (e.is_load && e.read_from && *e.read_from < saturated_until)
+      add_to_care(care, *e.read_from);
+  }
+  return care;
+}
+
+auto SaturatedGraph::po_successor(ID id, const Event &e) const -> Option<ID> {
+  const immer::vector<ID> &events = events_by_pid[e.iid.get_pid()];
+  if (events.back() == id) return nullptr;
+  auto suc = std::upper_bound(events.begin(), events.end(), id,
+                              [this](unsigned id, unsigned oid) {
+                                return id < oid;
+                              });
+  assert(suc != events.end());
+  return Option<ID>(*suc);
+}
+
+template <typename Fn> void SaturatedGraph::
+foreach_succ(ID id, const Event &e, Fn f) const {
+  if (Option<ID> suc = po_successor(id, e)) f(*suc);
+  immer::for_each(e.readers, f);
+  immer::for_each(outs[id], f);
+}
+
+void SaturatedGraph::add_to_care(struct care &care, unsigned id) const {
+  if (care.set[id]) return;
+  const Event &e = events[id];
+  care.set[id] = true;
+  foreach_succ(id, e, [&care,this](unsigned r) { add_to_care(care, r); });
+  care.vec.push_back(id);
+}
+
+auto SaturatedGraph::top() const -> VC {
+  VC top;
+  for (unsigned pid = 0; pid < events_by_pid.size(); ++pid) {
+    assert(!events_by_pid[pid].size()
+           || events[events_by_pid[pid].back()].iid.get_index()
+           == int(events_by_pid[pid].size()));
+    top[pid] = events_by_pid[pid].size();
+  }
+  return top;
 }

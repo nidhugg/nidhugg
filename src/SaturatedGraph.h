@@ -112,6 +112,7 @@ private:
   immer::vector<immer::box<VClock<int>>> vclocks;
   immer::vector<immer::map<SymAddr,immer::vector<ID>>>
     writes_by_process_and_address;
+  unsigned saturated_until;
 
   void add_edges(const std::vector<std::pair<ID,ID>> &);
   ID get_process_event(Pid pid, unsigned index) const;
@@ -120,6 +121,18 @@ private:
   VC recompute_vc_for_event(const Event &e, const immer::vector<ID> &in) const;
   void add_successors_to_wq(ID id, const Event &e);
   bool is_in_cycle(const Event &e, const immer::vector<ID> &in, const VC &vc) const;
+  Option<ID> po_successor(ID id, const Event &e) const;
+  VC top() const;
+  struct care {
+    care(unsigned e_sz) : set(e_sz) {}
+    std::vector<bool> set;
+    std::vector<ID> vec;
+  };
+  struct care reverse_care_set() const;
+  void add_to_care(struct care &, unsigned) const;
+  void reverse_saturate();
+
+  template <typename Fn> void foreach_succ(ID id, const Event &e, Fn f) const;
 
 #ifndef NDEBUG
   void check_graph_consistency() const;
