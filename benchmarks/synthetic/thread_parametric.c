@@ -15,12 +15,12 @@ atomic_int local[N];
 void *t(void* arg) {
   intptr_t tid = (intptr_t)arg;
   for (int i = 0; i < B; ++i) {
-    local[tid] = i;
-    (void)local[tid];
+    atomic_store(local+tid, i);
+    (void)atomic_load(local+tid);
   }
   if (tid < 2) {
-      v = tid;
-      (void)v;
+    atomic_store(&v, tid);
+    (void)atomic_load(&v);
   }
   return NULL;
 }
