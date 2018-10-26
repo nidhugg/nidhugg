@@ -43,7 +43,7 @@ template <typename T> void
 enlarge(immer::vector<T> &vec, std::size_t size, T val = {}) {
   if (vec.size() >= size) return;
   auto transient = std::move(vec).transient();
-  while (transient.size() <= size)
+  while (transient.size() < size)
     transient.push_back(val);
   vec = std::move(transient).persistent();
 }
