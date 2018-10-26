@@ -164,14 +164,7 @@ protected:
     Leaf() : prefix() {}
     /* Construct a prefix leaf. */
     Leaf(std::vector<Branch> prefix) : prefix(prefix) {}
-    /* Construct a prefix leaf with saturated graph. */
-    // Leaf(std::vector<Branch> prefix, SaturatedGraph saturatedGraph)
-    //   : prefix(prefix), saturatedGraph(saturatedGraph){}
     std::vector<Branch> prefix;
-    // /*********************************************************/
-    // /* The minimal saturated graph based on happens-before relations */
-    // SaturatedGraph saturatedGraph;
-    // /*********************************************************/
 
     bool is_bottom() const { return prefix.empty(); }
   };
@@ -179,14 +172,8 @@ protected:
   struct DecisionNode {
   public:
     DecisionNode() : siblings() {}
-    // DecisionNode(SaturatedGraph saturatedGraph)
-    //   : siblings(), saturatedGraph(saturatedGraph) {}
     std::unordered_map<std::shared_ptr<UnfoldingNode>, Leaf> siblings;
     std::unordered_set<std::shared_ptr<UnfoldingNode>> sleep;
-    // /*********************************************************/
-    // /* The minimal saturated graph based on happens-before relations */
-    // SaturatedGraph saturatedGraph;
-    // /*********************************************************/
   };
 
   /* Various information about a thread in the current execution.
@@ -604,8 +591,6 @@ protected:
   void compute_vclocks();
   /* Assigns unfolding events to all executed steps. */
   void compute_unfolding();
-  /* Perform saturation based on happens-before relation */
-  SaturatedGraph compute_minimal_saturation(unsigned changed_event) const;
   std::shared_ptr<UnfoldingNode> find_unfolding_node
   (UnfoldingNodeChildren &parent_list,
    const std::shared_ptr<UnfoldingNode> &parent,

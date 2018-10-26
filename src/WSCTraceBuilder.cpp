@@ -253,7 +253,6 @@ bool WSCTraceBuilder::reset(){
   }
   auto sit = decisions.back().siblings.begin();
   Leaf l = std::move(sit->second);
-  // decisions.back().saturatedGraph = std::move(l.saturatedGraph);
 
   if (conf.debug_print_on_reset)
       llvm::dbgs() << "Backtracking to decision node " << (decisions.size()-1)
@@ -1118,58 +1117,12 @@ void WSCTraceBuilder::compute_unfolding() {
     if (int(i) >= replay_point) {
       if (is_load(i)) {
         int decision = decisions.size();
-        prefix[i].decision = decision;
         decisions.emplace_back();
+        prefix[i].decision = decision;
       }
     }
-    // if (is_load(i) && !prefix[i].pinned) {
-    //   int decision = prefix[i].decision;
-    //   assert(decision != -1);
-    //   decisions[decision].saturatedGraph = compute_minimal_saturation(i);
-    // }
   }
 }
-
-// SaturatedGraph WSCTraceBuilder::compute_minimal_saturation(unsigned changed_event) const {
-//   SaturatedGraph g;
-//   int decision = prefix[changed_event].decision;
-//   std::vector<bool> keep = causal_past(decision);
-
-//   int lastDecision = -1;
-//   for (unsigned i = 0; i < changed_event; ++i) {
-//      if (keep[i] && prefix[i].decision > lastDecision) {
-//         lastDecision = prefix[i].decision;
-//      }
-//   }
-//   if (lastDecision != -1)
-//     g = decisions[lastDecision].saturatedGraph;
-
-//   const auto add_event = [&g,this](unsigned i) {
-//       SaturatedGraph::EventKind kind = SaturatedGraph::NONE;
-//       SymAddr addr;
-//       if (is_load(i)) {
-//         if (is_store(i)) kind = SaturatedGraph::RMW;
-//         else kind = SaturatedGraph::LOAD;
-//       } else if (is_store(i)) kind = SaturatedGraph::STORE;
-//       if (kind != SaturatedGraph::NONE) addr = get_addr(i).addr;
-//       Option<unsigned> read_from;
-//       if (prefix[i].read_from && *prefix[i].read_from != -1)
-//         read_from = unsigned(*prefix[i].read_from);
-
-//       g.add_event(unsigned(prefix[i].iid.get_pid()), i, kind, addr,
-//                   read_from, prefix[i].happens_after);
-//     };
-//   for (unsigned i = 0; i < prefix.size(); ++i) {
-//     if (keep[i] && i != changed_event && !g.has_event(i)) {
-//       add_event(i);
-//     }
-//   }
-//   add_event(changed_event);
-//   IFDEBUG(bool acyclic = )
-//     g.saturate();
-//   assert(acyclic);
-//   return g;
-// }
 
 std::shared_ptr<WSCTraceBuilder::UnfoldingNode> WSCTraceBuilder::
 find_unfolding_node(UnfoldingNodeChildren &parent_list,
@@ -1759,7 +1712,6 @@ WSCTraceBuilder::try_sat
       }
       llvm::dbgs() << "]\n";
     }
-    /*********************************************************/
     return order_to_leaf(decision, *res, std::move(g));
   }
 
@@ -1822,8 +1774,7 @@ WSCTraceBuilder::Leaf WSCTraceBuilder::order_to_leaf
                             prefix[i].sym);
   }
 
-  return Leaf(new_prefix// , std::move(g)
-      );
+  return Leaf(new_prefix);
 }
 
 std::vector<bool> WSCTraceBuilder::causal_past(int decision) const {
