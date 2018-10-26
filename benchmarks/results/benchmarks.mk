@@ -38,7 +38,7 @@ code_%.bc: $(SRCDIR)/$(FILE)
 	$(CLANG) -DN=$* $(CLANGFLAGS) -o $@ $<
 
 cdsc_%.elf: $(SRCDIR)/$(FILE)
-	$(CC) -Wl,-rpath=$(CDSC_DIR) $(OPT) \
+	$(CC) -Wl,-rpath=$(CDSC_DIR) $(OPT) -I../../cdsc_include \
 		-L$(CDSC_DIR) -lmodel -I$(CDSC_DIR)/include \
 		-Dmain=user_main -pthread -DN=$* -o $@ $<
 
