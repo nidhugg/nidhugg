@@ -505,6 +505,7 @@ void SaturatedGraph::reverse_saturate() {
           assert(pe.is_store && pe.addr == e.addr && vc.lt(below_clocks[pe_id]));
 #endif
           for (unsigned r : new_out) {
+            if (r == pe_id) continue; /* RMW */
             IFTRACE(std::cerr << "Adding missed from-read from " << r << " to " << pe_id << "\n");
             add_edge_internal(r, pe_id);
           }
@@ -558,7 +559,7 @@ auto SaturatedGraph::top() const -> VC {
     assert(!events_by_pid[pid].size()
            || events[events_by_pid[pid].back()].iid.get_index()
            == int(events_by_pid[pid].size()));
-    top[pid] = events_by_pid[pid].size();
+    top[pid] = events_by_pid[pid].size() + 1;
   }
   return top;
 }
