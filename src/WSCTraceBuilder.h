@@ -110,30 +110,6 @@ protected:
     Access(Type t, const void *m) : type(t), ml(m) {};
   };
 
-  /* A store pending in a store buffer. */
-  class PendingStore{
-  public:
-    PendingStore(const SymAddrSize &ml, unsigned store_event,
-                 const llvm::MDNode *md)
-      : ml(ml), store_event(store_event), last_rowe(-1), md(md) {};
-    /* The memory location that is being written to. */
-    SymAddrSize ml;
-    /* The index into prefix of the store event that produced this store
-     * buffer entry.
-     */
-    unsigned store_event;
-    /* An index into prefix to the event of the last load that fetched
-     * its value from this store buffer entry by Read-Own-Write-Early.
-     *
-     * Has the value -1 if there has been no such load.
-     */
-    int last_rowe;
-    /* "dbg" metadata for the store which produced this store buffer
-     * entry.
-     */
-    const llvm::MDNode *md;
-  };
-
   struct UnfoldingNode;
   typedef llvm::SmallVector<std::weak_ptr<UnfoldingNode>,1> UnfoldingNodeChildren;
   struct UnfoldingNode {
@@ -192,12 +168,6 @@ protected:
     /* Indices in prefix of the events of this process.
      */
     std::vector<unsigned> event_indices;
-    /* The store buffer of this thread. The store buffer is kept in
-     * the Thread object for the real thread, not for the auxiliary.
-     *
-     * Newer entries are further to the back.
-     */
-    std::vector<PendingStore> store_buffer;
 
     /* The iid-index of the last event of this thread, or 0 if it has not
      * executed any events yet.
@@ -239,11 +209,6 @@ protected:
      * update to this byte.
      */
     SymAddrSize last_update_ml;
-    /* Set of events that updated this byte since it was last read.
-     *
-     * Either contains last_update or is empty.
-     */
-    VecSet<int> unordered_updates;
     /* last_read[tid] is the index in prefix of the latest (visible)
      * read of thread tid to this memory location, or -1 if thread tid
      * has not read this memory location.
@@ -476,9 +441,9 @@ protected:
   const llvm::MDNode *last_md;
 
   IPid ipid(int proc, int aux) const {
-    assert(-1 <= aux && aux <= 0);
-    assert(proc*2+1 < int(threads.size()));
-    return aux ? proc*2 : proc*2+1;
+    assert(aux == -1);
+    assert(proc < int(threads.size()));
+    return proc;
   };
 
   Event &curev() {
@@ -622,10 +587,6 @@ protected:
                       const std::vector<bool> &);
   std::vector<bool> causal_past(int decision) const;
   void causal_past_1(std::vector<bool> &acc, unsigned i) const;
-  /* Returns true iff the thread pid has a pending store to some
-   * memory location including the byte ml.
-   */
-  bool has_pending_store(IPid pid, SymAddr ml) const;
   /* Estimate the total number of traces that have the same prefix as
    * the current one, up to the first idx events.
    */

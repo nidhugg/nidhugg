@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <stdint.h>
 #include <stdatomic.h>
 #include <pthread.h>
 
@@ -15,11 +15,11 @@ atomic_int local[T];
 void *t(void* arg) {
   intptr_t tid = (intptr_t)arg;
   for (int i = 0; i < N; ++i) {
-    local[tid] = i;
-    (void)local[tid];
+    atomic_store(local+tid, i);
+    (void)atomic_load(local+tid);
   }
-  v = tid;
-  (void)v;
+  atomic_store(&v, tid);
+  (void)atomic_load(&v);
   return NULL;
 }
 
