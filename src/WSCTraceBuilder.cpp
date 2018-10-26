@@ -1834,10 +1834,7 @@ std::vector<bool> WSCTraceBuilder::causal_past(int decision) const {
     if (prefix[i].decision != -1 && prefix[i].decision <= decision) {
       causal_past_1(acc, i);
     }
-    if (prefix[i].decision >= decision) {
-      break;
-    }
-  }
+  };
   return acc;
 }
 
