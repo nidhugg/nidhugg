@@ -165,12 +165,14 @@ bool SaturatedGraph::saturate() {
   Timing::Guard saturate_guard(saturate_timing);
   check_graph_consistency();
   reverse_saturate();
+  std::vector<ID> new_in;
+  std::vector<std::pair<ID,ID>> new_edges;
   while (!wq_empty()) {
     Timing::Guard saturate1_guard(saturate1_timing);
     const ID id = wq_pop();
     assert(id < events.size());
-    std::vector<ID> new_in;
-    std::vector<std::pair<ID,ID>> new_edges;
+    new_in.clear();
+    new_edges.clear();
     {
       Event e = events[id];
       const immer::vector<ID> &old_in = ins[id];
