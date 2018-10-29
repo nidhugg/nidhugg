@@ -98,7 +98,7 @@ private:
 };
 
 template<>
-class VClock<int> {
+class VClock<int> final {
 public:
   /* Create a vector clock where each clock is initialized to 0. */
   VClock();
@@ -139,7 +139,7 @@ public:
    * min((*this)[d],vc[d]) for all d.
    */
   VClock operator-(const VClock<int> &vc) const;
-  /* Assign this vector clock to (*this + vc). */
+  /* Assign this vector clock to (*this - vc). */
   VClock &operator-=(const VClock<int> &vc);
   /* The value of the clock of d. */
   int operator[](int d) const;
@@ -180,6 +180,31 @@ public:
   std::string to_string() const;
 private:
   std::vector<int> vec;
+};
+
+class VClockVec final {
+public:
+  VClockVec() : clock_size(0) {}
+  VClockVec(unsigned clock_size, std::size_t size, const VClock<int> &init);
+  class Ref final {
+    friend class VClockVec;
+    Ref(int* base, unsigned size) : base(base), size(size) {}
+    int* base;
+    unsigned size;
+  public:
+    /* Assign this vector clock to (*this - vc). */
+    Ref &operator-=(const Ref vc);
+    int operator[](int d) const { assert(d >= 0 && unsigned(d) < size); return base[d]; };
+    int &operator[](int d) { assert(d >= 0 && unsigned(d) < size); return base[d]; };
+  };
+  Ref operator[](int d) {
+    assert (d >= 0 && (std::size_t(d)+1)*clock_size <= vec.size());
+    return { vec.data() + (d*clock_size), clock_size };
+  }
+  void assign(unsigned clock_size, std::size_t count, const VClock<int> &init);
+private:
+  std::vector<int> vec;
+  unsigned clock_size;
 };
 
 template<typename DOM>

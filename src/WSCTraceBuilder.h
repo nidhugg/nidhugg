@@ -375,7 +375,7 @@ protected:
      * above_clock excludes reversible incoming edges, and below_clock
      * encodes happens-before rather than happens-after.
      */
-    VClock<IPid> clock, above_clock, below_clock;
+    VClock<IPid> clock, above_clock;
     /* Indices into prefix of events that happen before this one. */
     std::vector<unsigned> happens_after;
     /* Possibly reversible races found in the current execution
@@ -412,6 +412,7 @@ protected:
    * events that are determined in advance to be executed.
    */
   std::vector<Event> prefix;
+  VClockVec below_clocks;
 
   std::vector<DecisionNode> decisions;
 

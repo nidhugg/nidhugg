@@ -207,3 +207,25 @@ std::string VClock<int>::to_string() const{
   ss << "]";
   return ss.str();
 }
+
+VClockVec::Ref &VClockVec::Ref::operator-=(const Ref vc) {
+  assert(vc.size == size);
+  for (unsigned i = 0; i < size; ++i) {
+    if(vc.base[i] < base[i]){
+      base[i] = vc.base[i];
+    }
+  }
+  return *this;
+}
+
+void VClockVec::assign(unsigned clock_size, std::size_t count,
+                       const VClock<int> &init) {
+  assert(init.size() <= clock_size);
+  this->clock_size = clock_size;
+  vec.resize(count*clock_size);
+  for (std::size_t i = 0; i < count; ++i) {
+    Ref ref = (*this)[i];
+    for (unsigned j = 0; j < clock_size; ++j)
+      ref[j] = init[j];
+  }
+}

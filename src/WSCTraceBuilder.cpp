@@ -953,15 +953,16 @@ void WSCTraceBuilder::compute_vclocks(){
   VClock<IPid> top;
   for (unsigned i = 0; i < threads.size(); ++i)
     top[i] = threads[i].event_indices.size();
+  below_clocks.assign(threads.size(), prefix.size(), top);
 
   for (unsigned i = prefix.size();;) {
     if (i == 0) break;
-    Event &e = prefix[--i];
-    e.below_clock = top;
-    e.below_clock[e.iid.get_pid()] = e.iid.get_index();
+    auto clock = below_clocks[--i];
+    Event &e = prefix[i];
+    clock[e.iid.get_pid()] = e.iid.get_index();
     for (unsigned j : happens_after[i]) {
       assert (i < j);
-      prefix[i].below_clock -= prefix[j].below_clock;
+      clock -= below_clocks[j];
     }
   }
 }
@@ -1425,7 +1426,7 @@ void WSCTraceBuilder::compute_prefixes() {
       };
 
       const VClock<IPid> &above = prefix[i].above_clock;
-      const VClock<IPid> &below = prefix[i].below_clock;
+      const auto below = below_clocks[i];
       for (unsigned p = 0; p < threads.size(); ++p) {
         const std::vector<unsigned> &writes
           = writes_by_process_and_address[p][addr.addr];
