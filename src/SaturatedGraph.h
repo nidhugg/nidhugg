@@ -38,7 +38,7 @@
 #include <immer/box.hpp>
 #include <immer/set.hpp>
 
-class SaturatedGraph {
+class SaturatedGraph final {
 public:
   SaturatedGraph();
 
@@ -116,6 +116,7 @@ private:
 
   void add_edges(const std::vector<std::pair<ID,ID>> &);
   ID get_process_event(Pid pid, unsigned index) const;
+  Option<ID> maybe_get_process_event(Pid pid, unsigned index) const;
   VC initial_vc_for_event(IID<Pid> iid) const;
   VC initial_vc_for_event(const Event &e) const;
   VC recompute_vc_for_event(const Event &e, const immer::vector<ID> &in) const;

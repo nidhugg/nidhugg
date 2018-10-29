@@ -193,11 +193,10 @@ bool SaturatedGraph::saturate() {
           Timing::Guard saturate_loop_guard(saturate_loop_timing);
           const immer::vector<ID> &writes
             = writes_by_process_and_address[pid][e.addr];
-          int pi = vc[pid];
-          auto ub = std::upper_bound(writes.begin(), writes.end(), pi,
-                                     [this](int index, ID w){
-                                       return index < events[w].iid.get_index();
-                                     });
+          unsigned last_visible_id = vc[pid];
+          ID last_visible = get_process_event(pid, last_visible_id);
+          auto ub = std::upper_bound(writes.begin(), writes.end(),
+                                     last_visible, std::less<ID>());
           if (ub == writes.begin()) continue;
           else --ub;
           /* We cannot read ourselves */
@@ -284,8 +283,18 @@ void SaturatedGraph::add_edges(const std::vector<std::pair<ID,ID>> &edges) {
 SaturatedGraph::ID SaturatedGraph::
 get_process_event(unsigned pid, unsigned index) const {
   assert(pid < events_by_pid.size());
+  assert(0 < index);
   assert(index <= events_by_pid[pid].size());
   return events_by_pid[pid][index-1];
+}
+
+auto SaturatedGraph::maybe_get_process_event(unsigned pid, unsigned index) const
+  -> Option<ID> {
+  assert(pid < events_by_pid.size());
+  assert(0 < index);
+  const auto &events_by_p = events_by_pid[pid];
+  if (index > events_by_p.size()) return nullptr;
+  return Option<ID>(events_by_p[index-1]);
 }
 
 SaturatedGraph::VC SaturatedGraph::initial_vc_for_event(IID<unsigned> iid) const {
@@ -473,6 +482,7 @@ void SaturatedGraph::reverse_saturate() {
 
     std::vector<VC> below_clocks(events.size());
     const VC top = this->top();
+    std::vector<ID> new_out;
     for (ID id : care.vec) {
       Timing::Guard saturate1_guard(saturate_rev1_timing);
       const Event &e = events[id];
@@ -480,7 +490,7 @@ void SaturatedGraph::reverse_saturate() {
       vc[e.iid.get_pid()] = e.iid.get_index();
       foreach_succ(id, e, [&vc,&below_clocks](ID o){vc-=below_clocks[o];});
       if (e.is_store) {
-        std::vector<ID> new_out;
+        new_out.clear();
         for (unsigned r : e.readers) {
           if (r >= saturated_until)
             new_out.push_back(r);
@@ -489,11 +499,11 @@ void SaturatedGraph::reverse_saturate() {
         for (unsigned pid = 0; pid < unsigned(vc.size()); ++pid) {
           const immer::vector<ID> &writes
             = writes_by_process_and_address[pid][e.addr];
-          int pi = vc[pid];
-          auto lb = std::lower_bound(writes.begin(), writes.end(), pi,
-                                     [this](ID w, int index){
-                                       return events[w].iid.get_index() < index;
-                                     });
+          unsigned first_visible_index = vc[pid];
+          Option<ID> first_visible = maybe_get_process_event(pid, first_visible_index);
+          if (!first_visible) continue;
+          auto lb = std::lower_bound(writes.begin(), writes.end(),
+                                     *first_visible, std::less<ID>());
           if (lb == writes.end()) continue;
           if (*lb == id) {
             if (++lb == writes.end()) continue;
