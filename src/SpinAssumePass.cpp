@@ -63,6 +63,12 @@ typedef llvm::AttributeList AttributeList;
 typedef llvm::AttributeSet AttributeList;
 #endif
 
+#ifdef LLVM_HAS_TERMINATORINST
+typedef llvm::TerminatorInst TerminatorInst;
+#else
+typedef llvm::Instruction TerminatorInst;
+#endif
+
 void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
   AU.addRequired<llvm::LLVM_DOMINATOR_TREE_PASS>();
   AU.addRequired<DeclareAssumePass>();
@@ -128,7 +134,7 @@ void SpinAssumePass::remove_disconnected(llvm::Loop *l){
       // Search for basic blocks without in-loop successors
       // Simultaneously collect blocks with in-loop predecessors
       for(auto it = l->block_begin(); done && it != l->block_end(); ++it){
-        llvm::TerminatorInst *T = (*it)->getTerminator();
+        TerminatorInst *T = (*it)->getTerminator();
         bool has_loop_successor = false;
         for(unsigned i = 0; i < T->getNumSuccessors(); ++i){
           if(l->contains(T->getSuccessor(i))){
@@ -158,7 +164,7 @@ bool SpinAssumePass::assumify_loop(llvm::Loop *l,llvm::LPPassManager &LPM){
   if(!EB) return false; // Too complicated loop
   llvm::BranchInst *BI;
   {
-    llvm::TerminatorInst *EI = EB->getTerminator();
+    TerminatorInst *EI = EB->getTerminator();
     assert(EI);
     BI = llvm::dyn_cast<llvm::BranchInst>(EI);
   }

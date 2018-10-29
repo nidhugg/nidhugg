@@ -1026,6 +1026,22 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])])
 
+## Check whether the llvm::TerminatorInst class exists (LLVM<8)
+AC_MSG_CHECKING([for llvm::TerminatorInst])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_IR_INSTRUCTIONS_H)
+#include <llvm/IR/Instructions.h>
+#elif defined(HAVE_LLVM_INSTRUCTIONS_H)
+#include <llvm/Instructions.h>
+#endif
+]],[[
+  llvm::TerminatorInst *I = nullptr;
+]])],
+        [AC_DEFINE([LLVM_HAS_TERMINATORINST],[1],
+         [Define if llvm::TerminatorInst exists.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_INLINE
