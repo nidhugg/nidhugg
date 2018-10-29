@@ -920,7 +920,7 @@ void WSCTraceBuilder::compute_vclocks(){
     }
   }
 
-  std::vector<std::vector<unsigned>> happens_after(prefix.size());
+  std::vector<llvm::SmallVector<unsigned,2>> happens_after(prefix.size());
   for (unsigned i = 0; i < prefix.size(); i++){
     IPid ipid = prefix[i].iid.get_pid();
     if (prefix[i].iid.get_index() > 1) {
