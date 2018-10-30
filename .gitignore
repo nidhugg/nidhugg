@@ -9,7 +9,7 @@ src/swsc
 src/swscc
 src/unittest
 src/libswsc.a
-Makefile
+./Makefile
 Makefile.in
 aclocal.m4
 ar-lib
