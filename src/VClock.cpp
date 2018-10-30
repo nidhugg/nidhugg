@@ -209,13 +209,30 @@ std::string VClock<int>::to_string() const{
 }
 
 VClockVec::Ref &VClockVec::Ref::operator-=(const Ref vc) {
-  assert(vc.size == size);
-  for (unsigned i = 0; i < size; ++i) {
+  assert(vc._size == _size);
+  for (unsigned i = 0; i < _size; ++i) {
     if(vc.base[i] < base[i]){
       base[i] = vc.base[i];
     }
   }
   return *this;
+}
+
+VClockVec::Ref &VClockVec::Ref::operator=(const VClock<int> vc) {
+  for (unsigned i = 0; i < _size; ++i) {
+    base[i] = vc[i];
+  }
+  return *this;
+}
+
+bool VClockVec::Ref::lt(const Ref vc) const{
+  assert(_size == vc._size);
+  bool less = false;
+  for(unsigned i = 0; i < _size; ++i){
+    if((*this)[i] > vc[i]) return false;
+    less = less || ((*this)[i] < vc[i]);
+  }
+  return less;
 }
 
 void VClockVec::assign(unsigned clock_size, std::size_t count,

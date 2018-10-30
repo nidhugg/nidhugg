@@ -481,14 +481,15 @@ void SaturatedGraph::reverse_saturate() {
     IFTRACE(std::cerr << "Care set: ");
     IFTRACE(for (ID id : care.vec) std::cerr << id << " ");
     IFTRACE(std::cerr << "\n");
+    if (care.vec.empty()) goto done;
 
-    std::vector<VC> below_clocks(events.size());
+    VClockVec below_clocks(events_by_pid.size(), events.size());
     const VC top = this->top();
     std::vector<ID> new_out;
     for (ID id : care.vec) {
       Timing::Guard saturate1_guard(saturate_rev1_timing);
       const Event &e = events[id];
-      VC &vc = below_clocks[id] = top;
+      VClockVec::Ref vc = below_clocks[id] = top;
       vc[e.iid.get_pid()] = e.iid.get_index();
       foreach_succ(id, e, [&vc,&below_clocks](ID o){vc-=below_clocks[o];});
       if (e.is_store) {
@@ -525,6 +526,7 @@ void SaturatedGraph::reverse_saturate() {
       }
     }
   }
+ done:
   saturated_until = events.size();
 }
 
