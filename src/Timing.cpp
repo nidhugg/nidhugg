@@ -17,6 +17,8 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#ifndef NO_TIMING
+
 #include "Timing.h"
 #include <vector>
 #include <iostream>
@@ -76,3 +78,5 @@ namespace Timing {
     }
   }
 }
+
+#endif /* !defined(NO_TIMING) */

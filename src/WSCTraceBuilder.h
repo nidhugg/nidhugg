@@ -520,10 +520,6 @@ protected:
   bool is_observed_conflict(IPid fst_pid, const SymEv &fst,
                             IPid snd_pid, const SymEv &snd,
                             IPid thd_pid, const SymEv &thd) const;
-  /* Reconstruct the vector cloc and symbolic event of a blocked attempt
-   * at aquiring a mutex recorded in race.
-   */
-  Event reconstruct_lock_event(const Race &race) const;
   /* Computes a mapping between IPid and current local clock value
    * (index) of that process after executing the prefix [0,event).
    */

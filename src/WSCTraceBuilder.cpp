@@ -38,6 +38,7 @@ static Timing::Context analysis_context("analysis");
 static Timing::Context vclocks_context("vclocks");
 static Timing::Context unfolding_context("unfolding");
 static Timing::Context neighbours_context("neighbours");
+static Timing::Context try_read_from_context("try_read_from");
 static Timing::Context graph_context("graph");
 static Timing::Context sat_context("sat");
 
@@ -1367,6 +1368,7 @@ void WSCTraceBuilder::compute_prefixes() {
       DecisionNode &decision = decisions[prefix[i].decision];
 
       auto try_read_from_rmw = [&](int j) {
+        Timing::Guard analysis_timing_guard(try_read_from_context);
         assert(j != -1 && j > int(i) && is_store(i) && is_load(j)
                && is_store_when_reading_from(j, original_read_from));
         /* Can only swap ajacent RMWs */
@@ -1397,6 +1399,7 @@ void WSCTraceBuilder::compute_prefixes() {
         undo_cmpxhg_recomputation(undoj, possible_writes);
       };
       auto try_read_from = [&](int j) {
+        Timing::Guard analysis_timing_guard(try_read_from_context);
         if (j == original_read_from || j == int(i)) return;
         if (j != -1 && j > int(i) && is_store(i) && is_load(j)) {
           if (!is_store_when_reading_from(j, original_read_from)) return;
@@ -1683,29 +1686,6 @@ void WSCTraceBuilder::iid_map_step(std::vector<int> &iid_map, const Event &event
 
 void WSCTraceBuilder::iid_map_step_rev(std::vector<int> &iid_map, const Event &event) const{
   iid_map[event.iid.get_pid()] -= event.size;
-}
-
-WSCTraceBuilder::Event WSCTraceBuilder::
-reconstruct_lock_event(const Race &race) const {
-  assert(race.kind == Race::LOCK_FAIL);
-  Event ret(race.second_process);
-  /* Compute the clock of the locking process (event k in prefix is
-   * something unrelated since this is a lock probe) */
-  /* Find last event of p before this mutex probe */
-  IPid p = race.second_process.get_pid();
-  if (race.second_process.get_index() != 1) {
-    int last = find_process_event(p, race.second_process.get_index()-1);
-    ret.clock = prefix[last].clock;
-  }
-  /* Recompute the clock of this mutex_lock_fail */
-  ++ret.clock[p];
-
-  assert(std::any_of(prefix[race.first_event].sym.begin(),
-                     prefix[race.first_event].sym.end(),
-                     [](const SymEv &e){ return e.kind == SymEv::M_LOCK
-                         || e.kind == SymEv::FULLMEM; }));
-  ret.sym = prefix[race.first_event].sym;
-  return ret;
 }
 
 inline Option<unsigned> WSCTraceBuilder::

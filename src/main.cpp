@@ -47,9 +47,11 @@ cl_program_arguments(llvm::cl::desc("[-- <program arguments>...]"),
                      llvm::cl::Positional,
                      llvm::cl::ZeroOrMore);
 
+#ifndef NO_TIMING
 llvm::cl::opt<bool>
 cl_time("time", llvm::cl::desc("Print timing information."),
         llvm::cl::NotHidden);
+#endif
 
 static Timing::Context global_timing_context("global");
 
@@ -145,8 +147,10 @@ int main(int argc, char *argv[]){
     return 1;
   }
 
+#ifndef NO_TIMING
   if (cl_time)
     Timing::print_report();
+#endif
 
   return (errors_detected ? VERIFICATION_FAILURE : EXIT_OK);
 }
