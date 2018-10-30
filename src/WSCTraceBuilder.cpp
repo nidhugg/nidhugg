@@ -34,6 +34,7 @@ static Timing::Context analysis_context("analysis");
 static Timing::Context vclocks_context("vclocks");
 static Timing::Context unfolding_context("unfolding");
 static Timing::Context neighbours_context("neighbours");
+static Timing::Context try_read_from_context("try_read_from");
 static Timing::Context graph_context("graph");
 static Timing::Context sat_context("sat");
 
@@ -1360,6 +1361,7 @@ void WSCTraceBuilder::compute_prefixes() {
       DecisionNode &decision = decisions[prefix[i].decision];
 
       auto try_read_from_rmw = [&](int j) {
+        Timing::Guard analysis_timing_guard(try_read_from_context);
         assert(j != -1 && j > int(i) && is_store(i) && is_load(j)
                && is_store_when_reading_from(j, original_read_from));
         /* Can only swap ajacent RMWs */
@@ -1390,6 +1392,7 @@ void WSCTraceBuilder::compute_prefixes() {
         undo_cmpxhg_recomputation(undoj, possible_writes);
       };
       auto try_read_from = [&](int j) {
+        Timing::Guard analysis_timing_guard(try_read_from_context);
         if (j == original_read_from || j == int(i)) return;
         if (j != -1 && j > int(i) && is_store(i) && is_load(j)) {
           if (!is_store_when_reading_from(j, original_read_from)) return;
