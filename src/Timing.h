@@ -22,8 +22,26 @@
 #define __TIMING_H__
 
 #include <string>
+
+#ifdef NO_TIMING
+
+namespace Timing {
+  class Context {
+    Context(Context &) = delete;
+    Context & operator =(Context &other) = delete;
+  public:
+    Context(std::string name) {}
+  };
+  class Guard {
+  public:
+    Guard(Context &) {}
+    Guard(Guard &) = delete;
+    Guard & operator =(Guard &other) = delete;
+  };
+}
+
+#else /* defined(NO_TIMING) */
 #include <chrono>
-#include <memory>
 
 namespace Timing {
   typedef std::chrono::steady_clock clock;
@@ -57,4 +75,6 @@ namespace Timing {
   void print_report();
 }
 
-#endif
+#endif /* !defined(NO_TIMING) */
+
+#endif /* !defined(__TIMING_H__) */
