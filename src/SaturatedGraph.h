@@ -38,7 +38,7 @@
 #include <immer/box.hpp>
 #include <immer/set.hpp>
 
-class SaturatedGraph {
+class SaturatedGraph final {
 public:
   SaturatedGraph();
 
@@ -61,6 +61,7 @@ public:
   /* Returns true if the graph is still acyclic. */
   bool saturate();
   bool is_saturated() const { return wq_empty(); }
+  bool has_event(ExtID id) const { return (extid_to_id.count(id) != 0); }
 
   void print_graph(std::ostream &o, std::function<std::string(ExtID)> event_str
                    = (std::string(&)(ExtID))std::to_string) const;
@@ -111,14 +112,28 @@ private:
   immer::vector<immer::box<VClock<int>>> vclocks;
   immer::vector<immer::map<SymAddr,immer::vector<ID>>>
     writes_by_process_and_address;
+  unsigned saturated_until;
 
   void add_edges(const std::vector<std::pair<ID,ID>> &);
   ID get_process_event(Pid pid, unsigned index) const;
+  Option<ID> maybe_get_process_event(Pid pid, unsigned index) const;
   VC initial_vc_for_event(IID<Pid> iid) const;
   VC initial_vc_for_event(const Event &e) const;
   VC recompute_vc_for_event(const Event &e, const immer::vector<ID> &in) const;
   void add_successors_to_wq(ID id, const Event &e);
   bool is_in_cycle(const Event &e, const immer::vector<ID> &in, const VC &vc) const;
+  Option<ID> po_successor(ID id, const Event &e) const;
+  VC top() const;
+  struct care {
+    care(unsigned e_sz) : set(e_sz) {}
+    std::vector<bool> set;
+    std::vector<ID> vec;
+  };
+  struct care reverse_care_set() const;
+  void add_to_care(struct care &, unsigned) const;
+  void reverse_saturate();
+
+  template <typename Fn> void foreach_succ(ID id, const Event &e, Fn f) const;
 
 #ifndef NDEBUG
   void check_graph_consistency() const;

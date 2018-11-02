@@ -139,8 +139,13 @@ public:
 namespace std {
 template<> struct hash<SymAddr>{
 public:
-  hash();
-  std::size_t operator()(const SymAddr &a) const;
+  hash() {}
+  std::size_t operator()(const SymAddr &a) const {
+    /* Intentionally laid out so that this becomes a single 64-bit load. */
+    return std::size_t(a.block.pid)
+      | std::size_t(uint16_t(a.block.alloc)) << 16
+      | std::size_t(a.offset) << 32;
+  }
 };
 }
 

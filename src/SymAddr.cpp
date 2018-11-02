@@ -19,8 +19,6 @@
 
 #include "SymAddr.h"
 
-#include <boost/functional/hash.hpp>
-
 std::string SymMBlock::to_string(std::function<std::string(int)> pid_str) const {
   std::string ret;
   if (is_null()) return "Null()";
@@ -42,16 +40,6 @@ std::string SymMBlock::to_string(std::function<std::string(int)> pid_str) const 
 std::string SymAddr::to_string(std::function<std::string(int)> pid_str) const {
   if (offset == 0) return block.to_string(pid_str);
   return "(" + block.to_string(pid_str) + "+" + std::to_string(offset) + ")";
-}
-
-std::hash<SymAddr>::hash() {}
-std::size_t std::hash<SymAddr>::operator()(const SymAddr &a) const {
-  std::size_t seed = 0;
-  boost::hash_combine(seed, a.block.pid);
-  boost::hash_combine(seed, a.block.alloc);
-  boost::hash_combine(seed, a.offset);
-
-  return seed;
 }
 
 std::string SymAddrSize::to_string(std::function<std::string(int)> pid_str) const {

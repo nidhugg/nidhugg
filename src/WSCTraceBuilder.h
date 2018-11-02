@@ -26,6 +26,7 @@
 #include "SymEv.h"
 #include "WakeupTrees.h"
 #include "Option.h"
+#include "SaturatedGraph.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -374,7 +375,7 @@ protected:
      * above_clock excludes reversible incoming edges, and below_clock
      * encodes happens-before rather than happens-after.
      */
-    VClock<IPid> clock, above_clock, below_clock;
+    VClock<IPid> clock, above_clock;
     /* Indices into prefix of events that happen before this one. */
     std::vector<unsigned> happens_after;
     /* Possibly reversible races found in the current execution
@@ -411,6 +412,7 @@ protected:
    * events that are determined in advance to be executed.
    */
   std::vector<Event> prefix;
+  VClockVec below_clocks;
 
   std::vector<DecisionNode> decisions;
 
@@ -574,8 +576,9 @@ protected:
   /* Records a symbolic representation of the current event.
    */
   void record_symbolic(SymEv event);
-  Leaf try_sat(int, std::map<SymAddr,std::vector<int>> &);
-  Leaf order_to_leaf(int decision, const std::vector<unsigned> order) const;
+  Leaf try_sat(int, std::map<SymAddr,std::vector<int>> &,
+               SaturatedGraph &);
+  Leaf order_to_leaf(int decision, const std::vector<unsigned> order, SaturatedGraph g) const;
   void output_formula(SatSolver &sat,
                       std::map<SymAddr,std::vector<int>> &,
                       const std::vector<bool> &);
@@ -606,4 +609,3 @@ protected:
 };
 
 #endif
-

@@ -19,7 +19,6 @@
 
 #include "Debug.h"
 #include "WSCTraceBuilder.h"
-#include "SaturatedGraph.h"
 #include "PrefixHeuristic.h"
 #include "Timing.h"
 
@@ -29,6 +28,11 @@
 #define ANSIRed "\x1b[91m"
 #define ANSIRst "\x1b[m"
 
+#ifndef NDEBUG
+#  define IFDEBUG(X) X
+#else
+#  define IFDEBUG(X)
+#endif
 
 static Timing::Context analysis_context("analysis");
 static Timing::Context vclocks_context("vclocks");
@@ -917,7 +921,7 @@ void WSCTraceBuilder::compute_vclocks(){
     }
   }
 
-  std::vector<std::vector<unsigned>> happens_after(prefix.size());
+  std::vector<llvm::SmallVector<unsigned,2>> happens_after(prefix.size());
   for (unsigned i = 0; i < prefix.size(); i++){
     IPid ipid = prefix[i].iid.get_pid();
     if (prefix[i].iid.get_index() > 1) {
@@ -950,15 +954,16 @@ void WSCTraceBuilder::compute_vclocks(){
   VClock<IPid> top;
   for (unsigned i = 0; i < threads.size(); ++i)
     top[i] = threads[i].event_indices.size();
+  below_clocks.assign(threads.size(), prefix.size(), top);
 
   for (unsigned i = prefix.size();;) {
     if (i == 0) break;
-    Event &e = prefix[--i];
-    e.below_clock = top;
-    e.below_clock[e.iid.get_pid()] = e.iid.get_index();
+    auto clock = below_clocks[--i];
+    Event &e = prefix[i];
+    clock[e.iid.get_pid()] = e.iid.get_index();
     for (unsigned j : happens_after[i]) {
       assert (i < j);
-      prefix[i].below_clock -= prefix[j].below_clock;
+      clock -= below_clocks[j];
     }
   }
 }
@@ -1332,7 +1337,7 @@ void WSCTraceBuilder::compute_prefixes() {
     return std::to_string(prefix[i].decision) + "("
       + std::to_string(prefix[i].event->seqno) + "):"
       + iid_string(i) + events_to_string(prefix[i].sym);
-  }; 
+  };
 
   std::map<SymAddr,std::vector<int>> writes_by_address;
   std::map<SymAddr,std::vector<int>> cmpxhgfail_by_address;
@@ -1349,6 +1354,8 @@ void WSCTraceBuilder::compute_prefixes() {
   //   pair.second.push_back(-1);
   // }
 
+  SaturatedGraph graph_cache;
+
   for (unsigned i = 0; i < prefix.size(); ++i) {
     if (!prefix[i].pinned && is_load(i)) {
       auto addr = get_addr(i);
@@ -1356,7 +1363,7 @@ void WSCTraceBuilder::compute_prefixes() {
       int original_read_from = *prefix[i].read_from;
       assert(std::any_of(possible_writes.begin(), possible_writes.end(),
              [=](int i) { return i == original_read_from; })
-           || original_read_from == -1);      
+           || original_read_from == -1);
 
       DecisionNode &decision = decisions[prefix[i].decision];
 
@@ -1383,7 +1390,7 @@ void WSCTraceBuilder::compute_prefixes() {
         auto undoj = recompute_cmpxhg_success(j, possible_writes);
         auto undoi = recompute_cmpxhg_success(i, possible_writes);
 
-        Leaf solution = try_sat(i, writes_by_address);
+        Leaf solution = try_sat(i, writes_by_address, graph_cache);
         decision.siblings.emplace(read_from, std::move(solution));
 
         /* Reset read-from */
@@ -1414,7 +1421,7 @@ void WSCTraceBuilder::compute_prefixes() {
           prefix[i].read_from = j;
           auto undoi = recompute_cmpxhg_success(i, possible_writes);
 
-          Leaf solution = try_sat(i, writes_by_address);
+          Leaf solution = try_sat(i, writes_by_address, graph_cache);
           decision.siblings.emplace(read_from, std::move(solution));
 
           undo_cmpxhg_recomputation(undoi, possible_writes);
@@ -1422,7 +1429,7 @@ void WSCTraceBuilder::compute_prefixes() {
       };
 
       const VClock<IPid> &above = prefix[i].above_clock;
-      const VClock<IPid> &below = prefix[i].below_clock;
+      const auto below = below_clocks[i];
       for (unsigned p = 0; p < threads.size(); ++p) {
         const std::vector<unsigned> &writes
           = writes_by_process_and_address[p][addr.addr];
@@ -1522,51 +1529,58 @@ void WSCTraceBuilder::output_formula
 
 WSCTraceBuilder::Leaf
 WSCTraceBuilder::try_sat
-(int changed_event, std::map<SymAddr,std::vector<int>> &writes_by_address){
+(int changed_event, std::map<SymAddr,std::vector<int>> &writes_by_address,
+ SaturatedGraph &graph_cache){
   Timing::Guard timing_guard(graph_context);
   int decision = prefix[changed_event].decision;
   std::vector<bool> keep = causal_past(decision);
 
-  {
-    SaturatedGraph g;
-    const auto add_event = [&g,this](unsigned i) {
-        SaturatedGraph::EventKind kind = SaturatedGraph::NONE;
-        SymAddr addr;
-        if (is_load(i)) {
-          if (is_store(i)) kind = SaturatedGraph::RMW;
-          else kind = SaturatedGraph::LOAD;
-        } else if (is_store(i)) kind = SaturatedGraph::STORE;
-        if (kind != SaturatedGraph::NONE) addr = get_addr(i).addr;
-        Option<unsigned> read_from;
-        if (prefix[i].read_from && *prefix[i].read_from != -1)
-          read_from = unsigned(*prefix[i].read_from);
-        g.add_event(unsigned(prefix[i].iid.get_pid()), i, kind, addr,
-                    read_from, prefix[i].happens_after);
-      };
-    for (unsigned i = 0; i < prefix.size(); ++i) {
-      if (keep[i] && int(i) != changed_event) {
-        add_event(i);
-      }
+  const auto add_event = [this](SaturatedGraph &g, unsigned i) {
+      SaturatedGraph::EventKind kind = SaturatedGraph::NONE;
+      SymAddr addr;
+      if (is_load(i)) {
+        if (is_store(i)) kind = SaturatedGraph::RMW;
+        else kind = SaturatedGraph::LOAD;
+      } else if (is_store(i)) kind = SaturatedGraph::STORE;
+      if (kind != SaturatedGraph::NONE) addr = get_addr(i).addr;
+      Option<unsigned> read_from;
+      if (prefix[i].read_from && *prefix[i].read_from != -1)
+        read_from = unsigned(*prefix[i].read_from);
+      g.add_event(unsigned(prefix[i].iid.get_pid()), i, kind, addr,
+                  read_from, prefix[i].happens_after);
+    };
+  std::vector<bool> cache_keep = causal_past(decision-1);
+  for (unsigned i = 0; i < prefix.size(); ++i) {
+    if (cache_keep[i] && !graph_cache.has_event(i)) {
+      add_event(graph_cache, i);
     }
-    assert(keep[changed_event]);
-    add_event(changed_event);
-    if (!g.saturate()) {
-      if (conf.debug_print_on_reset)
-        llvm::dbgs() << ": Saturation yielded cycle\n";
-      return Leaf();
-    }
+  }
+  IFDEBUG(bool cache_acyclic = ) graph_cache.saturate();
+  assert(cache_acyclic);
 
-    if (Option<std::vector<unsigned>> res = try_generate_prefix(std::move(g))) {
-      if (conf.debug_print_on_reset) {
-        llvm::dbgs() << ": Heuristic found prefix\n";
-        llvm::dbgs() << "[";
-        for (unsigned i : *res) {
-          llvm::dbgs() << i << ",";
-        }
-        llvm::dbgs() << "]\n";
-      }
-      return order_to_leaf(decision, *res);
+  SaturatedGraph g(graph_cache);
+  for (unsigned i = 0; i < prefix.size(); ++i) {
+    if (keep[i] && int(i) != changed_event && !g.has_event(i)) {
+      add_event(g, i);
     }
+  }
+  add_event(g, changed_event);
+  if (!g.saturate()) {
+    if (conf.debug_print_on_reset)
+      llvm::dbgs() << ": Saturation yielded cycle\n";
+    return Leaf();
+  }
+  /* We need to preserve g */
+  if (Option<std::vector<unsigned>> res = try_generate_prefix(g)) {
+    if (conf.debug_print_on_reset) {
+      llvm::dbgs() << ": Heuristic found prefix\n";
+      llvm::dbgs() << "[";
+      for (unsigned i : *res) {
+        llvm::dbgs() << i << ",";
+      }
+      llvm::dbgs() << "]\n";
+    }
+    return order_to_leaf(decision, *res, std::move(g));
   }
 
   std::unique_ptr<SatSolver> sat = conf.get_sat_solver();
@@ -1605,11 +1619,11 @@ WSCTraceBuilder::try_sat
     llvm::dbgs() << "]\n";
   }
 
-  return order_to_leaf(decision, order);
+  return order_to_leaf(decision, order, std::move(g));
 }
 
 WSCTraceBuilder::Leaf WSCTraceBuilder::order_to_leaf
-(int decision, const std::vector<unsigned> order) const{
+(int decision, const std::vector<unsigned> order, SaturatedGraph g) const{
   std::vector<Branch> new_prefix;
   new_prefix.reserve(order.size());
   for (unsigned i : order) {
@@ -1634,7 +1648,8 @@ WSCTraceBuilder::Leaf WSCTraceBuilder::order_to_leaf
 std::vector<bool> WSCTraceBuilder::causal_past(int decision) const {
   std::vector<bool> acc(prefix.size());
   for (unsigned i = 0; i < prefix.size(); ++i) {
-    assert(is_load(i) == ((prefix[i].decision != -1) ^ prefix[i].pinned));
+    assert(!((prefix[i].decision != -1) && prefix[i].pinned));
+    assert(is_load(i) == ((prefix[i].decision != -1) || prefix[i].pinned));
     if (prefix[i].decision != -1 && prefix[i].decision <= decision) {
       causal_past_1(acc, i);
     }
