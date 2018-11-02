@@ -396,11 +396,11 @@ void SaturatedGraph::check_graph_consistency() const {
 #endif
 
 void SaturatedGraph::print_graph
-(std::ostream &o, std::function<std::string(unsigned)> event_str) const {
+(std::ostream &o, std::function<std::string(ExtID)> event_str) const {
   o << "digraph {\n";
   for (ID id = 0; id < events.size(); ++id) {
     const Event &e = events[id];
-    o << id << " [label=\"" << event_str(id) << "\"];\n";
+    o << id << " [label=\"" << event_str(e.ext_id) << "\"];\n";
     if (e.read_from) {
       o << *e.read_from << " -> " << id << " [label=\"rf\"];\n";
     }
@@ -437,7 +437,7 @@ const SaturatedGraph::VC &SaturatedGraph::event_vc(ExtID eid) const {
 }
 
 std::vector<SaturatedGraph::ExtID> SaturatedGraph::event_in(ExtID eid) const {
-  std::vector<unsigned> ret;
+  std::vector<ExtID> ret;
   ID id = extid_to_id.at(eid);
   const Event &e = events[id];
   const immer::vector<ID> &in = ins[id];
