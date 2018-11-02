@@ -83,10 +83,24 @@ public:
 
   std::string to_string() const;
 private:
+  friend class std::hash<IID>;
+
   /* This IID is (pid,idx) */
   Pid_t pid;
   int idx;
 };
+
+namespace std {
+  template<> struct hash<IID<int>>{
+public:
+  hash() {}
+    std::size_t operator()(const IID<int> &a) const {
+      /* Intentionally laid out so that this becomes a single 64-bit load. */
+      return std::size_t(unsigned(a.pid))
+        | std::size_t(unsigned(a.idx)) << 32;
+    }
+  };
+}
 
 #include "IID.tcc"
 
