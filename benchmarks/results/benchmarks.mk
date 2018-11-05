@@ -26,7 +26,8 @@ ifneq ($(wildcard $(CDSC_DIR)/.),)
         TOOLS += cdsc
 endif
 
-TABLES = $(TOOLS:%=%.txt)
+TABLES = $(TOOLS:%=%.txt) wide.txt
+ALL_RESULTS = $(TOOLS:%=%_results)
 all: $(TABLES)
 
 # Hack to not duplicate tabulation rule; causes the table to be rebuilt on each
@@ -71,7 +72,11 @@ cdsc_%.txt: cdsc_%.elf
 	$(RUN) ./$< 2>&1 | tee $@
 
 %.txt: %_results $(TABULATE)
-	$(TABULATE) "$(NAME)" $* "$(N)" \
+	$(TABULATE) tool "$(NAME)" $* "$(N)" \
+	  | column -t > $@
+
+wide.txt: $(ALL_RESULTS) $(TABULATE)
+	$(TABULATE) wide "$(NAME)" "$(TOOLS)" "$(N)" \
 	  | column -t > $@
 
 clean:

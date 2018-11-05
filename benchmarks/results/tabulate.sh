@@ -2,10 +2,8 @@
 
 set -euo pipefail
 
-bench=$1
-tool=$2
-N=$3
-shift 2
+verb=$1
+shift 1
 
 blame() {
     if grep -Eq '^real ' $1; then
@@ -47,10 +45,40 @@ get_mem() {
     fi
 }
 
-
-echo -e "benchmark\tn\ttool\ttraces\ttime\tmem\n"
-for n in $N; do
-    f="${tool}_${n}.txt"
-    printf "%s\t%d\t%s\t%s\t%s\t%s\n" $bench $n $tool $(get_traces "$f") \
-           $(get_time "$f") $(get_mem "$f")
-done
+case $verb in
+    tool)
+        bench=$1
+        tool=$2
+        N=$3
+        shift 3
+        echo -e "benchmark\tn\ttool\ttraces\ttime\tmem"
+        for n in $N; do
+            f="${tool}_${n}.txt"
+            printf "%s\t%d\t%s\t%s\t%s\t%s\n" $bench $n $tool $(get_traces "$f") \
+                   $(get_time "$f") $(get_mem "$f")
+        done
+        ;;
+    wide)
+        bench=$1
+        tools=$2
+        N=$3
+        shift 3
+        echo -ne "benchmark\tn"
+        for tool in $tools; do
+            echo -ne "\t${tool}_traces\t${tool}_time\t${tool}_mem"
+        done
+        echo ''
+        for n in $N; do
+            printf "%s\t%d" $bench $n
+            for tool in $tools; do
+                f="${tool}_${n}.txt"
+                printf "\t%s\t%s\t%s" $(get_traces "$f") $(get_time "$f") \
+                       $(get_mem "$f")
+            done
+            printf "\n"
+        done
+        ;;
+    *)
+        echo "Unknown verb $verb" >&2
+        exit 1
+esac
