@@ -21,7 +21,11 @@ ULIMIT = ulimit -Ss $(STACK_LIMIT) &&
 RUN = -$(ULIMIT) $(TIMEOUT) $(TIME)
 TABULATE = ../../tabulate.sh
 
-TOOLS = source optimal observers swsc rcmc # cdsc
+TOOLS = source optimal observers swsc rcmc
+ifneq ($(wildcard $(CDSC_DIR)/.),)
+        TOOLS += cdsc
+endif
+
 TABLES = $(TOOLS:%=%.txt)
 all: $(TABLES)
 
