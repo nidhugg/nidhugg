@@ -1,5 +1,6 @@
 	# from_DCDPOR/parker		\ # not the same benchmark
 SUBDIRS =				\
+	from_CONCUERROR/lastzero	\
 	from_DCDPOR/opt_lock		\
 	from_OBSERVERS/fib_bench	\
 	from_OBSERVERS/floating_read	\
