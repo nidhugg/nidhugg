@@ -150,6 +150,7 @@ protected:
     DecisionNode() : siblings() {}
     std::unordered_map<std::shared_ptr<UnfoldingNode>, Leaf> siblings;
     std::unordered_set<std::shared_ptr<UnfoldingNode>> sleep;
+    SaturatedGraph graph_cache;
   };
 
   /* Various information about a thread in the current execution.
@@ -559,6 +560,8 @@ protected:
    const std::shared_ptr<UnfoldingNode> &read_from);
   std::shared_ptr<UnfoldingNode> alternative
   (unsigned i, const std::shared_ptr<UnfoldingNode> &read_from);
+  void add_event_to_graph(SaturatedGraph &g, unsigned i) const;
+  const SaturatedGraph &get_cached_graph(unsigned i);
   /* Perform planning of future executions. Requires the trace to be
    * maximal or sleepset blocked, and that the vector clocks have been
    * computed.
@@ -576,8 +579,7 @@ protected:
   /* Records a symbolic representation of the current event.
    */
   void record_symbolic(SymEv event);
-  Leaf try_sat(int, std::map<SymAddr,std::vector<int>> &,
-               SaturatedGraph &);
+  Leaf try_sat(int, std::map<SymAddr,std::vector<int>> &);
   Leaf order_to_leaf(int decision, const std::vector<unsigned> order, SaturatedGraph g) const;
   void output_formula(SatSolver &sat,
                       std::map<SymAddr,std::vector<int>> &,

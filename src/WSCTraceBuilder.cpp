@@ -1354,8 +1354,6 @@ void WSCTraceBuilder::compute_prefixes() {
   //   pair.second.push_back(-1);
   // }
 
-  SaturatedGraph graph_cache;
-
   for (unsigned i = 0; i < prefix.size(); ++i) {
     if (!prefix[i].pinned && is_load(i)) {
       auto addr = get_addr(i);
@@ -1390,7 +1388,7 @@ void WSCTraceBuilder::compute_prefixes() {
         auto undoj = recompute_cmpxhg_success(j, possible_writes);
         auto undoi = recompute_cmpxhg_success(i, possible_writes);
 
-        Leaf solution = try_sat(i, writes_by_address, graph_cache);
+        Leaf solution = try_sat(i, writes_by_address);
         decision.siblings.emplace(read_from, std::move(solution));
 
         /* Reset read-from */
@@ -1421,7 +1419,7 @@ void WSCTraceBuilder::compute_prefixes() {
           prefix[i].read_from = j;
           auto undoi = recompute_cmpxhg_success(i, possible_writes);
 
-          Leaf solution = try_sat(i, writes_by_address, graph_cache);
+          Leaf solution = try_sat(i, writes_by_address);
           decision.siblings.emplace(read_from, std::move(solution));
 
           undo_cmpxhg_recomputation(undoi, possible_writes);
@@ -1535,46 +1533,60 @@ template<typename T, typename F> auto map(const std::vector<T> &vec, F f)
   return ret;
 }
 
+void WSCTraceBuilder::add_event_to_graph(SaturatedGraph &g, unsigned i) const {
+  SaturatedGraph::EventKind kind = SaturatedGraph::NONE;
+  SymAddr addr;
+  if (is_load(i)) {
+    if (is_store(i)) kind = SaturatedGraph::RMW;
+    else kind = SaturatedGraph::LOAD;
+  } else if (is_store(i)) kind = SaturatedGraph::STORE;
+  if (kind != SaturatedGraph::NONE) addr = get_addr(i).addr;
+  Option<IID<IPid>> read_from;
+  if (prefix[i].read_from && *prefix[i].read_from != -1)
+    read_from = prefix[*prefix[i].read_from].iid;
+  IID<IPid> iid = prefix[i].iid;
+  g.add_event(iid.get_pid(), iid, kind, addr,
+              read_from, map(prefix[i].happens_after,
+                             [this](unsigned j){return prefix[j].iid;}));
+}
+
+const SaturatedGraph &WSCTraceBuilder::get_cached_graph(unsigned i) {
+  SaturatedGraph &g = decisions[i].graph_cache;
+  if (g.size() || i == 0) return g;
+  for (unsigned j = i-1; j != 0; --j) {
+    if (decisions[j].graph_cache.size()) {
+      /* Reuse subgraph */
+      g = decisions[j].graph_cache;
+      break;
+    }
+  }
+  std::vector<bool> keep = causal_past(i-1);
+  for (unsigned i = 0; i < prefix.size(); ++i) {
+    if (keep[i] && !g.has_event(prefix[i].iid)) {
+      add_event_to_graph(g, i);
+    }
+  }
+
+  IFDEBUG(bool g_acyclic = ) g.saturate();
+  assert(g_acyclic);
+
+  return g;
+}
+
 WSCTraceBuilder::Leaf
 WSCTraceBuilder::try_sat
-(int changed_event, std::map<SymAddr,std::vector<int>> &writes_by_address,
- SaturatedGraph &graph_cache){
+(int changed_event, std::map<SymAddr,std::vector<int>> &writes_by_address){
   Timing::Guard timing_guard(graph_context);
   int decision = prefix[changed_event].decision;
   std::vector<bool> keep = causal_past(decision);
 
-  const auto add_event = [this](SaturatedGraph &g, unsigned i) {
-      SaturatedGraph::EventKind kind = SaturatedGraph::NONE;
-      SymAddr addr;
-      if (is_load(i)) {
-        if (is_store(i)) kind = SaturatedGraph::RMW;
-        else kind = SaturatedGraph::LOAD;
-      } else if (is_store(i)) kind = SaturatedGraph::STORE;
-      if (kind != SaturatedGraph::NONE) addr = get_addr(i).addr;
-      Option<IID<IPid>> read_from;
-      if (prefix[i].read_from && *prefix[i].read_from != -1)
-        read_from = prefix[*prefix[i].read_from].iid;
-      IID<IPid> iid = prefix[i].iid;
-      g.add_event(iid.get_pid(), iid, kind, addr,
-                  read_from, map(prefix[i].happens_after,
-                                 [this](unsigned j){return prefix[j].iid;}));
-    };
-  std::vector<bool> cache_keep = causal_past(decision-1);
-  for (unsigned i = 0; i < prefix.size(); ++i) {
-    if (cache_keep[i] && !graph_cache.has_event(prefix[i].iid)) {
-      add_event(graph_cache, i);
-    }
-  }
-  IFDEBUG(bool cache_acyclic = ) graph_cache.saturate();
-  assert(cache_acyclic);
-
-  SaturatedGraph g(graph_cache);
+  SaturatedGraph g(get_cached_graph(decision));
   for (unsigned i = 0; i < prefix.size(); ++i) {
     if (keep[i] && int(i) != changed_event && !g.has_event(prefix[i].iid)) {
-      add_event(g, i);
+      add_event_to_graph(g, i);
     }
   }
-  add_event(g, changed_event);
+  add_event_to_graph(g, changed_event);
   if (!g.saturate()) {
     if (conf.debug_print_on_reset)
       llvm::dbgs() << ": Saturation yielded cycle\n";

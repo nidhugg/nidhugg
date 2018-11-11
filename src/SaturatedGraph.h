@@ -73,6 +73,7 @@ public:
   const VC &event_vc(ExtID id) const;
   std::vector<ExtID> event_ids() const;
   std::vector<ExtID> event_in(ExtID id) const;
+  std::size_t size() const { return events.size(); }
 
   void add_edge(ExtID from, ExtID to);
 
