@@ -1,6 +1,7 @@
-NAME=thread_parametric
+NAME=thread-parametric
 FILE=synthetic/thread_parametric.c
-N = 3 6 10 18 32 56 100 178 316 562 1000
+# 3 6 10 18 32 56 178 562
+N = 100 316 1000
 TIME_LIMIT = 600
 
 include ../../benchmarks.mk

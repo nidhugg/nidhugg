@@ -1,4 +1,4 @@
-NAME=sat_example
+NAME=sat-example
 FILE=synthetic/sat-example.c
 N = 1
 # CDSC support not implemented
