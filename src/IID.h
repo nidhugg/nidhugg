@@ -44,9 +44,9 @@ template<typename Pid_t>
 class IID{
 public:
   /* Create the null IID. */
-  IID() : idx(0) {};
+  IID() : idx(), pid() {};
   /* Create the IID (p,i). */
-  IID(const Pid_t &p, int i) : pid(p), idx(i) { assert(i >= 0); };
+  IID(const Pid_t &p, int i) : idx(i), pid(p) { assert(i >= 0); };
   IID(const IID&) = default;
   IID &operator=(const IID&) = default;
 
@@ -68,14 +68,12 @@ public:
    *
    * For each process p, the order is such that (p,i) < (p,j) iff i < j.
    */
-  bool operator==(const IID &iid) const {
-    return (idx == 0 && iid.idx == 0) ||
-      (idx == iid.idx && pid == iid.pid);
+  bool operator==(const IID &iid) const{
+    return (idx == iid.idx && pid == iid.pid);
   };
   bool operator!=(const IID &iid) const { return !((*this) == iid); };
   bool operator<(const IID &iid) const {
-    return (idx == 0 && iid.idx != 0) ||
-      (idx && iid.idx && (pid < iid.pid || (pid == iid.pid && idx < iid.idx)));
+    return (pid < iid.pid || (pid == iid.pid && idx < iid.idx));
   };
   bool operator<=(const IID &iid) const { return (*this) < iid || (*this) == iid; };
   bool operator>(const IID &iid) const { return iid < (*this); };
@@ -85,10 +83,28 @@ public:
 private:
   friend class std::hash<IID>;
 
+  /* Only makes sense for integral pid types, at most 32-bits */
+  std::uint64_t comp_value() const {
+    return std::size_t(idx)
+      | std::size_t(unsigned(pid)) << 32;
+  }
+
   /* This IID is (pid,idx) */
+  unsigned idx;
   Pid_t pid;
-  int idx;
 };
+
+template<> inline bool IID<int>::operator==(const IID &iid) const {
+  return comp_value() == iid.comp_value();
+}
+
+template<> inline bool IID<int>::operator<(const IID &iid) const {
+  return comp_value() < iid.comp_value();
+}
+
+template<> inline bool IID<int>::operator<=(const IID &iid) const {
+  return comp_value() <= iid.comp_value();
+}
 
 namespace std {
   template<> struct hash<IID<int>>{
@@ -96,8 +112,8 @@ public:
   hash() {}
     std::size_t operator()(const IID<int> &a) const {
       /* Intentionally laid out so that this becomes a single 64-bit load. */
-      return std::size_t(unsigned(a.pid))
-        | std::size_t(unsigned(a.idx)) << 32;
+      return std::size_t(unsigned(a.idx))
+        | std::size_t(unsigned(a.pid)) << 32;
     }
   };
 }

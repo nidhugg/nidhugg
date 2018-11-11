@@ -20,6 +20,7 @@
 #include "PrefixHeuristic.h"
 #include "Timing.h"
 #include <list>
+#include <set>
 #include <iostream>
 #include <fstream>
 #include <llvm/Support/CommandLine.h>
@@ -36,13 +37,16 @@ cl_no_heuristic("no-heuristic",llvm::cl::NotHidden,
 #  define IFTRACE(X) ((void)0)
 #endif
 
-Option<std::vector<unsigned>> try_generate_prefix(SaturatedGraph g) {
+Option<std::vector<IID<int>>>
+try_generate_prefix(SaturatedGraph g, std::vector<IID<int>> current_exec) {
   Timing::Guard timing_guard(heuristic_context);
   if (cl_no_heuristic) return nullptr;
-  std::vector<unsigned> ids = g.event_ids();
-  std::sort(ids.begin(), ids.end());
+  std::vector<IID<int>> ids;
+  for (IID<int> iid : current_exec)
+    if (g.has_event(iid))
+      ids.push_back(iid);
 
-  std::map<SymAddr,std::list<unsigned>> total_co;
+  std::map<SymAddr,std::list<IID<int>>> total_co;
 
   // {
   //   std::ofstream out("saturated.dot");
@@ -50,28 +54,29 @@ Option<std::vector<unsigned>> try_generate_prefix(SaturatedGraph g) {
   // }
 
 
-  for (unsigned w : ids) {
+  for (IID<int> w : ids) {
     if (!g.event_is_store(w)) continue;
     const auto &wc = g.event_vc(w);
     SymAddr a = g.event_addr(w);
 
     auto ins_ptr = total_co[a].end();
     for (;ins_ptr != total_co[a].begin(); --ins_ptr) {
-      unsigned i = *std::prev(ins_ptr);
+      IID<int> i = *std::prev(ins_ptr);
       const auto &ic = g.event_vc(i);
-      assert(w > i);
+      assert(std::find(current_exec.begin(), current_exec.end(), w)
+           > std::find(current_exec.begin(), current_exec.end(), i));
       if (!wc.leq(ic)) {
         break;
       }
     }
 
     if (ins_ptr != total_co[a].begin()) {
-      unsigned i = *std::prev(ins_ptr);
+      IID<int> i = *std::prev(ins_ptr);
       IFTRACE(std::cout << "Guessing coherence order from " << i << " to " << w << "\n");
       g.add_edge(i, w);
     }
     if (ins_ptr != total_co[a].end()) {
-      unsigned j = *ins_ptr;
+      IID<int> j = *ins_ptr;
       IFTRACE(std::cout << "Guessing coherence order from " << w << " to " << j << "\n");
       g.add_edge(w, j);
     }
@@ -92,22 +97,25 @@ Option<std::vector<unsigned>> try_generate_prefix(SaturatedGraph g) {
   return toposort(g, std::move(ids));
 }
 
-static void toposort(unsigned id, const SaturatedGraph &g, std::vector<bool> &mark,
-                     std::vector<unsigned> &ret) {
-  if (mark[id]) return;
-  mark[id] = true;
-  for (unsigned in : g.event_in(id)) {
+static void toposort(IID<int> id, const SaturatedGraph &g, std::set<IID<int>> &mark,
+                     std::vector<IID<int>> &ret) {
+  if (mark.count(id)) return;
+  mark.emplace(id);
+  for (IID<int> in : g.event_in(id)) {
     toposort(in, g, mark, ret);
   }
   ret.push_back(id);
 }
 
-std::vector<unsigned> toposort(const SaturatedGraph &g, std::vector<unsigned> ids) {
-  std::vector<bool> mark(*std::max_element(ids.begin(), ids.end())+1);
-  std::vector<unsigned> ret;
+std::vector<IID<int>> toposort(const SaturatedGraph &g, std::vector<IID<int>> ids) {
+  /* Could be a more efficient data structure. Is probably not a
+   * bottleneck, though.
+   */
+  std::set<IID<int>> mark;
+  std::vector<IID<int>> ret;
   ret.reserve(ids.size());
 
-  for (unsigned id : ids)
+  for (IID<int> id : ids)
     toposort(id, g, mark, ret);
 
   return ret;
