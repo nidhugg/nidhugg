@@ -42,7 +42,7 @@ class SaturatedGraph final {
 public:
   SaturatedGraph();
 
-  typedef unsigned ExtID;
+  typedef IID<int> ExtID;
   typedef unsigned Pid;
 
   /* write == -1 means init */
@@ -64,7 +64,7 @@ public:
   bool has_event(ExtID id) const { return (extid_to_id.count(id) != 0); }
 
   void print_graph(std::ostream &o, std::function<std::string(ExtID)> event_str
-                   = (std::string(&)(ExtID))std::to_string) const;
+                   = std::mem_fn(&IID<int>::to_string)) const;
 
   /* Accessors */
   bool event_is_store(ExtID id) const;

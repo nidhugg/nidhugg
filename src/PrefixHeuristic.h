@@ -24,9 +24,10 @@
 #include "SaturatedGraph.h"
 #include "Option.h"
 
-Option<std::vector<unsigned>> try_generate_prefix(SaturatedGraph g);
+Option<std::vector<IID<int>>>
+try_generate_prefix(SaturatedGraph g, std::vector<IID<int>> current_exec);
 
-std::vector<unsigned> toposort(const SaturatedGraph &g,
-                               std::vector<unsigned> ids);
+std::vector<IID<int>> toposort(const SaturatedGraph &g,
+                               std::vector<IID<int>> ids);
 
 #endif

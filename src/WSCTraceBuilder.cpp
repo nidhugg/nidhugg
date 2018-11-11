@@ -1527,6 +1527,14 @@ void WSCTraceBuilder::output_formula
   }
 }
 
+template<typename T, typename F> auto map(const std::vector<T> &vec, F f)
+  -> std::vector<typename std::result_of<F(const T&)>::type> {
+  std::vector<typename std::result_of<F(const T&)>::type> ret;
+  ret.reserve(vec.size());
+  for (const T &e : vec) ret.emplace_back(f(e));
+  return ret;
+}
+
 WSCTraceBuilder::Leaf
 WSCTraceBuilder::try_sat
 (int changed_event, std::map<SymAddr,std::vector<int>> &writes_by_address,
@@ -1543,15 +1551,17 @@ WSCTraceBuilder::try_sat
         else kind = SaturatedGraph::LOAD;
       } else if (is_store(i)) kind = SaturatedGraph::STORE;
       if (kind != SaturatedGraph::NONE) addr = get_addr(i).addr;
-      Option<unsigned> read_from;
+      Option<IID<IPid>> read_from;
       if (prefix[i].read_from && *prefix[i].read_from != -1)
-        read_from = unsigned(*prefix[i].read_from);
-      g.add_event(unsigned(prefix[i].iid.get_pid()), i, kind, addr,
-                  read_from, prefix[i].happens_after);
+        read_from = prefix[*prefix[i].read_from].iid;
+      IID<IPid> iid = prefix[i].iid;
+      g.add_event(iid.get_pid(), iid, kind, addr,
+                  read_from, map(prefix[i].happens_after,
+                                 [this](unsigned j){return prefix[j].iid;}));
     };
   std::vector<bool> cache_keep = causal_past(decision-1);
   for (unsigned i = 0; i < prefix.size(); ++i) {
-    if (cache_keep[i] && !graph_cache.has_event(i)) {
+    if (cache_keep[i] && !graph_cache.has_event(prefix[i].iid)) {
       add_event(graph_cache, i);
     }
   }
@@ -1560,7 +1570,7 @@ WSCTraceBuilder::try_sat
 
   SaturatedGraph g(graph_cache);
   for (unsigned i = 0; i < prefix.size(); ++i) {
-    if (keep[i] && int(i) != changed_event && !g.has_event(i)) {
+    if (keep[i] && int(i) != changed_event && !g.has_event(prefix[i].iid)) {
       add_event(g, i);
     }
   }
@@ -1570,17 +1580,23 @@ WSCTraceBuilder::try_sat
       llvm::dbgs() << ": Saturation yielded cycle\n";
     return Leaf();
   }
+  std::vector<IID<int>> current_exec
+    = map(prefix, [](const Event &e) { return e.iid; });
   /* We need to preserve g */
-  if (Option<std::vector<unsigned>> res = try_generate_prefix(g)) {
+  if (Option<std::vector<IID<int>>> res
+      = try_generate_prefix(g, std::move(current_exec))) {
     if (conf.debug_print_on_reset) {
       llvm::dbgs() << ": Heuristic found prefix\n";
       llvm::dbgs() << "[";
-      for (unsigned i : *res) {
-        llvm::dbgs() << i << ",";
+      for (IID<int> iid : *res) {
+        llvm::dbgs() << iid << ",";
       }
       llvm::dbgs() << "]\n";
     }
-    return order_to_leaf(decision, *res, std::move(g));
+    std::vector<unsigned> order = map(*res, [this](IID<int> iid) {
+        return find_process_event(iid.get_pid(), iid.get_index());
+      });
+    return order_to_leaf(decision, std::move(order), std::move(g));
   }
 
   std::unique_ptr<SatSolver> sat = conf.get_sat_solver();
