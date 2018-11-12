@@ -1404,16 +1404,16 @@ bool WSCTraceBuilder::can_swap_by_vclocks(int r, int w) const {
 }
 
 bool WSCTraceBuilder::can_swap_lock_by_vclocks(int f, int u, int s) const {
-  if (prefix[s].iid.get_index() != 1) {
-    unsigned s_po_pred = find_process_event(prefix[s].iid.get_pid(),
-                                            prefix[s].iid.get_index()-1);
-    if (prefix[f].clock.leq(prefix[s_po_pred].clock)) return false;
-  }
-  for (unsigned pred : prefix[s].happens_after) {
-    if (pred == unsigned(u)) continue;
-    assert(pred != unsigned(f));
-    if (prefix[f].clock.leq(prefix[pred].clock)) return false;
-  }
+  // if (prefix[s].iid.get_index() != 1) {
+  //   unsigned s_po_pred = find_process_event(prefix[s].iid.get_pid(),
+  //                                           prefix[s].iid.get_index()-1);
+  //   if (prefix[f].clock.leq(prefix[s_po_pred].clock)) return false;
+  // }
+  // for (unsigned pred : prefix[s].happens_after) {
+  //   if (pred == unsigned(u)) continue;
+  //   assert(pred != unsigned(f));
+  //   if (prefix[f].clock.leq(prefix[pred].clock)) return false;
+  // }
   return true;
 }
 
