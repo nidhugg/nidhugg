@@ -39,6 +39,7 @@ static Timing::Context vclocks_context("vclocks");
 static Timing::Context unfolding_context("unfolding");
 static Timing::Context neighbours_context("neighbours");
 static Timing::Context try_read_from_context("try_read_from");
+static Timing::Context ponder_mutex_context("ponder_mutex");
 static Timing::Context graph_context("graph");
 static Timing::Context sat_context("sat");
 
@@ -227,7 +228,15 @@ bool WSCTraceBuilder::reset(){
   for (unsigned i = 0;; ++i) {
     if (prefix[i].decision == int(decisions.size()-1)) {
       assert(!prefix[i].pinned);
-      decisions.back().sleep.emplace(prefix[i].event->read_from);
+      /* Icky performance hack to work around dreadful performance of
+       * shared_ptr reference counting;
+       *
+       * The unfolding node of read events is the _read from_ event,
+       * whereas for lock events it is the event itself.
+       */
+      const std::shared_ptr<UnfoldingNode> &decision
+        = is_lock_type(i) ? prefix[i].event : prefix[i].event->read_from;
+      decisions.back().sleep.emplace(decision);
       break;
     }
     assert(i < prefix.size());
@@ -315,6 +324,10 @@ std::string WSCTraceBuilder::iid_string(const Event &event) const{
     ss << "-alt:" << event.alt;
   }
   return ss.str();
+}
+
+std::string WSCTraceBuilder::iid_string(IID<IPid> iid) const{
+  return iid_string(find_process_event(iid.get_pid(), iid.get_index()));
 }
 
 static std::string events_to_string(const llvm::SmallVectorImpl<SymEv> &e) {
@@ -525,10 +538,11 @@ void WSCTraceBuilder::join(int tgt_proc){
 void WSCTraceBuilder::mutex_lock(const SymAddrSize &ml){
   record_symbolic(SymEv::MLock(ml));
   fence();
-  curev().may_conflict = true;
 
   assert(!conf.mutex_require_init || mutexes.count(ml.addr));
   Mutex &mutex = mutexes[ml.addr];
+  curev().may_conflict = true;
+  curev().read_from = mutex.last_access;
 
   if(mutex.last_lock < 0){
     /* No previous lock */
@@ -554,10 +568,12 @@ void WSCTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
 }
 
 void WSCTraceBuilder::mutex_trylock(const SymAddrSize &ml){
+  abort();
   assert(!conf.mutex_require_init || mutexes.count(ml.addr));
   Mutex &mutex = mutexes[ml.addr];
   record_symbolic(mutex.locked ? SymEv::MTryLockFail(ml) : SymEv::MTryLock(ml));
   fence();
+  curev().read_from = mutex.last_access;
   curev().may_conflict = true;
   see_events({mutex.last_access,last_full_memory_conflict});
 
@@ -573,6 +589,7 @@ void WSCTraceBuilder::mutex_unlock(const SymAddrSize &ml){
   fence();
   assert(!conf.mutex_require_init || mutexes.count(ml.addr));
   Mutex &mutex = mutexes[ml.addr];
+  curev().read_from = mutex.last_access;
   curev().may_conflict = true;
   assert(0 <= mutex.last_access);
 
@@ -586,6 +603,7 @@ void WSCTraceBuilder::mutex_init(const SymAddrSize &ml){
   record_symbolic(SymEv::MInit(ml));
   fence();
   assert(mutexes.count(ml.addr) == 0);
+  curev().read_from = -1;
   curev().may_conflict = true;
   mutexes[ml.addr] = Mutex(prefix_idx);
   see_events({last_full_memory_conflict});
@@ -600,6 +618,7 @@ void WSCTraceBuilder::mutex_destroy(const SymAddrSize &ml){
   }
   assert(mutexes.count(ml.addr));
   Mutex &mutex = mutexes[ml.addr];
+  curev().read_from = mutex.last_access;
   curev().may_conflict = true;
 
   see_events({mutex.last_access,last_full_memory_conflict});
@@ -1147,17 +1166,55 @@ bool WSCTraceBuilder::is_observed_conflict
   return false;
 }
 
+namespace { bool symev_is_lock_type(const SymEv &e) {
+  return e.kind == SymEv::M_INIT  || e.kind == SymEv::M_LOCK
+    || e.kind == SymEv::M_TRYLOCK || e.kind == SymEv::M_TRYLOCK_FAIL
+    || e.kind == SymEv::M_UNLOCK  || e.kind == SymEv::M_DELETE;
+} }
+
 bool WSCTraceBuilder::is_load(unsigned i) const {
   return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
     [](const SymEv &e) {
       return e.kind == SymEv::LOAD || e.kind == SymEv::CMPXHG
-        || e.kind == SymEv::CMPXHGFAIL; });
+        || e.kind == SymEv::CMPXHGFAIL || symev_is_lock_type(e); });
+}
+
+bool WSCTraceBuilder::is_lock(unsigned i) const {
+  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
+    [](const SymEv &e) { return e.kind == SymEv::M_LOCK; });
+}
+
+bool WSCTraceBuilder::does_lock(unsigned i) const {
+  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
+    [](const SymEv &e) {
+      return e.kind == SymEv::M_LOCK || e.kind == SymEv::M_TRYLOCK; });
+}
+
+bool WSCTraceBuilder::is_unlock(unsigned i) const {
+  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
+    [](const SymEv &e) { return e.kind == SymEv::M_UNLOCK; });
+}
+
+bool WSCTraceBuilder::is_minit(unsigned i) const {
+  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
+    [](const SymEv &e) { return e.kind == SymEv::M_INIT; });
+}
+
+bool WSCTraceBuilder::is_mdelete(unsigned i) const {
+  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
+    [](const SymEv &e) { return e.kind == SymEv::M_DELETE; });
+}
+
+bool WSCTraceBuilder::is_lock_type(unsigned i) const {
+  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
+                     symev_is_lock_type);
 }
 
 bool WSCTraceBuilder::is_store(unsigned i) const {
   return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
     [](const SymEv &e) {
-      return e.kind == SymEv::STORE || e.kind == SymEv::CMPXHG;
+      return e.kind == SymEv::STORE || e.kind == SymEv::CMPXHG
+        || symev_is_lock_type(e);
     });
 }
 
@@ -1169,7 +1226,8 @@ bool WSCTraceBuilder::is_cmpxhgfail(unsigned i) const {
 bool WSCTraceBuilder::is_store_when_reading_from(unsigned i, int read_from) const {
   return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
     [read_from,this](const SymEv &e) {
-      if (e.kind == SymEv::STORE) return true;
+      if (e.kind == SymEv::STORE || symev_is_lock_type(e))
+        return true;
       if (e.kind != SymEv::CMPXHG && e.kind != SymEv::CMPXHGFAIL) return false;
       SymData expected = e.expected();
       SymData actual = get_data(read_from, e.addr());
@@ -1226,7 +1284,25 @@ static std::ptrdiff_t delete_from_back(std::vector<int> &vec, int val) {
 
 WSCTraceBuilder::CmpXhgUndoLog WSCTraceBuilder::
 recompute_cmpxhg_success(unsigned idx, std::vector<int> &writes) {
+  auto kind = CmpXhgUndoLog::NONE;
   for (SymEv &e : prefix[idx].sym) {
+    if (e.kind == SymEv::M_TRYLOCK || e.kind == SymEv::M_TRYLOCK_FAIL) {
+      bool before = e.kind == SymEv::M_TRYLOCK;
+      bool after = *prefix[idx].read_from == -1 || !does_lock(*prefix[idx].read_from);
+      unsigned pos = 0;
+      if (after && !before) {
+        e = SymEv::MTryLock(e.addr());
+        kind = CmpXhgUndoLog::M_FAIL;
+        pos = writes.size();
+        writes.push_back(idx);
+      } else if (before && !after) {
+        e = SymEv::MTryLockFail(e.addr());
+        kind = CmpXhgUndoLog::M_SUCCEED;
+        pos = delete_from_back(writes, idx);
+      }
+
+      return CmpXhgUndoLog{kind, idx, pos, &e};
+    }
     if (e.kind != SymEv::CMPXHG && e.kind != SymEv::CMPXHGFAIL) continue;
     bool before = e.kind == SymEv::CMPXHG;
     SymData expected = e.expected();
@@ -1238,8 +1314,7 @@ recompute_cmpxhg_success(unsigned idx, std::vector<int> &writes) {
       e = SymEv::CmpXhgFail(e.data(), e.expected().get_shared_block());
     }
     // assert(recompute_cmpxhg_success(idx, writes).kind == CmpXhgUndoLog::NONE);
-    auto kind = CmpXhgUndoLog::NONE;
-    unsigned pos;
+    unsigned pos = 0;
     if (after && !before) {
       kind = CmpXhgUndoLog::FAIL;
       pos = writes.size();
@@ -1257,16 +1332,28 @@ void WSCTraceBuilder::
 undo_cmpxhg_recomputation(CmpXhgUndoLog log, std::vector<int> &writes) {
   if (log.kind == CmpXhgUndoLog::NONE) return;
   SymEv &e = *log.e;
-  if (log.kind == CmpXhgUndoLog::SUCCEED) {
+  switch (log.kind) {
+  case CmpXhgUndoLog::M_SUCCEED:
+    e = SymEv::MTryLock(e.addr());
+    goto succeed_cont;
+  case CmpXhgUndoLog::M_FAIL:
+    e = SymEv::MTryLockFail(e.addr());
+    goto fail_cont;
+  case CmpXhgUndoLog::SUCCEED: {
     e = SymEv::CmpXhg(e.data(), e.expected().get_shared_block());
+  succeed_cont:
     writes.push_back(log.idx);
+    assert(writes.size() > log.pos);
     std::swap(writes.back(), writes[log.pos]);
-  } else {
-    assert(log.kind == CmpXhgUndoLog::FAIL);
+  } break;
+  default: assert(false && "Unreachable");
+  case CmpXhgUndoLog::FAIL: {
     e = SymEv::CmpXhgFail(e.data(), e.expected().get_shared_block());
+  fail_cont:
     assert(writes.back() == int(log.idx));
     assert(writes.size()-1 == log.pos);
     writes.pop_back();
+  } break;
   }
 }
 
@@ -1316,6 +1403,20 @@ bool WSCTraceBuilder::can_swap_by_vclocks(int r, int w) const {
   return true;
 }
 
+bool WSCTraceBuilder::can_swap_lock_by_vclocks(int f, int u, int s) const {
+  if (prefix[s].iid.get_index() != 1) {
+    unsigned s_po_pred = find_process_event(prefix[s].iid.get_pid(),
+                                            prefix[s].iid.get_index()-1);
+    if (prefix[f].clock.leq(prefix[s_po_pred].clock)) return false;
+  }
+  for (unsigned pred : prefix[s].happens_after) {
+    if (pred == unsigned(u)) continue;
+    assert(pred != unsigned(f));
+    if (prefix[f].clock.leq(prefix[pred].clock)) return false;
+  }
+  return true;
+}
+
 void WSCTraceBuilder::compute_prefixes() {
   Timing::Guard analysis_timing_guard(analysis_context);
   compute_vclocks();
@@ -1355,7 +1456,48 @@ void WSCTraceBuilder::compute_prefixes() {
   // }
 
   for (unsigned i = 0; i < prefix.size(); ++i) {
-    if (!prefix[i].pinned && is_load(i)) {
+    if (is_unlock(i)) {
+      /* Do nothing, unlock may only unlock  */
+      continue;
+    } else if (!prefix[i].pinned && is_lock(i)) {
+      Timing::Guard ponder_mutex_guard(ponder_mutex_context);
+      auto addr = get_addr(i);
+      const std::vector<int> &accesses = writes_by_address[addr.addr];
+      int original_read_from = *prefix[i].read_from;
+      assert(original_read_from == -1
+             || is_unlock(original_read_from)
+             || is_minit(original_read_from));
+      auto next = std::upper_bound(accesses.begin(), accesses.end(), i);
+      if (next == accesses.end()) continue;
+      unsigned unlock = *next;
+      assert(is_unlock(unlock) && *prefix[unlock].read_from == int(i));
+      if (++next == accesses.end()) continue;
+      unsigned j = *next;
+      if (is_mdelete(j)) continue;
+      assert(is_lock(j) && *prefix[j].read_from == int(unlock));
+      std::shared_ptr<UnfoldingNode> alt
+          = alternative(j, prefix[i].event->read_from);
+      DecisionNode &decision = decisions[prefix[i].decision];
+      if (decision.siblings.count(alt)) continue;
+      if (decision.sleep.count(alt)) continue;
+      if (!can_swap_lock_by_vclocks(i, unlock, j)) {
+        decision.siblings.emplace(alt, Leaf());
+        return;
+      }
+      if (conf.debug_print_on_reset)
+        llvm::dbgs() << "Trying to swap " << pretty_index(i)
+                     << " and " << pretty_index(j)
+                     << ", after " << pretty_index(original_read_from);
+      prefix[j].read_from = original_read_from;
+      std::swap(prefix[i].decision, prefix[j].decision);
+
+      Leaf solution = try_sat(j, writes_by_address);
+      decision.siblings.emplace(alt, std::move(solution));
+
+      /* Reset read-from and decision */
+      prefix[j].read_from = unlock;
+      std::swap(prefix[i].decision, prefix[j].decision);
+    } else if (!prefix[i].pinned && is_load(i)) {
       auto addr = get_addr(i);
       std::vector<int> &possible_writes = writes_by_address[addr.addr];
       int original_read_from = *prefix[i].read_from;
@@ -1601,7 +1743,7 @@ WSCTraceBuilder::try_sat
       llvm::dbgs() << ": Heuristic found prefix\n";
       llvm::dbgs() << "[";
       for (IID<int> iid : *res) {
-        llvm::dbgs() << iid << ",";
+        llvm::dbgs() << iid_string(iid) << ",";
       }
       llvm::dbgs() << "]\n";
     }

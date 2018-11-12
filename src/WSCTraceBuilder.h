@@ -153,8 +153,7 @@ protected:
     SaturatedGraph graph_cache;
   };
 
-  /* Various information about a thread in the current execution.
-   */
+  /* Various information about a thread in the current execution. */
   class Thread{
   public:
     Thread(const CPid &cpid, int spawn_event)
@@ -483,6 +482,8 @@ protected:
   std::string iid_string(std::size_t pos) const;
   /* Pretty-prints the iid of event. */
   std::string iid_string(const Event &event) const;
+  /* Pretty-prints an iid. */
+  std::string iid_string(IID<IPid> iid) const;
   /* Adds a reversible co-enabled happens-before edge between the
    * current event and event.
    */
@@ -576,6 +577,11 @@ protected:
    * according to the vector clocks.
    */
   bool can_swap_by_vclocks(int r, int w) const;
+  /* Assuming that f and s are MLock, that u is MUnlock, s rf u rf f,
+   * checks whether swapping f and s is possible according to the vector
+   * clocks.
+   */
+  bool can_swap_lock_by_vclocks(int f, int u, int s) const;
   /* Records a symbolic representation of the current event.
    */
   void record_symbolic(SymEv event);
@@ -595,6 +601,12 @@ protected:
   bool is_store(unsigned idx) const;
   bool is_store_when_reading_from(unsigned idx, int read_from) const;
   bool is_cmpxhgfail(unsigned idx) const;
+  bool is_lock(unsigned idx) const;
+  bool is_lock_type(unsigned idx) const;
+  bool does_lock(unsigned idx) const;
+  bool is_unlock(unsigned idx) const;
+  bool is_minit(unsigned idx) const;
+  bool is_mdelete(unsigned idx) const;
   SymAddrSize get_addr(unsigned idx) const;
   SymData get_data(int idx, const SymAddrSize &addr) const;
   struct CmpXhgUndoLog {
@@ -602,6 +614,8 @@ protected:
           NONE,
           SUCCEED,
           FAIL,
+          M_SUCCEED,
+          M_FAIL,
     } kind;
     unsigned idx, pos;
     SymEv *e;
