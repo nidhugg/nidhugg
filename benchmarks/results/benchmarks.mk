@@ -29,7 +29,11 @@ endif
 
 TABLES = $(TOOLS:%=%.txt) wide.txt
 ALL_RESULTS = $(TOOLS:%=%_results)
-all: $(TABLES)
+BITCODE_FILES = $(N:%=code_%.bc)
+# Add the bitcode files as explicit targets, otherwise Make deletes them after
+# benchmark, and thus reruns *all* benchmarks of a particular size if any of
+# them need to be remade
+all: $(TABLES) $(BITCODE_FILES)
 
 # Hack to not duplicate tabulation rule; causes the table to be rebuilt on each
 # invocation
