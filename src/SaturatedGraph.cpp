@@ -473,8 +473,8 @@ void SaturatedGraph::add_edge_internal(ID from, ID to) {
  * changes will be picked up by forward saturation later anyway.
  */
 void SaturatedGraph::reverse_saturate() {
-  Timing::Guard saturate_guard(saturate_rev_timing);
   if (saturated_until != 0 && saturated_until != events.size()) {
+    Timing::Guard saturate_guard(saturate_rev_timing);
     IFTRACE(std::cerr << "Doing reverse saturation " << saturated_until
             << ".." << events.size() << "\n");
     struct care care = reverse_care_set();
