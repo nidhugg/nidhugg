@@ -1470,7 +1470,6 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
   assert(I.getType()->isIntegerTy());
 
   SymAddrSize Ptr_sas = GetSymAddrSize(Ptr,I.getType());
-  TB.load(Ptr_sas);
 
   /* Load old value at *Ptr */
   if(DryRun && DryRunMem.size()){
@@ -1510,7 +1509,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
   }
 
   SymData sd = GetSymData(Ptr_sas,I.getType(),NewVal);
-  TB.atomic_store(sd);
+  TB.atomic_rmw(sd);
 
   /* Store NewVal */
   if(DryRun){

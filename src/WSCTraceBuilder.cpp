@@ -78,18 +78,18 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       return true;
     } else if(prefix_idx + 1 == int(prefix.size())) {
       /* We are done replaying. Continue below... */
-      assert(prefix_idx < 0 || curev().sym.size() == sym_idx
+      assert(prefix_idx < 0 || (curev().sym.empty() ^ seen_effect)
              || (errors.size() && errors.back()->get_location()
                  == IID<CPid>(threads[curev().iid.get_pid()].cpid,
                               curev().iid.get_index())));
       replay = false;
     } else {
       /* Go to the next event. */
-      assert(prefix_idx < 0 || curev().sym.size() == sym_idx
+      assert(prefix_idx < 0 || (curev().sym.empty() ^ seen_effect)
              || (errors.size() && errors.back()->get_location()
                  == IID<CPid>(threads[curev().iid.get_pid()].cpid,
                               curev().iid.get_index())));
-      sym_idx = 0;
+      seen_effect = false;
       ++prefix_idx;
       IPid pid = curev().iid.get_pid();
       *proc = pid;
@@ -121,7 +121,7 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   }
 
   /* Create a new Event */
-  sym_idx = 0;
+  seen_effect = false;
   ++prefix_idx;
   assert(prefix_idx == int(prefix.size()));
 
@@ -330,16 +330,6 @@ std::string WSCTraceBuilder::iid_string(IID<IPid> iid) const{
   return iid_string(find_process_event(iid.get_pid(), iid.get_index()));
 }
 
-static std::string events_to_string(const llvm::SmallVectorImpl<SymEv> &e) {
-  if (e.size() == 0) return "None()";
-  std::string res;
-  for (unsigned i = 0; i < e.size(); ++i) {
-    res += e[i].to_string();
-    if (i != e.size()-1) res += ", ";
-  }
-  return res;
-}
-
 void WSCTraceBuilder::debug_print() const {
   llvm::dbgs() << "WSCTraceBuilder (debug print, replay until " << replay_point << "):\n";
   int idx_offs = 0;
@@ -361,7 +351,7 @@ void WSCTraceBuilder::debug_print() const {
                        int(std::to_string(*prefix[i].read_from).size())
                        : 1);
     clock_offs = std::max(clock_offs,int(prefix[i].clock.to_string().size()));
-    lines[i] = events_to_string(prefix[i].sym);
+    lines[i] = prefix[i].sym.to_string();
   }
 
   for(unsigned i = 0; i < prefix.size(); ++i){
@@ -411,34 +401,22 @@ void WSCTraceBuilder::atomic_store(const SymData &sd){
 
 void WSCTraceBuilder::do_atomic_store(const SymData &sd){
   const SymAddrSize &ml = sd.get_ref();
-  IPid ipid = curev().iid.get_pid();
   curev().may_conflict = true;
-
-  VecSet<int> seen_accesses;
 
   /* See previous updates reads to ml */
   for(SymAddr b : ml){
     ByteInfo &bi = mem[b];
-    int lu = bi.last_update;
-    assert(lu < int(prefix.size()));
-    if(0 <= lu){
-      IPid lu_tipid = prefix[lu].iid.get_pid();
-      if(lu_tipid != ipid){
-        seen_accesses.insert(bi.last_update);
-      }
-    }
-    for(int i : bi.last_read){
-      if(0 <= i && prefix[i].iid.get_pid() != ipid) seen_accesses.insert(i);
-    }
 
     /* Register in memory */
     bi.last_update = prefix_idx;
     bi.last_update_ml = ml;
   }
+}
 
-  seen_accesses.insert(last_full_memory_conflict);
-
-  see_events(seen_accesses);
+void WSCTraceBuilder::atomic_rmw(const SymData &sd){
+  record_symbolic(SymEv::Rmw(sd));
+  do_load(sd.get_ref());
+  do_atomic_store(sd);
 }
 
 void WSCTraceBuilder::load(const SymAddrSize &ml){
@@ -449,8 +427,6 @@ void WSCTraceBuilder::load(const SymAddrSize &ml){
 void WSCTraceBuilder::do_load(const SymAddrSize &ml){
   curev().may_conflict = true;
   IPid ipid = curev().iid.get_pid();
-
-  VecSet<int> seen_accesses;
 
   /* See all updates to the read bytes. */
   for(SymAddr b : ml){
@@ -467,10 +443,6 @@ void WSCTraceBuilder::do_load(const SymAddrSize &ml){
     /* Register load in memory */
     mem[b].last_read[ipid] = prefix_idx;
   }
-
-  seen_accesses.insert(last_full_memory_conflict);
-
-  see_events(seen_accesses);
 }
 
 void WSCTraceBuilder::compare_exchange
@@ -492,23 +464,13 @@ void WSCTraceBuilder::full_memory_conflict(){
   curev().may_conflict = true;
 
   /* See all pervious memory accesses */
-  VecSet<int> seen_accesses;
   for(auto it = mem.begin(); it != mem.end(); ++it){
     do_load(it->second);
-    for(int i : it->second.last_read){
-      seen_accesses.insert(i);
-    }
   }
-  for(auto it = mutexes.begin(); it != mutexes.end(); ++it){
-    seen_accesses.insert(it->second.last_access);
-  }
-  seen_accesses.insert(last_full_memory_conflict);
   last_full_memory_conflict = prefix_idx;
 
   /* No later access can have a conflict with any earlier access */
   mem.clear();
-
-  see_events(seen_accesses);
 }
 
 void WSCTraceBuilder::do_load(ByteInfo &m){
@@ -524,8 +486,6 @@ void WSCTraceBuilder::do_load(ByteInfo &m){
       seen_accesses.insert(lu);
     }
   }
-  see_events(seen_accesses);
-  see_event_pairs(seen_pairs);
 }
 
 void WSCTraceBuilder::fence(){
@@ -546,26 +506,18 @@ void WSCTraceBuilder::mutex_lock(const SymAddrSize &ml){
   curev().may_conflict = true;
   curev().read_from = mutex.last_access;
 
-  if(mutex.last_lock < 0){
-    /* No previous lock */
-    see_events({mutex.last_access,last_full_memory_conflict});
-  }else{
-    add_lock_suc_race(mutex.last_lock, mutex.last_access);
-    see_events({last_full_memory_conflict});
-  }
-
   mutex.last_lock = mutex.last_access = prefix_idx;
   mutex.locked = true;
 }
 
 void WSCTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
   assert(!conf.mutex_require_init || mutexes.count(ml.addr));
-  Mutex &mutex = mutexes[ml.addr];
+  IFDEBUG(Mutex &mutex = mutexes[ml.addr];)
   assert(0 <= mutex.last_lock);
-  add_lock_fail_race(mutex, mutex.last_lock);
+  // add_lock_fail_race(mutex, mutex.last_lock);
 
   if(0 <= last_full_memory_conflict){
-    add_lock_fail_race(mutex, last_full_memory_conflict);
+    // add_lock_fail_race(mutex, last_full_memory_conflict);
   }
 }
 
@@ -578,7 +530,6 @@ void WSCTraceBuilder::mutex_trylock(const SymAddrSize &ml){
   fence();
   curev().read_from = mutex.last_access;
   curev().may_conflict = true;
-  see_events({mutex.last_access,last_full_memory_conflict});
 
   mutex.last_access = prefix_idx;
   if(!mutex.locked){ // Mutex is free
@@ -596,8 +547,6 @@ void WSCTraceBuilder::mutex_unlock(const SymAddrSize &ml){
   curev().may_conflict = true;
   assert(0 <= mutex.last_access);
 
-  see_events({mutex.last_access,last_full_memory_conflict});
-
   mutex.last_access = prefix_idx;
   mutex.locked = false;
 }
@@ -609,7 +558,6 @@ void WSCTraceBuilder::mutex_init(const SymAddrSize &ml){
   curev().read_from = -1;
   curev().may_conflict = true;
   mutexes[ml.addr] = Mutex(prefix_idx);
-  see_events({last_full_memory_conflict});
 }
 
 void WSCTraceBuilder::mutex_destroy(const SymAddrSize &ml){
@@ -623,8 +571,6 @@ void WSCTraceBuilder::mutex_destroy(const SymAddrSize &ml){
   Mutex &mutex = mutexes[ml.addr];
   curev().read_from = mutex.last_access;
   curev().may_conflict = true;
-
-  see_events({mutex.last_access,last_full_memory_conflict});
 
   mutexes.erase(ml.addr);
 }
@@ -640,7 +586,6 @@ bool WSCTraceBuilder::cond_init(const SymAddrSize &ml){
   }
   curev().may_conflict = true;
   cond_vars[ml.addr] = CondVar(prefix_idx);
-  see_events({last_full_memory_conflict});
   return true;
 }
 
@@ -680,8 +625,6 @@ bool WSCTraceBuilder::cond_signal(const SymAddrSize &ml){
   }
   cond_var.last_signal = prefix_idx;
 
-  see_events(seen_events);
-
   return true;
 }
 
@@ -698,18 +641,15 @@ bool WSCTraceBuilder::cond_broadcast(const SymAddrSize &ml){
     return false;
   }
   CondVar &cond_var = it->second;
-  VecSet<int> seen_events = {last_full_memory_conflict};
   for(int i : cond_var.waiters){
     assert(0 <= i && i < prefix_idx);
     IPid ipid = prefix[i].iid.get_pid();
     assert(!threads[ipid].available);
     threads[ipid].available = true;
-    seen_events.insert(i);
+    // seen_events.insert(i);
   }
   cond_var.waiters.clear();
   cond_var.last_signal = prefix_idx;
-
-  see_events(seen_events);
 
   return true;
 }
@@ -749,8 +689,6 @@ bool WSCTraceBuilder::cond_wait(const SymAddrSize &cond_ml, const SymAddrSize &m
   it->second.waiters.push_back(prefix_idx);
   threads[pid].available = false;
 
-  see_events({last_full_memory_conflict,it->second.last_signal});
-
   return true;
 }
 
@@ -784,9 +722,6 @@ int WSCTraceBuilder::cond_destroy(const SymAddrSize &ml){
     return err;
   }
   CondVar &cond_var = it->second;
-  VecSet<int> seen_events = {cond_var.last_signal,last_full_memory_conflict};
-  for(int i : cond_var.waiters) seen_events.insert(i);
-  see_events(seen_events);
 
   int rv = cond_var.waiters.size() ? EBUSY : 0;
   cond_vars.erase(ml.addr);
@@ -798,11 +733,11 @@ void WSCTraceBuilder::register_alternatives(int alt_count){
   abort();
   curev().may_conflict = true;
   record_symbolic(SymEv::Nondet(alt_count));
-  if(curev().alt == 0) {
-    for(int i = curev().alt+1; i < alt_count; ++i){
-      curev().races.push_back(Race::Nondet(prefix_idx, i));
-    }
-  }
+  // if(curev().alt == 0) {
+  //   for(int i = curev().alt+1; i < alt_count; ++i){
+  //     curev().races.push_back(Race::Nondet(prefix_idx, i));
+  //   }
+  // }
 }
 
 template <class Iter>
@@ -813,6 +748,7 @@ static void rev_recompute_data
     switch(p.kind){
     case SymEv::STORE:
     case SymEv::UNOBS_STORE:
+    case SymEv::RMW:
     case SymEv::CMPXHG:
       if (data.get_ref().overlaps(p.addr())) {
         for (SymAddr a : p.addr()) {
@@ -826,72 +762,6 @@ static void rev_recompute_data
       break;
     }
   }
-}
-
-void WSCTraceBuilder::see_events(const VecSet<int> &seen_accesses){
-  for(int i : seen_accesses){
-    if(i < 0) continue;
-    if (i == prefix_idx) continue;
-    add_noblock_race(i);
-  }
-}
-
-void WSCTraceBuilder::see_event_pairs
-(const VecSet<std::pair<int,int>> &seen_accesses){
-  for (std::pair<int,int> p : seen_accesses){
-    add_observed_race(p.first, p.second);
-  }
-}
-
-void WSCTraceBuilder::add_noblock_race(int event){
-  assert(0 <= event);
-  assert(event < prefix_idx);
-  assert(do_events_conflict(event, prefix_idx));
-
-  std::vector<Race> &races = curev().races;
-  if (races.size()) {
-    const Race &prev = races.back();
-    if (prev.kind == Race::NONBLOCK
-        && prev.first_event == event
-        && prev.second_event == prefix_idx) return;
-  }
-
-  races.push_back(Race::Nonblock(event,prefix_idx));
-}
-
-void WSCTraceBuilder::add_lock_suc_race(int lock, int unlock){
-  assert(0 <= lock);
-  assert(lock < unlock);
-  assert(unlock < prefix_idx);
-
-  curev().races.push_back(Race::LockSuc(lock,prefix_idx,unlock));
-}
-
-void WSCTraceBuilder::add_lock_fail_race(const Mutex &m, int event){
-  assert(0 <= event);
-  assert(event < prefix_idx);
-
-  lock_fail_races.push_back(Race::LockFail(event,prefix_idx,curev().iid,&m));
-}
-
-void WSCTraceBuilder::add_observed_race(int first, int second){
-  assert(0 <= first);
-  assert(first < second);
-  assert(second < prefix_idx);
-  assert(do_events_conflict(first, second));
-  assert(do_events_conflict(second, prefix_idx));
-
-  std::vector<Race> &races = prefix[second].races;
-  if (races.size()) {
-    const Race &prev = races.back();
-    if (prev.kind == Race::OBSERVED
-        && prev.first_event == first
-        && prev.second_event == second
-        && prev.witness_event == prefix_idx)
-      return;
-  }
-
-  races.push_back(Race::Observed(first,second,prefix_idx));
 }
 
 void WSCTraceBuilder::add_happens_after(unsigned second, unsigned first){
@@ -1084,184 +954,81 @@ std::shared_ptr<WSCTraceBuilder::UnfoldingNode> WSCTraceBuilder::alternative
 
 void WSCTraceBuilder::record_symbolic(SymEv event){
   if (!replay) {
-    assert(sym_idx == curev().sym.size());
+    assert(!seen_effect);
     /* New event */
-    curev().sym.push_back(event);
-    sym_idx++;
+    curev().sym = std::move(event);
+    seen_effect = true;
   } else {
     /* Replay. SymEv::set() asserts that this is the same event as last time. */
-    assert(sym_idx < curev().sym.size());
-    curev().sym[sym_idx++].set(event);
+    assert(!seen_effect);
+    curev().sym.set(event);
+    seen_effect = true;
   }
 }
 
-bool WSCTraceBuilder::do_events_conflict(int i, int j) const{
-  return do_events_conflict(prefix[i], prefix[j]);
-}
-
-bool WSCTraceBuilder::do_events_conflict
-(const Event &fst, const Event &snd) const{
-  return do_events_conflict(fst.iid.get_pid(), fst.sym,
-                            snd.iid.get_pid(), snd.sym);
-}
-
-static bool symev_has_pid(const SymEv &e) {
-  return e.kind == SymEv::SPAWN || e.kind == SymEv::JOIN;
-}
-
-static bool symev_is_load(const SymEv &e) {
-  return e.kind == SymEv::LOAD || e.kind == SymEv::CMPXHGFAIL;
-}
-
-static bool symev_is_unobs_store(const SymEv &e) {
-  return e.kind == SymEv::UNOBS_STORE;
-}
-
-bool WSCTraceBuilder::do_symevs_conflict
-(IPid fst_pid, const SymEv &fst,
- IPid snd_pid, const SymEv &snd) const {
-  if (fst.kind == SymEv::NONDET || snd.kind == SymEv::NONDET) return false;
-  if (fst.kind == SymEv::FULLMEM || snd.kind == SymEv::FULLMEM) return true;
-  if (symev_is_load(fst) && symev_is_load(snd)) return false;
-  if (symev_is_unobs_store(fst) && symev_is_unobs_store(snd)
-      && fst.addr() == snd.addr()) return false;
-
-  /* Really crude. Is it enough? */
-  if (fst.has_addr()) {
-    if (snd.has_addr()) {
-      return fst.addr().overlaps(snd.addr());
-    } else {
-      return false;
-    }
-  } else {
-    return false;
-  }
-}
-
-bool WSCTraceBuilder::do_events_conflict
-(IPid fst_pid, const sym_ty &fst,
- IPid snd_pid, const sym_ty &snd) const{
-  if (fst_pid == snd_pid) return true;
-  for (const SymEv &fe : fst) {
-    if (symev_has_pid(fe) && fe.num() == snd_pid) return true;
-    for (const SymEv &se : snd) {
-      if (do_symevs_conflict(fst_pid, fe, snd_pid, se)) {
-        return true;
-      }
-    }
-  }
-  for (const SymEv &se : snd) {
-    if (symev_has_pid(se) && se.num() == fst_pid) return true;
-  }
-  return false;
-}
-
-bool WSCTraceBuilder::is_observed_conflict
-(const Event &fst, const Event &snd, const Event &thd) const{
-  return is_observed_conflict(fst.iid.get_pid(), fst.sym,
-                              snd.iid.get_pid(), snd.sym,
-                              thd.iid.get_pid(), thd.sym);
-}
-
-bool WSCTraceBuilder::is_observed_conflict
-(IPid fst_pid, const sym_ty &fst,
- IPid snd_pid, const sym_ty &snd,
- IPid thd_pid, const sym_ty &thd) const{
-  if (fst_pid == snd_pid) return false;
-  for (const SymEv &fe : fst) {
-    if (fe.kind != SymEv::UNOBS_STORE) continue;
-    for (const SymEv &se : snd) {
-      if (se.kind != SymEv::STORE
-          || !fe.addr().overlaps(se.addr())) continue;
-      for (const SymEv &te : thd) {
-        if (is_observed_conflict(fst_pid, fe, snd_pid, se, thd_pid, te)) {
-          return true;
-        }
-      }
-    }
-  }
-  return false;
-}
-
-namespace { bool symev_is_lock_type(const SymEv &e) {
+static bool symev_is_lock_type(const SymEv &e) {
   return e.kind == SymEv::M_INIT  || e.kind == SymEv::M_LOCK
     || e.kind == SymEv::M_TRYLOCK || e.kind == SymEv::M_TRYLOCK_FAIL
     || e.kind == SymEv::M_UNLOCK  || e.kind == SymEv::M_DELETE;
-} }
+}
 
 bool WSCTraceBuilder::is_load(unsigned i) const {
-  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
-    [](const SymEv &e) {
-      return e.kind == SymEv::LOAD || e.kind == SymEv::CMPXHG
-        || e.kind == SymEv::CMPXHGFAIL || symev_is_lock_type(e); });
+  const SymEv &e = prefix[i].sym;
+  return e.kind == SymEv::LOAD || e.kind == SymEv::RMW
+    || e.kind == SymEv::CMPXHG || e.kind == SymEv::CMPXHGFAIL
+    || symev_is_lock_type(e);
 }
 
 bool WSCTraceBuilder::is_lock(unsigned i) const {
-  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
-    [](const SymEv &e) { return e.kind == SymEv::M_LOCK; });
+  return prefix[i].sym.kind == SymEv::M_LOCK;
 }
 
 bool WSCTraceBuilder::does_lock(unsigned i) const {
-  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
-    [](const SymEv &e) {
-      return e.kind == SymEv::M_LOCK || e.kind == SymEv::M_TRYLOCK; });
+  const SymEv &e = prefix[i].sym;
+  return e.kind == SymEv::M_LOCK || e.kind == SymEv::M_TRYLOCK;
 }
 
 bool WSCTraceBuilder::is_unlock(unsigned i) const {
-  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
-    [](const SymEv &e) { return e.kind == SymEv::M_UNLOCK; });
+  return prefix[i].sym.kind == SymEv::M_UNLOCK;
 }
 
 bool WSCTraceBuilder::is_minit(unsigned i) const {
-  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
-    [](const SymEv &e) { return e.kind == SymEv::M_INIT; });
+  return prefix[i].sym.kind == SymEv::M_INIT;
 }
 
 bool WSCTraceBuilder::is_mdelete(unsigned i) const {
-  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
-    [](const SymEv &e) { return e.kind == SymEv::M_DELETE; });
+  return prefix[i].sym.kind == SymEv::M_DELETE;
 }
 
 bool WSCTraceBuilder::is_lock_type(unsigned i) const {
-  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
-                     symev_is_lock_type);
+  return symev_is_lock_type(prefix[i].sym);
 }
 
 bool WSCTraceBuilder::is_store(unsigned i) const {
-  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
-    [](const SymEv &e) {
-      return e.kind == SymEv::STORE || e.kind == SymEv::CMPXHG
-        || symev_is_lock_type(e);
-    });
+  const SymEv &e = prefix[i].sym;
+  return e.kind == SymEv::STORE || e.kind == SymEv::CMPXHG
+    || e.kind == SymEv::RMW || symev_is_lock_type(e);
 }
 
 bool WSCTraceBuilder::is_cmpxhgfail(unsigned i) const {
-  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
-    [](const SymEv &e) { return e.kind == SymEv::CMPXHGFAIL; });
+  return prefix[i].sym.kind == SymEv::CMPXHGFAIL;
 }
 
 bool WSCTraceBuilder::is_store_when_reading_from(unsigned i, int read_from) const {
-  return std::any_of(prefix[i].sym.begin(), prefix[i].sym.end(),
-    [read_from,this](const SymEv &e) {
-      if (e.kind == SymEv::STORE || symev_is_lock_type(e))
-        return true;
-      if (e.kind != SymEv::CMPXHG && e.kind != SymEv::CMPXHGFAIL) return false;
-      SymData expected = e.expected();
-      SymData actual = get_data(read_from, e.addr());
-      assert(e.addr() == actual.get_ref());
-      return memcmp(expected.get_block(), actual.get_block(), e.addr().size) == 0;
-    });
+  const SymEv &e = prefix[i].sym;
+  if (e.kind == SymEv::STORE || e.kind == SymEv::RMW || symev_is_lock_type(e))
+    return true;
+  if (e.kind != SymEv::CMPXHG && e.kind != SymEv::CMPXHGFAIL) return false;
+  SymData expected = e.expected();
+  SymData actual = get_data(read_from, e.addr());
+  assert(e.addr() == actual.get_ref());
+  return memcmp(expected.get_block(), actual.get_block(), e.addr().size) == 0;
 }
 
 SymAddrSize WSCTraceBuilder::get_addr(unsigned i) const {
-  for (const SymEv &e : prefix[i].sym) {
-    if (e.has_addr()) {
-      assert(std::all_of(prefix[i].sym.begin(), prefix[i].sym.end(),
-                         [&e](const SymEv &f) {
-                           return !f.has_addr() || f.addr() == e.addr();
-                         }));
-      return e.addr();
-    }
+  const SymEv &e = prefix[i].sym;
+  if (e.has_addr()) {
+    return e.addr();
   }
   abort();
 }
@@ -1272,18 +1039,10 @@ SymData WSCTraceBuilder::get_data(int i, const SymAddrSize &addr) const {
     memset(ret.get_block(), 0, addr.size);
     return ret;
   }
-  for (auto eit = prefix[i].sym.begin(); eit != prefix[i].sym.end(); ++eit) {
-    const SymEv &e = *eit;
-    if (e.has_data()) {
-      assert(std::all_of(eit+1, prefix[i].sym.end(),
-                         [&e](const SymEv &f) {
-                           return !f.has_data() /* || f.data() == e.data() */;
-                         }));
-      assert(e.addr() == addr);
-      return e.data();
-    }
-  }
-  abort();
+  const SymEv &e = prefix[i].sym;
+  assert(e.has_data());
+  assert(e.addr() == addr);
+  return e.data();
 }
 
 static std::ptrdiff_t delete_from_back(std::vector<int> &vec, int val) {
@@ -1302,47 +1061,47 @@ static std::ptrdiff_t delete_from_back(std::vector<int> &vec, int val) {
 WSCTraceBuilder::CmpXhgUndoLog WSCTraceBuilder::
 recompute_cmpxhg_success(unsigned idx, std::vector<int> &writes) {
   auto kind = CmpXhgUndoLog::NONE;
-  for (SymEv &e : prefix[idx].sym) {
-    if (e.kind == SymEv::M_TRYLOCK || e.kind == SymEv::M_TRYLOCK_FAIL) {
-      bool before = e.kind == SymEv::M_TRYLOCK;
-      bool after = *prefix[idx].read_from == -1 || !does_lock(*prefix[idx].read_from);
-      unsigned pos = 0;
-      if (after && !before) {
-        e = SymEv::MTryLock(e.addr());
-        kind = CmpXhgUndoLog::M_FAIL;
-        pos = writes.size();
-        writes.push_back(idx);
-      } else if (before && !after) {
-        e = SymEv::MTryLockFail(e.addr());
-        kind = CmpXhgUndoLog::M_SUCCEED;
-        pos = delete_from_back(writes, idx);
-      }
-
-      return CmpXhgUndoLog{kind, idx, pos, &e};
-    }
-    if (e.kind != SymEv::CMPXHG && e.kind != SymEv::CMPXHGFAIL) continue;
-    bool before = e.kind == SymEv::CMPXHG;
-    SymData expected = e.expected();
-    SymData actual = get_data(*prefix[idx].read_from, e.addr());
-    bool after = memcmp(expected.get_block(), actual.get_block(), e.addr().size) == 0;
-    if (after) {
-      e = SymEv::CmpXhg(e.data(), e.expected().get_shared_block());
-    } else {
-      e = SymEv::CmpXhgFail(e.data(), e.expected().get_shared_block());
-    }
-    // assert(recompute_cmpxhg_success(idx, writes).kind == CmpXhgUndoLog::NONE);
+  SymEv &e =  prefix[idx].sym;
+  if (e.kind == SymEv::M_TRYLOCK || e.kind == SymEv::M_TRYLOCK_FAIL) {
+    bool before = e.kind == SymEv::M_TRYLOCK;
+    bool after = *prefix[idx].read_from == -1 || !does_lock(*prefix[idx].read_from);
     unsigned pos = 0;
     if (after && !before) {
-      kind = CmpXhgUndoLog::FAIL;
+      e = SymEv::MTryLock(e.addr());
+      kind = CmpXhgUndoLog::M_FAIL;
       pos = writes.size();
       writes.push_back(idx);
     } else if (before && !after) {
-      kind = CmpXhgUndoLog::SUCCEED;
+      e = SymEv::MTryLockFail(e.addr());
+      kind = CmpXhgUndoLog::M_SUCCEED;
       pos = delete_from_back(writes, idx);
     }
+
     return CmpXhgUndoLog{kind, idx, pos, &e};
   }
-  return CmpXhgUndoLog{CmpXhgUndoLog::NONE, idx, 0, nullptr};
+  if (e.kind != SymEv::CMPXHG && e.kind != SymEv::CMPXHGFAIL) {
+      return CmpXhgUndoLog{CmpXhgUndoLog::NONE, idx, 0, nullptr};
+  }
+  bool before = e.kind == SymEv::CMPXHG;
+  SymData expected = e.expected();
+  SymData actual = get_data(*prefix[idx].read_from, e.addr());
+  bool after = memcmp(expected.get_block(), actual.get_block(), e.addr().size) == 0;
+  if (after) {
+    e = SymEv::CmpXhg(e.data(), e.expected().get_shared_block());
+  } else {
+    e = SymEv::CmpXhgFail(e.data(), e.expected().get_shared_block());
+  }
+  // assert(recompute_cmpxhg_success(idx, writes).kind == CmpXhgUndoLog::NONE);
+  unsigned pos = 0;
+  if (after && !before) {
+    kind = CmpXhgUndoLog::FAIL;
+    pos = writes.size();
+    writes.push_back(idx);
+  } else if (before && !after) {
+    kind = CmpXhgUndoLog::SUCCEED;
+    pos = delete_from_back(writes, idx);
+  }
+  return CmpXhgUndoLog{kind, idx, pos, &e};
 }
 
 void WSCTraceBuilder::
@@ -1372,18 +1131,6 @@ undo_cmpxhg_recomputation(CmpXhgUndoLog log, std::vector<int> &writes) {
     writes.pop_back();
   } break;
   }
-}
-
-bool WSCTraceBuilder::is_observed_conflict
-(IPid fst_pid, const SymEv &fst,
- IPid snd_pid, const SymEv &snd,
- IPid thd_pid, const SymEv &thd) const {
-  assert(fst_pid != snd_pid);
-  assert(fst.kind == SymEv::UNOBS_STORE);
-  assert(snd.kind == SymEv::STORE);
-  assert(fst.addr().overlaps(snd.addr()));
-  if (thd.kind == SymEv::FULLMEM) return true;
-  return thd.kind == SymEv::LOAD && thd.addr().overlaps(snd.addr());
 }
 
 bool WSCTraceBuilder::can_rf_by_vclocks
@@ -1454,7 +1201,7 @@ void WSCTraceBuilder::compute_prefixes() {
     if (i==-1) return "init event";
     return std::to_string(prefix[i].decision) + "("
       + std::to_string(prefix[i].event->seqno) + "):"
-      + iid_string(i) + events_to_string(prefix[i].sym);
+      + iid_string(i) + prefix[i].sym.to_string();
   };
 
   std::map<SymAddr,std::vector<int>> writes_by_address;
@@ -1631,13 +1378,6 @@ void WSCTraceBuilder::output_formula
 (SatSolver &sat,
  std::map<SymAddr,std::vector<int>> &writes_by_address,
  const std::vector<bool> &keep){
-  auto get_addr = [&](unsigned i) {
-    for (SymEv &e : prefix[i].sym) {
-      if (e.has_addr()) return e.addr();
-    }
-    abort();
-  };
-
   unsigned no_keep = 0;
   std::vector<unsigned> var;
   for (unsigned i = 0; i < prefix.size(); ++i) {

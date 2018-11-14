@@ -31,8 +31,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-typedef llvm::SmallVector<SymEv,1> sym_ty;
-
 static unsigned unf_ctr = 0;
 
 class WSCTraceBuilder : public TSOPSOTraceBuilder{
@@ -58,6 +56,7 @@ public:
   virtual void spawn();
   virtual void store(const SymData &ml);
   virtual void atomic_store(const SymData &ml);
+  virtual void atomic_rmw(const SymData &ml);
   virtual void compare_exchange
   (const SymData &sd, const SymData::block_type expected, bool success);
   virtual void load(const SymAddrSize &ml);
@@ -125,13 +124,13 @@ protected:
 
   struct Branch {
   public:
-    Branch(int pid, int size, int decision, bool pinned, sym_ty sym)
+    Branch(int pid, int size, int decision, bool pinned, SymEv sym)
       : pid(pid), size(size), decision(decision), pinned(pinned),
         sym(std::move(sym)) {}
     Branch() : Branch(-1, 0, -1, false, {}) {}
     int pid, size, decision;
     bool pinned;
-    sym_ty sym;
+    SymEv sym;
   };
 
   struct Leaf {
@@ -344,7 +343,7 @@ protected:
    */
   class Event{
   public:
-    Event(const IID<IPid> &iid, int alt = 0, sym_ty sym = {})
+    Event(const IID<IPid> &iid, int alt = 0, SymEv sym = {})
       : alt(0), size(1), pinned(false),
       iid(iid), origin_iid(iid), md(0), clock(), may_conflict(false),
         decision(-1), sym(std::move(sym)), sleep_branch_trace_count(0) {};
@@ -378,10 +377,6 @@ protected:
     VClock<IPid> clock, above_clock;
     /* Indices into prefix of events that happen before this one. */
     std::vector<unsigned> happens_after;
-    /* Possibly reversible races found in the current execution
-     * involving this event as the main event.
-     */
-    std::vector<Race> races;
     /* Is it possible for any event in this sequence to have a
      * conflict with another event?
      */
@@ -396,7 +391,7 @@ protected:
     /* Symbolic representation of the globally visible operation of this event.
      * Empty iff !may_conflict
      */
-    sym_ty sym;
+    SymEv sym;
     /* For each previous IID that has been explored at this position
      * with the exact same prefix, some number of traces (both sleep
      * set blocked and otherwise) have been
@@ -425,7 +420,7 @@ protected:
    * curev().sym. Equal to curev().sym.size() (or 0 when prefix_idx == -1) when
    * not replaying.
    */
-  unsigned sym_idx;
+  bool seen_effect;
 
   /* Are we currently replaying the events given in prefix from the
    * previous execution? Or are we executing new events by arbitrary
@@ -492,36 +487,6 @@ protected:
    * the current event.
    */
   void add_observed_race(int first, int second);
-  /* Add a race between two successful mutex aquisitions (lock and the
-   * current event). Unlock is the unlock event between them.
-   */
-  void add_lock_suc_race(int lock, int unlock);
-  /* Record that the currently executing event is being blocked trying
-   * to aquire mutex m, which is held by the lock event event.
-   */
-  void add_lock_fail_race(const Mutex &m, int event);
-  /* Check if two events in the current prefix are in conflict. */
-  bool do_events_conflict(int i, int j) const;
-  bool do_events_conflict(const Event &fst, const Event &snd) const;
-  /* Check if two symbolic events conflict. */
-  bool do_events_conflict(IPid fst_pid, const sym_ty &fst,
-                          IPid snd_pid, const sym_ty &snd) const;
-  bool do_symevs_conflict(IPid fst_pid, const SymEv &fst,
-                          IPid snd_pid, const SymEv &snd) const;
-  /* Check if events fst and snd are in an observed race with thd as an
-   * observer.
-   */
-  bool is_observed_conflict(const Event &fst, const Event &snd,
-                            const Event &thd) const;
-  /* Check if two symbolic events are in an observed race with a third
-   * as an observer.
-   */
-  bool is_observed_conflict(IPid fst_pid, const sym_ty &fst,
-                            IPid snd_pid, const sym_ty &snd,
-                            IPid thd_pid, const sym_ty &thd) const;
-  bool is_observed_conflict(IPid fst_pid, const SymEv &fst,
-                            IPid snd_pid, const SymEv &snd,
-                            IPid thd_pid, const SymEv &thd) const;
   /* Computes a mapping between IPid and current local clock value
    * (index) of that process after executing the prefix [0,event).
    */
@@ -530,17 +495,6 @@ protected:
   void iid_map_step(std::vector<int> &iid_map, const Event &event) const;
   /* Reverses an iid_map by one event. */
   void iid_map_step_rev(std::vector<int> &iid_map, const Event &event) const;
-  /* Add clocks and branches.
-   *
-   * All elements e in seen should either be indices into prefix, or
-   * be negative. In the latter case they are ignored.
-   */
-  void see_events(const VecSet<int> &seen);
-  /* Add clocks and branches.
-   *
-   * All pairs in seen should be increasing indices into prefix.
-   */
-  void see_event_pairs(const VecSet<std::pair<int,int>> &seen);
   /* Adds a non-reversible happens-before edge between first and
    * second.
    */

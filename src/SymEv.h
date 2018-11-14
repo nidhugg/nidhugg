@@ -31,13 +31,15 @@
 struct SymEv {
   public:
   enum kind {
-    // EMPTY,
+    NONE,
+
     NONDET,
 
     LOAD,
     STORE,
     FULLMEM, /* Observe & clobber everything */
 
+    RMW,
     CMPXHG,
     CMPXHGFAIL,
 
@@ -72,13 +74,13 @@ struct SymEv {
   } arg;
   SymData::block_type _expected, _written;
 
-  SymEv() = delete;
-  // SymEv() : kind(EMPTY) {};
-  // static SymEv Empty() { return {EMPTY, {}}; }
+  SymEv() : kind(NONE) {};
+  static SymEv None() { return {NONE, {}}; }
   static SymEv Nondet(int count) { return {NONDET, count}; }
 
   static SymEv Load(SymAddrSize addr) { return {LOAD, addr}; }
   static SymEv Store(SymData addr) { return {STORE, std::move(addr)}; }
+  static SymEv Rmw(SymData addr) { return {RMW, std::move(addr)}; }
   static SymEv CmpXhg(SymData addr, SymData::block_type expected) {
     return {CMPXHG, addr, expected};
   }
@@ -119,6 +121,7 @@ struct SymEv {
   bool has_num() const;
   bool has_data() const;
   bool has_expected() const;
+  bool empty() const { return kind == NONE; }
   const SymAddrSize &addr()   const { assert(has_addr()); return arg.addr; }
         int          num()    const { assert(has_num()); return arg.num; }
   SymData data() const { assert(has_data()); return {arg.addr, _written}; }
