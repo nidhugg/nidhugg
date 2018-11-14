@@ -14,6 +14,7 @@ OPTIMAL = $(NIDHUGG) -sc -optimal
 OBSERVERS = $(NIDHUGG) -sc -optimal -observers
 SWSC ?= swsc
 RCMC ?= rcmc
+WRCMC ?= $(RCMC) --wrc11
 CDSC_DIR ?= /opt/cdschecker
 TIME = env time -f 'real %e\nres %M'
 TIMEOUT = timeout $(TIME_LIMIT)
@@ -21,7 +22,7 @@ ULIMIT = ulimit -Ss $(STACK_LIMIT) &&
 RUN = -$(ULIMIT) $(TIMEOUT) $(TIME)
 TABULATE = ../../tabulate.sh
 
-TOOLS = source optimal observers swsc rcmc
+TOOLS = source optimal observers swsc rcmc wrcmc
 ifneq ($(wildcard $(CDSC_DIR)/.),)
         TOOLS += cdsc
 endif
@@ -33,6 +34,7 @@ all: $(TABLES)
 # Hack to not duplicate tabulation rule; causes the table to be rebuilt on each
 # invocation
 rcmc_results:: $(N:%=rcmc_%.txt)
+wrcmc_results:: $(N:%=wrcmc_%.txt)
 source_results:: $(N:%=source_%.txt)
 optimal_results:: $(N:%=optimal_%.txt)
 observers_results:: $(N:%=observers_%.txt)
@@ -66,6 +68,10 @@ swsc_%.txt: code_%.bc
 rcmc_%.txt: code_%.bc
 	@date
 	$(RUN) $(RCMC) $< 2>&1 | tee $@
+
+wrcmc_%.txt: code_%.bc
+	@date
+	$(RUN) $(WRCMC) $< 2>&1 | tee $@
 
 cdsc_%.txt: cdsc_%.elf
 	@date
