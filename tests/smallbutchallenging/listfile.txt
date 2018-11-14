@@ -37,6 +37,7 @@ fib_true_sw_too_many.c
 
 #
 pthread-demo-xchg.c
+rmw_test1.c
 rmw_test2.c
 
 # DCDPOR Benchmarks

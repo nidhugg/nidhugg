@@ -31,6 +31,7 @@ fib_true_too_few Forbid : 5
 fib_true_sw_too_few Forbid : 25
 fib_true_sw_too_many Forbid : 13
 pthread-demo-xchg Forbid : 58
+rmw_test1 Forbid : 1
 rmw_test2 Forbid : 300
 opt_lock_2 Forbid : 19
 opt_lock_3 Forbid : 31
@@ -38,5 +39,5 @@ sigma_false_3 Forbid : 12
 sigma_false_4 Forbid : 64
 parker_2 Forbid : 97
 cmpxhg_test_3 Forbid : 5
-# Total number of traces: 1050
+# Total number of traces: 1051
 # Total running time: 5.16 s
