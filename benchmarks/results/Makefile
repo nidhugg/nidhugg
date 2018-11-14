@@ -6,6 +6,8 @@ SUBDIRS =				\
 	from_OBSERVERS/floating_read	\
 	from_OBSERVERS/lamport		\
 	from_OBSERVERS/lastwrite	\
+	from_TRACER/exponential_bug	\
+	SV-COMP/sigma			\
 	synthetic/length_parametric	\
 	synthetic/race_parametric	\
 	synthetic/thread_parametric

@@ -51,7 +51,7 @@ code_%.bc: $(SRCDIR)/$(FILE)
 cdsc_%.elf: $(SRCDIR)/$(FILE)
 	$(CC) -Wl,-rpath=$(CDSC_DIR) $(OPT) -I../../cdsc_include \
 		-L$(CDSC_DIR) -lmodel -I$(CDSC_DIR)/include \
-		-Dmain=user_main -pthread -DN=$* -o $@ $<
+		-DCDSC=1 -Dmain=user_main -pthread -DN=$* -o $@ $<
 
 source_%.txt: code_%.bc
 	@date

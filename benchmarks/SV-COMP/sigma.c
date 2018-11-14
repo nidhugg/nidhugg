@@ -9,42 +9,37 @@
 #include <stdatomic.h>
 #include <pthread.h>
 
-#ifndef SIGMA
-#  warning "SIGMA was not defined"
-#  define SIGMA 5
+#ifndef N
+#  warning "N was not defined"
+#  define N 5
 #endif
 
 // shared variables
-atomic_int array[SIGMA]; 
+atomic_int array[N];
 atomic_int array_index;
 
 void *thread(void *arg) {
-	int _array_index;
-	_array_index = atomic_load_explicit(&array_index, memory_order_seq_cst);
-	atomic_store_explicit(&array[_array_index], 1, memory_order_seq_cst);
-	
-	return NULL;
+  atomic_store(array + atomic_load(&array_index), 1);
+
+  return NULL;
 }
 
-
-
-int main(int argc, char *argv[])
-{
-	int _array_index;
-	pthread_t tids[SIGMA];
+int main(int argc, char *argv[]) {
+	pthread_t tids[N];
 	atomic_init(&array_index, -1);
 	
-	for (int i = 0; i < SIGMA; i++){
+#ifdef CDSC
+	for (int i = 0; i < N; i++){
 		atomic_init(&array[i], 0);
 	}
+#endif
 
-	for (int i = 0; i < SIGMA; i++){
-		_array_index = atomic_load_explicit(&array_index, memory_order_seq_cst);
-		atomic_store_explicit(&array_index, _array_index+1, memory_order_seq_cst);
+	for (int i = 0; i < N; i++){
+		atomic_store(&array_index, atomic_load(&array_index)+1);
 		pthread_create(&tids[i], NULL, thread, NULL);
 	}
 	
-	for (int i = 0; i < SIGMA; i++){
+	for (int i = 0; i < N; i++){
 		pthread_join(tids[i], NULL);
 	}
 
