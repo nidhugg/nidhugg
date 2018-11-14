@@ -486,6 +486,8 @@ void WSCTraceBuilder::compare_exchange
 }
 
 void WSCTraceBuilder::full_memory_conflict(){
+  llvm::dbgs() << "FULLMEM not supported\n";
+  abort();
   record_symbolic(SymEv::Fullmem());
   curev().may_conflict = true;
 
@@ -568,6 +570,7 @@ void WSCTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
 }
 
 void WSCTraceBuilder::mutex_trylock(const SymAddrSize &ml){
+  llvm::dbgs() << "trylock not supported\n";
   abort();
   assert(!conf.mutex_require_init || mutexes.count(ml.addr));
   Mutex &mutex = mutexes[ml.addr];
@@ -627,6 +630,8 @@ void WSCTraceBuilder::mutex_destroy(const SymAddrSize &ml){
 }
 
 bool WSCTraceBuilder::cond_init(const SymAddrSize &ml){
+  llvm::dbgs() << "condvars not supported\n";
+  abort();
   record_symbolic(SymEv::CInit(ml));
   fence();
   if(cond_vars.count(ml.addr)){
@@ -640,6 +645,8 @@ bool WSCTraceBuilder::cond_init(const SymAddrSize &ml){
 }
 
 bool WSCTraceBuilder::cond_signal(const SymAddrSize &ml){
+  llvm::dbgs() << "condvars not supported\n";
+  abort();
   record_symbolic(SymEv::CSignal(ml));
   fence();
   curev().may_conflict = true;
@@ -679,6 +686,8 @@ bool WSCTraceBuilder::cond_signal(const SymAddrSize &ml){
 }
 
 bool WSCTraceBuilder::cond_broadcast(const SymAddrSize &ml){
+  llvm::dbgs() << "condvars not supported\n";
+  abort();
   record_symbolic(SymEv::CBrdcst(ml));
   fence();
   curev().may_conflict = true;
@@ -706,6 +715,8 @@ bool WSCTraceBuilder::cond_broadcast(const SymAddrSize &ml){
 }
 
 bool WSCTraceBuilder::cond_wait(const SymAddrSize &cond_ml, const SymAddrSize &mutex_ml){
+  llvm::dbgs() << "condvars not supported\n";
+  abort();
   {
     auto it = mutexes.find(mutex_ml.addr);
     if(it == mutexes.end()){
@@ -744,6 +755,8 @@ bool WSCTraceBuilder::cond_wait(const SymAddrSize &cond_ml, const SymAddrSize &m
 }
 
 bool WSCTraceBuilder::cond_awake(const SymAddrSize &cond_ml, const SymAddrSize &mutex_ml){
+  llvm::dbgs() << "condvars not supported\n";
+  abort();
   assert(cond_vars.count(cond_ml.addr));
   CondVar &cond_var = cond_vars[cond_ml.addr];
   add_happens_after(prefix_idx, cond_var.last_signal);
@@ -756,6 +769,8 @@ bool WSCTraceBuilder::cond_awake(const SymAddrSize &cond_ml, const SymAddrSize &
 }
 
 int WSCTraceBuilder::cond_destroy(const SymAddrSize &ml){
+  llvm::dbgs() << "condvars not supported\n";
+  abort();
   record_symbolic(SymEv::CDelete(ml));
   fence();
 
@@ -779,6 +794,8 @@ int WSCTraceBuilder::cond_destroy(const SymAddrSize &ml){
 }
 
 void WSCTraceBuilder::register_alternatives(int alt_count){
+  llvm::dbgs() << "alternatives not supported\n";
+  abort();
   curev().may_conflict = true;
   record_symbolic(SymEv::Nondet(alt_count));
   if(curev().alt == 0) {
