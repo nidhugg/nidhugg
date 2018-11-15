@@ -409,7 +409,6 @@ void WSCTraceBuilder::do_atomic_store(const SymData &sd){
 
     /* Register in memory */
     bi.last_update = prefix_idx;
-    bi.last_update_ml = ml;
   }
 }
 
@@ -426,23 +425,13 @@ void WSCTraceBuilder::load(const SymAddrSize &ml){
 
 void WSCTraceBuilder::do_load(const SymAddrSize &ml){
   curev().may_conflict = true;
-  IPid ipid = curev().iid.get_pid();
+  int lu = mem[ml.addr].last_update;
+  curev().read_from = lu;
 
-  /* See all updates to the read bytes. */
-  for(SymAddr b : ml){
-    int lu = mem[b].last_update;
-    const SymAddrSize &lu_ml = mem[b].last_update_ml;
-    if(0 <= lu){
-      IPid lu_tipid = prefix[lu].iid.get_pid() & ~0x1;
-      if(lu_tipid == ipid && ml != lu_ml && lu != prefix_idx){
-        add_happens_after(prefix_idx, lu);
-      }
-    }
-    do_load(mem[b]);
-
-    /* Register load in memory */
-    mem[b].last_read[ipid] = prefix_idx;
-  }
+  assert(lu == -1 || get_addr(lu) == ml);
+  assert(std::all_of(ml.begin(), ml.end(), [lu,this](SymAddr b) {
+             return mem[b].last_update == lu;
+           }));
 }
 
 void WSCTraceBuilder::compare_exchange
@@ -463,30 +452,14 @@ void WSCTraceBuilder::full_memory_conflict(){
   record_symbolic(SymEv::Fullmem());
   curev().may_conflict = true;
 
-  /* See all pervious memory accesses */
-  for(auto it = mem.begin(); it != mem.end(); ++it){
-    do_load(it->second);
-  }
-  last_full_memory_conflict = prefix_idx;
+  // /* See all pervious memory accesses */
+  // for(auto it = mem.begin(); it != mem.end(); ++it){
+  //   do_load(it->second);
+  // }
+  // last_full_memory_conflict = prefix_idx;
 
-  /* No later access can have a conflict with any earlier access */
-  mem.clear();
-}
-
-void WSCTraceBuilder::do_load(ByteInfo &m){
-  IPid ipid = curev().iid.get_pid();
-  VecSet<int> seen_accesses;
-  VecSet<std::pair<int,int>> seen_pairs;
-
-  int lu = m.last_update;
-  curev().read_from = lu;
-  assert(lu == -1 || get_addr(prefix_idx) == get_addr(lu));
-  if(0 <= lu){
-    IPid lu_tipid = prefix[lu].iid.get_pid() & ~0x1;
-    if(lu_tipid != ipid){
-      seen_accesses.insert(lu);
-    }
-  }
+  // /* No later access can have a conflict with any earlier access */
+  // mem.clear();
 }
 
 void WSCTraceBuilder::fence(){
