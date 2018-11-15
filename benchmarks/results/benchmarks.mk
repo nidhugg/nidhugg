@@ -25,6 +25,8 @@ TABULATE = ../../tabulate.sh
 TOOLS = source optimal observers swsc rcmc wrcmc
 ifneq ($(wildcard $(CDSC_DIR)/.),)
         TOOLS += cdsc
+else
+	NATOOLS += cdsc
 endif
 
 TABLES = $(TOOLS:%=%.txt) wide.txt
@@ -86,7 +88,7 @@ cdsc_%.txt: cdsc_%.elf
 	  | column -t > $@
 
 wide.txt: $(ALL_RESULTS) $(TABULATE)
-	$(TABULATE) wide "$(NAME)" "$(TOOLS)" "$(N)" \
+	$(TABULATE) wide "$(NAME)" "$(TOOLS)" "$(N)" "$(NATOOLS)" \
 	  | column -t > $@
 
 clean:

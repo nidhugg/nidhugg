@@ -62,9 +62,10 @@ case $verb in
         bench=$1
         tools=$2
         N=$3
-        shift 3
+        natools=$4
+        shift 4
         echo -ne "benchmark\tn"
-        for tool in $tools; do
+        for tool in $tools $natools; do
             echo -ne "\t${tool}_traces\t${tool}_time\t${tool}_mem"
         done
         echo ''
@@ -75,6 +76,7 @@ case $verb in
                 printf "\t%s\t%s\t%s" $(get_traces "$f") $(get_time "$f") \
                        $(get_mem "$f")
             done
+            for tool in $natools; do printf "\tn/a\tn/a\tn/a"; done
             printf "\n"
         done
         ;;
