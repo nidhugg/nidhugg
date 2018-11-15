@@ -480,6 +480,7 @@ void WSCTraceBuilder::do_load(ByteInfo &m){
 
   int lu = m.last_update;
   curev().read_from = lu;
+  assert(lu == -1 || get_addr(prefix_idx) == get_addr(lu));
   if(0 <= lu){
     IPid lu_tipid = prefix[lu].iid.get_pid() & ~0x1;
     if(lu_tipid != ipid){
@@ -1232,6 +1233,7 @@ void WSCTraceBuilder::compute_prefixes() {
              || is_unlock(original_read_from)
              || is_minit(original_read_from));
       auto next = std::upper_bound(accesses.begin(), accesses.end(), i);
+      /* TODO: Deadlocked alternatives */
       if (next == accesses.end()) continue;
       unsigned unlock = *next;
       assert(is_unlock(unlock) && *prefix[unlock].read_from == int(i));

@@ -33,7 +33,7 @@
 
 static unsigned unf_ctr = 0;
 
-class WSCTraceBuilder : public TSOPSOTraceBuilder{
+class WSCTraceBuilder final : public TSOPSOTraceBuilder{
 public:
   WSCTraceBuilder(const Configuration &conf = Configuration::default_conf);
   virtual ~WSCTraceBuilder();
@@ -416,10 +416,7 @@ protected:
    */
   int prefix_idx;
 
-  /* The index of the currently expected symbolic event, as an index into
-   * curev().sym. Equal to curev().sym.size() (or 0 when prefix_idx == -1) when
-   * not replaying.
-   */
+  /* Whether the currently replaying event has had its sym set. */
   bool seen_effect;
 
   /* Are we currently replaying the events given in prefix from the
