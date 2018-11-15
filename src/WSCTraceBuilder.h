@@ -519,6 +519,8 @@ protected:
    * computed.
    */
   void compute_prefixes();
+  /* Checks whether an event is included in a vector clock. */
+  bool happens_before(const Event &e, const VClock<IPid> &c) const;
   /* Check whether a read-from might be satisfiable according to the
    * vector clocks.
    */

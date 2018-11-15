@@ -1134,51 +1134,33 @@ undo_cmpxhg_recomputation(CmpXhgUndoLog log, std::vector<int> &writes) {
   }
 }
 
+bool WSCTraceBuilder::happens_before(const Event &e,
+                                     const VClock<int> &c) const {
+  return c.includes(e.iid);
+}
+
 bool WSCTraceBuilder::can_rf_by_vclocks
 (int r, int ow, int w) const {
   /* Is the write after the read? */
-  if (w != -1 && prefix[r].clock.leq(prefix[w].clock)) return false;
+  if (w != -1 && happens_before(prefix[r], prefix[w].clock)) abort();
 
   /* Is the original write always before the read, and the new write
    * before the original?
    */
-  if (ow != -1 && (w == -1 || prefix[w].clock.leq(prefix[ow].clock))) {
-    if (prefix[r].iid.get_index() != 1) {
-      unsigned r_po_pred = find_process_event(prefix[r].iid.get_pid(),
-                                              prefix[r].iid.get_index()-1);
-      if (prefix[ow].clock.leq(prefix[r_po_pred].clock)) return false;
-    }
-    for (unsigned pred : prefix[r].happens_after) {
-      if (prefix[ow].clock.leq(prefix[pred].clock)) return false;
-    }
+  if (ow != -1 && (w == -1 || happens_before(prefix[w], prefix[ow].clock))) {
+    if (happens_before(prefix[ow], prefix[r].above_clock)) return false;
   }
 
   return true;
 }
 
 bool WSCTraceBuilder::can_swap_by_vclocks(int r, int w) const {
-  if (prefix[w].iid.get_index() != 1) {
-    unsigned w_po_pred = find_process_event(prefix[w].iid.get_pid(),
-                                            prefix[w].iid.get_index()-1);
-    if (prefix[r].clock.leq(prefix[w_po_pred].clock)) return false;
-  }
-  for (unsigned pred : prefix[w].happens_after) {
-    if (prefix[r].clock.leq(prefix[pred].clock)) return false;
-  }
+  if (happens_before(prefix[r], prefix[w].above_clock)) return false;
   return true;
 }
 
 bool WSCTraceBuilder::can_swap_lock_by_vclocks(int f, int u, int s) const {
-  if (prefix[s].iid.get_index() != 1) {
-    unsigned s_po_pred = find_process_event(prefix[s].iid.get_pid(),
-                                            prefix[s].iid.get_index()-1);
-    if (prefix[f].clock.leq(prefix[s_po_pred].clock)) return false;
-  }
-  for (unsigned pred : prefix[s].happens_after) {
-    assert(pred != unsigned(u));
-    assert(pred != unsigned(f));
-    if (prefix[f].clock.leq(prefix[pred].clock)) return false;
-  }
+  if (happens_before(prefix[f], prefix[s].above_clock)) return false;
   return true;
 }
 
