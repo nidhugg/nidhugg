@@ -198,7 +198,7 @@ bool SaturatedGraph::saturate() {
           unsigned last_visible_id = vc[pid];
           ID last_visible = get_process_event(pid, last_visible_id);
           auto ub = std::upper_bound(writes.begin(), writes.end(),
-                                     last_visible, std::less<ID>());
+                                     last_visible);
           if (ub == writes.begin()) continue;
           else --ub;
           /* We cannot read ourselves */
@@ -506,7 +506,7 @@ void SaturatedGraph::reverse_saturate() {
           Option<ID> first_visible = maybe_get_process_event(pid, first_visible_index);
           if (!first_visible) continue;
           auto lb = std::lower_bound(writes.begin(), writes.end(),
-                                     *first_visible, std::less<ID>());
+                                     *first_visible);
           if (lb == writes.end()) continue;
           if (*lb == id) {
             if (++lb == writes.end()) continue;
@@ -544,10 +544,7 @@ auto SaturatedGraph::reverse_care_set() const -> struct care {
 auto SaturatedGraph::po_successor(ID id, const Event &e) const -> Option<ID> {
   const immer::vector<ID> &events = events_by_pid[e.iid.get_pid()];
   if (events.back() == id) return nullptr;
-  auto suc = std::upper_bound(events.begin(), events.end(), id,
-                              [this](unsigned id, unsigned oid) {
-                                return id < oid;
-                              });
+  auto suc = std::upper_bound(events.begin(), events.end(), id);
   assert(suc != events.end());
   return Option<ID>(*suc);
 }
