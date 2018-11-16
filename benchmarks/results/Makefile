@@ -11,9 +11,7 @@ SUBDIRS =				\
 	from_TRACER/control_flow	\
 	SV-COMP/sigma			\
 	synthetic/sat_example		\
-	synthetic/length_parametric	\
-	synthetic/race_parametric	\
-	synthetic/thread_parametric
+	synthetic/race_parametric
 
 # T ?= all
 
