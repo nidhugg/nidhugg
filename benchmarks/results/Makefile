@@ -12,9 +12,6 @@ SUBDIRS =				\
 	synthetic/race_parametric	\
 	synthetic/thread_parametric
 
- # not the same benchmark
-SUBDIRS += from_DCDPOR/parker
-
 # T ?= all
 
 all: $(SUBDIRS)
