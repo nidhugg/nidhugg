@@ -9,7 +9,6 @@ SUBDIRS =				\
 	from_TRACER/redundant_co	\
 	from_TRACER/myexample		\
 	from_TRACER/control_flow	\
-	SV-COMP/sigma			\
 	synthetic/sat_example		\
 	synthetic/race_parametric
 
