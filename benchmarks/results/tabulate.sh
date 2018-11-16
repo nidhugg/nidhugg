@@ -9,7 +9,7 @@ blame() {
     if grep -Eq '^real ' $1; then
         echo err
     else
-        echo t/o
+        echo '{\timeout}'
     fi
 }
 
