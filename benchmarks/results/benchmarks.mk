@@ -22,7 +22,7 @@ ULIMIT = ulimit -Ss $(STACK_LIMIT) &&
 RUN = -$(ULIMIT) $(TIMEOUT) $(TIME)
 TABULATE = ../../tabulate.sh
 
-TOOLS = source optimal observers swsc rcmc wrcmc
+TOOLS = optimal observers swsc rcmc wrcmc
 ifneq ($(wildcard $(CDSC_DIR)/.),)
         TOOLS += cdsc
 else
