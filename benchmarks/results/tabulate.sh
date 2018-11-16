@@ -82,7 +82,8 @@ case $verb in
                            $(get_mem "$f")
                 fi
             done
-            for tool in $natools; do printf "\tn/a\tn/a\tn/a"; done
+            na='{\notavail}'
+            for tool in $natools; do printf "\t%s\t%s\t%s" "$na" "$na" "$na"; done
             printf "\n"
         done
         ;;
