@@ -6,6 +6,9 @@ SUBDIRS =				\
 	from_OBSERVERS/lamport		\
 	from_OBSERVERS/lastwrite	\
 	from_TRACER/exponential_bug	\
+	from_TRACER/redundant_co	\
+	from_TRACER/myexample		\
+	from_TRACER/control_flow	\
 	SV-COMP/sigma			\
 	synthetic/sat_example		\
 	synthetic/length_parametric	\
