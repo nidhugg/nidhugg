@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-# Copyright (C) 2018 Magnus Lång and Tuan Phong Ngo
+# Copyright (C) 2018
 # Library to generate tables
 
 import math

@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-# Copyright (C) 2018 Magnus Lång and Tuan Phong Ngo
+# Copyright (C) 2018
 # Present experimental results in table
 
 import sys

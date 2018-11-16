@@ -1,10 +1,9 @@
-/* Copyright (C) 2018 Magnus Lång and Tuan Phong Ngo
+/* Copyright (C) 2018
  * This benchmark is part of SWSC
  */
 
 /* 
  * Adapted from: https://svn.sosy-lab.org/software/sv-benchmarks/trunk/c/pthread/fib_bench_true-unreach-call.c 
- * Written by Magnus Lang
 */
 
 #include <stdlib.h>

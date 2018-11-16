@@ -1,4 +1,4 @@
-/* Copyright (C) 2018 Tuan Phong Ngo 
+/* Copyright (C) 2018  
  * This benchmark is part of TRACER
  */
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (C) 2018 Magnus Lång and Tuan Phong Ngo
+# Copyright (C) 2018
 # A (work-in-progress) test script for running our benchmarks
 # Runs all tests, with timing information
 

@@ -1,7 +1,3 @@
-/* Copyright (C) 2018 Magnus Lång and Tuan Phong Ngo
- * This benchmark is part of SWSC
- */
-
 /* Adapted from: https://raw.githubusercontent.com/sosy-lab/sv-benchmarks/master/c/pthread/sigma_false-unreach-call.c */
 
 #include <assert.h>

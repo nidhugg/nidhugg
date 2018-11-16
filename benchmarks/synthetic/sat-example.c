@@ -1,4 +1,4 @@
-/* Copyright (C) 2018 Magnus Lång and Tuan Phong Ngo
+/* Copyright (C) 2018
  * This benchmark is part of SWSC */
 
 #include <stdatomic.h>
