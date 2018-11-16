@@ -73,8 +73,14 @@ case $verb in
             printf "%s\t%d" $bench $n
             for tool in $tools; do
                 f="${tool}_${n}.txt"
-                printf "\t%s\t%s\t%s" $(get_traces "$f") $(get_time "$f") \
-                       $(get_mem "$f")
+                traces=$(get_traces "$f")
+                if [ x"$traces" = xerr ]; then
+                    err='{\error}'
+                    printf "\t%s\t%s\t%s" "$err" "$err" "$err"
+                else
+                    printf "\t%s\t%s\t%s" "$traces" $(get_time "$f") \
+                           $(get_mem "$f")
+                fi
             done
             for tool in $natools; do printf "\tn/a\tn/a\tn/a"; done
             printf "\n"
