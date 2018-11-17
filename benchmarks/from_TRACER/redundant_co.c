@@ -2,9 +2,9 @@
  * This benchmark is part of SWSC
  */
 
-/* My example: Get insprration from example in Figure 5, 
+/* My example: Get inspiration from example in Figure 5, 
  * Data-centric dynamic partial order reduction
- *  https://dl.acm.org/citation.cfm?id=3158119
+ *   https://dl.acm.org/citation.cfm?id=3158119
  * There are 3N^2+3N+1 weak traces
  */
 
