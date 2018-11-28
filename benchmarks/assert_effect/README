@@ -1,0 +1,3 @@
+Run ./runall.sh in bencharmks and benchmarks_no_assert.
+The results will be stored in result-table.txt.
+The log files will be stored in log-files/runall.log.
