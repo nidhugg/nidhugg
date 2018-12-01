@@ -1,0 +1,3 @@
+Run ./runall.sh. 
+The result will be stored in result-table.txt.
+The log file will be stored in log-files/runall.log.
