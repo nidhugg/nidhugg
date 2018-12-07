@@ -167,8 +167,11 @@ bool WSCTraceBuilder::is_replaying() const {
 }
 
 void WSCTraceBuilder::cancel_replay(){
+  if(!replay) {
+    assert(!is_replaying());
+    return;
+  }
   abort(); /* What is this function used for? */
-  if(!replay) return;
   replay = false;
   /* XXX: Reset won't work right if we delete some prefix event
    * corresponding to a decision node that will not be popped on reset.
