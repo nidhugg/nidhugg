@@ -1,0 +1,9 @@
+NAME=burns
+FILE=benchmarks/asserts/from_TRACER/burns.cc
+N = 2 4 6 8 10 15 20 25 30 35 40
+# CDSC is not compatible
+CDSC_DIR := nonexistant/
+TIME_LIMIT = 600
+
+include ../../../../benchmarks.mk
+CLANGFLAGS += -std=c++11 
