@@ -1992,8 +1992,41 @@ void TSOTraceBuilder::race_detect_optimal
             return;
           }
 
-          /* Drop ve from v and recurse into this node */
-          v.erase(vei);
+          /* We will recurse into this node. To do that we first need to
+           * drop all events in child_it.branch() from v.
+           */
+          if (ve.size < child_it.branch().size) {
+            /* child_it.branch() contains more events than just ve.
+             * We need to scan v to find all of them.
+             */
+            int missing = child_it.branch().size - ve.size;
+            IPid pid = ve.pid;
+            for (auto vri = v.erase(vei); missing != 0 && vri != v.end();) {
+              if (vri->pid == pid) {
+                assert(vri->sym.empty());
+                if (vri->size > missing) {
+                  vri->size = missing;
+                  missing = 0;
+                  break;
+                } else {
+                  missing -= vri->size;
+                  vri =  v.erase(vri);
+                }
+              } else {
+                ++vri;
+              }
+            }
+          } else if (ve.size > child_it.branch().size) {
+            /* ve is larger than child_it.branch(). Delete the common
+             * prefix from ve.
+             */
+            vei->size -= child_it.branch().size;
+            vei->sym.clear();
+            vei->alt = 0;
+          } else {
+            /* Drop ve from v. */
+            v.erase(vei);
+          }
           break;
         }
 
