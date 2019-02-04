@@ -922,6 +922,7 @@ void TSOTraceBuilder::mutex_lock(const SymAddrSize &ml){
   }
 
   mutex.last_lock = mutex.last_access = prefix_idx;
+  mutex.locked = true;
 }
 
 void TSOTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
@@ -961,8 +962,9 @@ void TSOTraceBuilder::mutex_trylock(const SymAddrSize &ml){
   see_events({mutex.last_access,last_full_memory_conflict});
 
   mutex.last_access = prefix_idx;
-  if(mutex.last_lock < 0){ // Mutex is free
+  if(!mutex.locked){ // Mutex is free
     mutex.last_lock = prefix_idx;
+    mutex.locked = true;
   }
 }
 
@@ -989,6 +991,7 @@ void TSOTraceBuilder::mutex_unlock(const SymAddrSize &ml){
   see_events({mutex.last_access,last_full_memory_conflict});
 
   mutex.last_access = prefix_idx;
+  mutex.locked = false;
 }
 
 void TSOTraceBuilder::mutex_init(const SymAddrSize &ml){
