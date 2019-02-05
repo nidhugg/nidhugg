@@ -1287,23 +1287,6 @@ static bool symev_does_load(const SymEv &e) {
 TSOTraceBuilder::obs_wake_res
 TSOTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep,
                                 IPid p, const sym_ty &sym) const{
-  if (sleep.sleep.count(p)) {
-    if (sleep.sleep[p].not_if_read) {
-      sleep.must_read.push_back(*sleep.sleep[p].not_if_read);
-      sleep.sleep.erase(p);
-      return obs_wake_res::CONTINUE;
-    } else {
-      return obs_wake_res::BLOCK;
-    }
-  }
-
-  for (auto it = sleep.sleep.begin(); it != sleep.sleep.end();) {
-    if (do_events_conflict(p, sym, it->first, *it->second.sym)){
-      it = sleep.sleep.erase(it);
-    }else{
-      ++it;
-    }
-  }
 
   if (conf.observers) {
     for (const SymEv &e : sym) {
@@ -1343,6 +1326,21 @@ TSOTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep,
           }
         }
       }
+    }
+  }
+
+  for (auto it = sleep.sleep.begin(); it != sleep.sleep.end();) {
+    if (it->first == p) {
+      if (it->second.not_if_read) {
+        sleep.must_read.push_back(*it->second.not_if_read);
+        it = sleep.sleep.erase(it);
+      } else {
+        return obs_wake_res::BLOCK;
+      }
+    } else if (do_events_conflict(p, sym, it->first, *it->second.sym)){
+      it = sleep.sleep.erase(it);
+    } else {
+      ++it;
     }
   }
 
