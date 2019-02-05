@@ -406,10 +406,10 @@ str_join(const std::vector<std::string> &vec, const std::string &sep) {
 std::string TSOTraceBuilder::oslp_string(const struct obs_sleep &os) const {
   std::vector<std::string> elems;
   auto pid_str = [this](IPid p) { return threads[p].cpid.to_string(); };
-  for (const auto &pair : os.sleep) {
-    elems.push_back(threads[pair.first].cpid.to_string());
-    if (pair.second.not_if_read) {
-      elems.back() += "/" + pair.second.not_if_read->to_string(pid_str);
+  for (const auto &sleeper : os.sleep) {
+    elems.push_back(threads[sleeper.pid].cpid.to_string());
+    if (sleeper.not_if_read) {
+      elems.back() += "/" + sleeper.not_if_read->to_string(pid_str);
     }
   }
   for (const SymAddrSize &sas : os.must_read) {
@@ -1255,17 +1255,41 @@ TSOTraceBuilder::obs_sleep_at(int i) const{
   return sleep;
 }
 
+bool TSOTraceBuilder::obs_sleep::count(IPid p) const {
+  return std::any_of(sleep.begin(), sleep.end(),
+                     [p](const struct sleeper &s) {
+                       return s.pid == p;
+                     });
+}
+
 void TSOTraceBuilder::obs_sleep_add(struct obs_sleep &sleep,
                                     const Event &e) const{
   for (int k = 0; k < e.sleep.size(); ++k){
-    sleep.sleep[e.sleep[k]] = {&e.sleep_evs[k], nullptr};
+    sleep.sleep.push_back({e.sleep[k], &e.sleep_evs[k], nullptr});
   }
+}
+
+/* Efficient unordered set delete */
+template <typename T> static inline
+void unordered_vector_delete(std::vector<T> &vec, std::size_t pos) {
+  assert(pos < vec.size());
+  if (pos+1 != vec.size())
+    vec[pos] = std::move(vec.back());
+  vec.pop_back();
 }
 
 void
 TSOTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep, const Event &e) const{
   if (!conf.observers) {
-    for (IPid p : e.wakeup) sleep.sleep.erase(p);
+    if (e.wakeup.size()) {
+      for (unsigned i = 0; i < sleep.sleep.size();) {
+        if (e.wakeup.count(sleep.sleep[i].pid)) {
+          unordered_vector_delete(sleep.sleep, i);
+        } else {
+          ++i;
+        }
+      }
+    }
   } else {
     sym_ty sym = e.sym;
     /* A tricky part to this is that we must clear observers from the events
@@ -1298,9 +1322,7 @@ TSOTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep,
         const SymAddrSize &esas = e.addr();
         for (int i = 0; i < int(sleep.must_read.size());) {
           if (sleep.must_read[i].overlaps(esas)) {
-            /* Efficient unordered set delete */
-            std::swap(sleep.must_read[i], sleep.must_read.back());
-            sleep.must_read.pop_back();
+            unordered_vector_delete(sleep.must_read, i);
           } else {
             ++i;
           }
@@ -1317,30 +1339,31 @@ TSOTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep,
         }
         /* Now handle write-write races by moving the sleepers to sleep_if */
         for (auto it = sleep.sleep.begin(); it != sleep.sleep.end(); ++it) {
-          if (std::any_of(it->second.sym->begin(), it->second.sym->end(),
+          if (std::any_of(it->sym->begin(), it->sym->end(),
                           [&esas](const SymEv &f) {
                             return symev_is_store(f) && f.addr() == esas;
                           })) {
-            assert(!it->second.not_if_read || *it->second.not_if_read == esas);
-            it->second.not_if_read = esas;
+            assert(!it->not_if_read || *it->not_if_read == esas);
+            it->not_if_read = esas;
           }
         }
       }
     }
   }
 
-  for (auto it = sleep.sleep.begin(); it != sleep.sleep.end();) {
-    if (it->first == p) {
-      if (it->second.not_if_read) {
-        sleep.must_read.push_back(*it->second.not_if_read);
-        it = sleep.sleep.erase(it);
+  for (unsigned i = 0; i < sleep.sleep.size();) {
+    const auto &s = sleep.sleep[i];
+    if (s.pid == p) {
+      if (s.not_if_read) {
+        sleep.must_read.push_back(*s.not_if_read);
+        unordered_vector_delete(sleep.sleep, i);
       } else {
         return obs_wake_res::BLOCK;
       }
-    } else if (do_events_conflict(p, sym, it->first, *it->second.sym)){
-      it = sleep.sleep.erase(it);
+    } else if (do_events_conflict(p, sym, s.pid, *s.sym)){
+      unordered_vector_delete(sleep.sleep, i);
     } else {
-      ++it;
+      ++i;
     }
   }
 
@@ -1920,7 +1943,7 @@ void TSOTraceBuilder::race_detect
       /* There is already a satisfactory candidate branch */
       return;
     }
-    if(isleep.sleep.count(cand.pid)){
+    if(isleep.count(cand.pid)){
       /* This candidate is already sleeping (has been considered) at
        * prefix[i]. */
       return;
