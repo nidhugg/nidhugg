@@ -90,6 +90,62 @@ declare i32 @pthread_join(i64, i8**)
   BOOST_CHECK(!res.has_errors());
 }
 
+BOOST_AUTO_TEST_CASE(Eratosthenes4){
+  /* Regression test for "TSOTraceBuilder: Fix obs_sleep_wake edge case" */
+  Configuration conf = DPORDriver_test::get_sc_conf();
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  conf.observers = true;
+  std::string module = StrModule::portasm(R"(
+%attr_t = type { i64, [48 x i8] }
+
+@naturals = global [19 x i32] zeroinitializer, align 16
+
+define i8* @eratosthenes(i8*) {
+  br label %2
+
+  %3 = phi i64 [ 2, %1 ], [ %16, %15 ]
+  %4 = phi i64 [ 4, %1 ], [ %17, %15 ]
+  %5 = getelementptr [19 x i32], [19 x i32]* @naturals, i64 0, i64 %3
+  %6 = load volatile i32, i32* %5
+  %7 = icmp eq i32 %6, 0
+  %8 = icmp ult i64 %3, 10
+  %9 = and i1 %7, %8
+  br i1 %9, label %10, label %15
+
+  %11 = phi i64 [ %13, %10 ], [ %4, %2 ]
+  %12 = getelementptr [19 x i32], [19 x i32]* @naturals, i64 0, i64 %11
+  store volatile i32 2, i32* %12
+  %13 = add i64 %11, %3
+  %14 = icmp ult i64 %13, 19
+  br i1 %14, label %10, label %15
+
+  %16 = add i64 %3, 1
+  %17 = add i64 %4, 2
+  %18 = icmp eq i64 %16, 19
+  br i1 %18, label %19, label %2
+
+  ret i8* null
+}
+
+define i32 @main(i32, i8**) {
+  %3 = alloca i64, align 8
+  %4 = alloca i64, align 8
+  call i32 @pthread_create(i64* %3, %attr_t* null, i8* (i8*)* @eratosthenes, i8* null)
+  call i32 @pthread_create(i64* %4, %attr_t* null, i8* (i8*)* @eratosthenes, i8* null)
+  ret i32 0
+}
+
+declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*)
+)");
+
+  std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module,conf));
+  DPORDriver::Result res = driver->run();
+
+  /* No trace_set_spec is provided, as it is too big to express in C++ */
+  BOOST_CHECK(res.trace_count == 12074);
+  BOOST_CHECK(!res.has_errors());
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif
