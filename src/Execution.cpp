@@ -3521,8 +3521,9 @@ void Interpreter::run() {
     }
   }
   CurrentThread = 0;
-  if (!std::any_of(Threads.begin(), Threads.end(),
-                   [](const Thread &T) { return T.AssumeBlocked; })) {
+  if (conf.memory_model == Configuration::WEAK_SC
+      && !std::any_of(Threads.begin(), Threads.end(),
+                      [](const Thread &T) { return T.AssumeBlocked; })) {
     for (const Thread &T : Threads) {
       if (!T.ECStack.empty()) {
         llvm::dbgs() << "Deadlocks not supported\n";
