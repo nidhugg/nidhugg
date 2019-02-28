@@ -2727,13 +2727,13 @@ void Interpreter::callPthreadMutexInit(Function *F,
     return;
   }
 
+  TB.mutex_init({GetSymAddr(lck),1}); // also acts as a fence
+
   if(PthreadMutexes.count(lck)){
     TB.pthreads_error("pthread_mutex_init called with already initialized mutex.");
     abort();
     return;
   }
-
-  TB.mutex_init({GetSymAddr(lck),1}); // also acts as a fence
 
   GenericValue Result;
   /* pthread_mutex_init always returns 0 */
@@ -2763,6 +2763,8 @@ void Interpreter::callPthreadMutexLock(void *lck){
     return;
   }
 
+  TB.mutex_lock({GetSymAddr(lck),1}); // also acts as a fence
+
   if(PthreadMutexes.count(lck) == 0){
     if(conf.mutex_require_init){
       TB.pthreads_error("pthread_mutex_lock called with uninitialized mutex.");
@@ -2774,8 +2776,6 @@ void Interpreter::callPthreadMutexLock(void *lck){
   }
 
   assert(PthreadMutexes.count(lck) == 0 || PthreadMutexes[lck].isUnlocked());
-
-  TB.mutex_lock({GetSymAddr(lck),1}); // also acts as a fence
 
   if(DryRun) return;
   PthreadMutexes[lck].lock(CurrentThread);
@@ -2791,6 +2791,8 @@ void Interpreter::callPthreadMutexTryLock(Function *F,
     return;
   }
 
+  TB.mutex_trylock({GetSymAddr(lck),1}); // also acts as a fence
+
   if(PthreadMutexes.count(lck) == 0){
     if(conf.mutex_require_init){
       TB.pthreads_error("pthread_mutex_trylock called with uninitialized mutex.");
@@ -2803,7 +2805,6 @@ void Interpreter::callPthreadMutexTryLock(Function *F,
 
   GenericValue Result;
 
-  TB.mutex_trylock({GetSymAddr(lck),1}); // also acts as a fence
   if(PthreadMutexes.count(lck) == 0 || PthreadMutexes[lck].isUnlocked()){
     Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0); // Success
     returnValueToCaller(F->getReturnType(),Result);
@@ -2826,6 +2827,8 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
     return;
   }
 
+  TB.mutex_unlock({GetSymAddr(lck),1}); // also acts as a fence
+
   if(PthreadMutexes.count(lck) == 0){
     if(conf.mutex_require_init){
       TB.pthreads_error("pthread_mutex_unlock called with uninitialized mutex.");
@@ -2841,8 +2844,6 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
     abort();
     return;
   }
-
-  TB.mutex_unlock({GetSymAddr(lck),1}); // also acts as a fence
 
   GenericValue Result;
   Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0); // Success
@@ -2867,6 +2868,8 @@ void Interpreter::callPthreadMutexDestroy(Function *F,
     return;
   }
 
+  TB.mutex_destroy({GetSymAddr(lck),1}); // also acts as a fence
+
   if(PthreadMutexes.count(lck) == 0){
     if(conf.mutex_require_init){
       TB.pthreads_error("pthread_mutex_destroy called with uninitialized mutex.");
@@ -2882,8 +2885,6 @@ void Interpreter::callPthreadMutexDestroy(Function *F,
     abort();
     return;
   }
-
-  TB.mutex_destroy({GetSymAddr(lck),1}); // also acts as a fence
 
   GenericValue Result;
   Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0); // Success
@@ -3006,6 +3007,8 @@ void Interpreter::callPthreadCondWait(Function *F,
 void Interpreter::doPthreadCondAwake(void *cnd, void *lck){
   assert(lck);
 
+  TB.cond_awake({GetSymAddr(cnd),1},{GetSymAddr(lck),1}); // also acts as a fence
+
   if(PthreadMutexes.count(lck) == 0){
     /* We don't need to check conf.mutex_require_init as the mutex is always
      * initialised during callPthreadCondWait().
@@ -3016,8 +3019,6 @@ void Interpreter::doPthreadCondAwake(void *cnd, void *lck){
   }
 
   assert(PthreadMutexes.count(lck) == 0 || PthreadMutexes[lck].isUnlocked());
-
-  TB.cond_awake({GetSymAddr(cnd),1},{GetSymAddr(lck),1}); // also acts as a fence
 
   if(DryRun) return;
   PthreadMutexes[lck].lock(CurrentThread);

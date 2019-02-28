@@ -478,7 +478,6 @@ void WSCTraceBuilder::mutex_lock(const SymAddrSize &ml){
   record_symbolic(SymEv::MLock(ml));
   fence();
 
-  assert(!conf.mutex_require_init || mutexes.count(ml.addr));
   Mutex &mutex = mutexes[ml.addr];
   curev().may_conflict = true;
   curev().read_from = mutex.last_access;
@@ -490,7 +489,7 @@ void WSCTraceBuilder::mutex_lock(const SymAddrSize &ml){
 void WSCTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
   assert(!conf.mutex_require_init || mutexes.count(ml.addr));
   IFDEBUG(Mutex &mutex = mutexes[ml.addr];)
-  assert(0 <= mutex.last_lock);
+  assert(0 <= mutex.last_lock && mutex.locked);
   // add_lock_fail_race(mutex, mutex.last_lock);
 
   if(0 <= last_full_memory_conflict){
@@ -501,7 +500,6 @@ void WSCTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
 void WSCTraceBuilder::mutex_trylock(const SymAddrSize &ml){
   llvm::dbgs() << "trylock not supported\n";
   abort();
-  assert(!conf.mutex_require_init || mutexes.count(ml.addr));
   Mutex &mutex = mutexes[ml.addr];
   record_symbolic(mutex.locked ? SymEv::MTryLockFail(ml) : SymEv::MTryLock(ml));
   fence();
@@ -518,7 +516,6 @@ void WSCTraceBuilder::mutex_trylock(const SymAddrSize &ml){
 void WSCTraceBuilder::mutex_unlock(const SymAddrSize &ml){
   record_symbolic(SymEv::MUnlock(ml));
   fence();
-  assert(!conf.mutex_require_init || mutexes.count(ml.addr));
   Mutex &mutex = mutexes[ml.addr];
   curev().read_from = mutex.last_access;
   curev().may_conflict = true;
@@ -540,16 +537,12 @@ void WSCTraceBuilder::mutex_init(const SymAddrSize &ml){
 void WSCTraceBuilder::mutex_destroy(const SymAddrSize &ml){
   record_symbolic(SymEv::MDelete(ml));
   fence();
-  if(!conf.mutex_require_init && !mutexes.count(ml.addr)){
-    // Assume static initialization
-    mutexes[ml.addr] = Mutex();
-  }
-  assert(mutexes.count(ml.addr));
   Mutex &mutex = mutexes[ml.addr];
   curev().read_from = mutex.last_access;
   curev().may_conflict = true;
 
-  mutexes.erase(ml.addr);
+  mutex.last_access = prefix_idx;
+  mutex.locked = false;
 }
 
 bool WSCTraceBuilder::cond_init(const SymAddrSize &ml){
