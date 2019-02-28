@@ -526,6 +526,7 @@ protected:
   bool is_store_when_reading_from(unsigned idx, int read_from) const;
   bool is_cmpxhgfail(unsigned idx) const;
   bool is_lock(unsigned idx) const;
+  bool is_trylock_fail(unsigned idx) const;
   bool is_lock_type(unsigned idx) const;
   bool does_lock(unsigned idx) const;
   bool is_unlock(unsigned idx) const;

@@ -508,8 +508,6 @@ void WSCTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
 }
 
 void WSCTraceBuilder::mutex_trylock(const SymAddrSize &ml){
-  llvm::dbgs() << "trylock not supported\n";
-  abort();
   Mutex &mutex = mutexes[ml.addr];
   record_symbolic(mutex.locked ? SymEv::MTryLockFail(ml) : SymEv::MTryLock(ml));
   fence();
@@ -964,8 +962,12 @@ bool WSCTraceBuilder::is_lock(unsigned i) const {
 }
 
 bool WSCTraceBuilder::does_lock(unsigned i) const {
-  const SymEv &e = prefix[i].sym;
-  return e.kind == SymEv::M_LOCK || e.kind == SymEv::M_TRYLOCK;
+  auto kind = prefix[i].sym.kind;
+  return kind == SymEv::M_LOCK || kind == SymEv::M_TRYLOCK;
+}
+
+bool WSCTraceBuilder::is_trylock_fail(unsigned i) const {
+  return prefix[i].sym.kind == SymEv::M_TRYLOCK_FAIL;
 }
 
 bool WSCTraceBuilder::is_unlock(unsigned i) const {
@@ -1182,48 +1184,81 @@ void WSCTraceBuilder::compute_prefixes() {
   // }
 
   for (unsigned i = 0; i < prefix.size(); ++i) {
-    if (is_unlock(i)) {
-      /* Do nothing, unlock may only unlock  */
-      continue;
-    } else if (!prefix[i].pinned && is_lock(i)) {
+    auto try_swap = [&](int i, int j) {
+        int original_read_from = *prefix[i].read_from;
+        std::shared_ptr<UnfoldingNode> alt
+          = alternative(j, prefix[i].event->read_from);
+        DecisionNode &decision = decisions[prefix[i].decision];
+        if (decision.siblings.count(alt)) return;
+        if (decision.sleep.count(alt)) return;
+        if (!can_swap_by_vclocks(i, j)) {
+          decision.siblings.emplace(alt, Leaf());
+          return;
+        }
+        if (conf.debug_print_on_reset)
+          llvm::dbgs() << "Trying to swap " << pretty_index(i)
+                       << " and " << pretty_index(j)
+                       << ", after " << pretty_index(original_read_from);
+        prefix[j].read_from = original_read_from;
+        std::swap(prefix[i].decision, prefix[j].decision);
+
+        Leaf solution = try_sat(j, writes_by_address);
+        decision.siblings.emplace(alt, std::move(solution));
+
+        /* Reset read-from and decision */
+        prefix[j].read_from = i;
+        std::swap(prefix[i].decision, prefix[j].decision);
+      };
+    auto try_swap_lock = [&](int i, int unlock, int j) {
+        assert(does_lock(i) && is_unlock(unlock) && is_lock(j)
+               && *prefix[j].read_from == int(unlock));
+        std::shared_ptr<UnfoldingNode> alt
+          = alternative(j, prefix[i].event->read_from);
+        DecisionNode &decision = decisions[prefix[i].decision];
+        if (decision.siblings.count(alt)) return;
+        if (decision.sleep.count(alt)) return;
+        if (!can_swap_lock_by_vclocks(i, unlock, j)) {
+          decision.siblings.emplace(alt, Leaf());
+          return;
+        }
+        int original_read_from = *prefix[i].read_from;
+        if (conf.debug_print_on_reset)
+          llvm::dbgs() << "Trying to swap " << pretty_index(i)
+                       << " and " << pretty_index(j)
+                       << ", after " << pretty_index(original_read_from);
+        prefix[j].read_from = original_read_from;
+        std::swap(prefix[i].decision, prefix[j].decision);
+
+        Leaf solution = try_sat(j, writes_by_address);
+        decision.siblings.emplace(alt, std::move(solution));
+
+        /* Reset read-from and decision */
+        prefix[j].read_from = unlock;
+        std::swap(prefix[i].decision, prefix[j].decision);
+      };
+    if (!prefix[i].pinned && is_lock_type(i)) {
       Timing::Guard ponder_mutex_guard(ponder_mutex_context);
       auto addr = get_addr(i);
       const std::vector<int> &accesses = writes_by_address[addr.addr];
-      int original_read_from = *prefix[i].read_from;
-      assert(original_read_from == -1
-             || is_unlock(original_read_from)
-             || is_minit(original_read_from));
       auto next = std::upper_bound(accesses.begin(), accesses.end(), i);
-      /* TODO: Deadlocked alternatives */
       if (next == accesses.end()) continue;
-      unsigned unlock = *next;
-      assert(is_unlock(unlock) && *prefix[unlock].read_from == int(i));
-      if (++next == accesses.end()) continue;
       unsigned j = *next;
-      if (is_mdelete(j)) continue;
-      assert(is_lock(j) && *prefix[j].read_from == int(unlock));
-      std::shared_ptr<UnfoldingNode> alt
-          = alternative(j, prefix[i].event->read_from);
-      DecisionNode &decision = decisions[prefix[i].decision];
-      if (decision.siblings.count(alt)) continue;
-      if (decision.sleep.count(alt)) continue;
-      if (!can_swap_lock_by_vclocks(i, unlock, j)) {
-        decision.siblings.emplace(alt, Leaf());
-        continue;
+      assert(*prefix[j].read_from == int(i));
+      if (is_unlock(i) && is_lock(j)) continue;
+
+      try_swap(i, j);
+
+      if (!does_lock(i)) continue;
+      while (is_trylock_fail(*next)) {
+        /* TODO: Deadlocked alternatives */
+        if (++next == accesses.end()) continue;
       }
-      if (conf.debug_print_on_reset)
-        llvm::dbgs() << "Trying to swap " << pretty_index(i)
-                     << " and " << pretty_index(j)
-                     << ", after " << pretty_index(original_read_from);
-      prefix[j].read_from = original_read_from;
-      std::swap(prefix[i].decision, prefix[j].decision);
-
-      Leaf solution = try_sat(j, writes_by_address);
-      decision.siblings.emplace(alt, std::move(solution));
-
-      /* Reset read-from and decision */
-      prefix[j].read_from = unlock;
-      std::swap(prefix[i].decision, prefix[j].decision);
+      if (!is_unlock(*next)) continue;
+      unsigned unlock = *next;
+      if (++next == accesses.end()) continue;
+      unsigned relock = *next;
+      if (!is_lock(relock)) continue;
+      try_swap_lock(i, unlock, relock);
     } else if (!prefix[i].pinned && is_load(i)) {
       auto addr = get_addr(i);
       std::vector<int> &possible_writes = writes_by_address[addr.addr];
