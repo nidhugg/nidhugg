@@ -47,6 +47,7 @@ WSCTraceBuilder::WSCTraceBuilder(const Configuration &conf) : TSOPSOTraceBuilder
   threads.push_back(Thread(CPid(), -1));
   prefix_idx = -1;
   replay = false;
+  cancelled = false;
   last_full_memory_conflict = -1;
   last_md = 0;
   replay_point = 0;
@@ -56,6 +57,12 @@ WSCTraceBuilder::~WSCTraceBuilder(){
 }
 
 bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
+  if (cancelled) {
+    assert(!std::any_of(threads.begin(), threads.end(), [](const Thread &t) {
+                                                          return t.available;
+                                                        }));
+    goto no_available_threads;
+  }
   *dryrun = false;
   *alt = 0;
   *aux = -1; /* No auxilliary threads in SC */
@@ -126,8 +133,7 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   assert(prefix_idx == int(prefix.size()));
 
   /* Find an available thread. */
-  const unsigned sz = threads.size();
-  for(unsigned p = 0; p < sz; ++p){ // Loop through real threads
+  for(unsigned p = 0; p < threads.size(); ++p){ // Loop through real threads
     if(threads[p].available &&
        (conf.max_search_depth < 0 || threads[p].last_event_index() < conf.max_search_depth)){
       threads[p].event_indices.push_back(prefix_idx);
@@ -137,6 +143,7 @@ bool WSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
     }
   }
 
+ no_available_threads:
   compute_prefixes();
 
   return false; // No available threads
@@ -167,16 +174,18 @@ bool WSCTraceBuilder::is_replaying() const {
 }
 
 void WSCTraceBuilder::cancel_replay(){
-  if(!replay) {
-    assert(!is_replaying());
-    return;
-  }
-  abort(); /* What is this function used for? */
+  assert(replay == is_replaying());
+  cancelled = true;
   replay = false;
-  /* XXX: Reset won't work right if we delete some prefix event
-   * corresponding to a decision node that will not be popped on reset.
-   */
-  while (prefix_idx + 1 < int(prefix.size())) prefix.pop_back();
+
+  /* Find last decision, the one that caused this failure, and then
+   * prune all later decisions. */
+  int blame = -1; /* -1: All executions lead to this failure */
+  for (int i = 0; i <= prefix_idx; ++i) {
+    blame = std::max(blame, prefix[i].decision);
+  }
+  assert(int(decisions.size()) > blame);
+  decisions.resize(blame+1, decisions[0]);
 }
 
 void WSCTraceBuilder::metadata(const llvm::MDNode *md){
@@ -289,6 +298,7 @@ bool WSCTraceBuilder::reset(){
   last_full_memory_conflict = -1;
   prefix_idx = -1;
   replay = true;
+  cancelled = false;
   last_md = 0;
   reset_cond_branch_log();
 

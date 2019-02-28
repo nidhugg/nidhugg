@@ -395,6 +395,11 @@ protected:
    */
   bool replay;
 
+  /* Is the execution cancelled? If so, we must reset before anything
+   * else can be executed.
+   */
+  bool cancelled;
+
   /* The number of events that were or are going to be replayed in the
    * current computation.
    */
