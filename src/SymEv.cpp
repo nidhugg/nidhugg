@@ -25,10 +25,12 @@
 void SymEv::set(SymEv other) {
   // if (kind != EMPTY) {
     if(kind != other.kind
-       && !(kind == STORE && other.kind == UNOBS_STORE)) {
+       && !(kind == STORE && other.kind == UNOBS_STORE)
+       && !(kind == M_TRYLOCK && other.kind == M_TRYLOCK_FAIL)
+       && !(kind == M_TRYLOCK_FAIL && other.kind == M_TRYLOCK)) {
       llvm::dbgs() << "Merging incompatible events " << *this << " and "
                    << other << "\n";
-      assert(false);
+      abort();
     }
 #ifndef NDEBUG
     switch(kind) {
