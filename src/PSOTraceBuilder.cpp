@@ -209,7 +209,7 @@ void PSOTraceBuilder::mark_unavailable(int proc, int aux){
 }
 
 bool PSOTraceBuilder::is_replaying() const {
-  return replay;
+  return replay && (prefix_idx + 1 < int(prefix.size()));
 }
 
 void PSOTraceBuilder::cancel_replay(){
