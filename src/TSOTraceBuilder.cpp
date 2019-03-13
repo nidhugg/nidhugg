@@ -138,10 +138,11 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
     assert(prefix[prefix.len()-1].wakeup.empty());
     assert(curev().sym.empty()); /* Would need to be copied */
     assert(curbranch().sym.empty()); /* Can't happen */
+    unsigned size = curbranch().size;
     prefix.delete_last();
     --prefix_idx;
     Branch b = curbranch();
-    ++b.size;
+    b.size += size;
     prefix.set_last_branch(std::move(b));
     assert(int(threads[curev().iid.get_pid()].event_indices.back()) == prefix_idx + 1);
     threads[curev().iid.get_pid()].event_indices.back() = prefix_idx;

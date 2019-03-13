@@ -174,7 +174,7 @@ namespace StrModule {
        *
        * load rettype* addr
        */
-      s = nregex::regex_replace(s,"load [^,]*,","load ");
+      s = nregex::regex_replace(s,"load *((atomic)?) [^,]*,","load $1 ");
     }
     {
       /* Remove explicit return types for getelementptr.*/
