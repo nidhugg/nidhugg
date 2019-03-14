@@ -103,6 +103,7 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       if (prefix_idx < int(prefix.len())) {
         /* The event is already in prefix */
         pid = curev().iid.get_pid();
+        curev().happens_after.clear();
       } else {
         /* We are replaying from the wakeup tree */
         pid = prefix.first_child().pid;
