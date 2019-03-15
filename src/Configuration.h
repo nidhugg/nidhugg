@@ -56,6 +56,7 @@ public:
     mutex_require_init = true;
     max_search_depth = -1;
     memory_model = MM_UNDEF;
+    c11 = false;
     dpor_algorithm = SOURCE;
     extfun_no_fence = {
       "pthread_self",
@@ -128,6 +129,8 @@ public:
   int max_search_depth;
   /* Which memory model should be assumed? */
   MemoryModel memory_model;
+  /* Should non-atomic accesses be ignored? */
+  bool c11;
   /* Which DPOR algorithm should be used? */
   DPORAlgorithm dpor_algorithm;
   /* Should the observers optimisation be used? */
