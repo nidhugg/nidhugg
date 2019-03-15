@@ -252,7 +252,8 @@ void Configuration::check_commandline(){
       Debug::warn("Configuration::check_commandline:dpor:mm")
         << "WARNING: Optimal-DPOR not implemented for memory model " << mm << ".\n";
     }
-    if (cl_c11 && cl_memory_model != Configuration::SC) {
+    if (cl_c11 && cl_memory_model != Configuration::SC
+         && cl_memory_model != Configuration::WEAK_SC) {
       Debug::warn("Configuration::check_commandline:c11:mm")
         << "WARNING: --c11 is not yet implemented for memory model " << mm << ".\n";
     }
