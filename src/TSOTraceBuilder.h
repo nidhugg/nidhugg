@@ -251,10 +251,11 @@ protected:
    */
   class Mutex{
   public:
-    Mutex() : last_access(-1), last_lock(-1) {};
-    Mutex(int lacc) : last_access(lacc), last_lock(-1) {};
+    Mutex() : last_access(-1), last_lock(-1), locked(false) {};
+    Mutex(int lacc) : last_access(lacc), last_lock(-1), locked(false) {};
     int last_access;
     int last_lock;
+    bool locked;
   };
   /* A map containing all pthread mutex objects in the current
    * execution. The key is the position in memory of the actual
@@ -637,13 +638,16 @@ protected:
   /* Recompute the observation states on the symbolic events in v. */
   void recompute_observed(std::vector<Branch> &v) const;
   struct obs_sleep {
-    struct process_state {
+    struct sleeper {
+      IPid pid;
       const sym_ty *sym;
       Option<SymAddrSize> not_if_read;
     };
-    std::map<IPid,struct process_state> sleep;
+    std::vector<struct sleeper> sleep;
     /* Addresses that must be read */
     std::vector<SymAddrSize> must_read;
+    /* Check for pid in sleep */
+    bool count(IPid pid) const;
   };
   /* Returns a string representation of a sleep set. */
   std::string oslp_string(const struct obs_sleep &slp) const;
