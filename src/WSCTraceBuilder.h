@@ -509,8 +509,9 @@ protected:
   /* Records a symbolic representation of the current event.
    */
   void record_symbolic(SymEv event);
-  Leaf try_sat(int, std::map<SymAddr,std::vector<int>> &);
-  Leaf order_to_leaf(int decision, const std::vector<unsigned> order, SaturatedGraph g) const;
+  Leaf try_sat(std::initializer_list<unsigned>, std::map<SymAddr,std::vector<int>> &);
+  Leaf order_to_leaf(int decision, std::initializer_list<unsigned> changed,
+                     const std::vector<unsigned> order, SaturatedGraph g) const;
   void output_formula(SatSolver &sat,
                       std::map<SymAddr,std::vector<int>> &,
                       const std::vector<bool> &);

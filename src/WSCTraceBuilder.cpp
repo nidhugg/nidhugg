@@ -1202,7 +1202,7 @@ void WSCTraceBuilder::compute_prefixes() {
         prefix[j].read_from = original_read_from;
         std::swap(prefix[i].decision, prefix[j].decision);
 
-        Leaf solution = try_sat(j, writes_by_address);
+        Leaf solution = try_sat({unsigned(j)}, writes_by_address);
         decision.siblings.emplace(alt, std::move(solution));
 
         /* Reset read-from and decision */
@@ -1229,7 +1229,7 @@ void WSCTraceBuilder::compute_prefixes() {
         prefix[j].read_from = original_read_from;
         std::swap(prefix[i].decision, prefix[j].decision);
 
-        Leaf solution = try_sat(j, writes_by_address);
+        Leaf solution = try_sat({unsigned(j)}, writes_by_address);
         decision.siblings.emplace(alt, std::move(solution));
 
         /* Reset read-from and decision */
@@ -1292,7 +1292,7 @@ void WSCTraceBuilder::compute_prefixes() {
         auto undoj = recompute_cmpxhg_success(j, possible_writes);
         auto undoi = recompute_cmpxhg_success(i, possible_writes);
 
-        Leaf solution = try_sat(i, writes_by_address);
+        Leaf solution = try_sat({unsigned(j), i}, writes_by_address);
         decision.siblings.emplace(read_from, std::move(solution));
 
         /* Reset read-from */
@@ -1323,7 +1323,7 @@ void WSCTraceBuilder::compute_prefixes() {
           prefix[i].read_from = j;
           auto undoi = recompute_cmpxhg_success(i, possible_writes);
 
-          Leaf solution = try_sat(i, writes_by_address);
+          Leaf solution = try_sat({i}, writes_by_address);
           decision.siblings.emplace(read_from, std::move(solution));
 
           undo_cmpxhg_recomputation(undoi, possible_writes);
@@ -1472,18 +1472,20 @@ const SaturatedGraph &WSCTraceBuilder::get_cached_graph(unsigned i) {
 
 WSCTraceBuilder::Leaf
 WSCTraceBuilder::try_sat
-(int changed_event, std::map<SymAddr,std::vector<int>> &writes_by_address){
+(std::initializer_list<unsigned> changed_events,
+ std::map<SymAddr,std::vector<int>> &writes_by_address){
   Timing::Guard timing_guard(graph_context);
-  int decision = prefix[changed_event].decision;
+  unsigned last_change = changed_events.end()[-1];
+  int decision = prefix[last_change].decision;
   std::vector<bool> keep = causal_past(decision);
 
   SaturatedGraph g(get_cached_graph(decision));
   for (unsigned i = 0; i < prefix.size(); ++i) {
-    if (keep[i] && int(i) != changed_event && !g.has_event(prefix[i].iid)) {
+    if (keep[i] && i != last_change && !g.has_event(prefix[i].iid)) {
       add_event_to_graph(g, i);
     }
   }
-  add_event_to_graph(g, changed_event);
+  add_event_to_graph(g, last_change);
   if (!g.saturate()) {
     if (conf.debug_print_on_reset)
       llvm::dbgs() << ": Saturation yielded cycle\n";
@@ -1505,7 +1507,8 @@ WSCTraceBuilder::try_sat
     std::vector<unsigned> order = map(*res, [this](IID<int> iid) {
         return find_process_event(iid.get_pid(), iid.get_index());
       });
-    return order_to_leaf(decision, std::move(order), std::move(g));
+    return order_to_leaf(decision, changed_events, std::move(order),
+                         std::move(g));
   }
 
   std::unique_ptr<SatSolver> sat = conf.get_sat_solver();
@@ -1544,16 +1547,18 @@ WSCTraceBuilder::try_sat
     llvm::dbgs() << "]\n";
   }
 
-  return order_to_leaf(decision, order, std::move(g));
+  return order_to_leaf(decision, changed_events, std::move(order),
+                       std::move(g));
 }
 
 WSCTraceBuilder::Leaf WSCTraceBuilder::order_to_leaf
-(int decision, const std::vector<unsigned> order, SaturatedGraph g) const{
+(int decision, std::initializer_list<unsigned> changed,
+ const std::vector<unsigned> order, SaturatedGraph g) const{
   std::vector<Branch> new_prefix;
   new_prefix.reserve(order.size());
   for (unsigned i : order) {
-    bool is_the_changed_read = prefix[i].decision == decision
-      && !prefix[i].pinned;
+    bool is_changed = std::any_of(changed.begin(), changed.end(),
+                                  [i](unsigned c) { return c == i; });
     bool new_pinned = prefix[i].pinned || (prefix[i].decision > decision);
     int new_decision = prefix[i].decision;
     if (new_decision > decision) {
@@ -1561,7 +1566,7 @@ WSCTraceBuilder::Leaf WSCTraceBuilder::order_to_leaf
       new_decision = -1;
     }
     new_prefix.emplace_back(prefix[i].iid.get_pid(),
-                            is_the_changed_read ? 1 : prefix[i].size,
+                            is_changed ? 1 : prefix[i].size,
                             new_decision,
                             new_pinned,
                             prefix[i].sym);
