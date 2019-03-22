@@ -1375,7 +1375,8 @@ void Interpreter::visitLoadInst(LoadInst &I) {
   GenericValue Result;
 
   SymAddrSize Ptr_sas = GetSymAddrSize(Ptr,I.getType());
-  TB.load(Ptr_sas);
+  if (!conf.c11 || I.isVolatile() || I.getOrdering() != llvm::AtomicOrdering::NotAtomic)
+    TB.load(Ptr_sas);
 
   if(DryRun && DryRunMem.size()){
     DryRunLoadValueFromMemory(Result, Ptr, Ptr_sas, I.getType());
@@ -1399,7 +1400,8 @@ void Interpreter::visitStoreInst(StoreInst &I) {
     return;
   }
   SymData sd = GetSymData(*Ptr_sas, I.getOperand(0)->getType(), Val);
-  TB.atomic_store(sd);
+  if (!conf.c11 || I.isVolatile() || I.getOrdering() != llvm::AtomicOrdering::NotAtomic)
+    TB.atomic_store(sd);
 
   if(DryRun){
     DryRunMem.emplace_back(std::move(sd));
@@ -1468,6 +1470,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
   GenericValue OldVal, NewVal;
 
   assert(I.getType()->isIntegerTy());
+  assert(I.getOrdering() != llvm::AtomicOrdering::NotAtomic);
 
   SymAddrSize Ptr_sas = GetSymAddrSize(Ptr,I.getType());
   TB.load(Ptr_sas);

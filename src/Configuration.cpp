@@ -58,6 +58,9 @@ cl_memory_model(llvm::cl::NotHidden, llvm::cl::init(Configuration::MM_UNDEF),
 #endif
                                  ));
 
+static llvm::cl::opt<bool> cl_c11("c11",llvm::cl::Hidden,
+                                  llvm::cl::desc("Only consider c11 atomic accesses."));
+
 static llvm::cl::opt<Configuration::DPORAlgorithm>
 cl_dpor_algorithm(llvm::cl::NotHidden, llvm::cl::init(Configuration::SOURCE),
                   llvm::cl::desc("Select DPOR algorithm"),
@@ -129,6 +132,7 @@ void Configuration::assign_by_commandline(){
   mutex_require_init = !cl_disable_mutex_init_requirement;
   max_search_depth = cl_max_search_depth;
   memory_model = cl_memory_model;
+  c11 = cl_c11;
   dpor_algorithm = cl_dpor_algorithm;
   observers = cl_observers;
   check_robustness = cl_check_robustness;
@@ -233,5 +237,16 @@ void Configuration::check_commandline(){
       Debug::warn("Configuration::check_commandline:dpor:mm")
         << "WARNING: Optimal-DPOR not implemented for memory model " << mm << ".\n";
     }
+    if (cl_c11 && cl_memory_model != Configuration::SC) {
+      Debug::warn("Configuration::check_commandline:c11:mm")
+        << "WARNING: --c11 is not yet implemented for memory model " << mm << ".\n";
+    }
+  }
+
+  /* Warn about the --c11 switch */
+  if (cl_c11) {
+    Debug::warn("Configuration::check_commandline:c11:no-race-detect")
+      << "WARNING: The race detector for --c11 is not yet implemented."
+      << " Bugs might be missed or cause nondeterminism.\n";
   }
 }
