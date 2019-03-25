@@ -10,6 +10,7 @@ SUBDIRS =				\
 	from_TRACER/myexample		\
 	from_TRACER/control_flow	\
 	synthetic/sat_example		\
+	other/approxds_append		\
 	synthetic/race_parametric
 
 # T ?= all
