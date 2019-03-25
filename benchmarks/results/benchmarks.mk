@@ -2,6 +2,7 @@ SHELL = /bin/bash -o pipefail
 
 TIME_LIMIT ?= 60 # seconds
 STACK_LIMIT ?= 65536 # kB
+MEM_LIMIT ?= 8388608 # kB
 
 SRCDIR = ../../..
 CLANG = clang
@@ -18,7 +19,7 @@ WRCMC ?= $(RCMC) --wrc11
 CDSC_DIR ?= /opt/cdschecker
 TIME = env time -f 'real %e\nres %M'
 TIMEOUT = timeout $(TIME_LIMIT)
-ULIMIT = ulimit -Ss $(STACK_LIMIT) &&
+ULIMIT = ulimit -Ss $(STACK_LIMIT) && ulimit -Sv $(MEM_LIMIT) &&
 RUN = -$(ULIMIT) $(TIMEOUT) $(TIME)
 TABULATE = ../../tabulate.sh
 
