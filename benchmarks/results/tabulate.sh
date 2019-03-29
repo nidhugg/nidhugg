@@ -17,6 +17,8 @@ get_traces() {
     pat='^Number of complete executions explored: '
     if grep -Eq "$pat" $1; then
         grep -E "$pat" $1 | cut -d' ' -f6
+    elif grep -Eq 'Fully\+partially executed traces: ' $1; then
+	grep -E 'Fully\+partially executed traces: ' $1 | cut -d' ' -f5
     elif grep -Eq 'Total executions: ' $1; then
         grep -E 'Total executions: ' $1 | cut -d' ' -f3
     elif grep -Eq '^Trace count: ' $1; then

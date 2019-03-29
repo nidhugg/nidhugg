@@ -14,6 +14,7 @@ SOURCE = $(NIDHUGG) -c11 -sc
 OPTIMAL = $(NIDHUGG) -c11 -sc -optimal
 OBSERVERS = $(NIDHUGG) -c11 -sc -optimal -observers
 SWSC ?= swsc -c11
+DCDPOR ?= dcdpor -dc
 RCMC ?= rcmc
 WRCMC ?= $(RCMC) --wrc11
 CDSC_DIR ?= /opt/cdschecker
@@ -23,7 +24,7 @@ ULIMIT = ulimit -Ss $(STACK_LIMIT) && ulimit -Sv $(MEM_LIMIT) &&
 RUN = -$(ULIMIT) $(TIMEOUT) $(TIME)
 TABULATE = ../../tabulate.sh
 
-TOOLS = optimal observers swsc rcmc wrcmc
+TOOLS = optimal observers swsc dcdpor rcmc wrcmc
 ifneq ($(wildcard $(CDSC_DIR)/.),)
         TOOLS += cdsc
 else
@@ -46,6 +47,7 @@ source_results:: $(N:%=source_%.txt)
 optimal_results:: $(N:%=optimal_%.txt)
 observers_results:: $(N:%=observers_%.txt)
 swsc_results:: $(N:%=swsc_%.txt)
+dcdpor_results:: $(N:%=dcdpor_%.txt)
 cdsc_results:: $(N:%=cdsc_%.txt)
 
 code_%.bc: $(SRCDIR)/$(FILE)
@@ -71,6 +73,10 @@ observers_%.txt: code_%.bc
 swsc_%.txt: code_%.bc
 	@date
 	$(RUN) $(SWSC) $< 2>&1 | tee $@
+
+dcdpor_%.txt: code_%.bc
+	@date
+	$(RUN) $(DCDPOR) $< 2>&1 | tee $@
 
 rcmc_%.txt: code_%.bc
 	@date
