@@ -63,6 +63,8 @@ TESTS+=" ./SV-COMP/fibonacci.c"
 #TESTS+=" ./SV-COMP/pthread_demo.c"
 #TESTS+=" ./SV-COMP/gcd.c"
 #TESTS+=" ./SV-COMP/indexer.c"
+# from_SCTBench
+TESTS+=" ./from_SCTBench/circular_buffer.c"
 
 
 TOOL_NIDHUGG="nidhuggc"

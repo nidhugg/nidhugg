@@ -5,6 +5,7 @@ SUBDIRS =				\
 	from_OBSERVERS/floating_read	\
 	from_OBSERVERS/lamport		\
 	from_OBSERVERS/lastwrite	\
+	from_SCTBench/circular_buffer	\
 	from_TRACER/exponential_bug	\
 	from_TRACER/redundant_co	\
 	from_TRACER/myexample		\
