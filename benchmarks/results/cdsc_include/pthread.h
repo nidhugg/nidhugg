@@ -11,3 +11,5 @@ static inline int pthread_join(pthread_t thread, void **retval) {
   /* Not C11, just CDSChecker */
   return thrd_join(thread);
 }
+
+#include "_cdsc_mutex.h"
