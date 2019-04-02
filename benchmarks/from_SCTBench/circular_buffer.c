@@ -4,6 +4,7 @@
  * and to compile without warnings.
  */
 
+#include <stddef.h>
 #include <assert.h>
 #include <pthread.h>
 
@@ -101,7 +102,7 @@ void *t2(void *arg)
   return NULL;
 }
 
-int main(void) {
+int main(int argc, char *argv[]) {
 
   pthread_t id1, id2;
 
