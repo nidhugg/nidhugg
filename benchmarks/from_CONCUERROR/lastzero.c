@@ -29,10 +29,8 @@ void *thread_writer(void *arg) {
 int main(int argc, char **argv) {
   pthread_t t[N+1];
 
-#ifdef CDSC
   for (int i = 0; i <= N; i++)
     atomic_init(&array[i], 0);
-#endif
 
   for (int i = 0; i <= N; i++) {
     if (i == 0) {
