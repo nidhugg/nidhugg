@@ -18,9 +18,8 @@ void *thread_n(void *arg)
 	int new = *((int *) arg);
 	int exp = new - 1;
 
-	atomic_compare_exchange_strong_explicit(&x, &exp, new, 
-											memory_order_seq_cst,
-											memory_order_seq_cst);
+	atomic_compare_exchange_strong_explicit(&x, &exp, new, memory_order_seq_cst,
+						memory_order_seq_cst);
 	return NULL;
 }
 
