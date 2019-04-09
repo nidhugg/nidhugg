@@ -7,7 +7,7 @@
 #include <pthread.h>
 
 #ifndef N
-#  warning "N was not defined"
+#  warning "N was not defined (proceeding with N=6)"
 #  define N 6
 #endif
 
