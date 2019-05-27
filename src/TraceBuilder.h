@@ -108,7 +108,7 @@ public:
   /* Estimate the total number of traces for this program based on the
    * traces that have been seen.
    */
-  virtual int estimate_trace_count() const { return 1; };
+  virtual long double estimate_trace_count() const { return 1; };
 protected:
   const Configuration &conf;
   std::vector<Error*> errors;

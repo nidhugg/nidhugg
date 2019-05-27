@@ -321,7 +321,7 @@ bool TSOTraceBuilder::reset(){
 
   /* Setup the new Event at prefix[i] */
   {
-    int sleep_branch_trace_count =
+    uint64_t sleep_branch_trace_count =
       prefix[i].sleep_branch_trace_count + estimate_trace_count(i+1);
     Event prev_evt = std::move(prefix[i]);
     while (ssize_t(prefix.len()) > i) prefix.delete_last();
@@ -2466,15 +2466,15 @@ bool TSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
   }
 }
 
-int TSOTraceBuilder::estimate_trace_count() const{
+long double TSOTraceBuilder::estimate_trace_count() const{
   return estimate_trace_count(0);
 }
 
-int TSOTraceBuilder::estimate_trace_count(int idx) const{
+long double TSOTraceBuilder::estimate_trace_count(int idx) const{
   if(idx > int(prefix.len())) return 0;
   if(idx == int(prefix.len())) return 1;
 
-  int count = 1;
+  long double count = 1;
   for(int i = int(prefix.len())-1; idx <= i; --i){
     count += prefix[i].sleep_branch_trace_count;
     count += std::max(0, int(prefix.children_after(i)))
