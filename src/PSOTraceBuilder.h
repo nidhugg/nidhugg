@@ -65,7 +65,7 @@ public:
   virtual bool cond_awake(const SymAddrSize &cond_ml, const SymAddrSize &mutex_ml);
   virtual int cond_destroy(const SymAddrSize &ml);
   virtual void register_alternatives(int alt_count);
-  virtual int estimate_trace_count() const;
+  virtual long double estimate_trace_count() const override;
 protected:
   /* An identifier for a thread. An index into this->threads.
    *
@@ -387,7 +387,7 @@ protected:
      * explored. sleep_branch_trace_count is the total number of such
      * explored traces.
      */
-    int sleep_branch_trace_count;
+    uint64_t sleep_branch_trace_count;
   };
 
   /* The fixed prefix of events in the current execution. This may be
@@ -477,7 +477,7 @@ protected:
   /* Estimate the total number of traces that have the same prefix as
    * the current one, up to the first idx events.
    */
-  int estimate_trace_count(int idx) const;
+  long double estimate_trace_count(int idx) const;
   /* Same as mark_available, but takes an IPid as thread
    * identifier.
    */

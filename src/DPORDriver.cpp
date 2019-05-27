@@ -33,6 +33,8 @@
 
 #include <fstream>
 #include <stdexcept>
+#include <iomanip>
+#include <cfloat>
 
 #if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
@@ -223,7 +225,7 @@ DPORDriver::Result DPORDriver::run(){
   }
 
   int computation_count = 0;
-  int estimate = 1;
+  long double estimate = 1;
   do{
     if(conf.print_progress && (computation_count+1) % 100 == 0){
       llvm::dbgs() << esc << "[u" // Restore cursor position
@@ -231,10 +233,12 @@ DPORDriver::Result DPORDriver::run(){
                    << esc << "[K" // Erase the line
                    << "Computation #" << computation_count+1;
       if(conf.print_progress_estimate){
+        std::stringstream ss;
+        ss << std::setprecision(LDBL_DIG) << estimate;
         llvm::dbgs() << " ("
-                     << int(100.0*float(computation_count+1)/float(estimate))
+                     << int(100.0*(long double)(computation_count+1)/estimate)
                      << "% of total estimate: "
-                     << estimate << ")";
+                     << ss.str() << ")";
       }
     }
     if((computation_count+1) % 1000 == 0){
@@ -262,7 +266,7 @@ DPORDriver::Result DPORDriver::run(){
     }
     if(has_errors && !conf.explore_all_traces) break;
     if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
-      estimate = TB->estimate_trace_count();
+      estimate = std::round(TB->estimate_trace_count());
     }
   }while(TB->reset());
 

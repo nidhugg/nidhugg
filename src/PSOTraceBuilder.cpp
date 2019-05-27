@@ -1270,15 +1270,15 @@ bool PSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
   }
 }
 
-int PSOTraceBuilder::estimate_trace_count() const{
+long double PSOTraceBuilder::estimate_trace_count() const{
   return estimate_trace_count(0);
 }
 
-int PSOTraceBuilder::estimate_trace_count(int idx) const{
+long double PSOTraceBuilder::estimate_trace_count(int idx) const{
   if(idx > int(prefix.size())) return 0;
   if(idx == int(prefix.size())) return 1;
 
-  int count = 1;
+  long double count = 1;
   for(int i = int(prefix.size())-1; idx <= i; --i){
     count += prefix[i].sleep_branch_trace_count;
     count += prefix[i].branch.size()*(count / (1 + prefix[i].sleep.size()));
