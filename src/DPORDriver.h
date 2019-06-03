@@ -73,9 +73,9 @@ public:
       }
     };
     /* The number of explored (non-sleepset-blocked) traces */
-    int trace_count;
+    uint64_t trace_count;
     /* The number of explored sleepset-blocked traces */
-    int sleepset_blocked_trace_count;
+    uint64_t sleepset_blocked_trace_count;
     /* An empty trace if no error has been encountered. Otherwise some
      * error trace.
      */
