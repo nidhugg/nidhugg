@@ -224,7 +224,7 @@ DPORDriver::Result DPORDriver::run(){
     llvm::dbgs() << esc << "[s"; // Save terminal cursor position
   }
 
-  int computation_count = 0;
+  uint64_t computation_count = 0;
   long double estimate = 1;
   do{
     if(conf.print_progress && (computation_count+1) % 100 == 0){
