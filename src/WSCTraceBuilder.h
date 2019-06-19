@@ -30,6 +30,7 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <boost/container/flat_map.hpp>
 
 static unsigned unf_ctr = 0;
 
@@ -250,61 +251,8 @@ protected:
    */
   std::map<SymAddr,CondVar> cond_vars;
 
-  struct Race {
-  public:
-    enum Kind {
-      /* Any kind of event that does not block any other process */
-      NONBLOCK,
-      /* A nonblocking race where additionally a third event is
-       * required to observe the race between the first two. */
-      OBSERVED,
-      /* Attempt to acquire a lock that is already locked */
-      LOCK_FAIL,
-      /* Race between two successful blocking lock aquisitions (with an
-       * unlock event in between) */
-      LOCK_SUC,
-      /* A nondeterministic event that can be performed differently */
-      NONDET,
-    };
-    Kind kind;
-    int first_event;
-    int second_event;
-    IID<IPid> second_process;
-    union{
-      const Mutex *mutex;
-      int witness_event;
-      int alternative;
-      int unlock_event;
-    };
-    static Race Nonblock(int first, int second) {
-      return Race(NONBLOCK, first, second, {-1,0}, nullptr);
-    };
-    static Race Observed(int first, int second, int witness) {
-      return Race(OBSERVED, first, second, {-1,0}, witness);
-    };
-    static Race LockFail(int first, int second, IID<IPid> process,
-                         const Mutex *mutex) {
-      assert(mutex);
-      return Race(LOCK_FAIL, first, second, process, mutex);
-    };
-    static Race LockSuc(int first, int second, int unlock) {
-      return Race(LOCK_SUC, first, second, {-1,0}, unlock);
-    };
-    static Race Nondet(int event, int alt) {
-      return Race(NONDET, event, -1, {-1,0}, alt);
-    };
-  private:
-    Race(Kind k, int f, int s, IID<IPid> p, const Mutex *m) :
-      kind(k), first_event(f), second_event(s), second_process(p), mutex(m) {}
-    Race(Kind k, int f, int s, IID<IPid> p, int w) :
-      kind(k), first_event(f), second_event(s), second_process(p),
-      witness_event(w) {}
-  };
-
-  /* Locations in the trace where a process is blocked waiting for a
-   * lock. All are of kind LOCK_FAIL.
-   */
-  std::vector<Race> lock_fail_races;
+  /* All currently deadlocked threads */
+  boost::container::flat_map<SymAddr, std::vector<IPid>> mutex_deadlocks;
 
   /* Information about a (short) sequence of consecutive events by the
    * same thread. At most one event in the sequence may have conflicts
@@ -478,6 +426,8 @@ protected:
   int compute_above_clock(unsigned event);
   /* Assigns unfolding events to all executed steps. */
   void compute_unfolding();
+  std::shared_ptr<UnfoldingNode> find_unfolding_node
+  (IPid pid, int index, Option<int> read_from);
   std::shared_ptr<UnfoldingNode> find_unfolding_node
   (UnfoldingNodeChildren &parent_list,
    const std::shared_ptr<UnfoldingNode> &parent,

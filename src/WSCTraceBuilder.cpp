@@ -295,6 +295,7 @@ bool WSCTraceBuilder::reset(){
   mutexes.clear();
   cond_vars.clear();
   mem.clear();
+  mutex_deadlocks.clear();
   last_full_memory_conflict = -1;
   prefix_idx = -1;
   replay = true;
@@ -500,11 +501,14 @@ void WSCTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
   assert(!conf.mutex_require_init || mutexes.count(ml.addr));
   IFDEBUG(Mutex &mutex = mutexes[ml.addr];)
   assert(0 <= mutex.last_lock && mutex.locked);
-  // add_lock_fail_race(mutex, mutex.last_lock);
 
-  if(0 <= last_full_memory_conflict){
-    // add_lock_fail_race(mutex, last_full_memory_conflict);
-  }
+  IPid current = curev().iid.get_pid();
+  auto &deadlocks = mutex_deadlocks[ml.addr];
+  assert(!std::any_of(deadlocks.cbegin(), deadlocks.cend(),
+                      [current](IPid blocked) {
+                        return blocked == current;
+                      }));
+  deadlocks.push_back(current);
 }
 
 void WSCTraceBuilder::mutex_trylock(const SymAddrSize &ml){
@@ -531,6 +535,9 @@ void WSCTraceBuilder::mutex_unlock(const SymAddrSize &ml){
 
   mutex.last_access = prefix_idx;
   mutex.locked = false;
+
+  /* No one is blocking anymore! Yay! */
+  mutex_deadlocks.erase(ml.addr);
 }
 
 void WSCTraceBuilder::mutex_init(const SymAddrSize &ml){
@@ -801,7 +808,6 @@ int WSCTraceBuilder::compute_above_clock(unsigned i) {
   if (iidx > 1) {
     last = find_process_event(ipid, iidx-1);
     prefix[i].clock = prefix[last].clock;
-    // happens_after[last].push_back(i);
   } else {
     prefix[i].clock = {};
     const Thread &t = threads[ipid];
@@ -814,7 +820,6 @@ int WSCTraceBuilder::compute_above_clock(unsigned i) {
   for (unsigned j : prefix[i].happens_after){
     assert(j < i);
     prefix[i].clock += prefix[j].clock;
-    // happens_after[j].push_back(i);
   }
 
   prefix[i].above_clock = prefix[i].clock;
@@ -897,6 +902,26 @@ void WSCTraceBuilder::compute_unfolding() {
       }
     }
   }
+}
+
+std::shared_ptr<WSCTraceBuilder::UnfoldingNode> WSCTraceBuilder::
+find_unfolding_node(IPid p, int index, Option<int> prefix_rf) {
+  UnfoldingNodeChildren *parent_list;
+  const std::shared_ptr<UnfoldingNode> null_ptr;
+  const std::shared_ptr<UnfoldingNode> *parent;
+  if (index == 1) {
+    parent = &null_ptr;
+    parent_list = &first_events[threads[p].cpid];
+  } else {
+    int par_idx = find_process_event(p, index-1);
+    parent = &prefix[par_idx].event;
+    parent_list = &(*parent)->children;
+  }
+  const std::shared_ptr<UnfoldingNode> *read_from = &null_ptr;
+  if (prefix_rf && *prefix_rf != -1) {
+    read_from = &prefix[*prefix_rf].event;
+  }
+  return find_unfolding_node(*parent_list, *parent, *read_from);
 }
 
 std::shared_ptr<WSCTraceBuilder::UnfoldingNode> WSCTraceBuilder::
@@ -1246,12 +1271,57 @@ void WSCTraceBuilder::compute_prefixes() {
         prefix[j].read_from = unlock;
         std::swap(prefix[i].decision, prefix[j].decision);
       };
+    auto try_swap_blocked = [&](int i, IPid jp, SymEv sym) {
+        int original_read_from = *prefix[i].read_from;
+        auto jidx = threads[jp].last_event_index()+1;
+        std::shared_ptr<UnfoldingNode> alt
+          = find_unfolding_node(jp, jidx, original_read_from);
+        DecisionNode &decision = decisions[prefix[i].decision];
+        if (decision.siblings.count(alt)) return;
+        if (decision.sleep.count(alt)) return;
+        int j = prefix_idx;
+        assert(prefix_idx == int(prefix.size()));
+        prefix.emplace_back(IID<IPid>(jp, jidx), 0, std::move(sym));
+        prefix[j].event = alt; // Only for debug print
+        threads[jp].event_indices.push_back(j); // Not needed?
+        compute_above_clock(j);
+        if (!can_swap_by_vclocks(i, j)) {
+          decision.siblings.emplace(alt, Leaf());
+        } else {
+
+          if (conf.debug_print_on_reset)
+            llvm::dbgs() << "Trying replace " << pretty_index(i)
+                         << " with deadlocked " << pretty_index(j)
+                         << ", after " << pretty_index(original_read_from);
+          prefix[j].read_from = original_read_from;
+          std::swap(prefix[i].decision, prefix[j].decision);
+          assert(!prefix[i].pinned);
+          prefix[i].pinned = true;
+
+          Leaf solution = try_sat({unsigned(j)}, writes_by_address);
+          decision.siblings.emplace(alt, std::move(solution));
+
+          /* Reset decision */
+          prefix[i].decision = prefix[j].decision;
+          prefix[i].pinned = false;
+        }
+        /* Delete j */
+        threads[jp].event_indices.pop_back();
+        prefix.pop_back();
+      };
     if (!prefix[i].pinned && is_lock_type(i)) {
       Timing::Guard ponder_mutex_guard(ponder_mutex_context);
       auto addr = get_addr(i);
       const std::vector<int> &accesses = writes_by_address[addr.addr];
       auto next = std::upper_bound(accesses.begin(), accesses.end(), i);
-      if (next == accesses.end()) continue;
+      if (next == accesses.end()) {
+        if (does_lock(i)) {
+          for (IPid other : mutex_deadlocks[addr.addr]) {
+            try_swap_blocked(i, other, SymEv::MLock(addr));
+          }
+        }
+        continue;
+      }
       unsigned j = *next;
       assert(*prefix[j].read_from == int(i));
       if (is_unlock(i) && is_lock(j)) continue;
