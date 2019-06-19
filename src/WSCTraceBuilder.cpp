@@ -794,37 +794,47 @@ static It frontier_filter(It first, It last, LessFn less){
   return fill;
 }
 
+int WSCTraceBuilder::compute_above_clock(unsigned i) {
+  int last = -1;
+  IPid ipid = prefix[i].iid.get_pid();
+  int iidx = prefix[i].iid.get_index();
+  if (iidx > 1) {
+    last = find_process_event(ipid, iidx-1);
+    prefix[i].clock = prefix[last].clock;
+    // happens_after[last].push_back(i);
+  } else {
+    prefix[i].clock = {};
+    const Thread &t = threads[ipid];
+    if (t.spawn_event >= 0)
+      add_happens_after(i, t.spawn_event);
+  }
+  prefix[i].clock[ipid] = iidx;
+
+  /* First add the non-reversible edges */
+  for (unsigned j : prefix[i].happens_after){
+    assert(j < i);
+    prefix[i].clock += prefix[j].clock;
+    // happens_after[j].push_back(i);
+  }
+
+  prefix[i].above_clock = prefix[i].clock;
+  return last;
+}
+
 void WSCTraceBuilder::compute_vclocks(){
   Timing::Guard timing_guard(vclocks_context);
   /* The first event of a thread happens after the spawn event that
    * created it.
    */
-  for (const Thread &t : threads) {
-    if (t.spawn_event >= 0 && t.event_indices.size() > 0){
-      add_happens_after(t.event_indices[0], t.spawn_event);
-    }
-  }
-
   std::vector<llvm::SmallVector<unsigned,2>> happens_after(prefix.size());
   for (unsigned i = 0; i < prefix.size(); i++){
-    IPid ipid = prefix[i].iid.get_pid();
-    if (prefix[i].iid.get_index() > 1) {
-      unsigned last = find_process_event(prefix[i].iid.get_pid(), prefix[i].iid.get_index()-1);
-      prefix[i].clock = prefix[last].clock;
-      happens_after[last].push_back(i);
-    } else {
-      prefix[i].clock = {};
-    }
-    prefix[i].clock[ipid] = prefix[i].iid.get_index();
-
     /* First add the non-reversible edges */
+    int last = compute_above_clock(i);
+
+    if (last != -1) happens_after[last].push_back(i);
     for (unsigned j : prefix[i].happens_after){
-      assert(j < i);
-      prefix[i].clock += prefix[j].clock;
       happens_after[j].push_back(i);
     }
-
-    prefix[i].above_clock = prefix[i].clock;
 
     /* Then add read-from */
     if (prefix[i].read_from && *prefix[i].read_from != -1) {

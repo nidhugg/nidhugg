@@ -475,6 +475,7 @@ protected:
    * sequence from happens_after and race edges.
    */
   void compute_vclocks();
+  int compute_above_clock(unsigned event);
   /* Assigns unfolding events to all executed steps. */
   void compute_unfolding();
   std::shared_ptr<UnfoldingNode> find_unfolding_node
