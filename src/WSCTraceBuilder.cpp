@@ -1330,10 +1330,9 @@ void WSCTraceBuilder::compute_prefixes() {
 
       if (!does_lock(i)) continue;
       while (is_trylock_fail(*next)) {
-        /* TODO: Deadlocked alternatives */
-        if (++next == accesses.end()) continue;
+        if (++next == accesses.end()) break;
       }
-      if (!is_unlock(*next)) continue;
+      if (next == accesses.end() || !is_unlock(*next)) continue;
       unsigned unlock = *next;
       if (++next == accesses.end()) continue;
       unsigned relock = *next;
