@@ -49,3 +49,19 @@ parker_2.c
 
 #
 cmpxhg_test_3.c
+
+#
+mutex_deadlock_3.c
+mutex_deadlock_one.c
+mutex_deadlock_one_first.c
+mutex_hard.c
+mutex_lock_before_init.c
+mutex_lock_before_init_first.c
+mutex_order_2.c
+mutex_order_3.c
+mutex_racy_destroy.c
+mutex_racy_destroy_first.c
+mutex_trylock_deadlock.c
+mutex_trylock_unlock.c
+mutex_vs_trylock_1.c
+mutex_vs_trylock_2.c
