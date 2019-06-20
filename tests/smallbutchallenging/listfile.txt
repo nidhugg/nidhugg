@@ -28,7 +28,6 @@ fib_one_variable_1.c
 # fib_one_variable_2.c
 #
 fib_bench_true_1.c
-fib_bench_true_2.c
 
 #
 fib_true_too_few.c
@@ -38,7 +37,6 @@ fib_true_sw_too_many.c
 #
 pthread-demo-xchg.c
 rmw_test1.c
-rmw_test2.c
 
 # DCDPOR Benchmarks
 opt_lock_2.c
@@ -65,3 +63,7 @@ mutex_trylock_deadlock.c
 mutex_trylock_unlock.c
 mutex_vs_trylock_1.c
 mutex_vs_trylock_2.c
+
+# slow tests
+fib_bench_true_2.c
+rmw_test2.c
