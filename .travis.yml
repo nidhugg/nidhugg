@@ -1,38 +1,112 @@
 language: C++
 sudo: false
-env:
-  - LLVM_VERSION=3.5.0  # default on Debian jessie
-  - LLVM_VERSION=3.6.2
-  #- LLVM_VERSION=3.8.1  # default on Debian stretch - does NOT work yet
 addons:
   apt:
-    sources:
-      - boost-latest
-      - ubuntu-toolchain-r-test
-    packages:
-      - g++-4.9         # need at least this version of libstdc++6
-      - libc6
-      - libc6-dev
-      - libstdc++-4.9-dev
-      - autoconf
-      - automake
-      - python3
-      - libffi-dev
-      - libboost-test1.55-dev
+    packages: &baseline-packages
       - valgrind
-      - libedit-dev     # required by LLVM 3.5.0
+
+# Template some configurations for different distros, to be used in the matrix
+# below
+_trusty-conf: &trusty
+  dist: trusty
+  addons:
+    apt:
+      sources:
+        - boost-latest
+        - ubuntu-toolchain-r-test
+      packages:
+        - *baseline-packages
+        - libc6
+        - libc6-dev
+        - autoconf
+        - automake
+        - python3
+        - libffi-dev
+        - libedit-dev     # required by LLVM 3.5.0
+        - g++-4.9         # need at least this version of libstdc++6
+        - libboost-test1.55-dev
+        - libstdc++-4.9-dev
+  env: &trusty-env
+    - CPATH=/usr/lib/gcc/x86_64-linux-gnu/4.9/include
+    - CC=gcc-4.9
+    - CXX=g++-4.9
+
+_trusty-clang-env-conf: &trusty-clang-env
+  env:
+    - CC=clang
+    - CXX=clang++
+
+_xenial-conf: &xenial
+  dist: xenial
+  addons:
+    apt:
+      packages:
+        - *baseline-packages
+        - libboost-test-dev
+
+_xenial-clang-env-conf: &xenial-clang-env
+  env:
+    - CC=clang
+    - CXX=clang++
+
+matrix:
+  include:
+    - <<: *trusty
+      env:
+        - *trusty-env
+        - LLVM_VERSION=3.3
+    - <<: *trusty
+      env:
+        - *trusty-env
+        - LLVM_VERSION=3.4.2
+    - <<: *trusty
+      env:
+        - *trusty-env
+        - LLVM_VERSION=3.5.2  # default on Debian jessie
+    - <<: *trusty
+      env:
+        - *trusty-env
+        - LLVM_VERSION=3.6.2
+    - <<: *trusty
+      env:
+        - *trusty-clang-env
+        - LLVM_VERSION=3.7.1
+    - <<: *xenial
+      env:
+        - *xenial-clang-env
+        - LLVM_VERSION=3.8.1  # default on Debian stretch - does NOT work yet
+    - <<: *xenial
+      env:
+        - *xenial-clang-env
+        - LLVM_VERSION=3.9.1
+    - <<: *xenial
+      env:
+        - *xenial-clang-env
+        - LLVM_VERSION=4.0.0
+    - <<: *xenial
+      env:
+        - *xenial-clang-env
+        - LLVM_VERSION=5.0.2
+    - <<: *xenial
+      env:
+        - *xenial-clang-env
+        - LLVM_VERSION=6.0.1
+    - <<: *trusty
+      env:
+        - *trusty-clang-env
+        - LLVM_VERSION=7.1.0
+    - <<: *xenial
+      env: LLVM_VERSION=8.0.0
+
 before_script:
   - ./travis/install_deps.sh
   - export LLVM_DIR=$PWD/cache/clang+llvm-$LLVM_VERSION
   - export PATH=$LLVM_DIR/bin:$PATH
   - export LD_LIBRARY_PATH=$LLVM_DIR/lib
-  - export CPATH=/usr/lib/gcc/x86_64-linux-gnu/4.9/include
-  - export CC=gcc-4.9
-  - export CXX=g++-4.9
   - autoreconf --install
-  - ./configure         # || cat config.log    # left for debugging
+  - ./configure || (cat config.log; false)
   - make -j6
-script: "make test && make valtest"
+script: "make -j6 test && make -j6 valtest"
 cache:
   directories:
     - cache

@@ -2,15 +2,35 @@
 mkdir -p cache
 
 # LLVM
+LLVM_TRIPLE=x86_64-linux-gnu
+LLVM_OS=ubuntu
 case $LLVM_VERSION in
-    "3.9.1")
-	LLVM_URL="http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-16.04.tar.xz"
-	;;
-    ?*)
-	LLVM_URL="http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-14.04.tar.xz"
-	;;
+    3.3)
+        LLVM_REL_EXT=tar.gz
+        ;;
+    3.4.2)
+        LLVM_REL_EXT=xz
+        ;;
+    *)
+        LLVM_REL_EXT=tar.xz
+        ;;
 esac
-LLVM_DEP="cache/$LLVM_VERSION.tar.xz"
+
+case $LLVM_VERSION in
+    3.3)
+        LLVM_OS=Ubuntu
+        LLVM_TRIPLE=amd64
+        LLVM_UBUNTU_VER=12.04.2
+        ;;
+    3.[0-7]*|7.1.0)
+        LLVM_UBUNTU_VER=14.04
+        ;;
+    ?*)
+        LLVM_UBUNTU_VER=16.04
+        ;;
+esac
+LLVM_URL="http://releases.llvm.org/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-$LLVM_TRIPLE-$LLVM_OS-$LLVM_UBUNTU_VER.$LLVM_REL_EXT"
+LLVM_DEP="cache/$LLVM_VERSION.$LLVM_REL_EXT"
 LLVM_DIR="cache/clang+llvm-$LLVM_VERSION"
 
 echo $LLVM_URL
@@ -39,14 +59,11 @@ if [ ! -d $LLVM_DIR ] ; then
 	exit 1
     fi
     case $LLVM_VERSION in
-	"3.5.0")
-	    mv cache/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu cache/clang+llvm-$LLVM_VERSION
+        3.5.*)
+	    mv cache/clang+llvm-$LLVM_VERSION-$LLVM_TRIPLE cache/clang+llvm-$LLVM_VERSION
 	    ;;
-	"3.9.1")
-	    mv cache/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-16.04 cache/clang+llvm-$LLVM_VERSION
-	    ;;
-	?*)
-	    mv cache/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-14.04 cache/clang+llvm-$LLVM_VERSION
+        ?*)
+            mv cache/clang+llvm-$LLVM_VERSION-$LLVM_TRIPLE-$LLVM_OS-$LLVM_UBUNTU_VER cache/clang+llvm-$LLVM_VERSION
 	    ;;
     esac
 else
