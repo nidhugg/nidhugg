@@ -25,10 +25,44 @@
 #include "StrModule.h"
 
 #include <boost/test/unit_test.hpp>
+#ifdef HAVE_VALGRIND_VALGRIND_H
+#  include <valgrind/valgrind.h>
+#  include <cstdlib>
+#endif
 
-BOOST_AUTO_TEST_SUITE(Regression_test)
+#ifdef HAVE_VALGRIND_VALGRIND_H
+#  define TEST_CONDITION \
+  (getenv("NIDHUGG_NO_SKIP_REGRESSION_TEST") || !RUNNING_ON_VALGRIND)
+#else
+#  define TEST_CONDITION 1
+#endif
+#if BOOST_VERSION >= 105900
+namespace {
+  struct unless_valgrind {
+    boost::test_tools::assertion_result operator()
+    (boost::unit_test::test_unit_id) {
+#ifdef HAVE_VALGRIND_VALGRIND_H
+      return TEST_CONDITION;
+#else
+      return true;
+#endif
+    }
+  };
+}
+#  define TEST_SUITE_DECORATOR                          \
+  , * boost::unit_test::precondition(unless_valgrind())
+#  define TEST_CASE_CHECK_SKIP() ((void)0)
+#else
+#  define TEST_SUITE_DECORATOR
+#  define TEST_CASE_CHECK_SKIP() do {           \
+    if (!TEST_CONDITION) return;                \
+  } while(0)
+#endif
+
+BOOST_AUTO_TEST_SUITE(Regression_test TEST_SUITE_DECORATOR)
 
 BOOST_AUTO_TEST_CASE(Sigma_6){
+  TEST_CASE_CHECK_SKIP();
   /* This is a regression test for "TSOTraceBuilder: Fix merging different sizes in WuT"
    *
    */
@@ -91,6 +125,7 @@ declare i32 @pthread_join(i64, i8**)
 }
 
 BOOST_AUTO_TEST_CASE(Eratosthenes4){
+  TEST_CASE_CHECK_SKIP();
   /* Regression test for "TSOTraceBuilder: Fix obs_sleep_wake edge case" */
   Configuration conf = DPORDriver_test::get_sc_conf();
   conf.dpor_algorithm = Configuration::OPTIMAL;
@@ -147,6 +182,7 @@ declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*)
 }
 
 BOOST_AUTO_TEST_CASE(mcs_spinlock_SC_Optimal){
+  TEST_CASE_CHECK_SKIP();
   /* Regression test for "Fix merging non-unity events under Optimal" */
   Configuration conf = DPORDriver_test::get_sc_conf();
   conf.dpor_algorithm = Configuration::OPTIMAL;
@@ -350,4 +386,3 @@ declare void @__VERIFIER_assume(i1)
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif
-
