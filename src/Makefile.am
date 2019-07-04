@@ -91,9 +91,9 @@ valtest: unittest
 		`test -z "$(UTEST)" || echo "--run_test=$(UTEST)"`
 
 nidhuggc$(EXEEXT): $(srcdir)/nidhuggc.py
-	cat $(srcdir)/nidhuggc.py \
+	$(AM_V_GEN)cat $(srcdir)/nidhuggc.py \
 	| sed 's|%%PYTHON%%|@PYTHON@|g' \
 	| sed 's|%%CLANG%%|@CLANG@|g' \
 	| sed 's|%%CLANGXX%%|@CLANGXX@|g' \
 	> nidhuggc
-	chmod a+x nidhuggc
+	$(AM_V_at)chmod a+x nidhuggc
