@@ -36,7 +36,9 @@
 #else
 #  define TEST_CONDITION 1
 #endif
-#if BOOST_VERSION >= 105900
+// boost::unit_test::precondition is available in 1.59, but is broken until 1.68
+// (see https://svn.boost.org/trac/boost/ticket/12095)
+#if BOOST_VERSION >= 106800
 namespace {
   struct unless_valgrind {
     boost::test_tools::assertion_result operator()
