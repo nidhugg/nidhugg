@@ -1005,7 +1005,8 @@ declare void @__VERIFIER_assume(i64)
     {{{P1,13},{P0,8}},{{P0,33},{P,8}}},
     {{{P1,13},{P0,8}},{{P1,20},{P0,9}}},
   };
-  BOOST_CHECK_EQUAL(res.trace_count, 26);
+  BOOST_CHECK_EQUAL(res.trace_count, 14);
+  BOOST_CHECK_EQUAL(res.assume_blocked_trace_count, 12);
   BOOST_CHECK(DPORDriver_test::check_all_traces(res,expected,conf));
 }
 

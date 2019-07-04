@@ -2982,7 +2982,8 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*)
   DPORDriver::Result res = driver->run();
   delete driver;
   BOOST_CHECK(!res.has_errors());
-  BOOST_CHECK(res.trace_count == 3);
+  BOOST_CHECK_EQUAL(res.trace_count, 2);
+  BOOST_CHECK_EQUAL(res.assume_blocked_trace_count, 1);
 }
 
 BOOST_AUTO_TEST_CASE(LB_assume_2){
@@ -3015,7 +3016,8 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*)
   DPORDriver::Result res = driver->run();
   delete driver;
   BOOST_CHECK(!res.has_errors());
-  BOOST_CHECK(res.trace_count == 4);
+  BOOST_CHECK_EQUAL(res.trace_count, 4);
+  BOOST_CHECK_EQUAL(res.assume_blocked_trace_count, 0);
 }
 
 BOOST_AUTO_TEST_CASE(LB_assume_3){
@@ -3048,7 +3050,8 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*)
   DPORDriver::Result res = driver->run();
   delete driver;
   BOOST_CHECK(!res.has_errors());
-  BOOST_CHECK(res.trace_count == 1);
+  BOOST_CHECK_EQUAL(res.trace_count, 0);
+  BOOST_CHECK_EQUAL(res.assume_blocked_trace_count, 1);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

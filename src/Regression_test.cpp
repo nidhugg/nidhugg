@@ -382,7 +382,8 @@ declare void @__VERIFIER_assume(i1)
 
   /* No trace_set_spec is provided, as it is too big to express in C++ */
   BOOST_CHECK(!res.has_errors());
-  BOOST_CHECK(res.trace_count == 3024);
+  BOOST_CHECK_EQUAL(res.trace_count, 1080);
+  BOOST_CHECK_EQUAL(res.assume_blocked_trace_count, 1944);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

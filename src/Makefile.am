@@ -10,6 +10,7 @@ libnidhugg_a_SOURCES = \
   Debug.cpp Debug.h \
   DetCheckTraceBuilder.cpp DetCheckTraceBuilder.h \
   DPORDriver.cpp DPORDriver.h \
+  DPORInterpreter.h \
   Execution.cpp \
   ExternalFunctions.cpp \
   FBVClock.cpp FBVClock.h \

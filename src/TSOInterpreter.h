@@ -34,9 +34,10 @@ public:
                           const Configuration &conf = Configuration::default_conf);
   virtual ~TSOInterpreter();
 
-  static llvm::ExecutionEngine *create(llvm::Module *M, TSOTraceBuilder &TB,
-                                 const Configuration &conf = Configuration::default_conf,
-                                 std::string *ErrorStr = 0);
+  static std::unique_ptr<TSOInterpreter>
+  create(llvm::Module *M, TSOTraceBuilder &TB,
+         const Configuration &conf = Configuration::default_conf,
+         std::string *ErrorStr = 0);
 
   virtual void visitLoadInst(llvm::LoadInst &I);
   virtual void visitStoreInst(llvm::StoreInst &I);

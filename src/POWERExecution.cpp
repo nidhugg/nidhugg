@@ -2293,6 +2293,7 @@ llvm::GenericValue POWERInterpreter::getConstantValue(llvm::Constant *CPV){
 void POWERInterpreter::callAssume(llvm::Function *F){
   bool cond = getOperandValue(0).IntVal.getBoolValue();
   if(!cond){
+    setAssumeBlocked(true);
     Threads[CurrentThread].ECStack.clear();
     AtExitHandlers.clear();
     /* Do not call terminate. We don't want to explicitly terminate
