@@ -66,7 +66,7 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
                  == IID<CPid>(threads[curbranch().pid].cpid,
                               curev().iid.get_index())));
       replay = false;
-      assert(conf.dpor_algorithm != Configuration::OPTIMAL
+      assert(conf.dpor_algorithm == Configuration::SOURCE
              || (errors.size() && errors.back()->get_location()
                  == IID<CPid>(threads[curev().iid.get_pid()].cpid,
                               curev().iid.get_index()))
@@ -153,13 +153,15 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       if (!curbranch().sym.empty()) {
 #ifndef NDEBUG
         sym_ty expected = curev().sym;
-        if (conf.observers) clear_observed(expected);
+        if (conf.dpor_algorithm == Configuration::OBSERVERS)
+          clear_observed(expected);
         assert(curbranch().sym == expected);
 #endif
       } else {
         Branch b = curbranch();
         b.sym = curev().sym;
-        if (conf.observers) clear_observed(b.sym);
+        if (conf.dpor_algorithm == Configuration::OBSERVERS)
+          clear_observed(b.sym);
         for (SymEv &e : b.sym) e.purge_data();
         prefix.set_last_branch(std::move(b));
       }
@@ -301,7 +303,7 @@ bool TSOTraceBuilder::reset(){
   /* The if-statement is just so we can control which test cases need to
    *  satisfy this assertion for now. Eventually, all should.
    */
-  if(conf.dpor_algorithm == Configuration::OPTIMAL){
+  if(conf.dpor_algorithm != Configuration::SOURCE){
     check_symev_vclock_equiv();
   }
 #endif
@@ -631,7 +633,7 @@ void TSOTraceBuilder::store(const SymData &sd){
 }
 
 void TSOTraceBuilder::atomic_store(const SymData &sd){
-  if (conf.observers)
+  if (conf.dpor_algorithm == Configuration::OBSERVERS)
     record_symbolic(SymEv::UnobsStore(sd));
   else
     record_symbolic(SymEv::Store(sd));
@@ -697,7 +699,7 @@ void TSOTraceBuilder::do_atomic_store(const SymData &sd){
     if(0 <= lu){
       IPid lu_tipid = 2*(prefix[lu].iid.get_pid() / 2);
       if(lu_tipid != tipid){
-        if(conf.observers){
+        if(conf.dpor_algorithm == Configuration::OBSERVERS){
           SymAddrSize lu_addr = sym_get_last_write(prefix[lu].sym, b);
           if (lu_addr != ml) {
             /* When there is "partial overlap", observers requires
@@ -716,7 +718,7 @@ void TSOTraceBuilder::do_atomic_store(const SymData &sd){
     }
 
     /* Register in memory */
-    if (conf.observers) {
+    if (conf.dpor_algorithm == Configuration::OBSERVERS) {
       bi.unordered_updates.insert_geq(prefix_idx);
     }
     bi.last_update = prefix_idx;
@@ -852,7 +854,7 @@ void TSOTraceBuilder::do_load(ByteInfo &m){
     if(lu_tipid != ipid){
       seen_accesses.insert(lu);
     }
-    if (conf.observers) {
+    if (conf.dpor_algorithm == Configuration::OBSERVERS) {
       /* Update last_update to be an observed store */
       for (auto it = prefix[lu].sym.end();;){
         assert(it != prefix[lu].sym.begin());
@@ -1282,7 +1284,7 @@ void unordered_vector_delete(std::vector<T> &vec, std::size_t pos) {
 
 void
 TSOTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep, const Event &e) const{
-  if (!conf.observers) {
+  if (conf.dpor_algorithm != Configuration::OBSERVERS) {
     if (e.wakeup.size()) {
       for (unsigned i = 0; i < sleep.sleep.size();) {
         if (e.wakeup.count(sleep.sleep[i].pid)) {
@@ -1314,7 +1316,7 @@ TSOTraceBuilder::obs_wake_res
 TSOTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep,
                                 IPid p, const sym_ty &sym) const{
 
-  if (conf.observers) {
+  if (conf.dpor_algorithm == Configuration::OBSERVERS) {
     for (const SymEv &e : sym) {
       /* Now check for readers */
       if (e.kind == SymEv::FULLMEM) {
@@ -1876,7 +1878,7 @@ void TSOTraceBuilder::do_race_detect() {
 
 void TSOTraceBuilder::race_detect
 (const Race &race, const struct obs_sleep &isleep){
-  if (conf.dpor_algorithm == Configuration::OPTIMAL) {
+  if (conf.dpor_algorithm != Configuration::SOURCE) {
     race_detect_optimal(race, isleep);
     return;
   }
@@ -2073,7 +2075,8 @@ void TSOTraceBuilder::race_detect_optimal
 
     /* No existing child was compatible with v. Insert v as a new sequence. */
     for (Branch &ve : v) {
-      if (conf.observers) clear_observed(ve.sym);
+      if (conf.dpor_algorithm == Configuration::OBSERVERS)
+        clear_observed(ve.sym);
       for (SymEv &e : ve.sym) e.purge_data();
       node = node.put_child(std::move(ve));
     }
@@ -2154,7 +2157,7 @@ wakeup_sequence(const Race &race) const{
     v.emplace_back(std::move(witness_br));
   }
 
-  if (conf.observers) {
+  if (conf.dpor_algorithm == Configuration::OBSERVERS) {
     /* Recompute observed states on events in v */
     recompute_observed(v);
   }
@@ -2304,7 +2307,7 @@ void TSOTraceBuilder::wakeup(Access::Type type, SymAddr ml){
   }
 
 #ifndef NDEBUG
-  if (conf.dpor_algorithm == Configuration::OPTIMAL) {
+  if (conf.dpor_algorithm != Configuration::SOURCE) {
     VecSet<IPid> wakeup_set(wakeup);
     for (unsigned p = 0; p < threads.size(); ++p){
       if (!threads[p].sleeping) continue;

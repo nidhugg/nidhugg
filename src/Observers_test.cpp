@@ -30,8 +30,7 @@ BOOST_AUTO_TEST_SUITE(Observers_test)
 
 static Configuration sc_obs_conf(){
   Configuration conf = DPORDriver_test::get_sc_conf();
-  conf.dpor_algorithm = Configuration::OPTIMAL;
-  conf.observers = true;
+  conf.dpor_algorithm = Configuration::OBSERVERS;
   return conf;
 }
 
