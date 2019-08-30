@@ -11,24 +11,24 @@ import time
 # Default Configuration #
 #########################
 
-SWSC=os.path.join(sys.path[0], 'swsc')
+NIDHUGG=os.path.join(sys.path[0], 'nidhugg')
 CLANG='%%CLANG%%'
 CLANGXX='%%CLANGXX%%'
 
-swsccparams = [
+nidhuggcparams = [
     {'name':'--help','help':'Prints this text.','param':False},
-    {'name':'--version','help':'Prints the swsc version.','param':False},
+    {'name':'--version','help':'Prints the nidhugg version.','param':False},
     {'name':'--c','help':'Interpret input FILE as C code. (Compile with clang.)','param':False},
     {'name':'--cxx','help':'Interpret input FILE as C++ code. (Compile with clang++.)','param':False},
     {'name':'--ll','help':'Interpret input FILE as LLVM IR code. (Preprocess with cpp.)','param':False},
     {'name':'--clang','help':'Specify the path to clang.','param':'PATH'},
     {'name':'--clangxx','help':'Specify the path to clang++.','param':'PATH'},
-    {'name':'--swsc','help':'Specify the path to the swsc binary.','param':'PATH'},
-    {'name':'--no-spin-assume','help':'Don\'t use the spin-assume transformation on module before calling swsc.','param':False},
-    {'name':'--unroll','help':'Use unroll transformation on module before calling swsc.','param':'N'}
+    {'name':'--nidhugg','help':'Specify the path to the nidhugg binary.','param':'PATH'},
+    {'name':'--no-spin-assume','help':'Don\'t use the spin-assume transformation on module before calling nidhugg.','param':False},
+    {'name':'--unroll','help':'Use unroll transformation on module before calling nidhugg.','param':'N'}
 ]
 
-swsccparamaliases = {
+nidhuggcparamaliases = {
     '-help':'--help',
     '-h':'--help',
     '-?':'--help',
@@ -39,7 +39,7 @@ swsccparamaliases = {
     '-ll':'--ll',
     '-clang':'--clang',
     '-clangxx':'--clangxx',
-    '-swsc':'--swsc',
+    '-nidhugg':'--nidhugg',
     '-no-spin-assume':'--no-spin-assume',
     '-unroll':'--unroll'
 }
@@ -67,7 +67,7 @@ def run(cmd,ignoreret=False):
     cmdstr=''
     for s in cmd:
         cmdstr = cmdstr+('' if cmdstr=='' else ' ')+s
-    print("* Swscc: $ "+cmdstr)
+    print("* Nidhuggc: $ "+cmdstr)
     retval = subprocess.call(cmd)
     if not(ignoreret) and retval not in return_codes:
         raise Exception('Command ({1}) returned an error exit code ({0}).'.format(retval,cmd[0]))
@@ -76,9 +76,9 @@ def run(cmd,ignoreret=False):
 # Read arguments from sys.argv. Return a tuple (A,B,C) of disjunct
 # argument lists A, B, C, together containing precisely the arguments
 # in sys.argv:
-# - A: Arguments targeted to swscc as a dict switch=>(parameter or empty string)
+# - A: Arguments targeted to nidhuggc as a dict switch=>(parameter or empty string)
 # - B: Arguments targeted to the compiler
-# - C: Arguments targeted to swsc
+# - C: Arguments targeted to nidhugg
 #
 # If an input file FILE is specified in sys.argv, then
 # '--input'=>FILE is also included in A.
@@ -88,24 +88,24 @@ def get_args():
     C = []
     disablesinput={'--help','--version'}
     def canonize(arg):
-        if arg in swsccparamaliases:
-            return swsccparamaliases[arg]
+        if arg in nidhuggcparamaliases:
+            return nidhuggcparamaliases[arg]
         i = arg.find('=')
-        if 0 <= i and (arg[:i] in swsccparamaliases):
-            return swsccparamaliases[arg[:i]]+arg[i:]
+        if 0 <= i and (arg[:i] in nidhuggcparamaliases):
+            return nidhuggcparamaliases[arg[:i]]+arg[i:]
         return arg
-    forswsccsingle=[p['name'] for p in swsccparams if p['param'] == False]
+    fornidhuggcsingle=[p['name'] for p in nidhuggcparams if p['param'] == False]
     hascompilerargs=False
     i = 1
     argc = len(sys.argv)
     while i < argc:
         arg = canonize(sys.argv[i])
         i = i+1
-        if arg in forswsccsingle:
+        if arg in fornidhuggcsingle:
             A[arg]=''
         else:
             foundparam=False
-            for ap in swsccparams:
+            for ap in nidhuggcparams:
                 if ap['param'] == False: continue
                 if arg.startswith(ap['name']+'='):
                     A[ap['name']]=arg[len(ap['name'])+1:]
@@ -125,7 +125,7 @@ def get_args():
                     hascompilerargs=True
                 else:
                     # Stop input processing so that program arguments may
-                    # contain flags that are swscc parameters
+                    # contain flags that are nidhuggc parameters
                     C.extend(sys.argv[i-1:])
                     break
             else:
@@ -135,7 +135,7 @@ def get_args():
         A['--input'] = get_input(C)
     return (A,B,C)
 
-# Remove and return the input argument from a swsc argument list
+# Remove and return the input argument from a nidhugg argument list
 def get_input(args):
     # Do not interpret args after --
     end = args.index('--') if '--' in args else len(args)
@@ -152,45 +152,45 @@ def help_indent(s,n):
     return ind+(s.replace('\n','\n'+ind))
 
 def print_help():
-    print('Usage: {0} [COMPILER OPTIONS] -- [SWSC/SWSCC OPTIONS]'
+    print('Usage: {0} [COMPILER OPTIONS] -- [NIDHUGG/NIDHUGGC OPTIONS]'
           ' FILE [-- [PROGRAM ARGUMENTS]]'.format(sys.argv[0]))
     print('')
     print(' - FILE should be a source code file in C or C++.')
     print(' - COMPILER OPTIONS are options that will be sent to the compiler')
     print('   (clang/clang++).')
-    print(' - SWSC OPTIONS are options that will be sent to swsc.')
-    print('   (See swsc --help for details.)')
+    print(' - NIDHUGG OPTIONS are options that will be sent to nidhugg.')
+    print('   (See nidhugg --help for details.)')
     print(' - PROGRAM ARGUMENTS will be sent as arguments (argv) to the test case.')
     print('')
-    print('SWSCC OPTIONS:')
-    for p in swsccparams:
+    print('NIDHUGGC OPTIONS:')
+    for p in nidhuggcparams:
         if p['param'] == False:
             print('  {0}\n{1}'.format(p['name'],help_indent(p['help'],6)))
         else:
             print('  {0}={1}\n{2}'.format(p['name'],p['param'],help_indent(p['help'],6)))
 
 def print_version():
-    subprocess.call([SWSC,'-version'])
+    subprocess.call([NIDHUGG,'-version'])
 
-def get_lang(swsccargs):
+def get_lang(nidhuggcargs):
     c = 'C'
     cxx = 'C++'
     ll = 'LL'
     langargs = {'--c', '--cxx', '--ll'}
-    if not('--input' in swsccargs):
+    if not('--input' in nidhuggcargs):
         print_help()
         raise Exception('No input file specified.')
-    langswitches = (swsccargs.keys() & langargs)
+    langswitches = (nidhuggcargs.keys() & langargs)
     if len(langswitches) > 1:
         raise Exception('Contradicting switches {} and {} were given.'.format(
             langswitches.pop(), langswitches.pop()))
-    if '--c' in swsccargs:
+    if '--c' in nidhuggcargs:
         return c
-    if '--cxx' in swsccargs:
+    if '--cxx' in nidhuggcargs:
         return cxx
-    if '--ll' in swsccargs:
+    if '--ll' in nidhuggcargs:
         return ll
-    fname = swsccargs['--input']
+    fname = nidhuggcargs['--input']
     if fname.endswith('.c') or fname.endswith('.C'):
         return c
     if len(fname) >= 4 and fname[-4:] in ['.cpp','.cxx','.c++','.C++','.hpp','.tcc']:
@@ -203,13 +203,13 @@ def get_lang(swsccargs):
 
 # Compile the input source code file to LLVM IR in a temporary
 # file. Return the path to the temporary file.
-def get_IR(swsccargs,compilerargs):
-    if not('--input' in swsccargs):
+def get_IR(nidhuggcargs,compilerargs):
+    if not('--input' in nidhuggcargs):
         print_help()
         raise Exception('No input file specified.')
     init_tmpdir()
-    inputfname = swsccargs['--input']
-    lang=get_lang(swsccargs)
+    inputfname = nidhuggcargs['--input']
+    lang=get_lang(nidhuggcargs)
     if lang == 'LL':
         return inputfname
     (fd,outputfname) = tempfile.mkstemp(suffix='.ll',dir=tmpdir)
@@ -227,27 +227,27 @@ def get_IR(swsccargs,compilerargs):
         run(cmd)
     return outputfname
 
-def transform(swsccargs,transformargs,irfname):
+def transform(nidhuggcargs,transformargs,irfname):
     (fd,outputfname) = tempfile.mkstemp(suffix='.ll',dir=tmpdir)
     os.close(fd)
-    cmd = [SWSC]+transformargs+['-transform',outputfname,irfname]
+    cmd = [NIDHUGG]+transformargs+['-transform',outputfname,irfname]
     run(cmd)
     return outputfname
 
-def run_swsc(swsccargs,swscargs,irfname):
-    cmd = [SWSC,irfname]+swscargs
+def run_nidhugg(nidhuggcargs,nidhuggargs,irfname):
+    cmd = [NIDHUGG,irfname]+nidhuggargs
     return run(cmd)
 
 def main():
     try:
         global CLANG
         global CLANGXX
-        global SWSC
+        global NIDHUGG
         t0 = time.time()
-        (swsccargs,compilerargs,swscargs) = get_args()
+        (nidhuggcargs,compilerargs,nidhuggargs) = get_args()
         transformargs=[]
-        for argname in swsccargs:
-            argarg = swsccargs[argname]
+        for argname in nidhuggcargs:
+            argarg = nidhuggcargs[argname]
             if argname == '--help':
                 print_help()
                 exit(0)
@@ -255,30 +255,30 @@ def main():
                 CLANG=argarg
             elif argname == '--clangxx':
                 CLANGXX=argarg
-            elif argname == '--swsc':
-                SWSC=argarg
+            elif argname == '--nidhugg':
+                NIDHUGG=argarg
             elif argname == '--no-spin-assume':
                 transformargs.append(argname)
             elif argname == '--unroll':
                 transformargs.append('--unroll={0}'.format(argarg))
-        if '--version' in swsccargs:
+        if '--version' in nidhuggcargs:
             # Wait with printing version until all arguments have been parsed.
-            # Because the swsc binary may be specified after --version.
+            # Because the nidhugg binary may be specified after --version.
             print_version()
             exit(0)
-        if not(os.path.exists(swsccargs['--input'])):
+        if not(os.path.exists(nidhuggcargs['--input'])):
             print_help()
-            raise Exception('Source code file \'{0}\' does not exist.'.format(swsccargs['--input']))
+            raise Exception('Source code file \'{0}\' does not exist.'.format(nidhuggcargs['--input']))
         # Compile
-        irfname = get_IR(swsccargs,compilerargs)
+        irfname = get_IR(nidhuggcargs,compilerargs)
         # Transform
-        irfname = transform(swsccargs,transformargs,irfname)
+        irfname = transform(nidhuggcargs,transformargs,irfname)
         # Run stateless model-checker
-        ret = run_swsc(swsccargs,swscargs,irfname)
+        ret = run_nidhugg(nidhuggcargs,nidhuggargs,irfname)
         print('Total wall-clock time: {0:.2f} s'.format(time.time()-t0))
         exit(ret)
     except Exception as e:
-        print("\nSwscc Error: {0}".format(str(e)))
+        print("\nNidhuggc Error: {0}".format(str(e)))
         exit(1)
 
 if __name__ == '__main__':

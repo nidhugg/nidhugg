@@ -17,11 +17,11 @@ RUN \
       make && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-COPY . /swsc
+COPY . /nidhugg
 
 RUN \
     /bin/bash -c \
-    "cd /swsc && \
+    "cd /nidhugg && \
     autoreconf --install && \
     ./configure && \
     make && \
