@@ -147,10 +147,10 @@ namespace DPORDriver_test {
         retval = false;
       }
     }
-    if(res.trace_count != int(spec.size())){
+    if((res.trace_count + res.assume_blocked_trace_count) != spec.size()){
       llvm::dbgs() << "DPORDriver_test::check_all_traces: expected number of traces: "
                    << spec.size() << ", actual number: "
-                   << res.trace_count
+                   << res.trace_count << "+" << res.assume_blocked_trace_count
                    << " (" << res.all_traces.size() << ")\n";
       retval = false;
     }

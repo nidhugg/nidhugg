@@ -41,6 +41,7 @@
 #include "CPid.h"
 #include "POWERARMTraceBuilder.h"
 #include "vecset.h"
+#include "DPORInterpreter.h"
 
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
@@ -79,7 +80,7 @@ namespace llvm{
 
 // Interpreter - This class represents the entirety of the interpreter.
 //
-class POWERInterpreter : public llvm::ExecutionEngine, public llvm::InstVisitor<POWERInterpreter> {
+class POWERInterpreter : public DPORInterpreter, public llvm::InstVisitor<POWERInterpreter> {
 public:
   typedef llvm::generic_gep_type_iterator<llvm::User::const_op_iterator> gep_type_iterator;
 
@@ -256,9 +257,10 @@ public:
 
   /// Create an interpreter ExecutionEngine.
   ///
-  static llvm::ExecutionEngine *create(llvm::Module *M, POWERARMTraceBuilder &TB,
-                                       const Configuration &conf = Configuration::default_conf,
-                                       std::string *ErrorStr = nullptr);
+  static std::unique_ptr<POWERInterpreter>
+  create(llvm::Module *M, POWERARMTraceBuilder &TB,
+         const Configuration &conf = Configuration::default_conf,
+         std::string *ErrorStr = nullptr);
 
   /// run - Start execution with the specified function and arguments.
   ///

@@ -120,9 +120,13 @@ int main(int argc, char *argv[]){
         DPORDriver::parseIRFile(cl_input_file,conf);
 
       DPORDriver::Result res = driver->run();
-      std::cout << "Trace count: " << res.trace_count
-                << " (also " << res.sleepset_blocked_trace_count
-                << " sleepset blocked)" << std::endl;
+      std::cout << "Trace count: " << res.trace_count << std::endl;
+      if (res.assume_blocked_trace_count > 0)
+        std::cout << "Assume-blocked trace count: "
+                  << res.assume_blocked_trace_count << std::endl;
+      if (res.sleepset_blocked_trace_count > 0)
+        std::cout << "Sleepset-blocked trace count: "
+                  << res.sleepset_blocked_trace_count << std::endl;
       if(res.has_errors()){
         errors_detected = true;
         std::cout << "\n Error detected:\n"

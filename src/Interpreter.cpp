@@ -60,8 +60,9 @@ using namespace llvm;
 
 /// create - Create a new interpreter object.  This can never fail.
 ///
-ExecutionEngine *Interpreter::create(Module *M, TSOPSOTraceBuilder &TB,
-                                     const Configuration &C, std::string* ErrStr) {
+std::unique_ptr<Interpreter> Interpreter::
+create(Module *M, TSOPSOTraceBuilder &TB, const Configuration &C,
+       std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
 #ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
   if(std::error_code EC = M->materializeAllPermanently()){
@@ -93,7 +94,7 @@ ExecutionEngine *Interpreter::create(Module *M, TSOPSOTraceBuilder &TB,
   }
 #endif
 
-  return new Interpreter(M,TB,C);
+  return std::unique_ptr<Interpreter>(new Interpreter(M,TB,C));
 }
 
 //===----------------------------------------------------------------------===//
@@ -101,12 +102,7 @@ ExecutionEngine *Interpreter::create(Module *M, TSOPSOTraceBuilder &TB,
 //
 Interpreter::Interpreter(Module *M, TSOPSOTraceBuilder &TB,
                          const Configuration &C)
-#ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
-  : ExecutionEngine(std::unique_ptr<Module>(M)),
-#else
-  : ExecutionEngine(M),
-#endif
-    TD(M), TB(TB), conf(C) {
+  : DPORInterpreter(M), TD(M), TB(TB), conf(C) {
 
   Threads.push_back(Thread());
   Threads.back().cpid = CPid();

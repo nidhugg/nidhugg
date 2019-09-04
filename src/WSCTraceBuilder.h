@@ -77,7 +77,7 @@ public:
   virtual bool cond_awake(const SymAddrSize &cond_ml, const SymAddrSize &mutex_ml);
   virtual int cond_destroy(const SymAddrSize &ml);
   virtual void register_alternatives(int alt_count);
-  virtual int estimate_trace_count() const;
+  virtual long double estimate_trace_count() const;
 protected:
   /* An identifier for a thread. An index into this->threads.
    *
@@ -471,7 +471,7 @@ protected:
   /* Estimate the total number of traces that have the same prefix as
    * the current one, up to the first idx events.
    */
-  int estimate_trace_count(int idx) const;
+  long double estimate_trace_count(int idx) const;
 
   bool is_load(unsigned idx) const;
   bool is_store(unsigned idx) const;

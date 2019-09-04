@@ -10,6 +10,7 @@ libnidhugg_a_SOURCES = \
   Debug.cpp Debug.h \
   DetCheckTraceBuilder.cpp DetCheckTraceBuilder.h \
   DPORDriver.cpp DPORDriver.h \
+  DPORInterpreter.h \
   Execution.cpp \
   ExternalFunctions.cpp \
   FBVClock.cpp FBVClock.h \
@@ -105,9 +106,9 @@ mustpass: swsc$(EXEEXT) swscc$(EXEEXT)
 	cd $(top_builddir)/tests/smallbutchallenging && python3 ./test-swsc.py all
 
 nidhuggc$(EXEEXT): $(srcdir)/nidhuggc.py
-	cat $(srcdir)/nidhuggc.py \
+	$(AM_V_GEN)cat $(srcdir)/nidhuggc.py \
 	| sed 's|%%PYTHON%%|@PYTHON@|g' \
 	| sed 's|%%CLANG%%|@CLANG@|g' \
 	| sed 's|%%CLANGXX%%|@CLANGXX@|g' \
 	> nidhuggc
-	chmod a+x nidhuggc
+	$(AM_V_at)chmod a+x nidhuggc

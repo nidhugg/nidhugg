@@ -39,9 +39,9 @@ TSOInterpreter::TSOInterpreter(llvm::Module *M, TSOTraceBuilder &TB,
 TSOInterpreter::~TSOInterpreter(){
 }
 
-llvm::ExecutionEngine *TSOInterpreter::create(llvm::Module *M, TSOTraceBuilder &TB,
-                                              const Configuration &conf,
-                                              std::string *ErrorStr){
+std::unique_ptr<TSOInterpreter> TSOInterpreter::
+create(llvm::Module *M, TSOTraceBuilder &TB, const Configuration &conf,
+       std::string *ErrorStr){
 #ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
   if(std::error_code EC = M->materializeAllPermanently()){
     // We got an error, just return 0
@@ -72,7 +72,7 @@ llvm::ExecutionEngine *TSOInterpreter::create(llvm::Module *M, TSOTraceBuilder &
   }
 #endif
 
-  return new TSOInterpreter(M,TB,conf);
+  return std::unique_ptr<TSOInterpreter>(new TSOInterpreter(M,TB,conf));
 }
 
 void TSOInterpreter::runAux(int proc, int aux){

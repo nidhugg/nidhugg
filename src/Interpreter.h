@@ -43,6 +43,7 @@
 #include "VClock.h"
 #include "Option.h"
 #include "TSOPSOTraceBuilder.h"
+#include "DPORInterpreter.h"
 
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
@@ -99,7 +100,7 @@ struct ExecutionContext {
 
 // Interpreter - This class represents the entirety of the interpreter.
 //
-class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
+class Interpreter : public DPORInterpreter, public InstVisitor<Interpreter> {
 protected:
   GenericValue ExitValue;          // The return value of the called function
   DataLayout TD;
@@ -265,9 +266,10 @@ public:
 
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///
-  static ExecutionEngine *create(Module *M, TSOPSOTraceBuilder &TB,
-                                 const Configuration &conf = Configuration::default_conf,
-                                 std::string *ErrorStr = 0);
+  static std::unique_ptr<Interpreter>
+  create(Module *M, TSOPSOTraceBuilder &TB,
+         const Configuration &conf = Configuration::default_conf,
+         std::string *ErrorStr = 0);
 
   /// run - Start execution with the specified function and arguments.
   ///

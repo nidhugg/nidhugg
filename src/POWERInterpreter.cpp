@@ -48,9 +48,9 @@
 
 /// Create a new interpreter object.
 ///
-llvm::ExecutionEngine *POWERInterpreter::create(llvm::Module *M, POWERARMTraceBuilder &TB,
-                                                const Configuration &conf,
-                                                std::string *ErrStr) {
+std::unique_ptr<POWERInterpreter> POWERInterpreter::
+create(llvm::Module *M, POWERARMTraceBuilder &TB, const Configuration &conf,
+       std::string *ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
 #ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
   if(std::error_code EC = M->materializeAllPermanently()){
@@ -82,19 +82,14 @@ llvm::ExecutionEngine *POWERInterpreter::create(llvm::Module *M, POWERARMTraceBu
   }
 #endif
 
-  return new POWERInterpreter(M,TB,conf);
+  return std::unique_ptr<POWERInterpreter>(new POWERInterpreter(M,TB,conf));
 }
 
 //===----------------------------------------------------------------------===//
 // Interpreter ctor - Initialize stuff
 //
 POWERInterpreter::POWERInterpreter(llvm::Module *M, POWERARMTraceBuilder &TB, const Configuration &conf)
-#ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
-  : llvm::ExecutionEngine(std::unique_ptr<llvm::Module>(M)),
-#else
-  : llvm::ExecutionEngine(M),
-#endif
-    TD(M), conf(conf), TB(TB) {
+  : DPORInterpreter(M), TD(M), conf(conf), TB(TB) {
 
   Threads.emplace_back(CPid());
   CurrentThread = 0;

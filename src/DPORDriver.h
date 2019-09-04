@@ -25,6 +25,7 @@
 #include "Configuration.h"
 #include "Trace.h"
 #include "TraceBuilder.h"
+#include "DPORInterpreter.h"
 
 #if defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
@@ -63,7 +64,8 @@ public:
   class Result{
   public:
     /* Empty result */
-    Result() : trace_count(0), sleepset_blocked_trace_count(0), error_trace(0) {};
+    Result() : trace_count(0), sleepset_blocked_trace_count(0),
+               assume_blocked_trace_count(0), error_trace(0) {};
     ~Result(){
       if(all_traces.empty()){ // Otherwise error_trace also appears in all_traces.
         delete error_trace;
@@ -73,9 +75,11 @@ public:
       }
     };
     /* The number of explored (non-sleepset-blocked) traces */
-    int trace_count;
+    uint64_t trace_count;
     /* The number of explored sleepset-blocked traces */
-    int sleepset_blocked_trace_count;
+    uint64_t sleepset_blocked_trace_count;
+    /* The number of explored assume-blocked traces */
+    uint64_t assume_blocked_trace_count;
     /* An empty trace if no error has been encountered. Otherwise some
      * error trace.
      */
@@ -108,7 +112,7 @@ private:
   std::string src;
 
   DPORDriver(const Configuration &conf);
-  Trace *run_once(TraceBuilder &TB) const;
+  Trace *run_once(TraceBuilder &TB, bool &assume_blocked) const;
   void reparse();
   /* Opens and reads the file filename. Stores the entire content in
    * tgt. Throws an exception on failure.
@@ -118,7 +122,8 @@ private:
    * the TraceBuilder TB. The kind of execution engine is determined
    * by conf.memory_model.
    */
-  llvm::ExecutionEngine *create_execution_engine(TraceBuilder &TB, const Configuration &conf) const;
+  std::unique_ptr<DPORInterpreter>
+  create_execution_engine(TraceBuilder &TB, const Configuration &conf) const;
 };
 
 #endif

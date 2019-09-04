@@ -34,9 +34,10 @@ public:
                           const Configuration &conf = Configuration::default_conf);
   virtual ~PSOInterpreter();
 
-  static llvm::ExecutionEngine *create(llvm::Module *M, PSOTraceBuilder &TB,
-                                 const Configuration &conf = Configuration::default_conf,
-                                 std::string *ErrorStr = 0);
+  static std::unique_ptr<PSOInterpreter>
+  create(llvm::Module *M, PSOTraceBuilder &TB,
+         const Configuration &conf = Configuration::default_conf,
+         std::string *ErrorStr = 0);
 
   virtual void visitLoadInst(llvm::LoadInst &I);
   virtual void visitStoreInst(llvm::StoreInst &I);

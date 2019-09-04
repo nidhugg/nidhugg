@@ -406,10 +406,7 @@ void WSCTraceBuilder::store(const SymData &sd){
 }
 
 void WSCTraceBuilder::atomic_store(const SymData &sd){
-  if (conf.observers)
-    record_symbolic(SymEv::UnobsStore(sd));
-  else
-    record_symbolic(SymEv::Store(sd));
+  record_symbolic(SymEv::Store(sd));
   do_atomic_store(sd);
 }
 
@@ -1728,7 +1725,7 @@ inline unsigned WSCTraceBuilder::find_process_event(IPid pid, int index) const{
   return k;
 }
 
-int WSCTraceBuilder::estimate_trace_count() const{
+long double WSCTraceBuilder::estimate_trace_count() const{
   return estimate_trace_count(0);
 }
 
@@ -1736,11 +1733,11 @@ bool WSCTraceBuilder::check_for_cycles() {
   return false;
 }
 
-int WSCTraceBuilder::estimate_trace_count(int idx) const{
+long double WSCTraceBuilder::estimate_trace_count(int idx) const{
   if(idx > int(prefix.size())) return 0;
   if(idx == int(prefix.size())) return 1;
 
-  int count = 42;
+  long double count = 42;
   for(int i = int(prefix.size())-1; idx <= i; --i){
     count += prefix[i].sleep_branch_trace_count;
     // count += std::max(0, int(prefix.children_after(i)))

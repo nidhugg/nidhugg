@@ -25,10 +25,46 @@
 #include "StrModule.h"
 
 #include <boost/test/unit_test.hpp>
+#ifdef HAVE_VALGRIND_VALGRIND_H
+#  include <valgrind/valgrind.h>
+#  include <cstdlib>
+#endif
 
-BOOST_AUTO_TEST_SUITE(Regression_test)
+#ifdef HAVE_VALGRIND_VALGRIND_H
+#  define TEST_CONDITION \
+  (getenv("NIDHUGG_NO_SKIP_REGRESSION_TEST") || !RUNNING_ON_VALGRIND)
+#else
+#  define TEST_CONDITION 1
+#endif
+// boost::unit_test::precondition is available in 1.59, but is broken until 1.68
+// (see https://svn.boost.org/trac/boost/ticket/12095)
+#if BOOST_VERSION >= 106800
+namespace {
+  struct unless_valgrind {
+    boost::test_tools::assertion_result operator()
+    (boost::unit_test::test_unit_id) {
+#ifdef HAVE_VALGRIND_VALGRIND_H
+      return TEST_CONDITION;
+#else
+      return true;
+#endif
+    }
+  };
+}
+#  define TEST_SUITE_DECORATOR                          \
+  , * boost::unit_test::precondition(unless_valgrind())
+#  define TEST_CASE_CHECK_SKIP() ((void)0)
+#else
+#  define TEST_SUITE_DECORATOR
+#  define TEST_CASE_CHECK_SKIP() do {           \
+    if (!TEST_CONDITION) return;                \
+  } while(0)
+#endif
+
+BOOST_AUTO_TEST_SUITE(Regression_test TEST_SUITE_DECORATOR)
 
 BOOST_AUTO_TEST_CASE(Sigma_6){
+  TEST_CASE_CHECK_SKIP();
   /* This is a regression test for "TSOTraceBuilder: Fix merging different sizes in WuT"
    *
    */
@@ -91,10 +127,10 @@ declare i32 @pthread_join(i64, i8**)
 }
 
 BOOST_AUTO_TEST_CASE(Eratosthenes4){
+  TEST_CASE_CHECK_SKIP();
   /* Regression test for "TSOTraceBuilder: Fix obs_sleep_wake edge case" */
   Configuration conf = DPORDriver_test::get_sc_conf();
-  conf.dpor_algorithm = Configuration::OPTIMAL;
-  conf.observers = true;
+  conf.dpor_algorithm = Configuration::OBSERVERS;
   std::string module = StrModule::portasm(R"(
 %attr_t = type { i64, [48 x i8] }
 
@@ -147,6 +183,7 @@ declare i32 @pthread_create(i64*, %attr_t*, i8* (i8*)*, i8*)
 }
 
 BOOST_AUTO_TEST_CASE(mcs_spinlock_SC_Optimal){
+  TEST_CASE_CHECK_SKIP();
   /* Regression test for "Fix merging non-unity events under Optimal" */
   Configuration conf = DPORDriver_test::get_sc_conf();
   conf.dpor_algorithm = Configuration::OPTIMAL;
@@ -344,10 +381,10 @@ declare void @__VERIFIER_assume(i1)
 
   /* No trace_set_spec is provided, as it is too big to express in C++ */
   BOOST_CHECK(!res.has_errors());
-  BOOST_CHECK(res.trace_count == 3024);
+  BOOST_CHECK_EQUAL(res.trace_count, 1080);
+  BOOST_CHECK_EQUAL(res.assume_blocked_trace_count, 1944);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif
-

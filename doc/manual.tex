@@ -272,20 +272,18 @@ int main(int argc, char *argv[]){
 %
   Analyze the test case under the SC, TSO, PSO, POWER or ARM memory
   model respectively.
-\item{\texttt{--source/--optimal}}
+\item{\texttt{--source/--optimal/--observers}}
 %
-  Use the Source or Optimal DPOR algorithm for analysis, respectively.
-  Optimal DPOR guarantees no redundant (sleep set blocked) executions,
-  at the cost of some runtime overhead and a larger worst-case memory
-  complexity.
+  Use the Source, Optimal, or Optimal with Observers DPOR algorithm for
+  analysis, respectively. Optimal DPOR guarantees no redundant (sleep set
+  blocked) executions, at the cost of some runtime overhead and a larger
+  worst-case memory complexity.
 %
-  \textbf{Optimal-DPOR is supported only for the SC memory model.}
-\item{\texttt{--observers}}
+  Observers additionally uses the observers optimisation; not considering two
+  memory writes to the same address to be racing unless the result is read.
 %
-  Use the observers optimisation; not considering two memory writes to
-  the same address to be racing unless the result is read.
-%
-  Requires Optimal-DPOR (\texttt{--optimal}).
+  \textbf{Optimal-DPOR and Optimal-DPOR with Observers are supported only for
+    the SC memory model.}
 \item{\texttt{--robustness}}
 %
   Perform a robustness analysis. In addition to considering the usual

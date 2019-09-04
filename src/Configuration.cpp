@@ -37,10 +37,6 @@ static llvm::cl::opt<bool> cl_malloc_may_fail("malloc-may-fail",llvm::cl::NotHid
 static llvm::cl::opt<bool> cl_disable_mutex_init_requirement("disable-mutex-init-requirement",llvm::cl::NotHidden,
                                                              llvm::cl::desc("If set, then allow use of mutexes without a preceding call to pthread_mutex_init.\nThis switch is necessary when using static mutex initialization."));
 
-static llvm::cl::opt<bool> cl_observers
-("observers",llvm::cl::NotHidden,
- llvm::cl::desc("Do not consider writes racing unless they are read"));
-
 static llvm::cl::opt<int>
 cl_max_search_depth("max-search-depth",
                     llvm::cl::NotHidden,llvm::cl::init(-1),
@@ -77,7 +73,8 @@ static llvm::cl::opt<Configuration::DPORAlgorithm>
 cl_dpor_algorithm(llvm::cl::NotHidden, llvm::cl::init(Configuration::SOURCE),
                   llvm::cl::desc("Select DPOR algorithm"),
                   llvm::cl::values(clEnumValN(Configuration::SOURCE,"source","Source-DPOR (default)"),
-                                   clEnumValN(Configuration::OPTIMAL,"optimal","Optimal-DPOR")
+                                   clEnumValN(Configuration::OPTIMAL,"optimal","Optimal-DPOR"),
+                                   clEnumValN(Configuration::OBSERVERS,"observers","Optimal-DPOR with Observers")
 #ifdef LLVM_CL_VALUES_USES_SENTINEL
                                   ,clEnumValEnd
 #endif
@@ -123,8 +120,7 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "max-search-depth",
     "sc","tso","pso","power","arm",
     "smtlib",
-    "source","optimal",
-    "observers",
+    "source","optimal","observers",
     "robustness",
     "no-spin-assume",
     "unroll",
@@ -147,7 +143,6 @@ void Configuration::assign_by_commandline(){
   memory_model = cl_memory_model;
   c11 = cl_c11;
   dpor_algorithm = cl_dpor_algorithm;
-  observers = cl_observers;
   check_robustness = cl_check_robustness;
   transform_spin_assume = !cl_transform_no_spin_assume;
   transform_loop_unroll = cl_transform_loop_unroll;
@@ -215,10 +210,6 @@ void Configuration::check_commandline(){
         << "WARNING: --unroll ignored in absence of --transform.\n";
     }
   }
-  if (cl_observers && cl_dpor_algorithm != Configuration::OPTIMAL) {
-    Debug::warn("Configuration::check_commandline:observers")
-      << "WARNING: --observers requires --optimal.\n";
-  }
   /* Check commandline switch compatibility with memory model. */
   {
     std::string mm;
@@ -246,7 +237,8 @@ void Configuration::check_commandline(){
           << "WARNING: --robustness ignored under memory model " << mm << ".\n";
       }
     }
-    if (cl_dpor_algorithm == Configuration::OPTIMAL
+    if ((cl_dpor_algorithm == Configuration::OPTIMAL
+         || cl_dpor_algorithm == Configuration::OBSERVERS)
         && cl_memory_model != Configuration::SC
         && cl_memory_model != Configuration::TSO) {
       Debug::warn("Configuration::check_commandline:dpor:mm")

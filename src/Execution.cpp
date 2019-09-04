@@ -3071,6 +3071,7 @@ void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVa
       }
       return;
     }
+    setAssumeBlocked(true);
     ECStack()->clear();
     AtExitHandlers.clear();
     Threads[CurrentThread].AssumeBlocked = true;
@@ -3231,7 +3232,7 @@ void Interpreter::callFunction(Function *F,
          "Incorrect number of arguments passed into function call!");
 
   if(F->getName().str().find("__VERIFIER_atomic_") == 0){
-    if (conf.observers)
+    if (conf.dpor_algorithm == Configuration::OBSERVERS)
       Debug::warn("optimal+atomic")
         << "WARNING: Support for atomic blocks is limited with --optimal.\n"
            "         Nidhugg might crash or miss bugs, see the manual.\n";

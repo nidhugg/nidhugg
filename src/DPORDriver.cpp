@@ -34,6 +34,8 @@
 
 #include <fstream>
 #include <stdexcept>
+#include <iomanip>
+#include <cfloat>
 
 #if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
@@ -100,9 +102,10 @@ void DPORDriver::reparse(){
   }
 }
 
-llvm::ExecutionEngine *DPORDriver::create_execution_engine(TraceBuilder &TB, const Configuration &conf) const {
+std::unique_ptr<DPORInterpreter> DPORDriver::
+create_execution_engine(TraceBuilder &TB, const Configuration &conf) const {
   std::string ErrorMsg;
-  llvm::ExecutionEngine *EE = 0;
+  std::unique_ptr<DPORInterpreter> EE = 0;
   switch(conf.memory_model){
   case Configuration::SC:
   case Configuration::WEAK_SC:
@@ -150,8 +153,8 @@ llvm::ExecutionEngine *DPORDriver::create_execution_engine(TraceBuilder &TB, con
   return EE;
 }
 
-Trace *DPORDriver::run_once(TraceBuilder &TB) const{
-  std::shared_ptr<llvm::ExecutionEngine> EE(create_execution_engine(TB,conf));
+Trace *DPORDriver::run_once(TraceBuilder &TB, bool &assume_blocked) const{
+  std::unique_ptr<DPORInterpreter> EE(create_execution_engine(TB,conf));
 
   // Run main.
   EE->runFunctionAsMain(mod->getFunction("main"), conf.argv, 0);
@@ -163,6 +166,8 @@ Trace *DPORDriver::run_once(TraceBuilder &TB) const{
     static_cast<llvm::Interpreter*>(EE.get())->checkForCycles();
   }
 
+  assume_blocked = EE->assumeBlocked();
+
   EE.reset();
 
   Trace *t = 0;
@@ -173,14 +178,13 @@ Trace *DPORDriver::run_once(TraceBuilder &TB) const{
       static_cast<POWERARMTraceBuilder&>(TB).replay();
       Configuration conf2(conf);
       conf2.ee_store_trace = true;
-      llvm::ExecutionEngine *E = create_execution_engine(TB,conf2);
+      std::unique_ptr<DPORInterpreter> E = create_execution_engine(TB,conf2);
       E->runFunctionAsMain(mod->getFunction("main"), conf.argv, 0);
       E->runStaticConstructorsDestructors(true);
       if(conf.check_robustness){
-        static_cast<llvm::Interpreter*>(E)->checkForCycles();
+        static_cast<llvm::Interpreter*>(E.get())->checkForCycles();
       }
       t = TB.get_trace();
-      delete E;
     }else{
       t = TB.get_trace();
     }
@@ -223,38 +227,41 @@ DPORDriver::Result DPORDriver::run(){
   SigSegvHandler::setup_signal_handler();
 
   char esc = 27;
-  if(conf.print_progress){
-    llvm::dbgs() << esc << "[s"; // Save terminal cursor position
-  }
-
-  int computation_count = 0;
-  int estimate = 1;
+  uint64_t computation_count = 0;
+  long double estimate = 1;
   do{
-    if(conf.print_progress && (computation_count+1) % 100 == 0){
-      llvm::dbgs() << esc << "[u" // Restore cursor position
-                   << esc << "[s" // Save cursor position
-                   << esc << "[K" // Erase the line
-                   << "Computation #" << computation_count+1;
+    if(conf.print_progress && computation_count % 100 == 0){
+      llvm::dbgs() << esc << "[K" // Erase the line
+                   << "Traces: " << res.trace_count;
+      if(res.sleepset_blocked_trace_count)
+        llvm::dbgs() << ", " << res.sleepset_blocked_trace_count << " ssb";
+      if(res.assume_blocked_trace_count)
+        llvm::dbgs() << ", " << res.assume_blocked_trace_count << " ab";
       if(conf.print_progress_estimate){
+        std::stringstream ss;
+        ss << std::setprecision(LDBL_DIG) << estimate;
         llvm::dbgs() << " ("
-                     << int(100.0*float(computation_count+1)/float(estimate))
+                     << int(100.0*(long double)(computation_count+1)/estimate)
                      << "% of total estimate: "
-                     << estimate << ")";
+                     << ss.str() << ")";
       }
+      llvm::dbgs() << "\r"; // Move cursor to start of line
     }
     if((computation_count+1) % 1000 == 0){
       reparse();
     }
-    Trace *t = run_once(*TB);
-    bool t_used = false;
+    bool t_used, assume_blocked = false;
+    Trace *t = run_once(*TB, assume_blocked);
     if(t && conf.debug_collect_all_traces){
       res.all_traces.push_back(t);
       t_used = true;
     }
-    if(TB->sleepset_is_empty()){
-      ++res.trace_count;
-    }else{
+    if(!TB->sleepset_is_empty()) {
       ++res.sleepset_blocked_trace_count;
+    }else if(assume_blocked){
+      ++res.assume_blocked_trace_count;
+    }else{
+      ++res.trace_count;
     }
     ++computation_count;
     if(t && t->has_errors() && !res.has_errors()){
@@ -267,12 +274,12 @@ DPORDriver::Result DPORDriver::run(){
     }
     if(has_errors && !conf.explore_all_traces) break;
     if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
-      estimate = TB->estimate_trace_count();
+      estimate = std::round(TB->estimate_trace_count());
     }
   }while(TB->reset());
 
   if(conf.print_progress){
-    llvm::dbgs() << "\n";
+    llvm::dbgs() << esc << "[K\n";
   }
 
   SigSegvHandler::reset_signal_handler();
