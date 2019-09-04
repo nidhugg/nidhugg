@@ -23,9 +23,14 @@
 #include "Debug.h"
 #include "SmtlibSatSolver.h"
 
-extern llvm::cl::list<std::string> cl_program_arguments;
-
-extern llvm::cl::opt<std::string> cl_transform;
+llvm::cl::list<std::string>
+cl_program_arguments(llvm::cl::desc("[-- <program arguments>...]"),
+                     llvm::cl::Positional,
+                     llvm::cl::ZeroOrMore);
+llvm::cl::opt<std::string>
+cl_transform("transform",llvm::cl::init(""),
+             llvm::cl::desc("Transform the input module and store it (as LLVM assembly) to OUTFILE."),
+             llvm::cl::NotHidden,llvm::cl::value_desc("OUTFILE"));
 
 static llvm::cl::opt<bool> cl_explore_all("explore-all",llvm::cl::NotHidden,
                                           llvm::cl::desc("Continue exploring all traces, "

@@ -32,20 +32,15 @@
 #include <set>
 #include <stdexcept>
 
-llvm::cl::opt<std::string>
-cl_transform("transform",llvm::cl::init(""),
-             llvm::cl::desc("Transform the input module and store it (as LLVM assembly) to OUTFILE."),
-             llvm::cl::NotHidden,llvm::cl::value_desc("OUTFILE"));
+extern llvm::cl::opt<std::string> cl_transform;
 
 llvm::cl::opt<std::string>
 cl_input_file(llvm::cl::desc("<input bitcode or assembly>"),
               llvm::cl::Positional,
               llvm::cl::init("-"));
 
-llvm::cl::list<std::string>
-cl_program_arguments(llvm::cl::desc("[-- <program arguments>...]"),
-                     llvm::cl::Positional,
-                     llvm::cl::ZeroOrMore);
+extern llvm::cl::list<std::string>
+cl_program_arguments;
 
 #ifndef NO_TIMING
 llvm::cl::opt<bool>
