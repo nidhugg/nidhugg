@@ -108,7 +108,6 @@ create_execution_engine(TraceBuilder &TB, const Configuration &conf) const {
   std::unique_ptr<DPORInterpreter> EE = 0;
   switch(conf.memory_model){
   case Configuration::SC:
-  case Configuration::WEAK_SC:
     EE = llvm::Interpreter::create(mod,static_cast<TSOPSOTraceBuilder&>(TB),conf,&ErrorMsg);
     break;
   case Configuration::TSO:
@@ -200,10 +199,11 @@ DPORDriver::Result DPORDriver::run(){
 
   switch(conf.memory_model){
   case Configuration::SC:
-    TB = new TSOTraceBuilder(conf);
-    break;
-  case Configuration::WEAK_SC:
-    TB = new WSCTraceBuilder(conf);
+    if(conf.dpor_algorithm != Configuration::READS_FROM){
+      TB = new TSOTraceBuilder(conf);
+    }else{
+      TB = new WSCTraceBuilder(conf);
+    }
     break;
   case Configuration::TSO:
     TB = new TSOTraceBuilder(conf);

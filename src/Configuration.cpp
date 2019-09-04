@@ -51,7 +51,6 @@ static llvm::cl::opt<Configuration::MemoryModel>
 cl_memory_model(llvm::cl::NotHidden, llvm::cl::init(Configuration::MM_UNDEF),
                 llvm::cl::desc("Select memory model"),
                 llvm::cl::values(clEnumValN(Configuration::SC,"sc","Sequential Consistency"),
-                                 clEnumValN(Configuration::WEAK_SC,"wsc","Weak Sequential Consistency"),
                                  clEnumValN(Configuration::ARM,"arm","The ARM model"),
                                  clEnumValN(Configuration::POWER,"power","The POWER model"),
                                  clEnumValN(Configuration::PSO,"pso","Partial Store Order"),
@@ -76,10 +75,11 @@ cl_sat(llvm::cl::NotHidden, llvm::cl::init(Configuration::SMTLIB),
 
 static llvm::cl::opt<Configuration::DPORAlgorithm>
 cl_dpor_algorithm(llvm::cl::NotHidden, llvm::cl::init(Configuration::SOURCE),
-                  llvm::cl::desc("Select DPOR algorithm"),
+                  llvm::cl::desc("Select SMC algorithm"),
                   llvm::cl::values(clEnumValN(Configuration::SOURCE,"source","Source-DPOR (default)"),
                                    clEnumValN(Configuration::OPTIMAL,"optimal","Optimal-DPOR"),
-                                   clEnumValN(Configuration::OBSERVERS,"observers","Optimal-DPOR with Observers")
+                                   clEnumValN(Configuration::OBSERVERS,"observers","Optimal-DPOR with Observers"),
+                                   clEnumValN(Configuration::READS_FROM,"rf","Optimal Reads-From-centric SMC")
 #ifdef LLVM_CL_VALUES_USES_SENTINEL
                                   ,clEnumValEnd
 #endif
@@ -125,7 +125,7 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "max-search-depth",
     "sc","tso","pso","power","arm",
     "smtlib",
-    "source","optimal","observers",
+    "source","optimal","observers","rf",
     "robustness",
     "no-spin-assume",
     "unroll",
@@ -219,7 +219,6 @@ void Configuration::check_commandline(){
   {
     std::string mm;
     if(cl_memory_model == Configuration::SC) mm = "SC";
-    if(cl_memory_model == Configuration::WEAK_SC) mm = "WSC";
     if(cl_memory_model == Configuration::TSO) mm = "TSO";
     if(cl_memory_model == Configuration::PSO) mm = "PSO";
     if(cl_memory_model == Configuration::POWER) mm = "POWER";
@@ -249,8 +248,13 @@ void Configuration::check_commandline(){
       Debug::warn("Configuration::check_commandline:dpor:mm")
         << "WARNING: Optimal-DPOR not implemented for memory model " << mm << ".\n";
     }
-    if (cl_c11 && cl_memory_model != Configuration::SC
-         && cl_memory_model != Configuration::WEAK_SC) {
+    if (cl_dpor_algorithm == Configuration::READS_FROM
+        && cl_memory_model != Configuration::SC) {
+      Debug::warn("Configuration::check_commandline:dpor:mm")
+        << "WARNING: Optimal Reads-From-SMC not implemented for memory model " << mm << ".\n";
+    }
+
+    if (cl_c11 && cl_memory_model != Configuration::SC) {
       Debug::warn("Configuration::check_commandline:c11:mm")
         << "WARNING: --c11 is not yet implemented for memory model " << mm << ".\n";
     }

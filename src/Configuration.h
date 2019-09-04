@@ -39,7 +39,6 @@ public:
   enum MemoryModel{
     MM_UNDEF, // No memory model was specified
     SC,
-    WEAK_SC,
     ARM,
     POWER,
     PSO,
@@ -49,6 +48,7 @@ public:
     SOURCE,
     OPTIMAL,
     OBSERVERS,
+    READS_FROM,
   };
   /* Assign default values to all configuration parameters. */
   Configuration(){
