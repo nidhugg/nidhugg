@@ -10,10 +10,10 @@ CC = gcc
 OPT =
 CLANGFLAGS = -c -emit-llvm $(OPT)
 NIDHUGG ?= nidhugg
-SOURCE = $(NIDHUGG) -c11 -sc
-OPTIMAL = $(NIDHUGG) -c11 -sc -optimal
-OBSERVERS = $(NIDHUGG) -c11 -sc -optimal -observers
-SWSC ?= swsc -c11
+SOURCE    = $(NIDHUGG) -c11 -sc -source
+OPTIMAL   = $(NIDHUGG) -c11 -sc -optimal
+OBSERVERS = $(NIDHUGG) -c11 -sc -observers
+RFSC      = $(NIDHUGG) -c11 -sc -rf
 DCDPOR ?= dcdpor -dc
 RCMC ?= rcmc
 WRCMC ?= $(RCMC) --wrc11
@@ -24,7 +24,7 @@ ULIMIT = ulimit -Ss $(STACK_LIMIT) && ulimit -Sv $(MEM_LIMIT) &&
 RUN = -$(ULIMIT) $(TIMEOUT) $(TIME)
 TABULATE = ../../tabulate.sh
 
-TOOLS = optimal observers swsc dcdpor rcmc wrcmc
+TOOLS = optimal observers rfsc dcdpor rcmc wrcmc
 ifneq ($(wildcard $(CDSC_DIR)/.),)
         TOOLS += cdsc
 else
@@ -46,7 +46,7 @@ wrcmc_results:: $(N:%=wrcmc_%.txt)
 source_results:: $(N:%=source_%.txt)
 optimal_results:: $(N:%=optimal_%.txt)
 observers_results:: $(N:%=observers_%.txt)
-swsc_results:: $(N:%=swsc_%.txt)
+rfsc_results:: $(N:%=rfsc_%.txt)
 dcdpor_results:: $(N:%=dcdpor_%.txt)
 cdsc_results:: $(N:%=cdsc_%.txt)
 
@@ -71,9 +71,9 @@ observers_%.txt: code_%.bc
 	@date
 	$(RUN) $(OBSERVERS) $< 2>&1 | tee $@
 
-swsc_%.txt: code_%.bc
+rfsc_%.txt: code_%.bc
 	@date
-	$(RUN) $(SWSC) $< 2>&1 | tee $@
+	$(RUN) $(RFSC) $< 2>&1 | tee $@
 
 dcdpor_%.txt: code_%.bc
 	@date
