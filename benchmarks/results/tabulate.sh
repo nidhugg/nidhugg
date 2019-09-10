@@ -22,10 +22,16 @@ get_traces() {
     elif grep -Eq 'Total executions: ' $1; then
         grep -E 'Total executions: ' $1 | cut -d' ' -f3
     elif grep -Eq '^Trace count: ' $1; then
-        # Need to sum with sleepset blocked traces
-        line=$(grep -E '^Trace count: ' $1)
-        printf "%d+%d\n" $(grep -Po '(?<=: )\d+' <<< "$line") \
-               $(grep -Po '(?<=also )\d+' <<< "$line") | bc
+        count=$(grep -E '^Trace count: ' $1 | cut -d' ' -f3)
+        if grep -Eq '^Assume-blocked trace count: ' $1; then
+            count=$(printf "%d+%d\n" "$count" \
+                           $(grep -E '^Assume-blocked trace count: ' $1 | cut -d' ' -f4) | bc)
+        fi
+        if grep -Eq '^Sleepset-blocked trace count: ' $1; then
+            count=$(printf "%d+%d\n" "$count" \
+                           $(grep -E '^Sleepset-blocked trace count: ' $1 | cut -d' ' -f4) | bc)
+        fi
+        printf "%d\n" "$count"
     else
         blame $1
     fi
