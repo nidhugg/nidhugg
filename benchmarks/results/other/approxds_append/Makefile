@@ -1,6 +1,6 @@
 NAME=approxds-append
 FILE=other/approxds_append.c
-N = 3 4 5 6 # 7
-TIME_LIMIT = 120
+N = 4 5 6
+TIME_LIMIT = 720000
 
 include ../../benchmarks.mk
