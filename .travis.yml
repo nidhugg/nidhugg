@@ -7,35 +7,6 @@ addons:
 
 # Template some configurations for different distros, to be used in the matrix
 # below
-_trusty-conf: &trusty
-  dist: trusty
-  addons:
-    apt:
-      sources:
-        - boost-latest
-        - ubuntu-toolchain-r-test
-      packages:
-        - *baseline-packages
-        - libc6
-        - libc6-dev
-        - autoconf
-        - automake
-        - python3
-        - libffi-dev
-        - libedit-dev     # required by LLVM 3.5.0
-        - g++-4.9         # need at least this version of libstdc++6
-        - libboost-test1.55-dev
-        - libstdc++-4.9-dev
-  env: &trusty-env
-    - CPATH=/usr/lib/gcc/x86_64-linux-gnu/4.9/include
-    - CC=gcc-4.9
-    - CXX=g++-4.9
-
-_trusty-clang-env-conf: &trusty-clang-env
-  env:
-    - CC=clang
-    - CXX=clang++
-
 _xenial-conf: &xenial
   dist: xenial
   addons:
@@ -43,6 +14,11 @@ _xenial-conf: &xenial
       packages:
         - *baseline-packages
         - libboost-test-dev
+
+_xenial-clang-env-conf: &xenial-clang-env
+  env:
+    - CC=clang
+    - CXX=clang++
 
 _bionic-conf: &bionic
   dist: bionic
@@ -52,11 +28,6 @@ _bionic-conf: &bionic
         - *baseline-packages
         - libboost-test-dev
         - libboost-system-dev
-
-_xenial-clang-env-conf: &xenial-clang-env
-  env:
-    - CC=clang
-    - CXX=clang++
 
 matrix:
   include:
@@ -84,8 +55,6 @@ matrix:
       env: LLVM_VERSION=7.1.0
     - <<: *bionic
       env: LLVM_VERSION=8.0.0
-    - <<: *bionic
-      env: LLVM_VERSION=9.0.0
 
 before_script:
   - git submodule init
