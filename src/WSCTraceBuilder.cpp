@@ -806,7 +806,7 @@ int WSCTraceBuilder::compute_above_clock(unsigned i) {
     last = find_process_event(ipid, iidx-1);
     prefix[i].clock = prefix[last].clock;
   } else {
-    prefix[i].clock = {};
+    prefix[i].clock = VClock<IPid>();
     const Thread &t = threads[ipid];
     if (t.spawn_event >= 0)
       add_happens_after(i, t.spawn_event);
