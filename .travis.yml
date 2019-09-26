@@ -95,7 +95,7 @@ before_script:
   - export PATH=$LLVM_DIR/bin:$PATH
   - export LD_LIBRARY_PATH=$LLVM_DIR/lib
   - autoreconf --install
-  - ./configure CFLAGS="-I"`pwd`"/deps/immer/" || (cat config.log; false)
+  - ./configure CXXFLAGS="-I"`pwd`"/deps/immer/" || (cat config.log; false)
   - make -j6
 script: "make -j6 test && make -j6 valtest"
 cache:
