@@ -44,6 +44,15 @@ _xenial-conf: &xenial
         - *baseline-packages
         - libboost-test-dev
 
+_bionic-conf: &bionic
+  dist: bionic
+  addons:
+    apt:
+      packages:
+        - *baseline-packages
+        - libboost-test-dev
+        - libboost-system-dev
+
 _xenial-clang-env-conf: &xenial-clang-env
   env:
     - CC=clang
@@ -51,26 +60,6 @@ _xenial-clang-env-conf: &xenial-clang-env
 
 matrix:
   include:
-    - <<: *trusty
-      env:
-        - *trusty-env
-        - LLVM_VERSION=3.3
-    - <<: *trusty
-      env:
-        - *trusty-env
-        - LLVM_VERSION=3.4.2
-    - <<: *trusty
-      env:
-        - *trusty-env
-        - LLVM_VERSION=3.5.2  # default on Debian jessie
-    - <<: *trusty
-      env:
-        - *trusty-env
-        - LLVM_VERSION=3.6.2
-    - <<: *trusty
-      env:
-        - *trusty-clang-env
-        - LLVM_VERSION=3.7.1
     - <<: *xenial
       env:
         - *xenial-clang-env
@@ -91,11 +80,11 @@ matrix:
       env:
         - *xenial-clang-env
         - LLVM_VERSION=6.0.1
-    - <<: *trusty
-      env:
-        - *trusty-clang-env
-        - LLVM_VERSION=7.1.0
-    - <<: *xenial
+    # - <<: *trusty
+    #   env:
+    #     - *trusty-clang-env
+    #     - LLVM_VERSION=7.1.0
+    - <<: *bionic
       env: LLVM_VERSION=8.0.0
 
 before_script:
