@@ -250,7 +250,8 @@ DPORDriver::Result DPORDriver::run(){
     if((computation_count+1) % 1000 == 0){
       reparse();
     }
-    bool t_used, assume_blocked = false;
+    bool t_used = false;
+    bool assume_blocked = false;
     Trace *t = run_once(*TB, assume_blocked);
     if(t && conf.debug_collect_all_traces){
       res.all_traces.push_back(t);
