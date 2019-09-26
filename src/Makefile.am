@@ -82,7 +82,7 @@ unittest_SOURCES = \
   VClock_CPid_test.cpp \
   VClock_int_test.cpp \
   unittest.cpp
-unittest_LDADD=@BOOST_SYSTEM_LIB@ @BOOST_UNIT_TEST_FRAMEWORK_LIB@ libnidhugg.a
+unittest_LDADD=libnidhugg.a @BOOST_SYSTEM_LIB@ @BOOST_UNIT_TEST_FRAMEWORK_LIB@
 unittest_LDFLAGS=-pthread
 
 
