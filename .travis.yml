@@ -80,12 +80,12 @@ matrix:
       env:
         - *xenial-clang-env
         - LLVM_VERSION=6.0.1
-    # - <<: *trusty
-    #   env:
-    #     - *trusty-clang-env
-    #     - LLVM_VERSION=7.1.0
+    - <<: *bionic
+      env: LLVM_VERSION=7.1.0
     - <<: *bionic
       env: LLVM_VERSION=8.0.0
+    - <<: *bionic
+      env: LLVM_VERSION=9.0.0
 
 before_script:
   - ./travis/install_deps.sh

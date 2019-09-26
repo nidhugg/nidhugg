@@ -4,29 +4,14 @@ mkdir -p cache
 # LLVM
 LLVM_TRIPLE=x86_64-linux-gnu
 LLVM_OS=ubuntu
-case $LLVM_VERSION in
-    3.3)
-        LLVM_REL_EXT=tar.gz
-        ;;
-    3.4.2)
-        LLVM_REL_EXT=xz
-        ;;
-    *)
-        LLVM_REL_EXT=tar.xz
-        ;;
-esac
+LLVM_REL_EXT=tar.xz
 
 case $LLVM_VERSION in
-    3.3)
-        LLVM_OS=Ubuntu
-        LLVM_TRIPLE=amd64
-        LLVM_UBUNTU_VER=12.04.2
-        ;;
-    3.[0-7]*|7.1.0)
-        LLVM_UBUNTU_VER=14.04
+    3.[89]*|[4-6].*)
+        LLVM_UBUNTU_VER=16.04
         ;;
     ?*)
-        LLVM_UBUNTU_VER=16.04
+        LLVM_UBUNTU_VER=18.04
         ;;
 esac
 LLVM_URL="http://releases.llvm.org/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-$LLVM_TRIPLE-$LLVM_OS-$LLVM_UBUNTU_VER.$LLVM_REL_EXT"
