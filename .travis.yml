@@ -29,6 +29,11 @@ _bionic-conf: &bionic
         - libboost-test-dev
         - libboost-system-dev
 
+_bionic-clang-env-conf: &bionic-clang-env
+  env:
+    - CC=clang
+    - CXX=clang++
+
 matrix:
   include:
     - <<: *xenial
@@ -52,7 +57,9 @@ matrix:
         - *xenial-clang-env
         - LLVM_VERSION=6.0.1
     - <<: *bionic
-      env: LLVM_VERSION=7.1.0
+      env:
+        - *bionic-clang-env
+        - LLVM_VERSION=7.0.1
     - <<: *bionic
       env: LLVM_VERSION=8.0.0
 
