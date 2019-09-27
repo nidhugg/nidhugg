@@ -105,9 +105,6 @@ AC_DEFUN([AC_CHECK_HEADERS_ALT],
   fi
 ])
 
-if test "x$BOOST_UNIT_TEST_FRAMEWORK_LIB" != "x"; then
-  AC_CHECK_HEADER([boost/test/unit_test.hpp],[],[AC_MSG_FAILURE([Could not find header boost/test/unit_test.hpp.])],[AC_INCLUDES_DEFAULT])
-fi
 AC_CHECK_HEADERS([ \
   stdlib.h \
   sys/types.h \
