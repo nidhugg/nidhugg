@@ -72,8 +72,9 @@ before_script:
   - export LD_LIBRARY_PATH=$LLVM_DIR/lib
   - autoreconf --install
   - ./configure CXXFLAGS="-I"`pwd`"/deps/immer/" || (cat config.log; false)
-  - make -j6
-script: "make -j6 test && make -j6 valtest"
+  - make -Csrc -j6 all unittest
+script:
+  - make test && make valtest
 cache:
   directories:
     - cache
