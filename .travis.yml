@@ -9,14 +9,13 @@ addons:
 # below
 _xenial-conf: &xenial
   dist: xenial
-  addons:
-    apt:
-      packages:
-        - *baseline-packages
-        - libboost-test-dev
+  env: &xenial-env
+    - CONFIGURE_FLAGS=--with-boost=`pwd`/cache/boost
+    - DOWNLOAD_BOOST=1.64.0
 
 _xenial-clang-env-conf: &xenial-clang-env
   env:
+    - *xenial-env
     - CC=clang
     - CXX=clang++
 
@@ -69,9 +68,9 @@ before_script:
   - ./travis/install_deps.sh
   - export LLVM_DIR=$PWD/cache/clang+llvm-$LLVM_VERSION
   - export PATH=$LLVM_DIR/bin:$PATH
-  - export LD_LIBRARY_PATH=$LLVM_DIR/lib
+  - export LD_LIBRARY_PATH="$LLVM_DIR/lib $PWD/cache/boost/lib"
   - autoreconf --install
-  - ./configure CXXFLAGS="-I"`pwd`"/deps/immer/" || (cat config.log; false)
+  - ./configure CXXFLAGS="-I"`pwd`"/deps/immer/" $CONFIGURE_FLAGS || (cat config.log; false)
   - make -Csrc -j6 all unittest
 script:
   - make test && make valtest

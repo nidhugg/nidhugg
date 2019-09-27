@@ -54,3 +54,25 @@ if [ ! -d $LLVM_DIR ] ; then
 else
     echo "Found Cached Installation"
 fi
+
+# Boost
+if [ -n "$DOWNLOAD_BOOST" -a ! -f cache/boost/include/boost/version.hpp ]; then
+    # Boost is needed, and is not in cache
+    BOOST_VER_UNDERSCORED=`echo "$DOWNLOAD_BOOST" | tr . _`
+    BOOST_DIR=boost_$BOOST_VER_UNDERSCORED
+    BOOST_FILE=$BOOST_DIR.tar.gz
+    BOOST_URL=https://dl.bintray.com/boostorg/release/$DOWNLOAD_BOOST/source/$BOOST_FILE
+    mkdir -p cache/boost
+
+    echo "Downloading Boost"
+    wget $BOOST_URL
+    tar xf $BOOST_FILE
+    pushd $BOOST_DIR
+
+    echo "Building Boost"
+    ./bootstrap.sh --prefix=../cache/boost --with-libraries=test,system
+    ./b2 -j6 -d0
+    ./b2 install -d0
+
+    popd # $BOOST_DIR
+fi
