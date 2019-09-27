@@ -25,8 +25,8 @@ AX_GIT_COMMIT
 
 # Checks for libraries
 AX_BOOST_BASE([1.64])
-AX_BOOST_SYSTEM
 AX_BOOST_UNIT_TEST_FRAMEWORK
+AX_BOOST_SYSTEM
 AX_LLVM(,[AC_MSG_FAILURE(LLVM is required.)])
 CXXFLAGS="`echo " $CXXFLAGS " | sed 's/ -fno-rtti / /' | sed 's/ -fno-exceptions / /'` --std=c++14"
 AC_CHECK_LIB([dl], [dlopen],[],[AC_MSG_FAILURE([Could not find library libdl.])])
