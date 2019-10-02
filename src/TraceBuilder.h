@@ -27,6 +27,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 
 /* A TraceBuilder object is maintained throughout DPOR trace
  * exploration. The TraceBuilder provides scheduling for each trace
@@ -111,7 +112,9 @@ public:
   virtual long double estimate_trace_count() const { return 1; };
 protected:
   const Configuration &conf;
-  std::vector<Error*> errors;
+  std::vector<std::unique_ptr<Error>> errors;
+  /* The number of events that were replayed in the current computation. */
+  int replay_point;
 };
 
 #endif

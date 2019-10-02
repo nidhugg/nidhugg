@@ -44,10 +44,10 @@ namespace PATB_impl{
 
   template<MemoryModel MemMod,CB_T CB,class Event>
   Trace *TB<MemMod,CB,Event>::get_trace() const{
-    std::vector<Error*> errs;
+    std::vector<std::unique_ptr<Error>> errs;
     for(unsigned i = 0; i < errors.size(); ++i){
       if(error_is_real(*errors[i])){
-        errs.push_back(errors[i]->clone());
+        errs.emplace_back(errors[i]->clone());
       }
     }
     std::vector<PATrace::Evt> evts(prefix.size());
@@ -56,7 +56,8 @@ namespace PATB_impl{
       evts[i].param.choices = get_evt(prefix[i]).cur_param.choices;
       // Ignore the rest of the parameter (relations etc.)
     }
-    return new PATrace(evts, cpids, conf, errs, TRec.to_string(2),
+    return new PATrace(evts, cpids, conf, std::move(errs), replay_point,
+                       TRec.to_string(2), TRec.get_event_descs(),
                        !sleepset_is_empty());
   }
 
@@ -2135,6 +2136,11 @@ namespace PATB_impl{
   }
 
   template<MemoryModel MemMod,CB_T CB,class Event>
+  void TB<MemMod,CB,Event>::enable_tracing(){
+    TRec.activate();
+  }
+
+  template<MemoryModel MemMod,CB_T CB,class Event>
   void TB<MemMod,CB,Event>::trace_register_metadata(int proc, const llvm::MDNode *md){
     if(TRec.is_active()){
       TRec.trace_register_metadata(proc,md);
@@ -2200,7 +2206,6 @@ namespace PATB_impl{
     cpids.clear();
     cpids.emplace_back();
     CPS = CPidSystem();
-    for(Error *e : errors) delete e;
     errors.clear();
     TRec.clear();
     TRec.activate();
@@ -2223,6 +2228,7 @@ namespace PATB_impl{
       }
     }
     if(i < 0) return false; // Nothing more to explore.
+    replay_point = i;
 
     int new_pfx_len;
     Event &evt = get_evt(prefix[i]);
@@ -2330,7 +2336,6 @@ namespace PATB_impl{
     cpids.clear();
     cpids.emplace_back();
     CPS = CPidSystem();
-    for(Error *e : errors) delete e;
     errors.clear();
     TRec.clear();
     TRec.deactivate();

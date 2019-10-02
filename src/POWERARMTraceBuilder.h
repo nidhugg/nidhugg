@@ -95,6 +95,8 @@ public:
   /********************************
    * Methods for Recording Traces *
    ********************************/
+  /* Enables trace recording until the next reset. */
+  virtual void enable_tracing() = 0;
   /* When recording a trace, trace_register_metadata(proc,md) should
    * be called by the ExecutionEngine when an instruction has been
    * committed. proc should be the committing thread and md should be

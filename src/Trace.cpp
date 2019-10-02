@@ -47,30 +47,30 @@
 #include <llvm/BinaryFormat/Dwarf.h>
 #endif
 
-Trace::Trace(const std::vector<Error*> &errors, bool blk)
-  : errors(errors), blocked(blk) {
+Trace::Trace(std::vector<std::unique_ptr<Error>> errors, int replay_point, bool blk)
+: errors(std::move(errors)), blocked(blk), first_new_event(replay_point) {
 }
 
 Trace::~Trace(){
-  for(unsigned i = 0; i < errors.size(); ++i){
-    delete errors[i];
-  }
 }
 
-IIDSeqTrace::IIDSeqTrace(const std::vector<IID<CPid> > &cmp,
-                         const std::vector<const llvm::MDNode*> &cmpmd,
-                         const std::vector<Error*> &errors,
-                         bool blk)
-  : Trace(errors,blk), computation(cmp), computation_md(cmpmd) {
+IIDVCSeqTrace::IIDVCSeqTrace(const std::vector<IID<CPid> > &cmp,
+                             const std::vector<const llvm::MDNode*> &cmpmd,
+                             const std::vector<VClock<CPid> > &cmpvc,
+                             std::vector<std::unique_ptr<Error>> errors,
+                             int replay_point,
+                             bool blk)
+  : Trace(std::move(errors),replay_point,blk), computation(cmp), computation_md(cmpmd),
+    computation_clocks(cmpvc) {
 }
 
-IIDSeqTrace::~IIDSeqTrace(){
+IIDVCSeqTrace::~IIDVCSeqTrace(){
 }
 
 std::string Trace::to_string(int _ind) const{
   if(errors.size()){
     std::string s = "Errors found:\n";
-    for(Error *e : errors){
+    for(const std::unique_ptr<Error> &e : errors){
       s += e->to_string()+"\n";
     }
     return s;
@@ -79,7 +79,28 @@ std::string Trace::to_string(int _ind) const{
   }
 }
 
-std::string IIDSeqTrace::to_string(int _ind) const{
+std::string IIDVCSeqTrace::event_desc(int i) const{
+  std::string s = "";
+  if(computation[i].get_pid().is_auxiliary()){
+    s+=" UPDATE";
+  }
+  {
+    int ln;
+    std::string fname, dname;
+    if(get_location(computation_md[i],&ln,&fname,&dname)){
+      std::stringstream ss;
+      ss << " " << basename(fname) << ":" << ln;
+      std::string src_line = get_src_line_verbatim(computation_md[i]);
+      if (src_line != ""){
+        ss << ": " << src_line;
+      }
+      s += ss.str();
+    }
+  }
+  return s;
+}
+
+std::string IIDVCSeqTrace::to_string(int _ind) const{
   std::string s;
   std::string ind;
   assert(_ind >= 0);
@@ -116,27 +137,15 @@ std::string IIDSeqTrace::to_string(int _ind) const{
         }
       }
       assert(0 <= loc);
-      error_locs[loc] = errors[i];
+      error_locs[loc] = errors[i].get();
     }
   }
 
   for(unsigned i = 0; i < computation.size(); ++i){
     std::string iid_str = ind + cpind[computation[i].get_pid()] + computation[i].to_string();
     s += iid_str;
-    if(computation[i].get_pid().is_auxiliary()){
-      s+=" UPDATE";
-    }
-    {
-      int ln;
-      std::string fname, dname;
-      if(get_location(computation_md[i],&ln,&fname,&dname)){
-        std::stringstream ss;
-        ss << " " << basename(fname) << ":" << ln;
-        ss << ": " << get_src_line_verbatim(computation_md[i]);
-        s += ss.str();
-      }
-      s += "\n";
-    }
+    s += event_desc(i);
+    s += "\n";
     if(error_locs.count(i)){
       // Indentation
       {

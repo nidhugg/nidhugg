@@ -51,6 +51,11 @@ std::string PATB_impl::PATrace::to_string(int _ind) const{
   return ss.str();
 }
 
+IID<CPid> PATB_impl::PATrace::get_iid(int index) const{
+  IID<int> iiid = events[index].iid;
+  return {cpids[iiid.get_pid()], iiid.get_index()};
+}
+
 std::string PATB_impl::TraceRecorder::to_string(int ind) const{
   std::stringstream ss;
   for(const Line &L : lines){
@@ -94,11 +99,11 @@ bool PATB_impl::TraceRecorder::source_line(int proc, const llvm::MDNode *md, std
   if(md){
     int lineno;
     std::string fname, dname;
-    if(get_location(md,&lineno,&fname,&dname)){
+    if(Trace::get_location(md,&lineno,&fname,&dname)){
       success = true;
       std::stringstream ss;
-      ss << basename(fname) << ":" << lineno
-         << " " << get_src_line_verbatim(md);
+      ss << Trace::basename(fname) << ":" << lineno
+         << " " << Trace::get_src_line_verbatim(md);
       ln += ss.str();
     }
   }
@@ -112,13 +117,15 @@ void PATB_impl::TraceRecorder::trace_register_metadata(int proc, const llvm::MDN
   std::string ln;
   int cpid_indent;
   source_line(proc,md,&ln,&cpid_indent);
+  std::string indent = "";
+  for(int i = 0; i < cpid_indent; ++i) indent += " ";
   lines.push_back({proc,ln});
   if(!last_committed.consumed){
     last_committed.consumed = true;
     int load_count = 0;
+    event_descs[last_committed.iid] += ln;
     for(const Access &A : last_committed.accesses){ // One line per access
       ln = "";
-      for(int i = 0; i < cpid_indent; ++i) ln += " "; // Indentation
       if(A.type == Access::LOAD){
         ln += "load 0x";
         std::stringstream ss;
@@ -164,7 +171,8 @@ void PATB_impl::TraceRecorder::trace_register_metadata(int proc, const llvm::MDN
            << "]";
         ln += ss.str();
       }
-      lines.push_back({proc,ln});
+      event_descs[last_committed.iid] += "\n" + ln;
+      lines.push_back({proc,indent+ln});
     }
   }
 }

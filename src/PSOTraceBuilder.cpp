@@ -237,7 +237,7 @@ bool PSOTraceBuilder::check_for_cycles(){
   {
     assert(prefix.size());
     IID<CPid> c_iid(threads[i_iid.get_pid()].cpid,i_iid.get_index());
-    errors.push_back(new RobustnessError(c_iid));
+    errors.emplace_back(new RobustnessError(c_iid));
   }
 
   return true;
@@ -246,15 +246,21 @@ bool PSOTraceBuilder::check_for_cycles(){
 Trace *PSOTraceBuilder::get_trace() const{
   std::vector<IID<CPid> > cmp;
   std::vector<const llvm::MDNode*> cmp_md;
-  std::vector<Error*> errs;
+  std::vector<VClock<CPid> > cmp_vc;
+  std::vector<std::unique_ptr<Error>> errs;
+  std::vector<CPid> cpids;
+  for (const Thread &t : threads){
+    cpids.push_back(t.cpid);
+  }
   for(unsigned i = 0; i < prefix.size(); ++i){
-    cmp.push_back(IID<CPid>(threads[prefix[i].iid.get_pid()].cpid,prefix[i].iid.get_index()));
+    cmp.push_back(IID<CPid>(cpids[prefix[i].iid.get_pid()],prefix[i].iid.get_index()));
+    cmp_vc.emplace_back(prefix[i].clock, cpids);
     cmp_md.push_back(prefix[i].md);
   }
   for(unsigned i = 0; i < errors.size(); ++i){
-    errs.push_back(errors[i]->clone());
+    errs.emplace_back(errors[i]->clone());
   }
-  Trace *t = new IIDSeqTrace(cmp,cmp_md,errs);
+  Trace *t = new IIDVCSeqTrace(cmp,cmp_md,cmp_vc,std::move(errs),replay_point);
   t->set_blocked(!sleepset_is_empty());
   return t;
 }
@@ -277,6 +283,7 @@ bool PSOTraceBuilder::reset(){
     /* No more branching is possible. */
     return false;
   }
+  replay_point = i;
 
   /* Setup the new Event at prefix[i] */
   {
@@ -315,6 +322,7 @@ bool PSOTraceBuilder::reset(){
   mutexes.clear();
   cond_vars.clear();
   mem.clear();
+  errors.clear();
   last_full_memory_conflict = -1;
   prefix_idx = -1;
   dryrun = false;
