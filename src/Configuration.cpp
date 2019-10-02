@@ -271,8 +271,7 @@ void Configuration::check_commandline(){
 std::unique_ptr<SatSolver> Configuration::get_sat_solver() const {
   switch (sat_solver) {
   case SMTLIB:
-    return std::unique_ptr<SatSolver>(new SmtlibSatSolver());
-  default:
-    abort();
+    return std::make_unique<SmtlibSatSolver>();
   }
+  abort();
 }
