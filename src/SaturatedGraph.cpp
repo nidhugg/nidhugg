@@ -90,7 +90,7 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
     IFTRACE(std::cerr << "Adding read-from between " << *read_from << " and " << id << "\n");
     events = std::move(events).update(*read_from, [id](Event w) {
         w.readers = std::move(w.readers).push_back(id);
-        return std::move(w);
+        return w;
       });
   } else if (is_load) {
     /* We do loads first so that in the case of RMW we do not find

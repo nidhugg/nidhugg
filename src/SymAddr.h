@@ -81,7 +81,7 @@ private:
 
 struct SymAddr {
 public:
-  SymAddr() : block(std::move(SymMBlock::Null())), offset(0) {}
+  SymAddr() : block(SymMBlock::Null()), offset(0) {}
   SymAddr(std::nullptr_t) : SymAddr() {}
   SymAddr(SymMBlock block, uintptr_t offset)
     : block(std::move(block)), offset(offset) {
