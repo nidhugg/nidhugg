@@ -13,8 +13,8 @@ _xenial-conf: &xenial
     - CONFIGURE_FLAGS=--with-boost=`pwd`/cache/boost
     - DOWNLOAD_BOOST=1.64.0
 
-_xenial-clang-env-conf: &xenial-clang-env
-  env:
+_xenial-clang-env-conf:
+  env: &xenial-clang-env
     - *xenial-env
     - CC=clang
     - CXX=clang++
