@@ -63,8 +63,6 @@ matrix:
       env: LLVM_VERSION=8.0.0
 
 before_script:
-  - git submodule init
-  - git submodule update
   - ./travis/install_deps.sh
   - export LLVM_DIR=$PWD/cache/clang+llvm-$LLVM_VERSION
   - export PATH=$LLVM_DIR/bin:$PATH
