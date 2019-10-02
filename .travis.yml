@@ -28,8 +28,8 @@ _bionic-conf: &bionic
         - libboost-test-dev
         - libboost-system-dev
 
-_bionic-clang-env-conf: &bionic-clang-env
-  env:
+_bionic-clang-env-conf:
+  env: &bionic-clang-env
     - CC=clang
     - CXX=clang++
 
