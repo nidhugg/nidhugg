@@ -30,7 +30,7 @@
 #include "StrModule.h"
 #include "TSOInterpreter.h"
 #include "TSOTraceBuilder.h"
-#include "WSCTraceBuilder.h"
+#include "RFSCTraceBuilder.h"
 
 #include <fstream>
 #include <stdexcept>
@@ -202,7 +202,7 @@ DPORDriver::Result DPORDriver::run(){
     if(conf.dpor_algorithm != Configuration::READS_FROM){
       TB = new TSOTraceBuilder(conf);
     }else{
-      TB = new WSCTraceBuilder(conf);
+      TB = new RFSCTraceBuilder(conf);
     }
     break;
   case Configuration::TSO:

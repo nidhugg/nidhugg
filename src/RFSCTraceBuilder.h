@@ -18,8 +18,8 @@
  */
 
 #include <config.h>
-#ifndef __WSC_TRACE_BUILDER_H__
-#define __WSC_TRACE_BUILDER_H__
+#ifndef __RFSC_TRACE_BUILDER_H__
+#define __RFSC_TRACE_BUILDER_H__
 
 #include "TSOPSOTraceBuilder.h"
 #include "VClock.h"
@@ -34,10 +34,10 @@
 
 static unsigned unf_ctr = 0;
 
-class WSCTraceBuilder final : public TSOPSOTraceBuilder{
+class RFSCTraceBuilder final : public TSOPSOTraceBuilder{
 public:
-  WSCTraceBuilder(const Configuration &conf = Configuration::default_conf);
-  virtual ~WSCTraceBuilder();
+  RFSCTraceBuilder(const Configuration &conf = Configuration::default_conf);
+  virtual ~RFSCTraceBuilder();
   virtual bool schedule(int *proc, int *aux, int *alt, bool *dryrun);
   virtual void refuse_schedule();
   virtual void mark_available(int proc, int aux = -1);
