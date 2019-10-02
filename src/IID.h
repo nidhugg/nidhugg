@@ -81,7 +81,7 @@ public:
 
   std::string to_string() const;
 private:
-  friend class std::hash<IID>;
+  friend struct std::hash<IID>;
 
   /* Only makes sense for integral pid types, at most 32-bits */
   std::uint64_t comp_value() const {

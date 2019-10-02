@@ -74,7 +74,7 @@ private:
     assert(0 <= pid && pid <= UINT16_MAX);
     assert(INT16_MIN <= alloc && alloc <= INT16_MAX);
   }
-  friend class std::hash<class SymAddr>;
+  friend struct std::hash<struct SymAddr>;
   uint16_t pid;
   int16_t alloc;
 };
