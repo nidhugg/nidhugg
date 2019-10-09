@@ -911,7 +911,6 @@ void TSOTraceBuilder::mutex_lock(const SymAddrSize &ml){
     // Assume static initialization
     mutexes[ml.addr] = Mutex();
   }
-  assert(mutexes.count(ml.addr));
   curev().may_conflict = true;
   wakeup(Access::W,ml.addr);
 
@@ -1008,10 +1007,11 @@ void TSOTraceBuilder::mutex_init(const SymAddrSize &ml){
     return;
   }
   fence();
-  assert(mutexes.count(ml.addr) == 0);
   curev().may_conflict = true;
-  mutexes[ml.addr] = Mutex(prefix_idx);
-  see_events({last_full_memory_conflict});
+  Mutex &mutex = mutexes[ml.addr];
+  see_events({mutex.last_access, last_full_memory_conflict});
+
+  mutex.last_access = prefix_idx;
 }
 
 void TSOTraceBuilder::mutex_destroy(const SymAddrSize &ml){

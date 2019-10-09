@@ -657,7 +657,6 @@ void PSOTraceBuilder::mutex_lock(const SymAddrSize &ml){
     return;
   }
   fence();
-  assert(mutexes.count(ml.addr));
   curnode().may_conflict = true;
   wakeup(Access::W,ml.addr);
 
@@ -748,10 +747,11 @@ void PSOTraceBuilder::mutex_init(const SymAddrSize &ml){
     return;
   }
   fence();
-  assert(mutexes.count(ml.addr) == 0);
   curnode().may_conflict = true;
-  mutexes[ml.addr] = Mutex(prefix_idx);
-  see_events({last_full_memory_conflict});
+  Mutex &mutex = mutexes[ml.addr];
+  see_events({mutex.last_access, last_full_memory_conflict});
+
+  mutex.last_access = prefix_idx;
 }
 
 void PSOTraceBuilder::mutex_destroy(const SymAddrSize &ml){
