@@ -57,10 +57,10 @@ For Users of Debian-like Systems
 
    Mandatory:
    clang, libc6, libc6-dev, libstdc++6, autoconf, automake, python3,
-   llvm, llvm-dev, libffi-dev
+   llvm, llvm-dev, libffi-dev, libboost-test-dev, libboost-system-dev
 
    Optional:
-   libboost-test-dev, valgrind, texlive-latex-base, texlive-base
+   valgrind, texlive-latex-base, texlive-base
 
 Getting Nidhugg
 ===============
