@@ -8,8 +8,8 @@ test:
 valtest:
 	cd $(top_builddir)/src && $(MAKE) $(AM_MAKEFLAGS) valtest
 
-litmus: 
-	cd $(top_builddir)/src && $(MAKE) $(AM_MAKEFLAGS) litmus
+litmus_test:
+	cd $(top_builddir)/src && $(MAKE) $(AM_MAKEFLAGS) litmus_test
 
-mustpass:
-	cd $(top_builddir)/src && $(MAKE) $(AM_MAKEFLAGS) mustpass
+smoke_test:
+	cd $(top_builddir)/src && $(MAKE) $(AM_MAKEFLAGS) smoke_test

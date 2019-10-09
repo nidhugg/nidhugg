@@ -100,12 +100,12 @@ test: unittest
 valtest: unittest
 	valgrind --leak-check=full ./unittest $(BOOSTTESTFLAGS) --show_progress \
 		`test -z "$(UTEST)" || echo "--run_test=$(UTEST)"`
-litmus: nidhugg$(EXEEXT) nidhuggc$(EXEEXT)
+litmus_test: nidhugg$(EXEEXT) nidhuggc$(EXEEXT)
 	cd $(top_builddir)/tests/litmus && \
 	python3 ./test-nidhugg.py --nidhuggc=$(CURDIR)/nidhuggc all
 
-mustpass: nidhugg$(EXEEXT) nidhuggc$(EXEEXT)
-	cd $(top_builddir)/tests/smallbutchallenging && \
+smoke_test: nidhugg$(EXEEXT) nidhuggc$(EXEEXT)
+	cd $(top_builddir)/tests/smoke && \
 	python3 ./test-nidhugg.py --nidhuggc=$(CURDIR)/nidhuggc all
 
 nidhuggc$(EXEEXT): $(srcdir)/nidhuggc.py
