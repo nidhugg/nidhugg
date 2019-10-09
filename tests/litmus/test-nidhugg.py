@@ -138,10 +138,9 @@ def run_test(tst):
         out = subprocess.check_output([NIDHUGGCBIN, '--sc', '--rf',
                                        LITMUSDIR + '/' + tst['tstname'] + '.c'],
                                       stderr = subprocess.STDOUT).decode()
-        parts_0 = out.split("\n")
-        error_info = parts_0[-6]
-        trace_info = parts_0[-7]
-        res['tracecount'] = int(trace_info.split(":")[1].split()[0])
+        lines = out.split("\n")
+        res['tracecount'] = grep_count(lines, "Trace count: ") \
+            + grep_count(lines, "Assume-blocked trace count: ")
         if out.find('No errors were detected') >= 0:
             res['allow'] = False
         else:
@@ -150,6 +149,16 @@ def run_test(tst):
         res['failure'] = NIDHUGGCBIN
         res['tracecount'] = -1
     return res
+
+def grep_count(lines, start):
+    """
+    Finds the first line that starts with `start` and returns the
+    integer that follows. Otherwise, returns 0.
+    """
+    for line in lines:
+        if line.startswith(start):
+            return int(line[len(start):])
+    return 0
 
 def runonenidhuggc(filename):
     for tst in get_expected(LISTFILE):
