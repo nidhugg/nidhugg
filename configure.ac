@@ -1,6 +1,7 @@
 AC_INIT([Nidhugg], [0.2], [carl.leonardsson@gmail.com])
-m4_include([m4/ax_cxx_compile_stdcxx_11.m4])
+m4_include([m4/ax_cxx_compile_stdcxx.m4])
 m4_include([m4/ax_boost_base.m4])
+m4_include([m4/ax_boost_system.m4])
 m4_include([m4/ax_boost_unit_test_framework.m4])
 m4_include([m4/ax_llvm.m4])
 m4_include([m4/ax_git_commit.m4])
@@ -17,17 +18,18 @@ AM_PROG_AR
 
 AC_LANG([C++])
 
-# Checks for C++11
-# noext to avoid sending -std=gnu++11 to clang++ (Causes problems for clang++-3.3.)
-AX_CXX_COMPILE_STDCXX_11([noext])
+# Checks for C++14
+AX_CXX_COMPILE_STDCXX(14, [noext])
 
 AX_GIT_COMMIT
 
 # Checks for libraries
-AX_BOOST_BASE([1.49])
+AX_BOOST_BASE([1.64], [], [AC_MSG_FAILURE([Boost Required!])])
 AX_BOOST_UNIT_TEST_FRAMEWORK
+AX_BOOST_SYSTEM
 AX_LLVM(,[AC_MSG_FAILURE(LLVM is required.)])
-CXXFLAGS="`echo " $CXXFLAGS " | sed 's/ -fno-rtti / /' | sed 's/ -fno-exceptions / /'`"
+CXXFLAGS="`echo " $CXXFLAGS " | sed 's/ -fno-rtti / /' | sed 's/ -fno-exceptions / /'` --std=c++14 $BOOST_CPPFLAGS"
+LDFLAGS="$LDFLAGS $BOOST_LDFLAGS"
 AC_CHECK_LIB([dl], [dlopen],[],[AC_MSG_FAILURE([Could not find library libdl.])])
 PKG_CHECK_MODULES([FFI], [libffi], [
   AC_DEFINE([HAVE_LIBFFI], [1], [Define to 1 if we have libffi])
@@ -103,9 +105,6 @@ AC_DEFUN([AC_CHECK_HEADERS_ALT],
   fi
 ])
 
-if test "x$BOOST_UNIT_TEST_FRAMEWORK_LIB" != "x"; then
-  AC_CHECK_HEADER([boost/test/unit_test.hpp],[],[AC_MSG_FAILURE([Could not find header boost/test/unit_test.hpp.])],[AC_INCLUDES_DEFAULT])
-fi
 AC_CHECK_HEADERS([ \
   stdlib.h \
   sys/types.h \
@@ -1086,6 +1085,7 @@ if test "x$CXX" = "xclang" || test "x$CXX" = "xclang++" ; then
   fi
 fi
 
+AM_EXTRA_RECURSIVE_TARGETS([test run_unittest valtest litmus_test smoke_test])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
   Makefile

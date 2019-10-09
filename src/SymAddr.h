@@ -30,6 +30,9 @@
 #include <memory>
 
 struct SymMBlock {
+  static SymMBlock Null() {
+    return SymMBlock();
+  }
   static SymMBlock Global(unsigned no) {
     assert(no <= INT16_MAX);
     return SymMBlock(UINT16_MAX, no);
@@ -52,6 +55,7 @@ struct SymMBlock {
   bool operator>=(const SymMBlock &o) const { return !(*this < o); }
   bool operator>(const SymMBlock &o)  const { return !(*this <= o); }
 
+  bool is_null() const { return pid == UINT16_MAX && alloc == -1; }
   bool is_global() const { return pid == UINT16_MAX; }
   bool is_stack() const { return !is_global() && alloc < 0; }
   bool is_heap() const { return !is_global() && alloc >= 0; }
@@ -65,18 +69,23 @@ struct SymMBlock {
                         = (std::string(&)(int))std::to_string) const;
 
 private:
+  SymMBlock() : pid(UINT16_MAX), alloc(-1) {}
   SymMBlock(int pid, int alloc) : pid(pid), alloc(alloc) {
     assert(0 <= pid && pid <= UINT16_MAX);
     assert(INT16_MIN <= alloc && alloc <= INT16_MAX);
   }
+  friend struct std::hash<struct SymAddr>;
   uint16_t pid;
   int16_t alloc;
 };
 
 struct SymAddr {
 public:
+  SymAddr() : block(SymMBlock::Null()), offset(0) {}
+  SymAddr(std::nullptr_t) : SymAddr() {}
   SymAddr(SymMBlock block, uintptr_t offset)
     : block(std::move(block)), offset(offset) {
+    assert(!block.is_null());
     assert(offset <= UINT32_MAX);
   }
   SymMBlock block;
@@ -126,6 +135,19 @@ public:
   std::string to_string(std::function<std::string(int)> pid_str
                         = (std::string(&)(int))std::to_string) const;
 };
+
+namespace std {
+template<> struct hash<SymAddr>{
+public:
+  hash() {}
+  std::size_t operator()(const SymAddr &a) const {
+    /* Intentionally laid out so that this becomes a single 64-bit load. */
+    return std::size_t(a.block.pid)
+      | std::size_t(uint16_t(a.block.alloc)) << 16
+      | std::size_t(a.offset) << 32;
+  }
+};
+}
 
 struct SymAddrSize {
 public:

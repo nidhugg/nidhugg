@@ -23,8 +23,8 @@ Nidhugg can be compiled and installed on UNIX-like systems.
 Requirements
 ============
 
-   1. A C++ compiler supporting C++11. For example g++ version 4.7 or
-      higher, or clang++ version 3.1 or higher. (For compiling the
+   1. A C++ compiler supporting C++14. For example g++ version 5 or
+      higher, or clang++ version 3.8 or higher. (For compiling the
       tool Nidhugg.)
 
    2. The C compiler clang. (For use by Nidhugg as a frontend for C
@@ -36,13 +36,13 @@ Requirements
 
    5. Python version 3.0 or higher.
 
-   6. The LLVM library and headers, version 3.3 or higher. If you are
+   6. The LLVM library and headers, version 3.8 or higher. If you are
       compiling the LLVM library from sources, see Compiling LLVM
       below.
 
    7. Foreign Function Interface (libffi) library and headers.
 
-   (8). Optional: Boost Unit Test Framework.
+   8. Boost Unit Test Framework, version 1.64 or higher.
 
    (9). Optional: Valgrind
 
@@ -80,21 +80,26 @@ Basic Installation
    The following assumes that you are in a shell in the main directory
    of Nidhugg.
 
-   1. Use GNU Autotools to build the configure script:
+   1. Pull all dependency submodules
+
+      $ git submodule update --init
+
+   2. Use GNU Autotools to build the configure script:
 
       $ autoreconf --install
 
-   2. Build as usual. See Installation Options below for options about
-      e.g. installation location.
+   3. Build as usual. Make sure to pass the include flag for the immer
+      dependency, as shown below. See Installation Options below for options
+      about e.g. installation location.
 
-      $ ./configure
+      $ ./configure CXXFLAGS="-I../deps/immer"
       $ make
 
-   3. Install:
+   4. Install:
 
       $ make install
 
-   4. Optionally run test suite (Boost Unit Test Framework required):
+   5. Optionally run test suite (Boost Unit Test Framework required):
 
       $ make test
 

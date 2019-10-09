@@ -21,6 +21,8 @@
 #define __OPTION_H__
 
 #include <algorithm>
+#include <cassert>
+#include <type_traits>
 
 template<typename Value>
 class Option {
@@ -47,10 +49,23 @@ public:
   }
 
   operator bool() const noexcept { return has_value; }
-  Value const& operator *() const { return value; }
-  Value& operator *() { return value; }
-  Value const *operator ->() const { return &value; }
-  Value *operator ->() { return &value; }
+  Value const& operator *() const { assert(has_value); return value; }
+  Value& operator *() { assert(has_value); return value; }
+  Value const *operator ->() const { assert(has_value); return &value; }
+  Value *operator ->() { assert(has_value); return &value; }
+
+  Value const &value_or(const Value &def) const {
+    if (has_value) return value;
+    else return def;
+  }
+
+  /* Monadic bind; transform the value of the option (if any) */
+  template<typename F> auto map(F f) ->
+    Option<typename std::result_of<F(Value&)>::type> {
+    if (!has_value) return {};
+    else return f(value);
+  }
+
 private:
   bool has_value;
   union{

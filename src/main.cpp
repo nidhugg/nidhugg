@@ -23,6 +23,7 @@
 #include "DPORDriver.h"
 #include "GlobalContext.h"
 #include "Transform.h"
+#include "Timing.h"
 
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/ManagedStatic.h>
@@ -31,20 +32,23 @@
 #include <set>
 #include <stdexcept>
 
-llvm::cl::opt<std::string>
-cl_transform("transform",llvm::cl::init(""),
-             llvm::cl::desc("Transform the input module and store it (as LLVM assembly) to OUTFILE."),
-             llvm::cl::NotHidden,llvm::cl::value_desc("OUTFILE"));
+extern llvm::cl::opt<std::string> cl_transform;
 
 llvm::cl::opt<std::string>
 cl_input_file(llvm::cl::desc("<input bitcode or assembly>"),
               llvm::cl::Positional,
               llvm::cl::init("-"));
 
-llvm::cl::list<std::string>
-cl_program_arguments(llvm::cl::desc("[-- <program arguments>...]"),
-                     llvm::cl::Positional,
-                     llvm::cl::ZeroOrMore);
+extern llvm::cl::list<std::string>
+cl_program_arguments;
+
+#ifndef NO_TIMING
+llvm::cl::opt<bool>
+cl_time("time", llvm::cl::desc("Print timing information."),
+        llvm::cl::NotHidden);
+#endif
+
+static Timing::Context global_timing_context("global");
 
 #ifdef LLVM_CL_VERSIONPRINTER_TAKES_RAW_OSTREAM
 void print_version(llvm::raw_ostream &out){
@@ -98,6 +102,7 @@ int main(int argc, char *argv[]){
 
   bool errors_detected = false;
   try{
+    Timing::Guard timing_guard(global_timing_context);
     Configuration conf;
     conf.assign_by_commandline();
     conf.check_commandline();
@@ -140,6 +145,11 @@ int main(int argc, char *argv[]){
     llvm::llvm_shutdown();
     return 1;
   }
+
+#ifndef NO_TIMING
+  if (cl_time)
+    Timing::print_report();
+#endif
 
   return (errors_detected ? VERIFICATION_FAILURE : EXIT_OK);
 }

@@ -25,18 +25,21 @@
 void SymEv::set(SymEv other) {
   // if (kind != EMPTY) {
     if(kind != other.kind
-       && !(kind == STORE && other.kind == UNOBS_STORE)) {
+       && !(kind == STORE && other.kind == UNOBS_STORE)
+       && !(kind == M_TRYLOCK && other.kind == M_TRYLOCK_FAIL)
+       && !(kind == M_TRYLOCK_FAIL && other.kind == M_TRYLOCK)) {
       llvm::dbgs() << "Merging incompatible events " << *this << " and "
                    << other << "\n";
-      assert(false);
+      abort();
     }
 #ifndef NDEBUG
     switch(kind) {
     case LOAD:
     case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
+    case M_TRYLOCK: case M_TRYLOCK_FAIL:
     case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
     case C_WAIT: case C_AWAKE:
-    case CMPXHG: case CMPXHGFAIL:
+    case RMW: case CMPXHG: case CMPXHGFAIL:
     case STORE: case UNOBS_STORE:
       assert(arg.addr == other.arg.addr);
       break;
@@ -45,6 +48,7 @@ void SymEv::set(SymEv other) {
       assert(arg.num == other.arg.num);
       break;
     case FULLMEM:
+    case NONE:
       break;
     default:
       assert(false && "Unknown kind");
@@ -73,7 +77,7 @@ static std::string block_to_string(const SymData::block_type &blk, unsigned size
 
 std::string SymEv::to_string(std::function<std::string(int)> pid_str) const {
     switch(kind) {
-    // case EMPTY:    return "Empty()";
+    case NONE:     return "None()";
     case NONDET:   return "Nondet(" + std::to_string(arg.num) + ")";
 
     case LOAD:     return "Load("    + arg.addr.to_string(pid_str) + ")";
@@ -83,6 +87,9 @@ std::string SymEv::to_string(std::function<std::string(int)> pid_str) const {
 
     case M_INIT:   return "MInit("   + arg.addr.to_string(pid_str) + ")";
     case M_LOCK:   return "MLock("   + arg.addr.to_string(pid_str) + ")";
+    case M_TRYLOCK: return "MTryLock(" + arg.addr.to_string(pid_str) + ")";
+    case M_TRYLOCK_FAIL: return "MTryLockFail(" + arg.addr.to_string(pid_str)
+        + ")";
     case M_UNLOCK: return "MUnlock(" + arg.addr.to_string(pid_str) + ")";
     case M_DELETE: return "MDelete(" + arg.addr.to_string(pid_str) + ")";
 
@@ -99,6 +106,8 @@ std::string SymEv::to_string(std::function<std::string(int)> pid_str) const {
     case UNOBS_STORE: return "UnobsStore(" + arg.addr.to_string(pid_str)
         + "," + block_to_string(_written, arg.addr.size) + ")";
 
+    case RMW: return "Rmw(" + arg.addr.to_string(pid_str)
+        + "," + block_to_string(_written, arg.addr.size) + ")";
     case CMPXHG: return "CmpXhg("
         + arg.addr.to_string(pid_str)
         + "," + block_to_string(_expected, arg.addr.size)
@@ -115,11 +124,13 @@ bool SymEv::has_addr() const {
   switch(kind) {
   case LOAD: case STORE:
   case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
+  case M_TRYLOCK: case M_TRYLOCK_FAIL:
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
   case C_WAIT: case C_AWAKE:
   case UNOBS_STORE:
-  case CMPXHG: case CMPXHGFAIL:
+  case RMW: case CMPXHG: case CMPXHGFAIL:
     return true;
+  case NONE:
   case FULLMEM: case NONDET:
   case SPAWN: case JOIN:
     return false;
@@ -132,13 +143,15 @@ bool SymEv::has_num() const {
   case SPAWN: case JOIN:
   case NONDET:
     return true;
+  case NONE:
   case C_WAIT: case C_AWAKE:
   case FULLMEM:
   case LOAD: case STORE:
   case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
+  case M_TRYLOCK: case M_TRYLOCK_FAIL:
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
   case UNOBS_STORE:
-  case CMPXHG: case CMPXHGFAIL:
+  case RMW: case CMPXHG: case CMPXHGFAIL:
     return false;
   }
   abort();
@@ -147,14 +160,16 @@ bool SymEv::has_num() const {
 bool SymEv::has_data() const {
   switch(kind) {
   case STORE: case UNOBS_STORE:
-  case CMPXHG: case CMPXHGFAIL:
+  case RMW: case CMPXHG: case CMPXHGFAIL:
     return (bool)_written;
+  case NONE:
   case SPAWN: case JOIN:
   case NONDET:
   case C_WAIT: case C_AWAKE:
   case FULLMEM:
   case LOAD:
   case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
+  case M_TRYLOCK: case M_TRYLOCK_FAIL:
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
     return false;
   }
@@ -165,6 +180,7 @@ bool SymEv::has_expected() const {
   switch(kind) {
   case CMPXHG: case CMPXHGFAIL:
     return (bool)_written;
+  case NONE:
   case SPAWN: case JOIN:
   case NONDET:
   case C_WAIT: case C_AWAKE:
@@ -172,7 +188,9 @@ bool SymEv::has_expected() const {
   case LOAD:
   case STORE: case UNOBS_STORE:
   case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
+  case M_TRYLOCK: case M_TRYLOCK_FAIL:
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
+  case RMW:
     return false;
   }
   abort();

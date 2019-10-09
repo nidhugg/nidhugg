@@ -1473,7 +1473,6 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
   assert(I.getOrdering() != llvm::AtomicOrdering::NotAtomic);
 
   SymAddrSize Ptr_sas = GetSymAddrSize(Ptr,I.getType());
-  TB.load(Ptr_sas);
 
   /* Load old value at *Ptr */
   if(DryRun && DryRunMem.size()){
@@ -1513,7 +1512,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
   }
 
   SymData sd = GetSymData(Ptr_sas,I.getType(),NewVal);
-  TB.atomic_store(sd);
+  TB.atomic_rmw(sd);
 
   /* Store NewVal */
   if(DryRun){
@@ -2731,13 +2730,13 @@ void Interpreter::callPthreadMutexInit(Function *F,
     return;
   }
 
+  TB.mutex_init({GetSymAddr(lck),1}); // also acts as a fence
+
   if(PthreadMutexes.count(lck)){
     TB.pthreads_error("pthread_mutex_init called with already initialized mutex.");
     abort();
     return;
   }
-
-  TB.mutex_init({GetSymAddr(lck),1}); // also acts as a fence
 
   GenericValue Result;
   /* pthread_mutex_init always returns 0 */
@@ -2767,6 +2766,8 @@ void Interpreter::callPthreadMutexLock(void *lck){
     return;
   }
 
+  TB.mutex_lock({GetSymAddr(lck),1}); // also acts as a fence
+
   if(PthreadMutexes.count(lck) == 0){
     if(conf.mutex_require_init){
       TB.pthreads_error("pthread_mutex_lock called with uninitialized mutex.");
@@ -2778,8 +2779,6 @@ void Interpreter::callPthreadMutexLock(void *lck){
   }
 
   assert(PthreadMutexes.count(lck) == 0 || PthreadMutexes[lck].isUnlocked());
-
-  TB.mutex_lock({GetSymAddr(lck),1}); // also acts as a fence
 
   if(DryRun) return;
   PthreadMutexes[lck].lock(CurrentThread);
@@ -2795,6 +2794,8 @@ void Interpreter::callPthreadMutexTryLock(Function *F,
     return;
   }
 
+  TB.mutex_trylock({GetSymAddr(lck),1}); // also acts as a fence
+
   if(PthreadMutexes.count(lck) == 0){
     if(conf.mutex_require_init){
       TB.pthreads_error("pthread_mutex_trylock called with uninitialized mutex.");
@@ -2807,7 +2808,6 @@ void Interpreter::callPthreadMutexTryLock(Function *F,
 
   GenericValue Result;
 
-  TB.mutex_trylock({GetSymAddr(lck),1}); // also acts as a fence
   if(PthreadMutexes.count(lck) == 0 || PthreadMutexes[lck].isUnlocked()){
     Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0); // Success
     returnValueToCaller(F->getReturnType(),Result);
@@ -2830,6 +2830,8 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
     return;
   }
 
+  TB.mutex_unlock({GetSymAddr(lck),1}); // also acts as a fence
+
   if(PthreadMutexes.count(lck) == 0){
     if(conf.mutex_require_init){
       TB.pthreads_error("pthread_mutex_unlock called with uninitialized mutex.");
@@ -2845,8 +2847,6 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
     abort();
     return;
   }
-
-  TB.mutex_unlock({GetSymAddr(lck),1}); // also acts as a fence
 
   GenericValue Result;
   Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0); // Success
@@ -2871,6 +2871,8 @@ void Interpreter::callPthreadMutexDestroy(Function *F,
     return;
   }
 
+  TB.mutex_destroy({GetSymAddr(lck),1}); // also acts as a fence
+
   if(PthreadMutexes.count(lck) == 0){
     if(conf.mutex_require_init){
       TB.pthreads_error("pthread_mutex_destroy called with uninitialized mutex.");
@@ -2886,8 +2888,6 @@ void Interpreter::callPthreadMutexDestroy(Function *F,
     abort();
     return;
   }
-
-  TB.mutex_destroy({GetSymAddr(lck),1}); // also acts as a fence
 
   GenericValue Result;
   Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0); // Success
@@ -3010,6 +3010,8 @@ void Interpreter::callPthreadCondWait(Function *F,
 void Interpreter::doPthreadCondAwake(void *cnd, void *lck){
   assert(lck);
 
+  TB.cond_awake({GetSymAddr(cnd),1},{GetSymAddr(lck),1}); // also acts as a fence
+
   if(PthreadMutexes.count(lck) == 0){
     /* We don't need to check conf.mutex_require_init as the mutex is always
      * initialised during callPthreadCondWait().
@@ -3020,8 +3022,6 @@ void Interpreter::doPthreadCondAwake(void *cnd, void *lck){
   }
 
   assert(PthreadMutexes.count(lck) == 0 || PthreadMutexes[lck].isUnlocked());
-
-  TB.cond_awake({GetSymAddr(cnd),1},{GetSymAddr(lck),1}); // also acts as a fence
 
   if(DryRun) return;
   PthreadMutexes[lck].lock(CurrentThread);
@@ -3232,7 +3232,7 @@ void Interpreter::callFunction(Function *F,
          "Incorrect number of arguments passed into function call!");
 
   if(F->getName().str().find("__VERIFIER_atomic_") == 0){
-    if (conf.observers)
+    if (conf.dpor_algorithm == Configuration::OBSERVERS)
       Debug::warn("optimal+atomic")
         << "WARNING: Support for atomic blocks is limited with --optimal.\n"
            "         Nidhugg might crash or miss bugs, see the manual.\n";
@@ -3450,6 +3450,7 @@ void Interpreter::run() {
   int aux;
   bool rerun = false;
   while(rerun || TB.schedule(&CurrentThread,&aux,&CurrentAlt,&DryRun)){
+    assert(0 <= CurrentThread && CurrentThread < long(Threads.size()));
     rerun = false;
     if(0 <= aux){ // Run some auxiliary thread
       runAux(CurrentThread,aux);

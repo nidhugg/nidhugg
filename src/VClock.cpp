@@ -31,6 +31,8 @@ VClock<int>::VClock(const std::vector<int> &v) : vec(v) {
 
 VClock<int>::VClock(const VClock &vc) : vec(vc.vec) {}
 
+VClock<int>::VClock(VClock &&vc) : vec(std::move(vc.vec)) {}
+
 VClock<int>::VClock(const std::initializer_list<int> &il) : vec(il) {
 #ifndef NDEBUG
   for(unsigned i = 0; i < vec.size(); ++i){
@@ -41,8 +43,19 @@ VClock<int>::VClock(const std::initializer_list<int> &il) : vec(il) {
 
 VClock<int>::~VClock(){}
 
+std::size_t VClock<int>::size() const{
+  std::size_t s = vec.size();
+  while(s > 0 && vec[s - 1] == 0) --s;
+  return s;
+}
+
 VClock<int> &VClock<int>::operator=(const VClock<int> &vc){
   vec = vc.vec;
+  return *this;
+}
+
+VClock<int> &VClock<int>::operator=(VClock<int> &&vc){
+  vec = std::move(vc.vec);
   return *this;
 }
 
@@ -62,6 +75,28 @@ VClock<int> &VClock<int>::operator+=(const VClock<int> &vc){
   }
   for(unsigned i = 0; i < sz; ++i){
     if(vc.vec[i] > vec[i]){
+      vec[i] = vc.vec[i];
+    }
+  }
+  return *this;
+}
+
+VClock<int> VClock<int>::operator-(const VClock<int> &vc) const{
+  VClock<int> vc2;
+  vc2.vec.resize(std::max(vec.size(),vc.vec.size()));
+  for(unsigned i = 0; i < vc2.vec.size(); ++i){
+    vc2.vec[i] = std::min((*this)[i],vc[i]);
+  }
+  return vc2;
+}
+
+VClock<int> &VClock<int>::operator-=(const VClock<int> &vc){
+  const unsigned sz = vc.vec.size();
+  if(vec.size() < sz){
+    vec.resize(vc.vec.size(),0);
+  }
+  for(unsigned i = 0; i < sz; ++i){
+    if(vc.vec[i] < vec[i]){
       vec[i] = vc.vec[i];
     }
   }
@@ -171,4 +206,43 @@ std::string VClock<int>::to_string() const{
   }
   ss << "]";
   return ss.str();
+}
+
+VClockVec::Ref &VClockVec::Ref::operator-=(const Ref vc) {
+  assert(vc._size == _size);
+  for (unsigned i = 0; i < _size; ++i) {
+    if(vc.base[i] < base[i]){
+      base[i] = vc.base[i];
+    }
+  }
+  return *this;
+}
+
+VClockVec::Ref &VClockVec::Ref::operator=(const VClock<int> vc) {
+  for (unsigned i = 0; i < _size; ++i) {
+    base[i] = vc[i];
+  }
+  return *this;
+}
+
+bool VClockVec::Ref::lt(const Ref vc) const{
+  assert(_size == vc._size);
+  bool less = false;
+  for(unsigned i = 0; i < _size; ++i){
+    if((*this)[i] > vc[i]) return false;
+    less = less || ((*this)[i] < vc[i]);
+  }
+  return less;
+}
+
+void VClockVec::assign(unsigned clock_size, std::size_t count,
+                       const VClock<int> &init) {
+  assert(init.size() <= clock_size);
+  this->clock_size = clock_size;
+  vec.resize(count*clock_size);
+  for (std::size_t i = 0; i < count; ++i) {
+    Ref ref = (*this)[i];
+    for (unsigned j = 0; j < clock_size; ++j)
+      ref[j] = init[j];
+  }
 }

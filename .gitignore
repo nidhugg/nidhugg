@@ -9,7 +9,7 @@ src/nidhugg
 src/nidhuggc
 src/unittest
 src/libnidhugg.a
-Makefile
+./Makefile
 Makefile.in
 aclocal.m4
 ar-lib

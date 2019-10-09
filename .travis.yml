@@ -7,106 +7,73 @@ addons:
 
 # Template some configurations for different distros, to be used in the matrix
 # below
-_trusty-conf: &trusty
-  dist: trusty
-  addons:
-    apt:
-      sources:
-        - boost-latest
-        - ubuntu-toolchain-r-test
-      packages:
-        - *baseline-packages
-        - libc6
-        - libc6-dev
-        - autoconf
-        - automake
-        - python3
-        - libffi-dev
-        - libedit-dev     # required by LLVM 3.5.0
-        - g++-4.9         # need at least this version of libstdc++6
-        - libboost-test1.55-dev
-        - libstdc++-4.9-dev
-  env: &trusty-env
-    - CPATH=/usr/lib/gcc/x86_64-linux-gnu/4.9/include
-    - CC=gcc-4.9
-    - CXX=g++-4.9
+_xenial-conf: &xenial
+  dist: xenial
+  env: &xenial-env
+    - CONFIGURE_FLAGS=--with-boost=`pwd`/cache/boost
+    - DOWNLOAD_BOOST=1.64.0
 
-_trusty-clang-env-conf: &trusty-clang-env
-  env:
+_xenial-clang-env-conf:
+  env: &xenial-clang-env
+    - *xenial-env
     - CC=clang
     - CXX=clang++
 
-_xenial-conf: &xenial
-  dist: xenial
+_bionic-conf: &bionic
+  dist: bionic
   addons:
     apt:
       packages:
         - *baseline-packages
         - libboost-test-dev
+        - libboost-system-dev
 
-_xenial-clang-env-conf: &xenial-clang-env
-  env:
+_bionic-clang-env-conf:
+  env: &bionic-clang-env
     - CC=clang
     - CXX=clang++
 
 matrix:
   include:
-    - <<: *trusty
+    ## Immer dependency is currently incompatible with libstdc++ on the
+    ## following builds:
+    # - <<: *xenial
+    #   env:
+    #     - *xenial-clang-env
+    #     - LLVM_VERSION=3.8.1  # default on Debian stretch - does NOT work yet
+    # - <<: *xenial
+    #   env:
+    #     - *xenial-clang-env
+    #     - LLVM_VERSION=3.9.1
+    # - <<: *xenial
+    #   env:
+    #     - *xenial-clang-env
+    #     - LLVM_VERSION=4.0.0
+    # - <<: *xenial
+    #   env:
+    #     - *xenial-clang-env
+    #     - LLVM_VERSION=5.0.2
+    # - <<: *xenial
+    #   env:
+    #     - *xenial-clang-env
+    #     - LLVM_VERSION=6.0.1
+    - <<: *bionic
       env:
-        - *trusty-env
-        - LLVM_VERSION=3.3
-    - <<: *trusty
-      env:
-        - *trusty-env
-        - LLVM_VERSION=3.4.2
-    - <<: *trusty
-      env:
-        - *trusty-env
-        - LLVM_VERSION=3.5.2  # default on Debian jessie
-    - <<: *trusty
-      env:
-        - *trusty-env
-        - LLVM_VERSION=3.6.2
-    - <<: *trusty
-      env:
-        - *trusty-clang-env
-        - LLVM_VERSION=3.7.1
-    - <<: *xenial
-      env:
-        - *xenial-clang-env
-        - LLVM_VERSION=3.8.1  # default on Debian stretch - does NOT work yet
-    - <<: *xenial
-      env:
-        - *xenial-clang-env
-        - LLVM_VERSION=3.9.1
-    - <<: *xenial
-      env:
-        - *xenial-clang-env
-        - LLVM_VERSION=4.0.0
-    - <<: *xenial
-      env:
-        - *xenial-clang-env
-        - LLVM_VERSION=5.0.2
-    - <<: *xenial
-      env:
-        - *xenial-clang-env
-        - LLVM_VERSION=6.0.1
-    - <<: *trusty
-      env:
-        - *trusty-clang-env
-        - LLVM_VERSION=7.1.0
-    - <<: *xenial
+        - *bionic-clang-env
+        - LLVM_VERSION=7.0.1
+    - <<: *bionic
       env: LLVM_VERSION=8.0.0
 
 before_script:
   - ./travis/install_deps.sh
   - export LLVM_DIR=$PWD/cache/clang+llvm-$LLVM_VERSION
   - export PATH=$LLVM_DIR/bin:$PATH
-  - export LD_LIBRARY_PATH=$LLVM_DIR/lib
+  - export LD_LIBRARY_PATH="$LLVM_DIR/lib $PWD/cache/boost/lib"
   - autoreconf --install
-  - ./configure || (cat config.log; false)
-  - make -j6
-script: "make -j6 test && make -j6 valtest"
+  - ./configure CXXFLAGS="-I"`pwd`"/deps/immer/" $CONFIGURE_FLAGS || (cat config.log; false)
+  - make -Csrc -j6 all unittest
+script:
+  - make test && make valtest
 cache:
   directories:
     - cache

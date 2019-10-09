@@ -23,9 +23,11 @@
 #define __CONFIGURATION_H__
 
 #include "vecset.h"
+#include "SatSolver.h"
 
 #include <set>
 #include <string>
+#include <memory>
 
 /* A Configuration object keeps track of all configuration options
  * that should be used during a program analysis. The configuration
@@ -44,7 +46,9 @@ public:
   };
   enum DPORAlgorithm{
     SOURCE,
-    OPTIMAL
+    OPTIMAL,
+    OBSERVERS,
+    READS_FROM,
   };
   /* Assign default values to all configuration parameters. */
   Configuration(){
@@ -81,7 +85,6 @@ public:
       "__assert_fail",
       "atexit"
     };
-    observers = false;
     check_robustness = false;
     ee_store_trace = false;
     debug_collect_all_traces = false;
@@ -91,6 +94,7 @@ public:
     transform_loop_unroll = -1;
     print_progress = false;
     print_progress_estimate = false;
+    sat_solver = SMTLIB;
     argv.push_back(get_default_program_name());
   };
   /* Read the switches given to the program by the user. Assign
@@ -129,8 +133,6 @@ public:
   bool c11;
   /* Which DPOR algorithm should be used? */
   DPORAlgorithm dpor_algorithm;
-  /* Should the observers optimisation be used? */
-  bool observers;
   /* A set of names of external functions that should be assumed to
    * not have fencing behavior. Notice however that the function
    * itself will still execute atomically, which may cause behaviors
@@ -187,6 +189,11 @@ public:
    * traces.
    */
   bool print_progress_estimate;
+  /* Sat solver to use. */
+  enum SatSolverEnum {
+        SMTLIB,
+  } sat_solver;
+  std::unique_ptr<SatSolver> get_sat_solver() const;
   /* The arguments that will be passed to the program under test */
   std::vector<std::string> argv;
   /* The default program name to send to the program under test as

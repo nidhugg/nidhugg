@@ -21,6 +21,7 @@
 
 std::string SymMBlock::to_string(std::function<std::string(int)> pid_str) const {
   std::string ret;
+  if (is_null()) return "Null()";
   if (is_global()) {
     ret = "Global(";
   } else {

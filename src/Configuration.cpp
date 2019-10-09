@@ -21,10 +21,16 @@
 
 #include <llvm/Support/CommandLine.h>
 #include "Debug.h"
+#include "SmtlibSatSolver.h"
 
-extern llvm::cl::list<std::string> cl_program_arguments;
-
-extern llvm::cl::opt<std::string> cl_transform;
+llvm::cl::list<std::string>
+cl_program_arguments(llvm::cl::desc("[-- <program arguments>...]"),
+                     llvm::cl::Positional,
+                     llvm::cl::ZeroOrMore);
+llvm::cl::opt<std::string>
+cl_transform("transform",llvm::cl::init(""),
+             llvm::cl::desc("Transform the input module and store it (as LLVM assembly) to OUTFILE."),
+             llvm::cl::NotHidden,llvm::cl::value_desc("OUTFILE"));
 
 static llvm::cl::opt<bool> cl_explore_all("explore-all",llvm::cl::NotHidden,
                                           llvm::cl::desc("Continue exploring all traces, "
@@ -35,10 +41,6 @@ static llvm::cl::opt<bool> cl_malloc_may_fail("malloc-may-fail",llvm::cl::NotHid
 
 static llvm::cl::opt<bool> cl_disable_mutex_init_requirement("disable-mutex-init-requirement",llvm::cl::NotHidden,
                                                              llvm::cl::desc("If set, then allow use of mutexes without a preceding call to pthread_mutex_init.\nThis switch is necessary when using static mutex initialization."));
-
-static llvm::cl::opt<bool> cl_observers
-("observers",llvm::cl::NotHidden,
- llvm::cl::desc("Do not consider writes racing unless they are read"));
 
 static llvm::cl::opt<int>
 cl_max_search_depth("max-search-depth",
@@ -61,11 +63,23 @@ cl_memory_model(llvm::cl::NotHidden, llvm::cl::init(Configuration::MM_UNDEF),
 static llvm::cl::opt<bool> cl_c11("c11",llvm::cl::Hidden,
                                   llvm::cl::desc("Only consider c11 atomic accesses."));
 
+static llvm::cl::opt<Configuration::SatSolverEnum>
+cl_sat(llvm::cl::NotHidden, llvm::cl::init(Configuration::SMTLIB),
+       llvm::cl::desc("Select SAT solver"),
+       llvm::cl::values(clEnumValN(Configuration::SMTLIB,"smtlib","External SMTLib process")
+#ifdef LLVM_CL_VALUES_USES_SENTINEL
+                                ,clEnumValEnd
+#endif
+                                 ));
+
+
 static llvm::cl::opt<Configuration::DPORAlgorithm>
 cl_dpor_algorithm(llvm::cl::NotHidden, llvm::cl::init(Configuration::SOURCE),
-                  llvm::cl::desc("Select DPOR algorithm"),
+                  llvm::cl::desc("Select SMC algorithm"),
                   llvm::cl::values(clEnumValN(Configuration::SOURCE,"source","Source-DPOR (default)"),
-                                   clEnumValN(Configuration::OPTIMAL,"optimal","Optimal-DPOR")
+                                   clEnumValN(Configuration::OPTIMAL,"optimal","Optimal-DPOR"),
+                                   clEnumValN(Configuration::OBSERVERS,"observers","Optimal-DPOR with Observers"),
+                                   clEnumValN(Configuration::READS_FROM,"rf","Optimal Reads-From-centric SMC")
 #ifdef LLVM_CL_VALUES_USES_SENTINEL
                                   ,clEnumValEnd
 #endif
@@ -110,8 +124,8 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "disable-mutex-init-requirement",
     "max-search-depth",
     "sc","tso","pso","power","arm",
-    "source","optimal",
-    "observers",
+    "smtlib",
+    "source","optimal","observers","rf",
     "robustness",
     "no-spin-assume",
     "unroll",
@@ -134,13 +148,13 @@ void Configuration::assign_by_commandline(){
   memory_model = cl_memory_model;
   c11 = cl_c11;
   dpor_algorithm = cl_dpor_algorithm;
-  observers = cl_observers;
   check_robustness = cl_check_robustness;
   transform_spin_assume = !cl_transform_no_spin_assume;
   transform_loop_unroll = cl_transform_loop_unroll;
   print_progress = cl_print_progress || cl_print_progress_estimate;
   print_progress_estimate = cl_print_progress_estimate;
   debug_print_on_reset = cl_debug_print_on_reset;
+  sat_solver = cl_sat;
   argv.resize(1);
   argv[0] = get_default_program_name();
   for(std::string a : cl_program_arguments){
@@ -201,10 +215,6 @@ void Configuration::check_commandline(){
         << "WARNING: --unroll ignored in absence of --transform.\n";
     }
   }
-  if (cl_observers && cl_dpor_algorithm != Configuration::OPTIMAL) {
-    Debug::warn("Configuration::check_commandline:observers")
-      << "WARNING: --observers requires --optimal.\n";
-  }
   /* Check commandline switch compatibility with memory model. */
   {
     std::string mm;
@@ -231,12 +241,19 @@ void Configuration::check_commandline(){
           << "WARNING: --robustness ignored under memory model " << mm << ".\n";
       }
     }
-    if (cl_dpor_algorithm == Configuration::OPTIMAL
+    if ((cl_dpor_algorithm == Configuration::OPTIMAL
+         || cl_dpor_algorithm == Configuration::OBSERVERS)
         && cl_memory_model != Configuration::SC
         && cl_memory_model != Configuration::TSO) {
       Debug::warn("Configuration::check_commandline:dpor:mm")
         << "WARNING: Optimal-DPOR not implemented for memory model " << mm << ".\n";
     }
+    if (cl_dpor_algorithm == Configuration::READS_FROM
+        && cl_memory_model != Configuration::SC) {
+      Debug::warn("Configuration::check_commandline:dpor:mm")
+        << "WARNING: Optimal Reads-From-SMC not implemented for memory model " << mm << ".\n";
+    }
+
     if (cl_c11 && cl_memory_model != Configuration::SC) {
       Debug::warn("Configuration::check_commandline:c11:mm")
         << "WARNING: --c11 is not yet implemented for memory model " << mm << ".\n";
@@ -249,4 +266,12 @@ void Configuration::check_commandline(){
       << "WARNING: The race detector for --c11 is not yet implemented."
       << " Bugs might be missed or cause nondeterminism.\n";
   }
+}
+
+std::unique_ptr<SatSolver> Configuration::get_sat_solver() const {
+  switch (sat_solver) {
+  case SMTLIB:
+    return std::make_unique<SmtlibSatSolver>();
+  }
+  abort();
 }

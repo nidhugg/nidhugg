@@ -98,7 +98,7 @@ private:
 };
 
 template<>
-class VClock<int> {
+class VClock<int> final {
 public:
   /* Create a vector clock where each clock is initialized to 0. */
   VClock();
@@ -112,6 +112,7 @@ public:
   VClock(const std::vector<int> &m);
   /* Create a vector clock which is a copy of vc. */
   VClock(const VClock<int> &vc);
+  VClock(VClock<int> &&vc);
   /* Create a vector clock that is a translation of vc, where the
    * clock of t[i] is initialized to vc[i]. The clocks of all d which
    * do not occur in t are initialized to 0.
@@ -127,18 +128,31 @@ public:
   VClock(const std::initializer_list<int> &il);
   virtual ~VClock();
   VClock &operator=(const VClock<int> &vc);
+  VClock &operator=(VClock<int> &&vc);
   /* A vector clock v such that the clock of d in v takes the value
    * max((*this)[d],vc[d]) for all d.
    */
   VClock operator+(const VClock<int> &vc) const;
   /* Assign this vector clock to (*this + vc). */
   VClock &operator+=(const VClock<int> &vc);
+  /* A vector clock v such that the clock of d in v takes the value
+   * min((*this)[d],vc[d]) for all d.
+   */
+  VClock operator-(const VClock<int> &vc) const;
+  /* Assign this vector clock to (*this - vc). */
+  VClock &operator-=(const VClock<int> &vc);
   /* The value of the clock of d. */
   int operator[](int d) const;
   int &operator[](int d);
 
   /* Returns the number of processes with non-zero clocks. */
   int get_nonzero_count() const;
+
+  /* Returns the length of the shortest prefix that includes the last
+   * nonzero element.
+   */
+  std::size_t size() const;
+  std::size_t size_ub() const { return vec.size(); }
 
   bool includes(const IID<int> &iid) const {
     return iid.get_index() <= (*this)[iid.get_pid()];
@@ -166,6 +180,42 @@ public:
   std::string to_string() const;
 private:
   std::vector<int> vec;
+};
+
+class VClockVec final {
+public:
+  VClockVec() : clock_size(0) {}
+  VClockVec(unsigned clock_size, std::size_t size)
+    : vec(clock_size*size), clock_size(clock_size) {}
+  class Ref final {
+    friend class VClockVec;
+    Ref(int* base, unsigned size) : base(base), _size(size) {}
+    int* base;
+    unsigned _size;
+  public:
+    Ref &operator=(const VClock<int> vc);
+    /* Assign this vector clock to (*this - vc). */
+    Ref &operator-=(const Ref vc);
+    unsigned size() const { return _size; }
+    int operator[](int d) const { assert(d >= 0 && unsigned(d) < _size); return base[d]; };
+    int &operator[](int d) { assert(d >= 0 && unsigned(d) < _size); return base[d]; };
+
+    /* *** Partial order comparisons ***
+     *
+     * A vector clock u is considered strictly less than a vector clock
+     * v iff for all d in DOM, it holds that u[d] <= v[d], and there is
+     * at least one d such that u[d] < v[d].
+     */
+    bool lt(const Ref vc) const;
+  };
+  Ref operator[](int d) {
+    assert (d >= 0 && (std::size_t(d)+1)*clock_size <= vec.size());
+    return { vec.data() + (d*clock_size), clock_size };
+  }
+  void assign(unsigned clock_size, std::size_t count, const VClock<int> &init);
+private:
+  std::vector<int> vec;
+  unsigned clock_size;
 };
 
 template<typename DOM>

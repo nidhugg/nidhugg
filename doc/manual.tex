@@ -272,20 +272,30 @@ int main(int argc, char *argv[]){
 %
   Analyze the test case under the SC, TSO, PSO, POWER or ARM memory
   model respectively.
-\item{\texttt{--source/--optimal}}
+\item{\texttt{--source/--optimal/--observers/--rf}}
 %
-  Use the Source or Optimal DPOR algorithm for analysis, respectively.
-  Optimal DPOR guarantees no redundant (sleep set blocked) executions,
-  at the cost of some runtime overhead and a larger worst-case memory
-  complexity.
+  Use the Source DPOR, Optimal-DPOR, Optimal-DPOR with Observers, or Optimal
+  Reads-From-centric SMC algorithm for analysis, respectively.
+  %
+  Optimal DPOR guarantees no redundant (sleep set blocked) executions, at the
+  cost of some runtime overhead and a larger worst-case memory complexity.
 %
-  \textbf{Optimal-DPOR is supported only for the SC memory model.}
-\item{\texttt{--observers}}
+  Observers additionally uses the observers optimisation; not considering two
+  memory writes to the same address to be racing unless the result is read.
 %
-  Use the observers optimisation; not considering two memory writes to
-  the same address to be racing unless the result is read.
+  Reads-from-centric SMC semantically strengthens Observers, in the sense that
+  it always needs at most as many traces as Observers. However, RF-SMC is a
+  significantly different algorithm. Rather than focusing on the ordering of
+  racing, or otherwise dependent, operations, RF-SMC only concerns itself with
+  which read operations read which write operations. Due to optimality of such
+  an approach requiring solving NP-hard decision problems, in general, RF-SMC
+  relies on a heuristic for performance. If the heuristic fails, it falls back
+  to a slower decision procedure and performance might suffer, but we have not
+  been able to observe this happening in practice.
 %
-  Requires Optimal-DPOR (\texttt{--optimal}).
+  \textbf{Optimal-DPOR, Optimal-DPOR with Observers, and Optimal
+    Reads-From-centric SMC algorithms are supported only for the SC memory
+    model.}
 \item{\texttt{--robustness}}
 %
   Perform a robustness analysis. In addition to considering the usual

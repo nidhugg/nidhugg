@@ -1,0 +1,58 @@
+# Results of run nidhugg "count-weak-trace" on all C tests.
+# Nidhugg 0.2 (e27cc312, Release, with LLVM-5.0.2:Release)
+# nidhuggc --sc TEST.c 
+# The tests where executed using test-nidhugg.py.
+# Date: 180723-17:16
+
+n_writers_a_reader_1 Forbid : 2
+n_writers_a_reader_2 Forbid : 3
+n_writers_a_reader_3 Forbid : 4
+n_writers_a_reader_4 Forbid : 5
+n_writes_a_read_two_threads_1 Forbid : 3
+n_writes_a_read_two_threads_2 Forbid : 5
+n_writes_a_read_two_threads_3 Forbid : 7
+n_writes_a_read_two_threads_4 Forbid : 9
+readers_1 Forbid : 2
+readers_2 Forbid : 4
+readers_3 Forbid : 8
+readers_4 Forbid : 16
+redundant_co_1 Forbid : 7
+redundant_co_2 Forbid : 19
+redundant_co_3 Forbid : 37
+redundant_co_4 Forbid : 61
+lastzero_1 Forbid : 2
+lastzero_2 Forbid : 5
+lastzero_3 Forbid : 12
+lastzero_4 Forbid : 28
+fib_one_variable_1 Forbid : 31
+fib_bench_true_1 Forbid : 11
+fib_true_too_few Forbid : 5
+fib_true_sw_too_few Forbid : 25
+fib_true_sw_too_many Forbid : 13
+pthread-demo-xchg Forbid : 58
+rmw_test1 Forbid : 1
+opt_lock_2 Forbid : 19
+opt_lock_3 Forbid : 31
+sigma_false_3 Forbid : 12
+sigma_false_4 Forbid : 64
+parker_2 Forbid : 97
+cmpxhg_test_3 Forbid : 5
+mutex_deadlock_2 Forbid : 2
+mutex_deadlock_3 Forbid : 3
+mutex_deadlock_one Forbid : 5
+mutex_deadlock_one_first Forbid : 5
+mutex_hard Forbid : 4
+# mutex_lock_before_init Allow : 2
+# mutex_lock_before_init_first Allow : 2
+mutex_order_2 Forbid : 2
+mutex_order_3 Forbid : 6
+# mutex_racy_destroy Allow : 2
+# mutex_racy_destroy_first Allow : 2
+mutex_trylock_deadlock Forbid : 6
+mutex_trylock_unlock Forbid : 24
+mutex_vs_trylock_1 Forbid : 3
+mutex_vs_trylock_2 Forbid : 16
+rmw_test2 Forbid : 300
+fib_bench_true_2 Forbid : 140
+# Total number of traces: 1116
+# Total running time: 9.51 s

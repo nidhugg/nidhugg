@@ -30,6 +30,7 @@
 #include "StrModule.h"
 #include "TSOInterpreter.h"
 #include "TSOTraceBuilder.h"
+#include "RFSCTraceBuilder.h"
 
 #include <fstream>
 #include <stdexcept>
@@ -198,7 +199,11 @@ DPORDriver::Result DPORDriver::run(){
 
   switch(conf.memory_model){
   case Configuration::SC:
-    TB = new TSOTraceBuilder(conf);
+    if(conf.dpor_algorithm != Configuration::READS_FROM){
+      TB = new TSOTraceBuilder(conf);
+    }else{
+      TB = new RFSCTraceBuilder(conf);
+    }
     break;
   case Configuration::TSO:
     TB = new TSOTraceBuilder(conf);
@@ -245,7 +250,8 @@ DPORDriver::Result DPORDriver::run(){
     if((computation_count+1) % 1000 == 0){
       reparse();
     }
-    bool t_used, assume_blocked = false;
+    bool t_used = false;
+    bool assume_blocked = false;
     Trace *t = run_once(*TB, assume_blocked);
     if(t && conf.debug_collect_all_traces){
       res.all_traces.push_back(t);

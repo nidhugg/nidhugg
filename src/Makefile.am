@@ -24,19 +24,26 @@ libnidhugg_a_SOURCES = \
   POWERExecution.cpp \
   POWERInterpreter.cpp POWERInterpreter.h \
   POWERARMTraceBuilder.cpp POWERARMTraceBuilder.tcc POWERARMTraceBuilder.h POWERARMTraceBuilder_decl.h \
+  PrefixHeuristic.h PrefixHeuristic.cpp \
   PSOInterpreter.cpp PSOInterpreter.h \
   PSOTraceBuilder.cpp PSOTraceBuilder.h \
+  SaturatedGraph.h SaturatedGraph.cpp \
   SigSegvHandler.cpp SigSegvHandler.h \
+  SatSolver.h \
+  SExpr.h SExpr.cpp \
+  SmtlibSatSolver.h SmtlibSatSolver.cpp \
   SpinAssumePass.cpp SpinAssumePass.h \
   StrModule.cpp StrModule.h \
   SymEv.cpp SymEv.h \
   SymAddr.cpp SymAddr.h \
+  Timing.cpp Timing.h \
   Trace.cpp Trace.h \
   TraceBuilder.cpp TraceBuilder.h \
   Transform.cpp Transform.h \
   TSOInterpreter.cpp TSOInterpreter.h \
   TSOPSOTraceBuilder.h \
   TSOTraceBuilder.cpp TSOTraceBuilder.h \
+  RFSCTraceBuilder.cpp RFSCTraceBuilder.h \
   VClock.cpp VClock.h VClock.tcc \
   vecset.h vecset.tcc
 libnidhugg_a_CXXFLAGS = -fno-rtti
@@ -44,8 +51,9 @@ libnidhugg_a_CXXFLAGS = -fno-rtti
 EXTRA_PROGRAMS = nidhuggc
 bin_PROGRAMS = nidhugg @NIDHUGGCBIN@
 nidhugg_SOURCES = main.cpp
-nidhugg_LDADD = libnidhugg.a
-nidhugg_CXXFLAGS = -fno-rtti
+nidhugg_LDADD = libnidhugg.a @BOOST_SYSTEM_LIB@
+nidhugg_LDFLAGS = -pthread @BOOST_LDFLAGS@
+nidhugg_CXXFLAGS = -fno-rtti @BOOST_CPPFLAGS@
 nidhuggc_SOURCES = nidhuggc.py
 
 TESTS = unittest
@@ -74,7 +82,9 @@ unittest_SOURCES = \
   VClock_CPid_test.cpp \
   VClock_int_test.cpp \
   unittest.cpp
-unittest_LDADD=@BOOST_UNIT_TEST_FRAMEWORK_LIB@ libnidhugg.a
+unittest_LDADD=libnidhugg.a @BOOST_SYSTEM_LIB@ @BOOST_UNIT_TEST_FRAMEWORK_LIB@
+unittest_LDFLAGS=-pthread @BOOST_LDFLAGS@
+unittest_CXXFLAGS=@BOOST_CPPFLAGS@
 
 
 ## Run only the tests matching UTEST. Default: all.
@@ -82,14 +92,22 @@ unittest_LDADD=@BOOST_UNIT_TEST_FRAMEWORK_LIB@ libnidhugg.a
 ## $ make test UTEST='some filter'
 UTEST ?=
 
-.PHONY: test valtest
+.PHONY: test valtest litmus mustpass
 BOOSTTESTFLAGS=--report_level=short --log_level=warning
-test: unittest
+test: run_unittest smoke_test
+run_unittest: unittest
 	./unittest $(BOOSTTESTFLAGS) `test -z "$(UTEST)" || echo "--run_test=$(UTEST)"`
 
 valtest: unittest
 	valgrind --leak-check=full ./unittest $(BOOSTTESTFLAGS) --show_progress \
 		`test -z "$(UTEST)" || echo "--run_test=$(UTEST)"`
+litmus_test: nidhugg$(EXEEXT) nidhuggc$(EXEEXT)
+	cd $(top_builddir)/tests/litmus && \
+	python3 ./test-nidhugg.py --nidhuggc=$(CURDIR)/nidhuggc all
+
+smoke_test: nidhugg$(EXEEXT) nidhuggc$(EXEEXT)
+	cd $(top_builddir)/tests/smoke && \
+	python3 ./test-nidhugg.py --nidhuggc=$(CURDIR)/nidhuggc all
 
 nidhuggc$(EXEEXT): $(srcdir)/nidhuggc.py
 	$(AM_V_GEN)cat $(srcdir)/nidhuggc.py \

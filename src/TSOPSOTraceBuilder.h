@@ -126,6 +126,11 @@ public:
    * memory updates under non-SC memory models.
    */
   virtual void atomic_store(const SymData &ml) = 0;
+  /* Perform an atomic read-modify-write to ml. */
+  virtual void atomic_rmw(const SymData &ml) {
+    load(ml.get_ref());
+    atomic_store(ml);
+  }
   /* Perform a compare-exchange to sd.get_ref().
    *
    * success is true iff ml.get_ref() contained the value of expected.

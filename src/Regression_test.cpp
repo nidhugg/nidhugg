@@ -130,8 +130,7 @@ BOOST_AUTO_TEST_CASE(Eratosthenes4){
   TEST_CASE_CHECK_SKIP();
   /* Regression test for "TSOTraceBuilder: Fix obs_sleep_wake edge case" */
   Configuration conf = DPORDriver_test::get_sc_conf();
-  conf.dpor_algorithm = Configuration::OPTIMAL;
-  conf.observers = true;
+  conf.dpor_algorithm = Configuration::OBSERVERS;
   std::string module = StrModule::portasm(R"(
 %attr_t = type { i64, [48 x i8] }
 
