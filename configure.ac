@@ -1085,6 +1085,7 @@ if test "x$CXX" = "xclang" || test "x$CXX" = "xclang++" ; then
   fi
 fi
 
+AM_EXTRA_RECURSIVE_TARGETS([test run_unittest valtest litmus_test smoke_test])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
   Makefile

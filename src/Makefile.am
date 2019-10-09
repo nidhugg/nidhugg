@@ -94,7 +94,8 @@ UTEST ?=
 
 .PHONY: test valtest litmus mustpass
 BOOSTTESTFLAGS=--report_level=short --log_level=warning
-test: unittest
+test: run_unittest smoke_test
+run_unittest: unittest
 	./unittest $(BOOSTTESTFLAGS) `test -z "$(UTEST)" || echo "--run_test=$(UTEST)"`
 
 valtest: unittest
