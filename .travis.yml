@@ -36,9 +36,16 @@ _bionic-clang-env-conf:
 matrix:
   include:
     - <<: *xenial
+      addons:
+        apt:
+          packages:
+            - *baseline-packages
+            - llvm-3.8-dev
+            - clang-3.8
       env:
-        - *xenial-clang-env
-        - LLVM_VERSION=3.8.1  # default on Debian stretch - does NOT work yet
+        - DOWNLOAD_BOOST=1.64.0
+        - CONFIGURE_FLAGS="--with-llvm=/usr/lib/llvm-3.8/ --with-boost=`pwd`/cache/boost"
+      compiler: clang # Not working with GCC
     - <<: *xenial
       env:
         - *xenial-clang-env
