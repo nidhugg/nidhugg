@@ -68,7 +68,7 @@ before_script:
   - ./travis/install_deps.sh
   - export LLVM_DIR=$PWD/cache/clang+llvm-$LLVM_VERSION
   - export PATH=$LLVM_DIR/bin:$PATH
-  - export LD_LIBRARY_PATH="$LLVM_DIR/lib $PWD/cache/boost/lib"
+  - export LD_LIBRARY_PATH="$LLVM_DIR/lib:$PWD/cache/boost/lib"
   - autoreconf --install
   - ./configure CXXFLAGS="-I"`pwd`"/deps/immer/" $CONFIGURE_FLAGS || (cat config.log; false)
   - make -Csrc -j6 all unittest

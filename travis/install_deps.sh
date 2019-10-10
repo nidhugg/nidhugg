@@ -71,7 +71,7 @@ if [ -n "$DOWNLOAD_BOOST" ]; then
         pushd $BOOST_DIR
 
         echo "Building Boost"
-        ./bootstrap.sh --prefix=../cache/boost --with-libraries=test,system
+        ./bootstrap.sh --prefix=../cache/boost --with-libraries=test,system,timer
         ./b2 -j6 -d0
         ./b2 install -d0
 
