@@ -35,28 +35,26 @@ _bionic-clang-env-conf:
 
 matrix:
   include:
-    ## Immer dependency is currently incompatible with libstdc++ on the
-    ## following builds:
-    # - <<: *xenial
-    #   env:
-    #     - *xenial-clang-env
-    #     - LLVM_VERSION=3.8.1  # default on Debian stretch - does NOT work yet
-    # - <<: *xenial
-    #   env:
-    #     - *xenial-clang-env
-    #     - LLVM_VERSION=3.9.1
-    # - <<: *xenial
-    #   env:
-    #     - *xenial-clang-env
-    #     - LLVM_VERSION=4.0.0
-    # - <<: *xenial
-    #   env:
-    #     - *xenial-clang-env
-    #     - LLVM_VERSION=5.0.2
-    # - <<: *xenial
-    #   env:
-    #     - *xenial-clang-env
-    #     - LLVM_VERSION=6.0.1
+    - <<: *xenial
+      env:
+        - *xenial-clang-env
+        - LLVM_VERSION=3.8.1  # default on Debian stretch - does NOT work yet
+    - <<: *xenial
+      env:
+        - *xenial-clang-env
+        - LLVM_VERSION=3.9.1
+    - <<: *xenial
+      env:
+        - *xenial-clang-env
+        - LLVM_VERSION=4.0.0
+    - <<: *xenial
+      env:
+        - *xenial-clang-env
+        - LLVM_VERSION=5.0.2
+    - <<: *xenial
+      env:
+        - *xenial-clang-env
+        - LLVM_VERSION=6.0.1
     - <<: *bionic
       env:
         - *bionic-clang-env
