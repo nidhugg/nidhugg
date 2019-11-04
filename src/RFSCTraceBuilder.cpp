@@ -43,7 +43,7 @@ static Timing::Context ponder_mutex_context("ponder_mutex");
 static Timing::Context graph_context("graph");
 static Timing::Context sat_context("sat");
 
-RFSCTraceBuilder::RFSCTraceBuilder(const Configuration &conf) : TSOPSOTraceBuilder(conf) {
+RFSCTraceBuilder::RFSCTraceBuilder(std::vector<DecisionNode> &decisions_, const Configuration &conf) : TSOPSOTraceBuilder(conf), decisions(decisions_) {
   threads.push_back(Thread(CPid(), -1));
   prefix_idx = -1;
   replay = false;
@@ -220,6 +220,7 @@ bool RFSCTraceBuilder::reset(){
     auto &siblings = decisions.back().siblings;
     for (auto it = siblings.begin(); it != siblings.end();) {
       if (it->second.is_bottom()) {
+        // this is not realisable and can be moved to sleepset
         decisions.back().sleep.emplace(std::move(it->first));
         it = siblings.erase(it);
       } else {
@@ -237,7 +238,7 @@ bool RFSCTraceBuilder::reset(){
   }
 
   /* Insert current event in sleep */
-  for (unsigned i = 0;; ++i) {
+  for (unsigned i = 0;; ++i) { // TODO: remove?
     if (prefix[i].decision == int(decisions.size()-1)) {
       assert(!prefix[i].pinned);
       /* Icky performance hack to work around dreadful performance of
@@ -901,7 +902,7 @@ void RFSCTraceBuilder::compute_unfolding() {
   }
 }
 
-std::shared_ptr<RFSCTraceBuilder::UnfoldingNode> RFSCTraceBuilder::
+std::shared_ptr<UnfoldingNode> RFSCTraceBuilder::
 find_unfolding_node(IPid p, int index, Option<int> prefix_rf) {
   UnfoldingNodeChildren *parent_list;
   const std::shared_ptr<UnfoldingNode> null_ptr;
@@ -921,7 +922,7 @@ find_unfolding_node(IPid p, int index, Option<int> prefix_rf) {
   return find_unfolding_node(*parent_list, *parent, *read_from);
 }
 
-std::shared_ptr<RFSCTraceBuilder::UnfoldingNode> RFSCTraceBuilder::
+std::shared_ptr<UnfoldingNode> RFSCTraceBuilder::
 find_unfolding_node(UnfoldingNodeChildren &parent_list,
                     const std::shared_ptr<UnfoldingNode> &parent,
                     const std::shared_ptr<UnfoldingNode> &read_from) {
@@ -948,7 +949,7 @@ find_unfolding_node(UnfoldingNodeChildren &parent_list,
   return c;
 }
 
-std::shared_ptr<RFSCTraceBuilder::UnfoldingNode> RFSCTraceBuilder::alternative
+std::shared_ptr<UnfoldingNode> RFSCTraceBuilder::alternative
 (unsigned i, const std::shared_ptr<UnfoldingNode> &read_from) {
   std::shared_ptr<UnfoldingNode> &parent = prefix[i].event->parent;
   UnfoldingNodeChildren *parent_list;
@@ -1296,7 +1297,8 @@ void RFSCTraceBuilder::compute_prefixes() {
           prefix[i].pinned = true;
 
           Leaf solution = try_sat({unsigned(j)}, writes_by_address);
-          decision.siblings.emplace(alt, std::move(solution));
+          decision.siblings.emplace(alt, std::move(solution)); // TODO: add this to wq (if solution != bottom)
+          // TODO: decision.add_to_wq ... 
 
           /* Reset decision */
           prefix[i].decision = prefix[j].decision;
@@ -1546,7 +1548,7 @@ const SaturatedGraph &RFSCTraceBuilder::get_cached_graph(unsigned i) {
   return g;
 }
 
-RFSCTraceBuilder::Leaf
+Leaf
 RFSCTraceBuilder::try_sat
 (std::initializer_list<unsigned> changed_events,
  std::map<SymAddr,std::vector<int>> &writes_by_address){
@@ -1627,7 +1629,7 @@ RFSCTraceBuilder::try_sat
                        std::move(g));
 }
 
-RFSCTraceBuilder::Leaf RFSCTraceBuilder::order_to_leaf
+Leaf RFSCTraceBuilder::order_to_leaf
 (int decision, std::initializer_list<unsigned> changed,
  const std::vector<unsigned> order, SaturatedGraph g) const{
   std::vector<Branch> new_prefix;

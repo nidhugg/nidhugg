@@ -34,9 +34,52 @@
 
 static unsigned unf_ctr = 0;
 
+struct UnfoldingNode;
+typedef llvm::SmallVector<std::weak_ptr<UnfoldingNode>,1> UnfoldingNodeChildren;
+struct UnfoldingNode {
+public:
+  UnfoldingNode(std::shared_ptr<UnfoldingNode> parent,
+                std::shared_ptr<UnfoldingNode> read_from)
+    : parent(std::move(parent)), read_from(std::move(read_from)),
+      seqno(++unf_ctr) {};
+  std::shared_ptr<UnfoldingNode> parent, read_from;
+  UnfoldingNodeChildren children;
+  unsigned seqno;
+  };
+
+struct Branch {
+public:
+  Branch(int pid, int size, int decision, bool pinned, SymEv sym)
+    : pid(pid), size(size), decision(decision), pinned(pinned),
+      sym(std::move(sym)) {}
+  Branch() : Branch(-1, 0, -1, false, {}) {}
+  int pid, size, decision;
+  bool pinned;
+  SymEv sym;
+};
+
+struct Leaf {
+public:
+  /* Construct a bottom-leaf. */
+  Leaf() : prefix() {}
+  /* Construct a prefix leaf. */
+  Leaf(std::vector<Branch> prefix) : prefix(prefix) {}
+  std::vector<Branch> prefix;
+
+  bool is_bottom() const { return prefix.empty(); }
+};
+
+struct DecisionNode {
+public:
+  DecisionNode() : siblings() {}
+  std::unordered_map<std::shared_ptr<UnfoldingNode>, Leaf> siblings;
+  std::unordered_set<std::shared_ptr<UnfoldingNode>> sleep;
+  SaturatedGraph graph_cache;
+};
+
 class RFSCTraceBuilder final : public TSOPSOTraceBuilder{
 public:
-  RFSCTraceBuilder(const Configuration &conf = Configuration::default_conf);
+  RFSCTraceBuilder(std::vector<DecisionNode> &decisions_, const Configuration &conf = Configuration::default_conf);
   virtual ~RFSCTraceBuilder();
   virtual bool schedule(int *proc, int *aux, int *alt, bool *dryrun);
   virtual void refuse_schedule();
@@ -110,50 +153,7 @@ protected:
     Access(Type t, const void *m) : type(t), ml(m) {};
   };
 
-  struct UnfoldingNode;
-  typedef llvm::SmallVector<std::weak_ptr<UnfoldingNode>,1> UnfoldingNodeChildren;
-  struct UnfoldingNode {
-  public:
-    UnfoldingNode(std::shared_ptr<UnfoldingNode> parent,
-                  std::shared_ptr<UnfoldingNode> read_from)
-      : parent(std::move(parent)), read_from(std::move(read_from)),
-        seqno(++unf_ctr) {};
-    std::shared_ptr<UnfoldingNode> parent, read_from;
-    UnfoldingNodeChildren children;
-    unsigned seqno;
-  };
-
-  struct Branch {
-  public:
-    Branch(int pid, int size, int decision, bool pinned, SymEv sym)
-      : pid(pid), size(size), decision(decision), pinned(pinned),
-        sym(std::move(sym)) {}
-    Branch() : Branch(-1, 0, -1, false, {}) {}
-    int pid, size, decision;
-    bool pinned;
-    SymEv sym;
-  };
-
-  struct Leaf {
-  public:
-    /* Construct a bottom-leaf. */
-    Leaf() : prefix() {}
-    /* Construct a prefix leaf. */
-    Leaf(std::vector<Branch> prefix) : prefix(prefix) {}
-    std::vector<Branch> prefix;
-
-    bool is_bottom() const { return prefix.empty(); }
-  };
-
-  struct DecisionNode {
-  public:
-    DecisionNode() : siblings() {}
-    std::unordered_map<std::shared_ptr<UnfoldingNode>, Leaf> siblings;
-    std::unordered_set<std::shared_ptr<UnfoldingNode>> sleep;
-    SaturatedGraph graph_cache;
-  };
-
-  /* Various information about a thread in the current execution. */
+    /* Various information about a thread in the current execution. */
   class Thread{
   public:
     Thread(const CPid &cpid, int spawn_event)
@@ -175,7 +175,7 @@ protected:
     int last_event_index() const { return event_indices.size(); }
   };
 
-  std::map<CPid,UnfoldingNodeChildren> first_events;
+  std::map<CPid,UnfoldingNodeChildren> first_events; // TODO
 
   /* The threads in the current execution, in the order they were
    * created. Threads on even indexes are real, threads on odd indexes
@@ -327,7 +327,7 @@ protected:
   std::vector<Event> prefix;
   VClockVec below_clocks;
 
-  std::vector<DecisionNode> decisions;
+  std::vector<DecisionNode> &decisions; // TODO
 
   /* The index into prefix corresponding to the last event that was
    * scheduled. Has the value -1 when no events have been scheduled.
