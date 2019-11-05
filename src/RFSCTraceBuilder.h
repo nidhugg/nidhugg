@@ -27,25 +27,13 @@
 #include "WakeupTrees.h"
 #include "Option.h"
 #include "SaturatedGraph.h"
+#include "RFSCUnfoldingTree.h"
 
 #include <unordered_map>
 #include <unordered_set>
 #include <boost/container/flat_map.hpp>
 
-static unsigned unf_ctr = 0;
 
-struct UnfoldingNode;
-typedef llvm::SmallVector<std::weak_ptr<UnfoldingNode>,1> UnfoldingNodeChildren;
-struct UnfoldingNode {
-public:
-  UnfoldingNode(std::shared_ptr<UnfoldingNode> parent,
-                std::shared_ptr<UnfoldingNode> read_from)
-    : parent(std::move(parent)), read_from(std::move(read_from)),
-      seqno(++unf_ctr) {};
-  std::shared_ptr<UnfoldingNode> parent, read_from;
-  UnfoldingNodeChildren children;
-  unsigned seqno;
-  };
 
 struct Branch {
 public:
@@ -72,14 +60,16 @@ public:
 struct DecisionNode {
 public:
   DecisionNode() : siblings() {}
-  std::unordered_map<std::shared_ptr<UnfoldingNode>, Leaf> siblings;
-  std::unordered_set<std::shared_ptr<UnfoldingNode>> sleep;
+  std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> siblings;
+  std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> sleep;
   SaturatedGraph graph_cache;
 };
 
 class RFSCTraceBuilder final : public TSOPSOTraceBuilder{
 public:
-  RFSCTraceBuilder(std::vector<DecisionNode> &decisions_, const Configuration &conf = Configuration::default_conf);
+  RFSCTraceBuilder(std::vector<DecisionNode> &decisions_,
+                   RFSCUnfoldingTree &unfolding_tree_,
+                   const Configuration &conf = Configuration::default_conf);
   virtual ~RFSCTraceBuilder();
   virtual bool schedule(int *proc, int *aux, int *alt, bool *dryrun);
   virtual void refuse_schedule();
@@ -175,7 +165,7 @@ protected:
     int last_event_index() const { return event_indices.size(); }
   };
 
-  std::map<CPid,UnfoldingNodeChildren> first_events; // TODO
+  RFSCUnfoldingTree &unfolding_tree;
 
   /* The threads in the current execution, in the order they were
    * created. Threads on even indexes are real, threads on odd indexes
@@ -303,7 +293,7 @@ protected:
     /* Index into decisions. */
     int decision;
     /* The unfolding event corresponding to this executed event. */
-    std::shared_ptr<UnfoldingNode> event;
+    std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> event;
 
     Option<int> read_from;
     /* Symbolic representation of the globally visible operation of this event.
@@ -426,14 +416,20 @@ protected:
   int compute_above_clock(unsigned event);
   /* Assigns unfolding events to all executed steps. */
   void compute_unfolding();
-  std::shared_ptr<UnfoldingNode> find_unfolding_node
+
+  // Extracted into RFSCUnfoldingTree
+  // TODO: Due to too many complicated interactions between modules
+  //  some methods need to be removed after we refactored the code.
+  std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unfold_find_unfolding_node
   (IPid pid, int index, Option<int> read_from);
-  std::shared_ptr<UnfoldingNode> find_unfolding_node
-  (UnfoldingNodeChildren &parent_list,
-   const std::shared_ptr<UnfoldingNode> &parent,
-   const std::shared_ptr<UnfoldingNode> &read_from);
-  std::shared_ptr<UnfoldingNode> alternative
-  (unsigned i, const std::shared_ptr<UnfoldingNode> &read_from);
+  // std::shared_ptr<UnfoldingNode> find_unfolding_node
+  // (UnfoldingNodeChildren &parent_list,
+  //  const std::shared_ptr<UnfoldingNode> &parent,
+  //  const std::shared_ptr<UnfoldingNode> &read_from);
+  std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unfold_alternative
+  (unsigned i, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from);
+  // END TODO
+
   void add_event_to_graph(SaturatedGraph &g, unsigned i) const;
   const SaturatedGraph &get_cached_graph(unsigned i);
   /* Perform planning of future executions. Requires the trace to be

@@ -31,6 +31,7 @@
 #include "TSOInterpreter.h"
 #include "TSOTraceBuilder.h"
 #include "RFSCTraceBuilder.h"
+#include "RFSCUnfoldingTree.h"
 
 #include <fstream>
 #include <stdexcept>
@@ -197,13 +198,14 @@ DPORDriver::Result DPORDriver::run(){
 
   TraceBuilder *TB = nullptr;
   std::vector<DecisionNode> decisions;
+  RFSCUnfoldingTree unfolding_tree;
 
   switch(conf.memory_model){
   case Configuration::SC:
     if(conf.dpor_algorithm != Configuration::READS_FROM){
       TB = new TSOTraceBuilder(conf);
     }else{
-      TB = new RFSCTraceBuilder(decisions, conf); // TODO: pass decisions to trace builder
+      TB = new RFSCTraceBuilder(decisions, unfolding_tree, conf); // TODO: pass decisions to trace builder
     }
     break;
   case Configuration::TSO:
