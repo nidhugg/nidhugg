@@ -33,22 +33,7 @@
 #include <unordered_set>
 #include <boost/container/flat_map.hpp>
 
-// static unsigned unf_ctr = 0;
 
-/*
-struct UnfoldingNode;
-typedef llvm::SmallVector<std::weak_ptr<UnfoldingNode>,1> UnfoldingNodeChildren;
-struct UnfoldingNode {
-public:
-  UnfoldingNode(std::shared_ptr<UnfoldingNode> parent,
-                std::shared_ptr<UnfoldingNode> read_from)
-    : parent(std::move(parent)), read_from(std::move(read_from)),
-      seqno(++unf_ctr) {};
-  std::shared_ptr<UnfoldingNode> parent, read_from;
-  UnfoldingNodeChildren children;
-  unsigned seqno;
-  };
-*/
 
 struct Branch {
 public:
@@ -82,7 +67,9 @@ public:
 
 class RFSCTraceBuilder final : public TSOPSOTraceBuilder{
 public:
-  RFSCTraceBuilder(std::vector<DecisionNode> &decisions_, const Configuration &conf = Configuration::default_conf);
+  RFSCTraceBuilder(std::vector<DecisionNode> &decisions_,
+                   RFSCUnfoldingTree &unfolding_tree_,
+                   const Configuration &conf = Configuration::default_conf);
   virtual ~RFSCTraceBuilder();
   virtual bool schedule(int *proc, int *aux, int *alt, bool *dryrun);
   virtual void refuse_schedule();
@@ -178,10 +165,7 @@ protected:
     int last_event_index() const { return event_indices.size(); }
   };
 
-  // Extracted into RFSCUnfoldingTree
-  // TODO: Remove comments
-  // std::map<CPid,UnfoldingNodeChildren> first_events;
-  static RFSCUnfoldingTree unfolding_tree;
+  RFSCUnfoldingTree &unfolding_tree;
 
   /* The threads in the current execution, in the order they were
    * created. Threads on even indexes are real, threads on odd indexes

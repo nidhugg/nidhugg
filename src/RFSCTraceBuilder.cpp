@@ -43,9 +43,11 @@ static Timing::Context ponder_mutex_context("ponder_mutex");
 static Timing::Context graph_context("graph");
 static Timing::Context sat_context("sat");
 
-RFSCUnfoldingTree RFSCTraceBuilder::unfolding_tree;
-
-RFSCTraceBuilder::RFSCTraceBuilder(std::vector<DecisionNode> &decisions_, const Configuration &conf) : TSOPSOTraceBuilder(conf), decisions(decisions_) {
+RFSCTraceBuilder::RFSCTraceBuilder(std::vector<DecisionNode> &decisions_,
+                                   RFSCUnfoldingTree &unfolding_tree_,
+                                   const Configuration &conf)
+    : decisions(decisions_), unfolding_tree(unfolding_tree_),
+      TSOPSOTraceBuilder(conf) {
   threads.push_back(Thread(CPid(), -1));
   prefix_idx = -1;
   replay = false;

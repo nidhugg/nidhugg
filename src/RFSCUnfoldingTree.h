@@ -58,7 +58,6 @@ public:
   UnfoldingNodeChildren * first_event_parentlist(CPid cpid);
 
 
-// protected:
 
   struct UnfoldingNode {
   public:
