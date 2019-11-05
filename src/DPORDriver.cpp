@@ -195,14 +195,15 @@ Trace *DPORDriver::run_once(TraceBuilder &TB, bool &assume_blocked) const{
 DPORDriver::Result DPORDriver::run(){
   Result res;
 
-  TraceBuilder *TB = 0;
+  TraceBuilder *TB = nullptr;
+  std::vector<DecisionNode> decisions;
 
   switch(conf.memory_model){
   case Configuration::SC:
     if(conf.dpor_algorithm != Configuration::READS_FROM){
       TB = new TSOTraceBuilder(conf);
     }else{
-      TB = new RFSCTraceBuilder(conf);
+      TB = new RFSCTraceBuilder(decisions, conf); // TODO: pass decisions to trace builder
     }
     break;
   case Configuration::TSO:
