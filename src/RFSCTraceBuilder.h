@@ -28,6 +28,7 @@
 #include "Option.h"
 #include "SaturatedGraph.h"
 #include "RFSCUnfoldingTree.h"
+#include "RFSCDecisionTree.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -35,39 +36,10 @@
 
 
 
-struct Branch {
-public:
-  Branch(int pid, int size, int decision, bool pinned, SymEv sym)
-    : pid(pid), size(size), decision(decision), pinned(pinned),
-      sym(std::move(sym)) {}
-  Branch() : Branch(-1, 0, -1, false, {}) {}
-  int pid, size, decision;
-  bool pinned;
-  SymEv sym;
-};
-
-struct Leaf {
-public:
-  /* Construct a bottom-leaf. */
-  Leaf() : prefix() {}
-  /* Construct a prefix leaf. */
-  Leaf(std::vector<Branch> prefix) : prefix(prefix) {}
-  std::vector<Branch> prefix;
-
-  bool is_bottom() const { return prefix.empty(); }
-};
-
-struct DecisionNode {
-public:
-  DecisionNode() : siblings() {}
-  std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> siblings;
-  std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> sleep;
-  SaturatedGraph graph_cache;
-};
 
 class RFSCTraceBuilder final : public TSOPSOTraceBuilder{
 public:
-  RFSCTraceBuilder(std::vector<DecisionNode> &decisions_,
+  RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
                    RFSCUnfoldingTree &unfolding_tree_,
                    const Configuration &conf = Configuration::default_conf);
   virtual ~RFSCTraceBuilder();
@@ -317,7 +289,8 @@ protected:
   std::vector<Event> prefix;
   VClockVec below_clocks;
 
-  std::vector<DecisionNode> &decisions; // TODO
+  RFSCDecisionTree &decision_tree;
+  // std::vector<DecisionNode> &decisions; // TODO
 
   /* The index into prefix corresponding to the last event that was
    * scheduled. Has the value -1 when no events have been scheduled.
