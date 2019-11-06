@@ -1187,7 +1187,10 @@ void RFSCTraceBuilder::compute_prefixes() {
         DecisionNode &decision = decision_tree.get(prefix[i].decision);
         if (decision.siblings.count(alt)) return;
         if (decision.sleep.count(alt)) return;
+        // Allocate UNF to DecisionNode->parent->children
         if (!can_swap_by_vclocks(i, j)) {
+          // Dont know if we need to keep this still
+          // Is this realisable?
           decision.siblings.emplace(alt, Leaf());
           return;
         }
@@ -1199,6 +1202,8 @@ void RFSCTraceBuilder::compute_prefixes() {
         std::swap(prefix[i].decision, prefix[j].decision);
 
         Leaf solution = try_sat({unsigned(j)}, writes_by_address);
+        // If this always realisable?
+        // if it is, add to wq and add into decisiontree
         decision.siblings.emplace(alt, std::move(solution));
 
         /* Reset read-from and decision */
