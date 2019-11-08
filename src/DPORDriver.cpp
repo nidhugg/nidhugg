@@ -197,7 +197,7 @@ DPORDriver::Result DPORDriver::run(){
   Result res;
 
   TraceBuilder *TB = nullptr;
-  std::vector<DecisionNode> decisions;
+  RFSCDecisionTree decision_tree;
   RFSCUnfoldingTree unfolding_tree;
 
   switch(conf.memory_model){
@@ -205,7 +205,7 @@ DPORDriver::Result DPORDriver::run(){
     if(conf.dpor_algorithm != Configuration::READS_FROM){
       TB = new TSOTraceBuilder(conf);
     }else{
-      TB = new RFSCTraceBuilder(decisions, unfolding_tree, conf); // TODO: pass decisions to trace builder
+      TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, conf); // TODO: pass decisions to trace builder
     }
     break;
   case Configuration::TSO:
