@@ -30,6 +30,9 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <mutex>
+#include <condition_variable>
+#include <queue>
 
 
 struct Branch {
@@ -62,6 +65,16 @@ public:
   SaturatedGraph graph_cache;
 };
 
+class WorkQueue {
+public:
+  void push(UNF_LEAF_PAIR const & item);
+  std::shared_ptr<UNF_LEAF_PAIR> wait_and_pop();
+
+private:
+  std::mutex queue_mutex;
+  // std::condition_variable condition;
+  std::queue<std::shared_ptr<UNF_LEAF_PAIR>> q; 
+};
 
 class RFSCDecisionTree final {
 public:
@@ -81,11 +94,10 @@ public:
 
   int new_decision_node();
   SaturatedGraph &get_saturated_graph(unsigned i);
-
+  void add_to_wq();
 protected:
-
+  WorkQueue wq;
   std::vector<DecisionNode> decisions;
-
 };
 
 

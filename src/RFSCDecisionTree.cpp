@@ -20,6 +20,25 @@
 #include "Debug.h"
 #include "RFSCDecisionTree.h"
 
+void WorkQueue::push(UNF_LEAF_PAIR const & item)
+{
+    std::lock_guard<std::mutex> lock(this->queue_mutex);
+    this->q.push(std::make_shared<UNF_LEAF_PAIR>(item));
+    // this->condition.notify_all();
+}
+
+std::shared_ptr<UNF_LEAF_PAIR> WorkQueue::wait_and_pop()
+{
+    std::lock_guard<std::mutex> lock(this->queue_mutex);
+    // this->condition.wait(lock, [&]{ return !this->q.empty();});
+    if (!this->q.empty()) {
+      auto res = this->q.front();
+      this->q.pop();
+      return res;
+    }
+    return std::shared_ptr<UNF_LEAF_PAIR>(nullptr);
+}
+
 void RFSCDecisionTree::prune_decisions(int blame) {
   assert(int(decisions.size()) > blame);
   decisions.resize(blame+1, decisions[0]);
@@ -73,4 +92,8 @@ SaturatedGraph &RFSCDecisionTree::get_saturated_graph(unsigned i) {
     }
   }
   return g;
+}
+
+void RFSCDecisionTree::add_to_wq() {
+    // TODO add note to workqueue and add node in decision tree
 }
