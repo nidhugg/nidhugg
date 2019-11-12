@@ -65,17 +65,6 @@ public:
   SaturatedGraph graph_cache;
 };
 
-class WorkQueue {
-public:
-  void push(UNF_LEAF_PAIR const & item);
-  std::shared_ptr<UNF_LEAF_PAIR> wait_and_pop();
-
-private:
-  std::mutex queue_mutex;
-  // std::condition_variable condition;
-  std::queue<std::shared_ptr<UNF_LEAF_PAIR>> q; 
-};
-
 class RFSCDecisionTree final {
 public:
   RFSCDecisionTree() {};
@@ -94,9 +83,11 @@ public:
 
   int new_decision_node();
   SaturatedGraph &get_saturated_graph(unsigned i);
-  void add_to_wq();
+  void add_node_to_wq(DecisionNode &node);
+  std::shared_ptr<UNF_LEAF_PAIR> get_node_from_wq();
 protected:
-  WorkQueue wq;
+  std::mutex tree_mutex;
+  std::queue<std::shared_ptr<DecisionNode>> work_queue;
   std::vector<DecisionNode> decisions;
 };
 
