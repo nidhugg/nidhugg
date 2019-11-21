@@ -279,21 +279,23 @@ protected:
      */
     int sleep_branch_trace_count;
 
-    int get_decision_depth() const {return true ? decision_depth : -1;};
-    void set_decision_depth(int depth) {decision_depth = depth;};
+    // int get_decision_depth() const {return true ? decision_depth : -1;};
+    // void set_decision_depth(int depth) {decision_depth = depth;};
+    // void set_decision_ptr(std::shared_ptr<DecisionNode> decision) {decision_ptr = decision;};
 
     std::shared_ptr<DecisionNode> decision_ptr;
     
-    // int get_decision_depth() const {
-    //   return decision_ptr ? decision_depth : -1;
-    //   };
-    // void set_decision(std::shared_ptr<DecisionNode> decision) {
-    //   decision_ptr = decision;
-    //   decision_depth = decision->depth;
-    //   };
+    int get_decision_depth() const {
+      return decision_ptr ? decision_depth : -1;
+      };
+    void set_decision(std::shared_ptr<DecisionNode> decision) {
+      decision_ptr = decision;
+      decision_depth = decision ? decision->depth : -1;
+      };
 
 
     void decision_swap(Event &e) {
+      std::swap(decision_ptr, e.decision_ptr);
       std::swap(decision_depth, e.decision_depth);
     };
 

@@ -70,20 +70,44 @@ SaturatedGraph &RFSCDecisionTree::get_saturated_graph(unsigned i) {
   return g;
 }
 
-// std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(std::shared_ptr<DecisionNode> parent) {
-//   return std::make_shared<DecisionNode>( DecisionNode(parent) );
-// }
-
-int RFSCDecisionTree::new_decision_node() {
-  int decision = decisions.size();
-  decisions.emplace_back();
-  return decision;
+std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(std::shared_ptr<DecisionNode> parent) {
+  // int decision_size = decisions.size();
+  // printf("new size\n");
+  // printf("parent: %p\n", parent.get());
+  // printf("parent: %p\tDepth: %d\n", parent, parent->depth);
+  decisions.emplace_back(parent);
+  // printf("emplace\n");
+  // assert(decision_size == decisions.back().depth);
+  // printf("assert\n");
+  return std::make_shared<DecisionNode>( decisions.back() );
 }
+
+// int RFSCDecisionTree::new_decision_node() {
+//   int decision = decisions.size();
+//   decisions.emplace_back();
+//   return decision;
+// }
 
 
 void RFSCDecisionTree::construct_sibling(DecisionNode &decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
   decision.get_siblings().emplace(unf, l);
 }
+
+bool RFSCDecisionTree::work_queue_empty() {
+  // if (decisions.empty() != work_queue.empty()) {
+  //   printf("ERROR:  Decisions and work_queue do not match!\n");
+  //   abort();
+  // }
+  // return work_queue.empty();
+
+  return decisions.empty();
+  }
+
+// void RFSCDecisionTree::add_to_workqueue(std::shared_ptr<DecisionNode> decision, UNFOLD_PTR unf, Leaf l) {
+//   auto node = decision->create_sibling();
+//   node->update(unf, l);
+//   work_queue.push(std::move(node));
+// }
 
 
 /*************************************************************************************************************

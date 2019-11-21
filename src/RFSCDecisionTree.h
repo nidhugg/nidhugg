@@ -30,16 +30,18 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <queue>
 
 struct DecisionNode;
 
 struct Branch {
 public:
-  Branch(int pid, int size, int decision_depth, bool pinned, SymEv sym)
-    : pid(pid), size(size), decision_depth(decision_depth), pinned(pinned),
+  Branch(int pid, int size, std::shared_ptr<DecisionNode> decision, int decision_depth, bool pinned, SymEv sym)
+    : pid(pid), size(size), decision_ptr(decision), decision_depth(decision_depth), pinned(pinned),
       sym(std::move(sym)) {}
-  Branch() : Branch(-1, 0, -1, false, {}) {}
+  Branch() : Branch(-1, 0, nullptr, -1, false, {}) {}
   int pid, size, decision_depth;
+  std::shared_ptr<DecisionNode> decision_ptr;
   bool pinned;
   SymEv sym;
 };
@@ -68,14 +70,16 @@ public:
 };
 
 static size_t decision_count;
+// static std::shared_ptr<DecisionNode> root;
 
 struct DecisionNode {
 public:
-  DecisionNode() : siblings(), depth(-1) {}
-  // DecisionNode(std::shared_ptr<DecisionNode> decision)
-  //       : parent(decision), child_unf(), depth(decision->depth+1) {
-  //     decision_count++;
-  //   };
+  DecisionNode() : parent(nullptr), siblings(), depth(-1) {}
+  DecisionNode(std::shared_ptr<DecisionNode> decision)
+        : parent(decision), depth(decision->depth+1) {
+      decision_count++;
+    };
+  ~DecisionNode() { decision_count--; };
 
   int depth;
 
@@ -95,8 +99,9 @@ public:
 
 protected:
 
+
+
   std::shared_ptr<DecisionNode> parent;
-  std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> child_unf;
 
   std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> siblings;
   std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> sleep;
@@ -107,13 +112,15 @@ protected:
 
 class RFSCDecisionTree final {
 public:
-  RFSCDecisionTree() : root(std::make_shared<DecisionNode>()) {};
+  RFSCDecisionTree() : root(std::make_shared<DecisionNode>()) {
+    // root = std::make_shared<DecisionNode>();
+  };
 
   /* Using the last decision that caused a failure, and then
    * prune all later decisions. */
   void prune_decisions(int blame);
   void clear_unrealizable_siblings();
-  bool empty() {return decisions.empty();};
+  
   size_t size() {return decisions.size();};
   DecisionNode &get(int decision) {return decisions[decision];}
   void place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision);
@@ -124,19 +131,21 @@ public:
 
 
   // Make a new decicion node for this execution
-  int new_decision_node();
-  // std::shared_ptr<DecisionNode> new_decision_node(std::shared_ptr<DecisionNode> parent);
+  // int new_decision_node();
+  std::shared_ptr<DecisionNode> new_decision_node(std::shared_ptr<DecisionNode> parent);
   // Make a new decision node that could operate in parallel
   void construct_sibling(DecisionNode &decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
 
 
   std::shared_ptr<DecisionNode> get_root() {return root;};
+  bool work_queue_empty();
 
 protected:
 
   std::shared_ptr<DecisionNode> root;
 
   std::vector<DecisionNode> decisions;
+  std::queue<std::shared_ptr<DecisionNode>> work_queue;
 
 };
 

@@ -222,7 +222,7 @@ bool RFSCTraceBuilder::reset(){
 
   decision_tree.clear_unrealizable_siblings();
 
-  if(decision_tree.empty()){
+  if(decision_tree.work_queue_empty()){
     /* No more branching is possible. */
     return false;
   }
@@ -267,8 +267,9 @@ bool RFSCTraceBuilder::reset(){
     new_prefix.back().size = b.size;
     new_prefix.back().sym = std::move(b.sym);
     new_prefix.back().pinned = b.pinned;
-    new_prefix.back().set_decision_depth(b.decision_depth);
-    // new_prefix.back().set_decision(b.decision_ptr);
+    new_prefix.back().set_decision(b.decision_ptr);
+    // new_prefix.back().set_decision_depth(b.decision_depth);
+    // new_prefix.back().set_decision_ptr(b.decision_ptr);
     iid_map_step(iid_map, new_prefix.back());
   }
 
@@ -857,9 +858,9 @@ void RFSCTraceBuilder::compute_vclocks(){
 }
 
 void RFSCTraceBuilder::compute_unfolding() {
-  // // Find the deepest node in prefix first
-  // // because the can be found in an undetermined order
-  // auto deepest_node = decision_tree.get_root();
+  // Find the deepest node in prefix first
+  // because the can be found in an undetermined order
+  auto deepest_node = decision_tree.get_root();
   // for (unsigned int i = 0; i < prefix.size(); i++)
   // {
   //   auto last_decision = prefix[i].decision_ptr;
@@ -867,11 +868,27 @@ void RFSCTraceBuilder::compute_unfolding() {
   //     deepest_node = last_decision;
   //   }
   // }
+
+  // for (int i = 0; i < prefix.size(); i++)
+  // {
+  //   printf("i: %d\t decision: %d\t ptr_depth: %d\n",
+  //     i, prefix[i].get_decision_depth(), 
+  //     prefix[i].decision_ptr ? prefix[i].decision_ptr->depth : -9);
+  // }
   
+  // printf("Root: %p\n", deepest_node.get());
 
 
   Timing::Guard timing_guard(unfolding_context);
   for (unsigned i = 0; i < prefix.size(); ++i) {
+    // printf("Deepest decision\n");
+    auto last_decision = prefix[i].decision_ptr;
+    if (last_decision && last_decision->depth > deepest_node->depth) {
+      deepest_node = last_decision;
+    }
+    // printf("Past Deepest decision\n");
+    // printf("Deepest: %p\n", deepest_node.get());
+
     RFSCUnfoldingTree::UnfoldingNodeChildren *parent_list;
     const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> null_ptr;
     const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> *parent;
@@ -898,12 +915,22 @@ void RFSCTraceBuilder::compute_unfolding() {
 
     if (int(i) >= replay_point) {
       if (is_load(i)) {
-        int decision = decision_tree.new_decision_node();
-        prefix[i].set_decision_depth(decision);
-
-        // deepest_node = decision_tree.new_decision_node(deepest_node);
+        // printf("Is_load == true\n");
+        // int decision = decision_tree.new_decision_node();
+        // prefix[i].set_decision_depth(decision);
+        int size = decision_tree.size();
+        // printf("size\n");
+        deepest_node = decision_tree.new_decision_node(deepest_node);
+        prefix[i].set_decision(deepest_node);
+        // // printf("new_decision_node\n");
         // // int decision = decision_tree.new_decision_node();
-        // prefix[i].set_decision(deepest_node);
+        // // if (size != deepest_node->depth) {
+        // //   printf("ERROR: size and depth do not match! Size: %d, Depth: %d\n", size, deepest_node->depth);
+        // //   // abort();
+        // // }
+        // prefix[i].set_decision_depth(size);
+        // prefix[i].set_decision_ptr(deepest_node);
+        // // printf("finished Is_load\n");
       }
     }
   }
@@ -1629,12 +1656,15 @@ Leaf RFSCTraceBuilder::order_to_leaf
                                   [i](unsigned c) { return c == i; });
     bool new_pinned = prefix[i].pinned || (prefix[i].get_decision_depth() > decision);
     int new_decision = prefix[i].get_decision_depth();
+    std::shared_ptr<DecisionNode> new_decision_ptr = prefix[i].decision_ptr;
     if (new_decision > decision) {
       new_pinned = true;
       new_decision = -1;
+      new_decision_ptr = nullptr;
     }
     new_prefix.emplace_back(prefix[i].iid.get_pid(),
                             is_changed ? 1 : prefix[i].size,
+                            new_decision_ptr,
                             new_decision,
                             new_pinned,
                             prefix[i].sym);
