@@ -31,7 +31,7 @@ void RFSCDecisionTree::clear_unrealizable_siblings() {
     for (auto it = siblings.begin(); it != siblings.end();) {
       if (it->second.is_bottom()) {
         // this is not realisable and can be moved to sleepset
-        decisions.back().sleep.emplace(std::move(it->first));
+        decisions.back().sleep_emplace(std::move(it->first));
         it = siblings.erase(it);
       } else {
         ++it;
@@ -44,7 +44,7 @@ void RFSCDecisionTree::clear_unrealizable_siblings() {
 }
 
 void RFSCDecisionTree::place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision) {
-  decisions.back().sleep.emplace(decision);
+  decisions.back().sleep_emplace(decision);
 }
 
 
@@ -56,26 +56,63 @@ void RFSCDecisionTree::erase_sibling(UNF_LEAF_PAIR sit) {
   decisions.back().get_siblings().erase(sit);
 }
 
-int RFSCDecisionTree::new_decision_node() {
-  int decision = decisions.size();
-  decisions.emplace_back();
-  return decision;
-}
 
 SaturatedGraph &RFSCDecisionTree::get_saturated_graph(unsigned i) {
-  SaturatedGraph &g = decisions[i].graph_cache;
+  SaturatedGraph &g = decisions[i].get_saturated_graph();
   if (g.size() || i == 0) return g;
   for (unsigned j = i-1; j != 0; --j) {
-    if (decisions[j].graph_cache.size()) {
+    if (decisions[j].get_saturated_graph().size()) {
       /* Reuse subgraph */
-      g = decisions[j].graph_cache;
+      g = decisions[j].get_saturated_graph();
       break;
     }
   }
   return g;
 }
 
+// std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(std::shared_ptr<DecisionNode> parent) {
+//   return std::make_shared<DecisionNode>( DecisionNode(parent) );
+// }
 
-void DecisionNode::sibling_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
-  siblings.emplace(unf, l);
+int RFSCDecisionTree::new_decision_node() {
+  int decision = decisions.size();
+  decisions.emplace_back();
+  return decision;
+}
+
+
+void RFSCDecisionTree::construct_sibling(DecisionNode &decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
+  decision.get_siblings().emplace(unf, l);
+}
+
+
+/*************************************************************************************************************
+ * 
+ *      DecisionNode
+ * 
+*************************************************************************************************************/
+
+// Decided to move this to DecisionTree
+// void DecisionNode::sibling_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
+//   siblings.emplace(unf, l);
+// }
+
+
+void DecisionNode::sleep_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
+  sleep.emplace(unf);
+}
+
+SaturatedGraph &DecisionNode::get_saturated_graph() {
+  // assert(depth != -1);
+  // SaturatedGraph &g = parent->children_graph_cache;
+  // if (g.size() || depth == 0) {
+  //   return g;
+  // }
+  // return parent->get_graph_cache();
+  return graph_cache;
+}
+
+
+bool DecisionNode::unf_is_known(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf) {
+  return this->get_siblings().count(unf) + this->get_sleep().count(unf);
 }

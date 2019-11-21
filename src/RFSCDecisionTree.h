@@ -31,6 +31,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+struct DecisionNode;
 
 struct Branch {
 public:
@@ -43,6 +44,18 @@ public:
   SymEv sym;
 };
 
+// struct Branch {
+// public:
+//   Branch(int pid, int size, std::shared_ptr<DecisionNode> decision_ptr, int decision_d, bool pinned, SymEv sym)
+//     : pid(pid), size(size), decision_ptr(decision_ptr), decision_depth(decision_d), pinned(pinned),
+//       sym(std::move(sym)) {}
+//   // Branch() : Branch(-1, 0, -1, false, {}) {}
+//   int pid, size, decision_depth;
+//   std::shared_ptr<DecisionNode> decision_ptr;
+//   bool pinned;
+//   SymEv sym;
+// };
+
 struct Leaf {
 public:
   /* Construct a bottom-leaf. */
@@ -54,22 +67,42 @@ public:
   bool is_bottom() const { return prefix.empty(); }
 };
 
+static size_t decision_count;
+
 struct DecisionNode {
 public:
-  DecisionNode() : siblings() {}
-  std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> sleep;
-  SaturatedGraph graph_cache;
+  DecisionNode() : siblings(), depth(-1) {}
+  // DecisionNode(std::shared_ptr<DecisionNode> decision)
+  //       : parent(decision), child_unf(), depth(decision->depth+1) {
+  //     decision_count++;
+  //   };
+
+  int depth;
+
+  bool unf_is_known(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf);
+  
 
   std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> &
-  get_siblings() {
-    return siblings;
-  };
+  get_siblings() {return siblings;};
+  // Decided to move this to DecisionTree
+  // void sibling_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
+  
+  std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> 
+  get_sleep() {return sleep;};
+  void sleep_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
 
-  void sibling_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
+  SaturatedGraph &get_saturated_graph();
 
 protected:
+
+  std::shared_ptr<DecisionNode> parent;
+  std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> child_unf;
+
   std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> siblings;
+  std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> sleep;
+  SaturatedGraph graph_cache;
 };
+
 
 
 class RFSCDecisionTree final {
@@ -87,9 +120,14 @@ public:
 
   UNF_LEAF_PAIR get_next_sibling();
   void erase_sibling(UNF_LEAF_PAIR sit);
-
-  int new_decision_node();
   SaturatedGraph &get_saturated_graph(unsigned i);
+
+
+  // Make a new decicion node for this execution
+  int new_decision_node();
+  // std::shared_ptr<DecisionNode> new_decision_node(std::shared_ptr<DecisionNode> parent);
+  // Make a new decision node that could operate in parallel
+  void construct_sibling(DecisionNode &decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
 
 
   std::shared_ptr<DecisionNode> get_root() {return root;};
