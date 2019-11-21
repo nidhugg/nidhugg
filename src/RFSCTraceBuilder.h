@@ -226,7 +226,7 @@ protected:
     Event(const IID<IPid> &iid, int alt = 0, SymEv sym = {})
       : alt(0), size(1), pinned(false),
       iid(iid), origin_iid(iid), md(0), clock(), may_conflict(false),
-        decision(-1), sym(std::move(sym)), sleep_branch_trace_count(0) {};
+        decision_depth(-1), sym(std::move(sym)), sleep_branch_trace_count(0) {};
     /* Some instructions may execute in several alternative ways
      * nondeterministically. (E.g. malloc may succeed or fail
      * nondeterministically if Configuration::malloy_may_fail is set.)
@@ -262,8 +262,7 @@ protected:
      */
     bool may_conflict;
 
-    /* Index into decisions. */
-    int decision;
+    
     /* The unfolding event corresponding to this executed event. */
     std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> event;
 
@@ -279,6 +278,17 @@ protected:
      * explored traces.
      */
     int sleep_branch_trace_count;
+
+    int get_decision_depth() const {return true ? decision_depth : -1;};
+    void set_decision_depth(int depth) {decision_depth = depth;};
+
+    void decision_swap(Event &e) {
+      std::swap(decision_depth, e.decision_depth);
+    };
+
+  protected:
+    /* Index into decisions. */
+    int decision_depth;
   };
 
   /* The fixed prefix of events in the current execution. This may be

@@ -34,11 +34,11 @@
 
 struct Branch {
 public:
-  Branch(int pid, int size, int decision, bool pinned, SymEv sym)
-    : pid(pid), size(size), decision(decision), pinned(pinned),
+  Branch(int pid, int size, int decision_depth, bool pinned, SymEv sym)
+    : pid(pid), size(size), decision_depth(decision_depth), pinned(pinned),
       sym(std::move(sym)) {}
   Branch() : Branch(-1, 0, -1, false, {}) {}
-  int pid, size, decision;
+  int pid, size, decision_depth;
   bool pinned;
   SymEv sym;
 };
@@ -57,15 +57,24 @@ public:
 struct DecisionNode {
 public:
   DecisionNode() : siblings() {}
-  std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> siblings;
   std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> sleep;
   SaturatedGraph graph_cache;
+
+  std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> &
+  get_siblings() {
+    return siblings;
+  };
+
+  void sibling_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
+
+protected:
+  std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> siblings;
 };
 
 
 class RFSCDecisionTree final {
 public:
-  RFSCDecisionTree() {};
+  RFSCDecisionTree() : root(std::make_shared<DecisionNode>()) {};
 
   /* Using the last decision that caused a failure, and then
    * prune all later decisions. */
@@ -82,7 +91,12 @@ public:
   int new_decision_node();
   SaturatedGraph &get_saturated_graph(unsigned i);
 
+
+  std::shared_ptr<DecisionNode> get_root() {return root;};
+
 protected:
+
+  std::shared_ptr<DecisionNode> root;
 
   std::vector<DecisionNode> decisions;
 

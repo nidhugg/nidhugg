@@ -27,7 +27,7 @@ void RFSCDecisionTree::prune_decisions(int blame) {
 
 void RFSCDecisionTree::clear_unrealizable_siblings() {
   for(; !decisions.empty(); decisions.pop_back()) {
-    auto &siblings = decisions.back().siblings;
+    auto &siblings = decisions.back().get_siblings();
     for (auto it = siblings.begin(); it != siblings.end();) {
       if (it->second.is_bottom()) {
         // this is not realisable and can be moved to sleepset
@@ -49,11 +49,11 @@ void RFSCDecisionTree::place_decision_into_sleepset(const std::shared_ptr<RFSCUn
 
 
 UNF_LEAF_PAIR RFSCDecisionTree::get_next_sibling() {
-  return decisions.back().siblings.begin();
+  return decisions.back().get_siblings().begin();
 }
 
 void RFSCDecisionTree::erase_sibling(UNF_LEAF_PAIR sit) {
-  decisions.back().siblings.erase(sit);
+  decisions.back().get_siblings().erase(sit);
 }
 
 int RFSCDecisionTree::new_decision_node() {
@@ -73,4 +73,9 @@ SaturatedGraph &RFSCDecisionTree::get_saturated_graph(unsigned i) {
     }
   }
   return g;
+}
+
+
+void DecisionNode::sibling_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
+  siblings.emplace(unf, l);
 }
