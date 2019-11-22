@@ -57,18 +57,18 @@ void RFSCDecisionTree::erase_sibling(UNF_LEAF_PAIR sit) {
 }
 
 
-SaturatedGraph &RFSCDecisionTree::get_saturated_graph(unsigned i) {
-  SaturatedGraph &g = decisions[i].get_saturated_graph();
-  if (g.size() || i == 0) return g;
-  for (unsigned j = i-1; j != 0; --j) {
-    if (decisions[j].get_saturated_graph().size()) {
-      /* Reuse subgraph */
-      g = decisions[j].get_saturated_graph();
-      break;
-    }
-  }
-  return g;
-}
+// SaturatedGraph &RFSCDecisionTree::get_saturated_graph(unsigned i) {
+//   SaturatedGraph &g = decisions[i].get_saturated_graph();
+//   if (g.size() || i == 0) return g;
+//   for (unsigned j = i-1; j != 0; --j) {
+//     if (decisions[j].get_saturated_graph().size()) {
+//       /* Reuse subgraph */
+//       g = decisions[j].get_saturated_graph();
+//       break;
+//     }
+//   }
+//   return g;
+// }
 
 std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(std::shared_ptr<DecisionNode> parent) {
   // int decision_size = decisions.size();
@@ -128,11 +128,11 @@ void DecisionNode::sleep_emplace(const std::shared_ptr<RFSCUnfoldingTree::Unfold
 
 SaturatedGraph &DecisionNode::get_saturated_graph() {
   // assert(depth != -1);
-  // SaturatedGraph &g = parent->children_graph_cache;
+  // SaturatedGraph &g = parent->graph_cache;
   // if (g.size() || depth == 0) {
   //   return g;
   // }
-  // return parent->get_graph_cache();
+  // return parent->get_saturated_graph();
   return graph_cache;
 }
 

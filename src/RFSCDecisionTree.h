@@ -127,7 +127,7 @@ public:
 
   UNF_LEAF_PAIR get_next_sibling();
   void erase_sibling(UNF_LEAF_PAIR sit);
-  SaturatedGraph &get_saturated_graph(unsigned i);
+  // SaturatedGraph &get_saturated_graph(unsigned i);
 
 
   // Make a new decicion node for this execution
