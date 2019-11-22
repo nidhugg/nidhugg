@@ -26,21 +26,22 @@ void RFSCDecisionTree::prune_decisions(int blame) {
 }
 
 void RFSCDecisionTree::clear_unrealizable_siblings() {
-  for(; !decisions.empty(); decisions.pop_back()) {
+  do {
     auto &siblings = decisions.back().get_siblings();
     for (auto it = siblings.begin(); it != siblings.end();) {
       if (it->second.is_bottom()) {
-        // this is not realisable and can be moved to sleepset
-        decisions.back().sleep_emplace(std::move(it->first));
-        it = siblings.erase(it);
+        printf("ERROR:  Empty Leaf has entered the siblings set!");
+        abort();
       } else {
         ++it;
       }
     }
     if(!siblings.empty()){
-      break;
+      return;
     }
-  }
+    decisions.back().clear_sleep();
+    decisions.pop_back();
+  } while (!decisions.empty());
 }
 
 void RFSCDecisionTree::place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision) {
@@ -71,14 +72,7 @@ SaturatedGraph &RFSCDecisionTree::get_saturated_graph(unsigned i) {
 }
 
 std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(std::shared_ptr<DecisionNode> parent) {
-  // int decision_size = decisions.size();
-  // printf("new size\n");
-  // printf("parent: %p\n", parent.get());
-  // printf("parent: %p\tDepth: %d\n", parent, parent->depth);
   decisions.emplace_back(parent);
-  // printf("emplace\n");
-  // assert(decision_size == decisions.back().depth);
-  // printf("assert\n");
   return std::make_shared<DecisionNode>( decisions.back() );
 }
 
@@ -121,9 +115,27 @@ bool RFSCDecisionTree::work_queue_empty() {
 //   siblings.emplace(unf, l);
 // }
 
+std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> &
+DecisionNode::get_sleep() {
+  // Should be able to be used when each sibling is its own decisionNode
+  // return parent->sleep;
+  return parent->children_unf_map[this->ID];
+}
+
+
 
 void DecisionNode::sleep_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
-  sleep.emplace(unf);
+  // Should be able to be used when each sibling is its own decisionNode
+  // parent->sleep.emplace(unf);
+  parent->children_unf_map[this->ID].emplace(unf);
+}
+
+void DecisionNode::clear_sleep() {
+  // Should be able to be used when each sibling is its own decisionNode
+  // if (depth >= 0) {
+  //   parent->sleep.clear(); }
+  if (depth >= 0)
+    parent->children_unf_map.erase(this->ID);
 }
 
 SaturatedGraph &DecisionNode::get_saturated_graph() {
@@ -137,6 +149,10 @@ SaturatedGraph &DecisionNode::get_saturated_graph() {
 }
 
 
-bool DecisionNode::unf_is_known(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf) {
-  return this->get_siblings().count(unf) + this->get_sleep().count(unf);
+bool DecisionNode::alloc_unfold_node(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
+  if (parent->children_unf_map[this->ID].count(unf)) {return false;}
+  else {
+    parent->children_unf_map[this->ID].insert(unf);
+    return true;
+  }
 }

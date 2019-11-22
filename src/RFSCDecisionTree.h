@@ -69,21 +69,25 @@ public:
   bool is_bottom() const { return prefix.empty(); }
 };
 
+typedef unsigned int DecisionNodeID;
+
+static DecisionNodeID decision_id;
 static size_t decision_count;
-// static std::shared_ptr<DecisionNode> root;
 
 struct DecisionNode {
 public:
-  DecisionNode() : parent(nullptr), siblings(), depth(-1) {}
+  // Empty constructor should only be used to construct the root
+  DecisionNode() : parent(nullptr), siblings(), depth(-1) { decision_id = 0;}
   DecisionNode(std::shared_ptr<DecisionNode> decision)
-        : parent(decision), depth(decision->depth+1) {
+        : parent(decision), depth(decision->depth+1), ID(++decision_id) {
       decision_count++;
     };
   ~DecisionNode() { decision_count--; };
 
   int depth;
+  unsigned int ID;
 
-  bool unf_is_known(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf);
+  bool alloc_unfold_node(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
   
 
   std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> &
@@ -91,9 +95,9 @@ public:
   // Decided to move this to DecisionTree
   // void sibling_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
   
-  std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> 
-  get_sleep() {return sleep;};
+  std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> &get_sleep();
   void sleep_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
+  void clear_sleep();
 
   SaturatedGraph &get_saturated_graph();
 
@@ -104,7 +108,9 @@ protected:
   std::shared_ptr<DecisionNode> parent;
 
   std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> siblings;
-  std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> sleep;
+  // Should be able to be used when each sibling is its own decisionNode
+  // std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> sleep;
+  std::unordered_map<DecisionNodeID, std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>>> children_unf_map;
   SaturatedGraph graph_cache;
 };
 
