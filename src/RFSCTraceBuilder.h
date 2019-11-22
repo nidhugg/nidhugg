@@ -427,7 +427,7 @@ protected:
   // END TODO
 
   void add_event_to_graph(SaturatedGraph &g, unsigned i) const;
-  const SaturatedGraph &get_cached_graph(unsigned i);
+  const SaturatedGraph &get_cached_graph(std::shared_ptr<DecisionNode> &decision);
   /* Perform planning of future executions. Requires the trace to be
    * maximal or sleepset blocked, and that the vector clocks have been
    * computed.

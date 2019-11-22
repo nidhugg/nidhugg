@@ -1526,8 +1526,9 @@ void RFSCTraceBuilder::add_event_to_graph(SaturatedGraph &g, unsigned i) const {
                              [this](unsigned j){return prefix[j].iid;}));
 }
 
-const SaturatedGraph &RFSCTraceBuilder::get_cached_graph(unsigned i) {
-  SaturatedGraph &g = decision_tree.get_saturated_graph(i);
+const SaturatedGraph &RFSCTraceBuilder::get_cached_graph(std::shared_ptr<DecisionNode> &decision) {
+  SaturatedGraph &g = decision->get_saturated_graph();
+  int i = decision->depth;
   
   std::vector<bool> keep = causal_past(i-1);
   for (unsigned i = 0; i < prefix.size(); ++i) {
@@ -1548,8 +1549,9 @@ RFSCTraceBuilder::try_sat
  std::map<SymAddr,std::vector<int>> &writes_by_address){
   Timing::Guard timing_guard(graph_context);
   unsigned last_change = changed_events.end()[-1];
-  int decision = prefix[last_change].get_decision_depth();
-  std::vector<bool> keep = causal_past(decision);
+  auto decision = prefix[last_change].decision_ptr;
+  int decision_depth = decision->depth;
+  std::vector<bool> keep = causal_past(decision_depth);
 
   SaturatedGraph g(get_cached_graph(decision));
   for (unsigned i = 0; i < prefix.size(); ++i) {
@@ -1579,7 +1581,7 @@ RFSCTraceBuilder::try_sat
     std::vector<unsigned> order = map(*res, [this](IID<int> iid) {
         return find_process_event(iid.get_pid(), iid.get_index());
       });
-    return order_to_leaf(decision, changed_events, std::move(order),
+    return order_to_leaf(decision_depth, changed_events, std::move(order),
                          std::move(g));
   }
 
@@ -1619,7 +1621,7 @@ RFSCTraceBuilder::try_sat
     llvm::dbgs() << "]\n";
   }
 
-  return order_to_leaf(decision, changed_events, std::move(order),
+  return order_to_leaf(decision_depth, changed_events, std::move(order),
                        std::move(g));
 }
 
