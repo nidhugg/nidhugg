@@ -128,7 +128,7 @@ public:
   void clear_unrealizable_siblings();
   
   size_t size() {return decisions.size();};
-  DecisionNode &get(int decision) {return decisions[decision];}
+  std::shared_ptr<DecisionNode> get(int decision) {return decisions[decision];}
   void place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision);
 
   UNF_LEAF_PAIR get_next_sibling();
@@ -140,7 +140,7 @@ public:
   // int new_decision_node();
   std::shared_ptr<DecisionNode> new_decision_node(std::shared_ptr<DecisionNode> parent);
   // Make a new decision node that could operate in parallel
-  void construct_sibling(DecisionNode &decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
+  void construct_sibling(std::shared_ptr<DecisionNode>decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
 
 
   std::shared_ptr<DecisionNode> get_root() {return root;};
@@ -150,7 +150,7 @@ protected:
 
   std::shared_ptr<DecisionNode> root;
 
-  std::vector<DecisionNode> decisions;
+  std::vector<std::shared_ptr<DecisionNode>> decisions;
   std::queue<std::shared_ptr<DecisionNode>> work_queue;
 
 };

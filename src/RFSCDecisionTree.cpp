@@ -27,7 +27,7 @@ void RFSCDecisionTree::prune_decisions(int blame) {
 
 void RFSCDecisionTree::clear_unrealizable_siblings() {
   do {
-    auto &siblings = decisions.back().get_siblings();
+    auto &siblings = decisions.back()->get_siblings();
     for (auto it = siblings.begin(); it != siblings.end();) {
       if (it->second.is_bottom()) {
         printf("ERROR:  Empty Leaf has entered the siblings set!");
@@ -39,22 +39,22 @@ void RFSCDecisionTree::clear_unrealizable_siblings() {
     if(!siblings.empty()){
       return;
     }
-    decisions.back().clear_sleep();
+    decisions.back()->clear_sleep();
     decisions.pop_back();
   } while (!decisions.empty());
 }
 
 void RFSCDecisionTree::place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision) {
-  decisions.back().sleep_emplace(decision);
+  decisions.back()->sleep_emplace(decision);
 }
 
 
 UNF_LEAF_PAIR RFSCDecisionTree::get_next_sibling() {
-  return decisions.back().get_siblings().begin();
+  return decisions.back()->get_siblings().begin();
 }
 
 void RFSCDecisionTree::erase_sibling(UNF_LEAF_PAIR sit) {
-  decisions.back().get_siblings().erase(sit);
+  decisions.back()->get_siblings().erase(sit);
 }
 
 
@@ -72,8 +72,9 @@ void RFSCDecisionTree::erase_sibling(UNF_LEAF_PAIR sit) {
 // }
 
 std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(std::shared_ptr<DecisionNode> parent) {
-  decisions.emplace_back(parent);
-  return std::make_shared<DecisionNode>( decisions.back() );
+  auto decision = std::make_shared<DecisionNode>(parent);
+  decisions.push_back(decision);
+  return decision;
 }
 
 // int RFSCDecisionTree::new_decision_node() {
@@ -83,8 +84,8 @@ std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(std::shared_pt
 // }
 
 
-void RFSCDecisionTree::construct_sibling(DecisionNode &decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
-  decision.get_siblings().emplace(unf, l);
+void RFSCDecisionTree::construct_sibling(std::shared_ptr<DecisionNode>decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
+  decision->get_siblings().emplace(unf, l);
 }
 
 bool RFSCDecisionTree::work_queue_empty() {
