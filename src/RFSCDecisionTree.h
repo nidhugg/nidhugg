@@ -117,6 +117,8 @@ protected:
   // std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> sleep;
   std::unordered_map<DecisionNodeID, std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>>> children_unf_map;
   SaturatedGraph graph_cache;
+
+  std::unordered_map<DecisionNodeID, SaturatedGraph> temporary_graph_cache;
 };
 
 
@@ -140,6 +142,7 @@ public:
   get_next_sibling();
   void erase_sibling(std::pair<const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> sit);
   // SaturatedGraph &get_saturated_graph(unsigned i);
+  // SaturatedGraph &get_saturated_graph(std::shared_ptr<DecisionNode> decision);
 
 
   // Make a new decicion node for this execution

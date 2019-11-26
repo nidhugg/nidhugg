@@ -1528,6 +1528,7 @@ void RFSCTraceBuilder::add_event_to_graph(SaturatedGraph &g, unsigned i) const {
 
 const SaturatedGraph &RFSCTraceBuilder::get_cached_graph(std::shared_ptr<DecisionNode> &decision) {
   SaturatedGraph &g = decision->get_saturated_graph();
+  // SaturatedGraph &g = decision_tree.get_saturated_graph(decision);
   int i = decision->depth;
   
   std::vector<bool> keep = causal_past(i-1);
