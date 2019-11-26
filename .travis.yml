@@ -72,6 +72,8 @@ matrix:
         - LLVM_VERSION=7.0.1
     - <<: *bionic
       env: LLVM_VERSION=8.0.0
+    - <<: *bionic
+      env: LLVM_VERSION=9.0.0
 
 before_script:
   - ./travis/install_deps.sh
