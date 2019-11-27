@@ -102,11 +102,11 @@ valtest: unittest
 	valgrind --leak-check=full ./unittest $(BOOSTTESTFLAGS) --show_progress \
 		`test -z "$(UTEST)" || echo "--run_test=$(UTEST)"`
 litmus_test: nidhugg$(EXEEXT) nidhuggc$(EXEEXT)
-	cd $(top_builddir)/tests/litmus && \
+	cd $(top_srcdir)/tests/litmus && \
 	python3 ./test-nidhugg.py --nidhuggc=$(CURDIR)/nidhuggc all
 
 smoke_test: nidhugg$(EXEEXT) nidhuggc$(EXEEXT)
-	cd $(top_builddir)/tests/smoke && \
+	cd $(top_srcdir)/tests/smoke && \
 	python3 ./test-nidhugg.py --nidhuggc=$(CURDIR)/nidhuggc all
 
 nidhuggc$(EXEEXT): $(srcdir)/nidhuggc.py
