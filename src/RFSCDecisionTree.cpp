@@ -183,10 +183,10 @@ SaturatedGraph &DecisionNode::get_saturated_graph() {
 }
 
 
-bool DecisionNode::alloc_unfold_node(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
-  if (parent->children_unf_map[this->ID].count(unf)) {return false;}
-  else {
-    parent->children_unf_map[this->ID].insert(unf);
-    return true;
-  }
+bool DecisionNode::unf_is_known(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
+  return parent->children_unf_map[this->ID].count(unf);
+}
+
+void DecisionNode::alloc_unf(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
+  parent->children_unf_map[this->ID].insert(unf);
 }

@@ -87,7 +87,8 @@ public:
   int depth;
   unsigned int ID;
 
-  bool alloc_unfold_node(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
+  bool unf_is_known(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
+  void alloc_unf(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
   
 
   std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> &
