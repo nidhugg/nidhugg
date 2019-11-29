@@ -96,7 +96,6 @@ public:
   // Decided to move this to DecisionTree
   // void sibling_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
   
-  std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> &get_sleep();
   void sleep_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
   void temporary_clear_sleep();
 

@@ -1282,7 +1282,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         compute_above_clock(j);
 
 
-        if (can_swap_by_vclocks(i, j)) {
+        if (!can_swap_by_vclocks(i, j)) {
           decision->alloc_unf(alt);
         }
         else {
