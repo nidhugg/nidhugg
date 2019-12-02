@@ -47,6 +47,10 @@ cl_max_search_depth("max-search-depth",
                     llvm::cl::NotHidden,llvm::cl::init(-1),
                     llvm::cl::desc("Bound the length of the analysed computations (# instructions/events per process)"));
 
+static llvm::cl::opt<int>
+cl_verifier_nondet_int("verifier-nondet-int",
+                       llvm::cl::Hidden,llvm::cl::desc("The number to return from __VERIFIER_nondet_u?int"));
+
 static llvm::cl::opt<Configuration::MemoryModel>
 cl_memory_model(llvm::cl::NotHidden, llvm::cl::init(Configuration::MM_UNDEF),
                 llvm::cl::desc("Select memory model"),
@@ -151,6 +155,8 @@ void Configuration::assign_by_commandline(){
   check_robustness = cl_check_robustness;
   transform_spin_assume = !cl_transform_no_spin_assume;
   transform_loop_unroll = cl_transform_loop_unroll;
+  if (cl_verifier_nondet_int.getNumOccurrences())
+    svcomp_nondet_int = (int)cl_verifier_nondet_int;
   print_progress = cl_print_progress || cl_print_progress_estimate;
   print_progress_estimate = cl_print_progress_estimate;
   debug_print_on_reset = cl_debug_print_on_reset;
