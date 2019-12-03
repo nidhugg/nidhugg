@@ -32,9 +32,15 @@ cl_transform("transform",llvm::cl::init(""),
              llvm::cl::desc("Transform the input module and store it (as LLVM assembly) to OUTFILE."),
              llvm::cl::NotHidden,llvm::cl::value_desc("OUTFILE"));
 
-static llvm::cl::opt<bool> cl_explore_all("explore-all",llvm::cl::NotHidden,
+static llvm::cl::opt<bool> cl_keep_going("keep-going",llvm::cl::NotHidden,
                                           llvm::cl::desc("Continue exploring all traces, "
                                                          "even after the first error"));
+static llvm::cl::alias cl_k("k",llvm::cl::Hidden,llvm::cl::desc("Alias for --keep-going"),
+                            llvm::cl::aliasopt(cl_keep_going));
+// Previous name
+static llvm::cl::alias cl_explore_all("explore-all",llvm::cl::Hidden,
+                                      llvm::cl::desc("Alias for --keep-going"),
+                                      llvm::cl::aliasopt(cl_keep_going));
 
 static llvm::cl::opt<bool> cl_malloc_may_fail("malloc-may-fail",llvm::cl::NotHidden,
                                               llvm::cl::desc("If set then the case of malloc failure is also explored."));
@@ -122,7 +128,7 @@ static llvm::cl::opt<bool> cl_debug_print_on_reset
 
 const std::set<std::string> &Configuration::commandline_opts(){
   static std::set<std::string> opts = {
-    "dpor-explore-all",
+    "keep-going",
     "extfun-no-race",
     "malloc-may-fail",
     "disable-mutex-init-requirement",
@@ -142,7 +148,7 @@ const std::set<std::string> &Configuration::commandline_opts(){
 const Configuration Configuration::default_conf;
 
 void Configuration::assign_by_commandline(){
-  explore_all_traces = cl_explore_all;
+  explore_all_traces = cl_keep_going;
   for(std::string f : cl_extfun_no_race){
     extfun_no_full_memory_conflict.insert(f);
   }
