@@ -244,13 +244,14 @@ bool RFSCTraceBuilder::reset(){
     }
     assert(i < prefix.size());
   }
-  auto sit = decision_tree.get_next_sibling();  //TODO: get next from decision.wq
-  Leaf l = std::move(sit.second);
+  
+  work_item = decision_tree.get_next_sibling();  //TODO: get next from decision.wq
+  Leaf l = std::move(work_item->leaf);
 
   if (conf.debug_print_on_reset)
-      llvm::dbgs() << "Backtracking to decision node " << (decision_tree.size()-1)
+      llvm::dbgs() << "Backtracking to decision node " << (work_item->depth) //(decision_tree.size()-1)
                    << ", replaying " << l.prefix.size() << " events to read from "
-                   << (sit.first ? std::to_string(sit.first->seqno) : "init") << "\n";
+                   << (work_item->unfold_node ? std::to_string(work_item->unfold_node->seqno) : "init") << "\n";
   // decision_tree.erase_sibling(sit);
 
   assert(!l.is_bottom());

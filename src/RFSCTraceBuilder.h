@@ -312,8 +312,11 @@ protected:
   std::vector<Event> prefix;
   VClockVec below_clocks;
 
+  // TODO: Add documentation
   RFSCDecisionTree &decision_tree;
-  // std::vector<DecisionNode> &decisions; // TODO
+
+  std::shared_ptr<DecisionNode> work_item;
+  
 
   /* The index into prefix corresponding to the last event that was
    * scheduled. Has the value -1 when no events have been scheduled.
