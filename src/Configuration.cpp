@@ -45,8 +45,13 @@ static llvm::cl::alias cl_explore_all("explore-all",llvm::cl::Hidden,
 static llvm::cl::opt<bool> cl_malloc_may_fail("malloc-may-fail",llvm::cl::NotHidden,
                                               llvm::cl::desc("If set then the case of malloc failure is also explored."));
 
-static llvm::cl::opt<bool> cl_disable_mutex_init_requirement("disable-mutex-init-requirement",llvm::cl::NotHidden,
-                                                             llvm::cl::desc("If set, then allow use of mutexes without a preceding call to pthread_mutex_init.\nThis switch is necessary when using static mutex initialization."));
+static llvm::cl::opt<bool> cl_no_check_mutex_init("no-check-mutex-init",llvm::cl::NotHidden,
+                                                  llvm::cl::desc("If set, then allow use of mutexes without a preceding call to pthread_mutex_init.\nThis switch is necessary when using static mutex initialization."));
+// Previous name
+static llvm::cl::alias cl_disable_mutex_init_requirement
+("disable-mutex-init-requirement",llvm::cl::Hidden,
+ llvm::cl::desc("Alias for --no-check-mutex-init"),
+ llvm::cl::aliasopt(cl_no_check_mutex_init));
 
 static llvm::cl::opt<int>
 cl_max_search_depth("max-search-depth",
@@ -131,7 +136,7 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "keep-going",
     "extfun-no-race",
     "malloc-may-fail",
-    "disable-mutex-init-requirement",
+    "no-check-mutex-init",
     "max-search-depth",
     "sc","tso","pso","power","arm",
     "smtlib",
@@ -153,7 +158,7 @@ void Configuration::assign_by_commandline(){
     extfun_no_full_memory_conflict.insert(f);
   }
   malloc_may_fail = cl_malloc_may_fail;
-  mutex_require_init = !cl_disable_mutex_init_requirement;
+  mutex_require_init = !cl_no_check_mutex_init;
   max_search_depth = cl_max_search_depth;
   memory_model = cl_memory_model;
   c11 = cl_c11;
