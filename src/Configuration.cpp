@@ -23,6 +23,10 @@
 #include "Debug.h"
 #include "SmtlibSatSolver.h"
 
+/* Please keep (non-hidden) option names to 23 characters and
+ * descriptions wrapped to 47 characters.
+ */
+
 llvm::cl::list<std::string>
 cl_program_arguments(llvm::cl::desc("[-- <program arguments>...]"),
                      llvm::cl::Positional,
@@ -33,8 +37,8 @@ cl_transform("transform",llvm::cl::init(""),
              llvm::cl::NotHidden,llvm::cl::value_desc("OUTFILE"));
 
 static llvm::cl::opt<bool> cl_keep_going("keep-going",llvm::cl::NotHidden,
-                                          llvm::cl::desc("Continue exploring all traces, "
-                                                         "even after the first error"));
+                                          llvm::cl::desc("Continue exploring all traces,\n"
+                                                         "even after the first error (also -k)"));
 static llvm::cl::alias cl_k("k",llvm::cl::Hidden,llvm::cl::desc("Alias for --keep-going"),
                             llvm::cl::aliasopt(cl_keep_going));
 // Previous name
@@ -43,10 +47,13 @@ static llvm::cl::alias cl_explore_all("explore-all",llvm::cl::Hidden,
                                       llvm::cl::aliasopt(cl_keep_going));
 
 static llvm::cl::opt<bool> cl_malloc_may_fail("malloc-may-fail",llvm::cl::NotHidden,
-                                              llvm::cl::desc("If set then the case of malloc failure is also explored."));
+                                              llvm::cl::desc("Also explore the case of malloc failure."));
 
 static llvm::cl::opt<bool> cl_no_check_mutex_init("no-check-mutex-init",llvm::cl::NotHidden,
-                                                  llvm::cl::desc("If set, then allow use of mutexes without a preceding call to pthread_mutex_init.\nThis switch is necessary when using static mutex initialization."));
+                                                  llvm::cl::desc("If set, then allow use of mutexes without a\n"
+                                                                 "preceding call to pthread_mutex_init.\n"
+                                                                 "This switch is necessary when using static mutex\n"
+                                                                 "initialization."));
 // Previous name
 static llvm::cl::alias cl_disable_mutex_init_requirement
 ("disable-mutex-init-requirement",llvm::cl::Hidden,
@@ -56,7 +63,8 @@ static llvm::cl::alias cl_disable_mutex_init_requirement
 static llvm::cl::opt<int>
 cl_max_search_depth("max-search-depth",
                     llvm::cl::NotHidden,llvm::cl::init(-1),
-                    llvm::cl::desc("Bound the length of the analysed computations (# instructions/events per process)"));
+                    llvm::cl::desc("Bound the length of the analysed computations\n"
+                                   "(# instructions/events per process)"));
 
 static llvm::cl::opt<int>
 cl_verifier_nondet_int("verifier-nondet-int",
@@ -110,26 +118,28 @@ static llvm::cl::alias cl_robustness("robustness",llvm::cl::Hidden,
 static llvm::cl::OptionCategory cl_transformation_cat("Module Transformation Passes");
 
 static llvm::cl::opt<bool> cl_transform_no_spin_assume("no-spin-assume",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
-                                                       llvm::cl::desc("Disable the spin assume pass in module transformation."));
+                                                       llvm::cl::desc("Disable the spin assume pass in module\n"
+                                                                      "transformation."));
 
 static llvm::cl::opt<int>
 cl_transform_loop_unroll("unroll",
                          llvm::cl::NotHidden,llvm::cl::init(-1),llvm::cl::value_desc("N"),
                          llvm::cl::cat(cl_transformation_cat),
-                         llvm::cl::desc("Bound executions by allowing loops to iterate at most N times."));
+                         llvm::cl::desc("Bound executions by allowing loops to iterate at\n"
+                                        "most N times."));
 
 static llvm::cl::opt<bool> cl_print_progress("print-progress",llvm::cl::NotHidden,
                                              llvm::cl::desc("Continually print analysis progress to stdout."));
 
 static llvm::cl::opt<bool> cl_print_progress_estimate("print-progress-estimate",llvm::cl::NotHidden,
-                                                      llvm::cl::desc("Continually print analysis progress and trace "
+                                                      llvm::cl::desc("Continually print analysis progress and trace\n"
                                                                      "number estimate to stdout."));
 
 static llvm::cl::list<std::string> cl_extfun_no_race("extfun-no-race",llvm::cl::NotHidden,
                                                          llvm::cl::value_desc("FUN"),
-                                                         llvm::cl::desc("Assume that the external function FUN, when called as blackbox,\n"
-                                                                        "does not participate in any races. (See manual.)\n"
-                                                                        "May be given multiple times."));
+                                                         llvm::cl::desc("Assume that the external function FUN, when called\n"
+                                                                        "as blackbox, does not participate in any races.\n"
+                                                                        "(See manual) May be given multiple times."));
 
 static llvm::cl::opt<bool> cl_debug_print_on_reset
 ("debug-print-on-reset",llvm::cl::Hidden,

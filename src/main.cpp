@@ -96,6 +96,16 @@ int main(int argc, char *argv[]){
       if(visible_options.count(it->getKey()) == 0){
         it->getValue()->setHiddenFlag(llvm::cl::Hidden);
       }
+      if (it->getKey() == "help-list") {
+        /* Hide --help-list-hidden from --help-list description; there
+         * be dragons ('s options that we are pulling in due to how we
+         * link)
+         *
+         * This also fixes the problem that the --help-link description
+         * used to wrap
+         */
+        it->second->setDescription("Display list of available options");
+      }
     }
   }
   llvm::cl::ParseCommandLineOptions(argc, argv);
