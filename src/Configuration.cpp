@@ -100,8 +100,12 @@ cl_dpor_algorithm(llvm::cl::NotHidden, llvm::cl::init(Configuration::SOURCE),
 #endif
                                  ));
 
-static llvm::cl::opt<bool> cl_check_robustness("robustness",llvm::cl::NotHidden,
+static llvm::cl::opt<bool> cl_check_robustness("check-robustness",llvm::cl::NotHidden,
                                                llvm::cl::desc("Check for robustness as a correctness criterion."));
+// Previous name
+static llvm::cl::alias cl_robustness("robustness",llvm::cl::Hidden,
+                                     llvm::cl::desc("Alias for --check-robustness"),
+                                     llvm::cl::aliasopt(cl_check_robustness));
 
 static llvm::cl::OptionCategory cl_transformation_cat("Module Transformation Passes");
 
@@ -141,7 +145,7 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "sc","tso","pso","power","arm",
     "smtlib",
     "source","optimal","observers","rf",
-    "robustness",
+    "check-robustness",
     "no-spin-assume",
     "unroll",
     "print-progress",
