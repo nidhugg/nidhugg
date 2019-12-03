@@ -21,11 +21,11 @@
 #include "RFSCDecisionTree.h"
 
 void RFSCDecisionTree::prune_decisions(int blame) {
-  assert(int(decisions.size()) > blame);
-  decisions.resize(blame+1, decisions[0]);
+  // assert(int(decisions.size()) > blame);
+  // decisions.resize(blame+1, decisions[0]);
 }
 
-void RFSCDecisionTree::clear_unrealizable_siblings() {
+void RFSCDecisionTree::clear_unrealizable_siblings(std::shared_ptr<DecisionNode> *TB_work_item) {
   auto  node = decisions.back();
   while (node->get_siblings().empty())
   {
@@ -37,6 +37,7 @@ void RFSCDecisionTree::clear_unrealizable_siblings() {
     }
     node = decisions.back();
   }
+  *TB_work_item = node;
 }
 
 void RFSCDecisionTree::place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision) {
@@ -48,18 +49,57 @@ void RFSCDecisionTree::place_decision_into_sleepset(const std::shared_ptr<RFSCUn
 std::shared_ptr<DecisionNode>
 RFSCDecisionTree::get_next_sibling() {
 
+//   std::shared_ptr<DecisionNode> node = work_queue.back();
+//   work_queue.pop_back();
+//   // return node;
+
+//   bool found = false;
+//   for (int i = decisions.size()-1; i >= 0; --i)
+//   {
+//     // printf("i: %d\n", i);
+//     for (auto j = decisions[i]->get_siblings().begin(); j != decisions[i]->get_siblings().end(); j++)
+//     {
+//       if (node->ID == (*j)->ID) {
+//         found = true;
+//         decisions[i]->get_siblings().erase(j);
+//         break;
+//       }
+//     }
+
+//   }
+//   if(!found) {
+//     printf("Could not find next work task in work queue!\n");
+//     // abort();
+//   }
+//   return node;
+// }
+
   std::shared_ptr<DecisionNode> node = decisions.back();
-  while (node->get_siblings().empty())
-  {
-    // decisions.back()->temporary_clear_sleep();
-    decisions.pop_back();
-    node = decisions.back();
-  }
+  // while (node->get_siblings().empty())
+  // {
+  //   // decisions.back()->temporary_clear_sleep();
+  //   decisions.pop_back();
+  //   node = decisions.back();
+  // }
   auto it = node->get_siblings().begin();
   decisions[decisions.size()-1] = *it;
 
-  node->get_siblings().erase(it);
 
+  bool found = false;
+  for (auto i = work_queue.begin(); i != work_queue.end(); i++)
+  {
+    if ((*i)->ID == (*it)->ID) {
+      found = true;
+      work_queue.erase(i);
+      break;
+    }
+  }
+  if(!found) {
+    printf("Could not find next work task in work queue!\n");
+    abort();
+  }
+
+  node->get_siblings().erase(it);
   // TODO: For now this does not erase the new decisions unf from children_unf_set,
   // making it possible for it to find older versions of unf and possibly introduce a bug to the compute_prefixes
   return decisions.back(); //->get_next_sibling();
@@ -78,17 +118,21 @@ std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(std::shared_pt
 
 
 void RFSCDecisionTree::construct_sibling(std::shared_ptr<DecisionNode> decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
-  decision->make_sibling(unf, l);
+  auto sibling = decision->make_sibling(unf, l);
+  work_queue.push_back(sibling);
 }
 
 bool RFSCDecisionTree::work_queue_empty() {
-  // if (decisions.empty() != work_queue.empty()) {
-  //   printf("ERROR:  Decisions and work_queue do not match!\n");
-  //   abort();
-  // }
-  // return work_queue.empty();
+  if (decisions.empty() && !work_queue.empty()) {
+    printf("ERROR:  Decisions and work_queue do not match!\n");
+    abort();
+  }
+  if (work_queue.empty() && !decisions.empty()) {
+    printf("ERROR: work_queue and Decisions do not match!\n");
+    abort();
+  }
 
-  return decisions.empty();
+  return work_queue.empty();
   }
 
 // void RFSCDecisionTree::add_to_workqueue(std::shared_ptr<DecisionNode> decision, UNFOLD_PTR unf, Leaf l) {
@@ -109,12 +153,13 @@ void DecisionNode::sleep_emplace(const std::shared_ptr<RFSCUnfoldingTree::Unfold
   parent->children_unf_set.emplace(unf);
 }
 
-void DecisionNode::make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
+std::shared_ptr<DecisionNode> DecisionNode::make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
   parent->children_unf_set.insert(unf);
 
   // get_siblings().emplace(unf, l);
   auto sibling = std::make_shared<DecisionNode>(parent, unf, l);
   get_siblings().insert(sibling);
+  return sibling;
 
 }
 

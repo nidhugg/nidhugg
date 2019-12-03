@@ -106,7 +106,7 @@ public:
   void sleep_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
   void temporary_clear_sleep();
 
-  void make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
+  std::shared_ptr<DecisionNode> make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
 
   std::pair<const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf>
   get_next_sibling();
@@ -142,10 +142,11 @@ public:
   /* Using the last decision that caused a failure, and then
    * prune all later decisions. */
   void prune_decisions(int blame);
-  void clear_unrealizable_siblings();
+  // void clear_unrealizable_siblings();
+  void clear_unrealizable_siblings(std::shared_ptr<DecisionNode> *TB_work_item);
   
-  size_t size() {return decisions.size();};
-  std::shared_ptr<DecisionNode> get(int decision) {return decisions[decision];}
+
+
   void place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision);
 
   std::shared_ptr<DecisionNode> get_next_sibling();
@@ -165,7 +166,7 @@ protected:
   std::shared_ptr<DecisionNode> root;
 
   std::vector<std::shared_ptr<DecisionNode>> decisions;
-  std::queue<std::shared_ptr<DecisionNode>> work_queue;
+  std::vector<std::shared_ptr<DecisionNode>> work_queue;
 
 };
 
