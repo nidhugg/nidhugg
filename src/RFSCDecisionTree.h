@@ -108,7 +108,8 @@ public:
 
   std::shared_ptr<DecisionNode> make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
 
-  std::pair<const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf>
+  // std::pair<const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf>
+  void
   get_next_sibling();
 
   SaturatedGraph &get_saturated_graph();
@@ -118,11 +119,11 @@ public:
 
   std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unfold_node;
   Leaf leaf;
+  std::shared_ptr<DecisionNode> parent;
 protected:
 
 
 
-  std::shared_ptr<DecisionNode> parent;
 
   std::unordered_set<std::shared_ptr<DecisionNode>> siblings;
 
@@ -147,6 +148,7 @@ public:
   void clear_unrealizable_siblings(std::shared_ptr<DecisionNode> *TB_work_item);
   
 
+  int temp_wq_size() {return work_queue.size();};
 
 
   std::shared_ptr<DecisionNode> get_next_sibling();

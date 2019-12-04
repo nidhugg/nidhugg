@@ -237,6 +237,8 @@ bool RFSCTraceBuilder::reset(){
        * The unfolding node of read events is the _read from_ event,
        * whereas for lock events it is the event itself.
        */
+      // printf("Insert current, depth: %d\n", work_item->depth);
+      // printf("work_queue size: %d\n", decision_tree.temp_wq_size());
       const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision
         = is_lock_type(i) ? prefix[i].event : prefix[i].event->read_from;
       work_item->place_decision_into_sleepset(decision);
@@ -1239,6 +1241,9 @@ void RFSCTraceBuilder::compute_prefixes() {
           // decision.sibling_emplace(alt, std::move(solution));
           decision_tree.construct_sibling(decision, alt, std::move(solution));
         }
+        else {
+          decision->alloc_unf(alt);
+        }
         /* Reset read-from and decision */
         prefix[j].read_from = i;
         prefix[i].decision_swap(prefix[j]);
@@ -1267,6 +1272,9 @@ void RFSCTraceBuilder::compute_prefixes() {
         if (!solution.is_bottom()) {
           // decision.sibling_emplace(alt, std::move(solution));
           decision_tree.construct_sibling(decision, alt, std::move(solution));
+        }
+        else {
+          decision->alloc_unf(alt);
         }
         /* Reset read-from and decision */
         prefix[j].read_from = unlock;
@@ -1308,6 +1316,9 @@ void RFSCTraceBuilder::compute_prefixes() {
             // decision.sibling_emplace(alt, std::move(solution));
             // TODO: decision.add_to_wq ...
             decision_tree.construct_sibling(decision, alt, std::move(solution));
+          }
+          else {
+            decision->alloc_unf(alt);
           }
 
           /* Reset decision */
@@ -1385,6 +1396,9 @@ void RFSCTraceBuilder::compute_prefixes() {
           // decision.sibling_emplace(read_from, std::move(solution));
           decision_tree.construct_sibling(decision, read_from, std::move(solution));
         }
+        else {
+          decision->alloc_unf(read_from);
+        }
 
         /* Reset read-from */
         prefix[j].read_from = i;
@@ -1417,6 +1431,9 @@ void RFSCTraceBuilder::compute_prefixes() {
           if (!solution.is_bottom()) {
             // decision.sibling_emplace(read_from, std::move(solution));
             decision_tree.construct_sibling(decision, read_from, std::move(solution));
+          }
+          else {
+            decision->alloc_unf(read_from);
           }
 
           undo_cmpxhg_recomputation(undoi, possible_writes);
