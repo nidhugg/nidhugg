@@ -239,7 +239,8 @@ bool RFSCTraceBuilder::reset(){
        */
       const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision
         = is_lock_type(i) ? prefix[i].event : prefix[i].event->read_from;
-      decision_tree.place_decision_into_sleepset(decision);
+      work_item->place_decision_into_sleepset(decision);
+      // decision_tree.place_decision_into_sleepset(decision);
       break;
     }
     assert(i < prefix.size());

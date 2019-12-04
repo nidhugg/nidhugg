@@ -40,9 +40,6 @@ void RFSCDecisionTree::clear_unrealizable_siblings(std::shared_ptr<DecisionNode>
   *TB_work_item = node;
 }
 
-void RFSCDecisionTree::place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision) {
-  decisions.back()->sleep_emplace(decision);
-}
 
 
 // std::pair<const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf>
@@ -148,6 +145,10 @@ bool RFSCDecisionTree::work_queue_empty() {
  * 
 *************************************************************************************************************/
 
+
+void DecisionNode::place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
+  sleep_emplace(unf);
+}
 
 void DecisionNode::sleep_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
   parent->children_unf_set.emplace(unf);

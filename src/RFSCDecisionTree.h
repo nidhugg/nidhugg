@@ -112,6 +112,7 @@ public:
   get_next_sibling();
 
   SaturatedGraph &get_saturated_graph();
+  void place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
 
 
 
@@ -147,7 +148,6 @@ public:
   
 
 
-  void place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision);
 
   std::shared_ptr<DecisionNode> get_next_sibling();
   void erase_sibling(std::pair<const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> sit);
