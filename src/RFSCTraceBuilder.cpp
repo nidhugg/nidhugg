@@ -248,7 +248,7 @@ bool RFSCTraceBuilder::reset(){
     assert(i < prefix.size());
   }
   
-  work_item = decision_tree.get_next_sibling();  //TODO: get next from decision.wq
+  work_item = decision_tree.get_next_sibling(&work_item);  //TODO: get next from decision.wq
   Leaf l = std::move(work_item->leaf);
 
   if (conf.debug_print_on_reset)

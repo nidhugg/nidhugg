@@ -151,7 +151,7 @@ public:
   int temp_wq_size() {return work_queue.size();};
 
 
-  std::shared_ptr<DecisionNode> get_next_sibling();
+  std::shared_ptr<DecisionNode> get_next_sibling(std::shared_ptr<DecisionNode> *TB_work_item);
   void erase_sibling(std::pair<const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> sit);
   // SaturatedGraph &get_saturated_graph(std::shared_ptr<DecisionNode> decision);
 
@@ -168,7 +168,7 @@ protected:
   std::shared_ptr<DecisionNode> root;
 
   std::vector<std::shared_ptr<DecisionNode>> decisions;
-  std::vector<std::shared_ptr<DecisionNode>> work_queue;
+  std::unordered_set<std::shared_ptr<DecisionNode>> work_queue;
 
 };
 
