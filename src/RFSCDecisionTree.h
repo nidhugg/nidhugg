@@ -143,7 +143,7 @@ public:
 
   /* Using the last decision that caused a failure, and then
    * prune all later decisions. */
-  void prune_decisions(int blame);
+  void prune_decisions(std::shared_ptr<DecisionNode> blame);
   // void clear_unrealizable_siblings();
   void clear_unrealizable_siblings(std::shared_ptr<DecisionNode> *TB_work_item);
   
@@ -168,7 +168,8 @@ protected:
   std::shared_ptr<DecisionNode> root;
 
   std::vector<std::shared_ptr<DecisionNode>> decisions;
-  std::unordered_set<std::shared_ptr<DecisionNode>> work_queue;
+  // std::unordered_set<std::shared_ptr<DecisionNode>> work_queue;
+  std::vector<std::shared_ptr<DecisionNode>> work_queue;
 
 };
 

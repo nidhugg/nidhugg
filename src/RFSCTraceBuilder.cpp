@@ -188,7 +188,7 @@ void RFSCTraceBuilder::cancel_replay(){
   for (int i = 0; i <= prefix_idx; ++i) {
     blame = std::max(blame, prefix[i].get_decision_depth());
   }
-  decision_tree.prune_decisions(blame);
+  decision_tree.prune_decisions(prefix[blame].decision_ptr);
 }
 
 void RFSCTraceBuilder::metadata(const llvm::MDNode *md){
@@ -228,7 +228,7 @@ bool RFSCTraceBuilder::reset(){
   }
 
   /* Insert current event in sleep */
-  for (unsigned i = 0;; ++i) { // TODO: remove?
+  for (unsigned i = 0;; ++i) {
     if (prefix[i].get_decision_depth() == int(work_item->depth)) {
       assert(!prefix[i].pinned);
       /* Icky performance hack to work around dreadful performance of
@@ -237,12 +237,9 @@ bool RFSCTraceBuilder::reset(){
        * The unfolding node of read events is the _read from_ event,
        * whereas for lock events it is the event itself.
        */
-      // printf("Insert current, depth: %d\n", work_item->depth);
-      // printf("work_queue size: %d\n", decision_tree.temp_wq_size());
       const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision
         = is_lock_type(i) ? prefix[i].event : prefix[i].event->read_from;
       work_item->place_decision_into_sleepset(decision);
-      // decision_tree.place_decision_into_sleepset(decision);
       break;
     }
     assert(i < prefix.size());
