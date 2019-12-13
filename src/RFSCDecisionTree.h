@@ -74,17 +74,21 @@ typedef unsigned int DecisionNodeID;
 static DecisionNodeID decision_id;
 static size_t decision_count;
 
+std::shared_ptr<DecisionNode> find_ancester(std::shared_ptr<DecisionNode> node, int depth);
+
 struct DecisionNode {
 public:
   // Empty constructor should only be used to construct the root
-  DecisionNode() : parent(nullptr), siblings(), depth(-1) { decision_id = 0;}
+  DecisionNode() : parent(nullptr), siblings(), depth(-1), name("ROOT"), name_index("A") { decision_id = 0;}
   DecisionNode(std::shared_ptr<DecisionNode> decision)
-        : parent(decision), depth(decision->depth+1), ID(++decision_id) {
+        : parent(decision), depth(decision->depth+1), ID(++decision_id), name_index("A") {
       decision_count++;
+      set_name();
     };
   DecisionNode(std::shared_ptr<DecisionNode> decision, std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf, Leaf l)
-        : parent(decision), depth(decision->depth+1), ID(++decision_id), unfold_node(std::move(unf)), leaf(l) {
+        : parent(decision), depth(decision->depth+1), ID(++decision_id), unfold_node(std::move(unf)), leaf(l), name_index("A") {
       decision_count++;
+      set_sibling_name();
     };
   ~DecisionNode() { decision_count--; 
   // temporary_clear_sleep();
@@ -92,9 +96,34 @@ public:
 
   int depth;
   unsigned int ID;
+  std::string name;
+  std::string name_index;
 
   bool unf_is_known(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
   void alloc_unf(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
+
+  void set_name() {
+    name = parent->name + '-' + parent->name_index;
+    // char index = parent->name.back();
+    // if (index == 'Z') {
+    //   parent->name.push_back('A');
+    // }
+    // else {
+    //   parent->name.pop_back();
+    //   parent->name.push_back(index+1);
+    // }
+  };
+  void set_sibling_name() {
+    char index = parent->name_index.back();
+    if (index == 'Z') {
+      parent->name_index.push_back('A');
+    }
+    else {
+      parent->name_index.pop_back();
+      parent->name_index.push_back(index+1);
+    }
+    name = parent->name + '-' + parent->name_index;
+  };
   
 
   // std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> &
@@ -148,7 +177,8 @@ public:
   void clear_unrealizable_siblings(std::shared_ptr<DecisionNode> *TB_work_item);
   
 
-  int temp_wq_size() {return work_queue.size();};
+  size_t temp_wq_size() {return work_queue.size();};
+  void print_wq();
 
 
   std::shared_ptr<DecisionNode> get_next_sibling(std::shared_ptr<DecisionNode> *TB_work_item);

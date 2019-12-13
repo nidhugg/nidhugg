@@ -83,6 +83,9 @@ public:
   virtual int cond_destroy(const SymAddrSize &ml);
   virtual void register_alternatives(int alt_count);
   virtual long double estimate_trace_count() const;
+
+  std::shared_ptr<DecisionNode> work_item;
+
 protected:
   /* An identifier for a thread. An index into this->threads.
    *
@@ -291,7 +294,11 @@ protected:
     void set_decision(std::shared_ptr<DecisionNode> decision) {
       decision_ptr = decision;
       decision_depth = decision ? decision->depth : -1;
-      };
+    };
+    void set_branch_decision(std::shared_ptr<DecisionNode> decision, std::shared_ptr<DecisionNode> work_item) {
+      decision_depth = decision ? decision->depth : -1;
+      decision_ptr = decision_depth == -1 ? decision : find_ancester(work_item, decision_depth);
+    };
 
 
     void decision_swap(Event &e) {
@@ -315,7 +322,7 @@ protected:
   // TODO: Add documentation
   RFSCDecisionTree &decision_tree;
 
-  std::shared_ptr<DecisionNode> work_item;
+  // std::shared_ptr<DecisionNode> work_item;
   
 
   /* The index into prefix corresponding to the last event that was

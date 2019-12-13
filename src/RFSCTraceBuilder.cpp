@@ -55,6 +55,7 @@ RFSCTraceBuilder::RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
   last_full_memory_conflict = -1;
   last_md = 0;
   replay_point = 0;
+  work_item = decision_tree.get_root();
 }
 
 RFSCTraceBuilder::~RFSCTraceBuilder(){
@@ -220,7 +221,16 @@ Trace *RFSCTraceBuilder::get_trace() const{
 
 bool RFSCTraceBuilder::reset(){
 
+  // llvm::dbgs() << "reset: " <<  work_item->name << "\n";
+
   decision_tree.clear_unrealizable_siblings(&work_item);
+
+  // if(work_item->depth == -1 && !decision_tree.work_queue_empty()) {
+  //   printf("ERROR: got to root while work queue is not empty!, wq->size: %ld\n\n\n", decision_tree.temp_wq_size());
+  //   decision_tree.print_wq();
+  //   abort();
+  // }
+  
 
   if(decision_tree.work_queue_empty()){
     /* No more branching is possible. */
@@ -246,6 +256,7 @@ bool RFSCTraceBuilder::reset(){
   }
   
   work_item = decision_tree.get_next_sibling(&work_item);  //TODO: get next from decision.wq
+  // llvm::dbgs() << "wItem: " << work_item->name << "\n";
   Leaf l = std::move(work_item->leaf);
 
   if (conf.debug_print_on_reset)
@@ -268,7 +279,7 @@ bool RFSCTraceBuilder::reset(){
     new_prefix.back().size = b.size;
     new_prefix.back().sym = std::move(b.sym);
     new_prefix.back().pinned = b.pinned;
-    new_prefix.back().set_decision(b.decision_ptr);
+    new_prefix.back().set_branch_decision(b.decision_ptr, work_item);
     // new_prefix.back().set_decision_depth(b.decision_depth);
     // new_prefix.back().set_decision_ptr(b.decision_ptr);
     iid_map_step(iid_map, new_prefix.back());
@@ -282,6 +293,10 @@ bool RFSCTraceBuilder::reset(){
 #endif
 
   prefix = std::move(new_prefix);
+
+  // for(unsigned i = 0; i < prefix.size(); ++i) {
+  //   printf("prefix[%d] decision_depth: %d\n", i, prefix[i].get_decision_depth());
+  // }
 
   CPS = CPidSystem();
   threads.clear();
