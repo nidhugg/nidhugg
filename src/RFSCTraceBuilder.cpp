@@ -220,7 +220,7 @@ Trace *RFSCTraceBuilder::get_trace() const{
 
 bool RFSCTraceBuilder::reset(){
 
-  decision_tree.clear_unrealizable_siblings();
+  decision_tree.clear_unrealizable_siblings(&work_item);
 
   if(decision_tree.work_queue_empty()){
     /* No more branching is possible. */
@@ -229,7 +229,8 @@ bool RFSCTraceBuilder::reset(){
 
   /* Insert current event in sleep */
   for (unsigned i = 0;; ++i) { // TODO: remove?
-    if (prefix[i].get_decision_depth() == int(decision_tree.size()-1)) {
+    // if (prefix[i].get_decision_depth() == int(decision_tree.size()-1)) {
+    if (prefix[i].get_decision_depth() == int(work_item->depth)) {
       assert(!prefix[i].pinned);
       /* Icky performance hack to work around dreadful performance of
        * shared_ptr reference counting;
@@ -247,7 +248,7 @@ bool RFSCTraceBuilder::reset(){
   // auto sit = decision_tree.get_next_sibling();  //TODO: get next from decision.wq
   // Leaf l = std::move(sit.second);
 
-  work_item = decision_tree.get_next_sibling();  //TODO: get next from decision.wq
+  decision_tree.get_next_sibling(&work_item);  //TODO: get next from decision.wq
   Leaf l = std::move(work_item->leaf);
   auto unf = std::move(work_item->unfold_node);
 
@@ -277,7 +278,7 @@ bool RFSCTraceBuilder::reset(){
   }
 
 #ifndef NDEBUG
-  for (int d = 0; d < int(decision_tree.size()); ++d) {
+  for (int d = 0; d < work_item->depth; ++d) {
     assert(std::any_of(new_prefix.begin(), new_prefix.end(),
                        [&](const Event &e) { return e.get_decision_depth() == d; }));
   }
@@ -923,6 +924,7 @@ void RFSCTraceBuilder::compute_unfolding() {
       }
     }
   }
+  work_item = deepest_node;
 }
 
 std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> RFSCTraceBuilder::
