@@ -26,22 +26,15 @@ void RFSCDecisionTree::prune_decisions(int blame) {
 }
 
 void RFSCDecisionTree::clear_unrealizable_siblings() {
-  do {
-    auto &siblings = decisions.back()->get_siblings();
-    for (auto it = siblings.begin(); it != siblings.end();) {
-      if (it->second.is_bottom()) {
-        printf("ERROR:  Empty Leaf has entered the siblings set!");
-        abort();
-      } else {
-        ++it;
-      }
-    }
-    if(!siblings.empty()){
-      return;
-    }
+  auto node = decisions.back();
+  while (node->get_siblings().empty()) {
     decisions.back()->temporary_clear_sleep();
     decisions.pop_back();
-  } while (!decisions.empty());
+    if (decisions.empty()) {
+      return;
+    }
+    node = decisions.back();
+  }
 }
 
 void RFSCDecisionTree::place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision) {
@@ -59,21 +52,6 @@ void RFSCDecisionTree::erase_sibling(std::pair<const std::shared_ptr<RFSCUnfoldi
 }
 
 
-// SaturatedGraph &RFSCDecisionTree::get_saturated_graph(std::shared_ptr<DecisionNode> decision) {
-//   // int i = decision->depth;
-//   // SaturatedGraph &g = decisions[i]->get_saturated_graph();
-//   // if (g.size() || i == 0) return g;
-//   // for (unsigned j = i-1; j != 0; --j) {
-//   //   if (decisions[j]->get_saturated_graph().size()) {
-//   //     /* Reuse subgraph */
-//   //     g = decisions[j]->get_saturated_graph();
-//   //     break;
-//   //   }
-//   // }
-//   // return g;
-
-//   return decision->get_saturated_graph();
-// }
 
 std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(std::shared_ptr<DecisionNode> parent) {
   auto decision = std::make_shared<DecisionNode>(parent);
@@ -81,11 +59,6 @@ std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(std::shared_pt
   return decision;
 }
 
-// int RFSCDecisionTree::new_decision_node() {
-//   int decision = decisions.size();
-//   decisions.emplace_back();
-//   return decision;
-// }
 
 
 void RFSCDecisionTree::construct_sibling(std::shared_ptr<DecisionNode> decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
@@ -102,11 +75,6 @@ bool RFSCDecisionTree::work_queue_empty() {
   return decisions.empty();
   }
 
-// void RFSCDecisionTree::add_to_workqueue(std::shared_ptr<DecisionNode> decision, UNFOLD_PTR unf, Leaf l) {
-//   auto node = decision->create_sibling();
-//   node->update(unf, l);
-//   work_queue.push(std::move(node));
-// }
 
 
 /*************************************************************************************************************
