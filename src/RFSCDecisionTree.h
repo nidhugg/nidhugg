@@ -77,22 +77,43 @@ static size_t decision_count;
 struct DecisionNode {
 public:
   // Empty constructor should only be used to construct the root
-  DecisionNode() : parent(nullptr), siblings(), depth(-1) { decision_id = 0;}
+  DecisionNode() : parent(nullptr), siblings(), depth(-1), name("ROOT"), name_index("A") { decision_id = 0;}
   DecisionNode(std::shared_ptr<DecisionNode> decision)
-        : parent(decision), depth(decision->depth+1), ID(++decision_id) {
+        : parent(decision), depth(decision->depth+1), ID(++decision_id), name_index("A") {
       decision_count++;
+      set_name();
     };
   DecisionNode(std::shared_ptr<DecisionNode> decision, std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf, Leaf l)
-        : parent(decision), depth(decision->depth+1), ID(++decision_id), unfold_node(std::move(unf)), leaf(l) {
+        : parent(decision), depth(decision->depth+1), ID(++decision_id), unfold_node(std::move(unf)), leaf(l), name_index("A") {
       decision_count++;
+      set_sibling_name();
   };
   ~DecisionNode() { decision_count--; };
 
   int depth;
   unsigned int ID;
+  std::string name;
+  std::string name_index;
+
+  std::shared_ptr<DecisionNode> find_ancester(std::shared_ptr<DecisionNode> node, int depth);
 
   bool unf_is_known(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
   void alloc_unf(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
+
+  void set_name() {
+    name = parent->name + '-' + parent->name_index;
+  };
+  void set_sibling_name() {
+    char index = parent->name_index.back();
+    if (index == 'Z') {
+      parent->name_index.push_back('A');
+    }
+    else {
+      parent->name_index.pop_back();
+      parent->name_index.push_back(index+1);
+    }
+    name = parent->name + '-' + parent->name_index;
+  };
   
 
   // std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> &
@@ -135,6 +156,8 @@ protected:
   std::unordered_map<DecisionNodeID, SaturatedGraph> temporary_graph_cache;
 };
 
+std::shared_ptr<DecisionNode> find_ancester(std::shared_ptr<DecisionNode> node, int wanted);
+
 
 
 class RFSCDecisionTree final {
@@ -145,10 +168,12 @@ public:
 
   /* Using the last decision that caused a failure, and then
    * prune all later decisions. */
-  void prune_decisions(int blame);
+  void prune_decisions(std::shared_ptr<DecisionNode> blame);
   void clear_unrealizable_siblings(std::shared_ptr<DecisionNode> *TB_work_item);
   
   // size_t size() {return decisions.size();};
+  size_t temp_wq_size() {return work_queue.size();};
+  void print_wq();
   // std::shared_ptr<DecisionNode> get(int decision) {return decisions[decision];}
   // void place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision);
 
@@ -175,7 +200,7 @@ protected:
 
   std::shared_ptr<DecisionNode> root;
 
-  std::vector<std::shared_ptr<DecisionNode>> decisions;
+  // std::vector<std::shared_ptr<DecisionNode>> decisions;
   std::vector<std::shared_ptr<DecisionNode>> work_queue;
 
 };

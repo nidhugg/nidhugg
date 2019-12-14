@@ -55,6 +55,7 @@ RFSCTraceBuilder::RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
   last_full_memory_conflict = -1;
   last_md = 0;
   replay_point = 0;
+  work_item = decision_tree.get_root();
 }
 
 RFSCTraceBuilder::~RFSCTraceBuilder(){
@@ -188,7 +189,7 @@ void RFSCTraceBuilder::cancel_replay(){
   for (int i = 0; i <= prefix_idx; ++i) {
     blame = std::max(blame, prefix[i].get_decision_depth());
   }
-  decision_tree.prune_decisions(blame);
+  decision_tree.prune_decisions(prefix[blame].decision_ptr);
 }
 
 void RFSCTraceBuilder::metadata(const llvm::MDNode *md){
@@ -221,6 +222,12 @@ Trace *RFSCTraceBuilder::get_trace() const{
 bool RFSCTraceBuilder::reset(){
 
   decision_tree.clear_unrealizable_siblings(&work_item);
+
+  if(work_item->depth == -1 && !decision_tree.work_queue_empty()) {
+    printf("ERROR: got to root while work queue is not empty!, wq->size: %ld\n\n\n", decision_tree.temp_wq_size());
+    decision_tree.print_wq();
+    abort();
+  }
 
   if(decision_tree.work_queue_empty()){
     /* No more branching is possible. */
@@ -272,7 +279,8 @@ bool RFSCTraceBuilder::reset(){
     new_prefix.back().size = b.size;
     new_prefix.back().sym = std::move(b.sym);
     new_prefix.back().pinned = b.pinned;
-    new_prefix.back().set_decision(b.decision_ptr);
+    // new_prefix.back().set_decision(b.decision_ptr);
+    new_prefix.back().set_branch_decision(b.decision_ptr, work_item);
     // new_prefix.back().set_decision_depth(b.decision_depth);
     // new_prefix.back().set_decision_ptr(b.decision_ptr);
     iid_map_step(iid_map, new_prefix.back());
@@ -1241,6 +1249,9 @@ void RFSCTraceBuilder::compute_prefixes() {
           // decision.sibling_emplace(alt, std::move(solution));
           decision_tree.construct_sibling(decision, alt, std::move(solution));
         }
+        else {
+          decision->alloc_unf(alt);
+        }
         /* Reset read-from and decision */
         prefix[j].read_from = i;
         prefix[i].decision_swap(prefix[j]);
@@ -1268,6 +1279,9 @@ void RFSCTraceBuilder::compute_prefixes() {
         if (!solution.is_bottom()) {
           // decision.sibling_emplace(alt, std::move(solution));
           decision_tree.construct_sibling(decision, alt, std::move(solution));
+        }
+        else {
+          decision->alloc_unf(alt);
         }
         /* Reset read-from and decision */
         prefix[j].read_from = unlock;
@@ -1308,6 +1322,9 @@ void RFSCTraceBuilder::compute_prefixes() {
             // decision.sibling_emplace(alt, std::move(solution));
             // TODO: decision.add_to_wq ...
             decision_tree.construct_sibling(decision, alt, std::move(solution));
+          }
+          else {
+            decision->alloc_unf(alt);
           }
 
           /* Reset decision */
@@ -1384,6 +1401,9 @@ void RFSCTraceBuilder::compute_prefixes() {
           // decision.sibling_emplace(read_from, std::move(solution));
           decision_tree.construct_sibling(decision, read_from, std::move(solution));
         }
+        else {
+          decision->alloc_unf(read_from);
+        }
 
         /* Reset read-from */
         prefix[j].read_from = i;
@@ -1416,6 +1436,9 @@ void RFSCTraceBuilder::compute_prefixes() {
           if (!solution.is_bottom()) {
             // decision.sibling_emplace(read_from, std::move(solution));
             decision_tree.construct_sibling(decision, read_from, std::move(solution));
+          }
+          else {
+            decision->alloc_unf(read_from);
           }
 
           undo_cmpxhg_recomputation(undoi, possible_writes);

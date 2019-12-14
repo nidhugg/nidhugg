@@ -292,7 +292,10 @@ protected:
       decision_ptr = decision;
       decision_depth = decision ? decision->depth : -1;
       };
-
+      void set_branch_decision(std::shared_ptr<DecisionNode> decision, std::shared_ptr<DecisionNode> work_item) {
+        decision_depth = decision ? decision->depth : -1;
+        decision_ptr = decision_depth == -1 ? decision : find_ancester(work_item, decision_depth);
+      };
 
     void decision_swap(Event &e) {
       std::swap(decision_ptr, e.decision_ptr);
