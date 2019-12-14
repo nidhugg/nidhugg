@@ -89,29 +89,21 @@ public:
         : parent(decision), depth(decision->depth+1), ID(++decision_id), unfold_node(std::move(unf)), leaf(l), name_index("A") {
       decision_count++;
       set_sibling_name();
-    };
-  ~DecisionNode() { decision_count--; 
-  // temporary_clear_sleep();
   };
+  ~DecisionNode() { decision_count--; };
 
   int depth;
   unsigned int ID;
   std::string name;
   std::string name_index;
 
+  std::shared_ptr<DecisionNode> find_ancester(std::shared_ptr<DecisionNode> node, int depth);
+
   bool unf_is_known(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
   void alloc_unf(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
 
   void set_name() {
     name = parent->name + '-' + parent->name_index;
-    // char index = parent->name.back();
-    // if (index == 'Z') {
-    //   parent->name.push_back('A');
-    // }
-    // else {
-    //   parent->name.pop_back();
-    //   parent->name.push_back(index+1);
-    // }
   };
   void set_sibling_name() {
     char index = parent->name_index.back();
@@ -132,7 +124,8 @@ public:
   // Decided to move this to DecisionTree
   // void sibling_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
   
-  void sleep_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
+  // void sleep_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
+  void place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
   void temporary_clear_sleep();
 
   std::shared_ptr<DecisionNode> make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
@@ -142,25 +135,32 @@ public:
   get_next_sibling();
 
   SaturatedGraph &get_saturated_graph();
-  void place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
-
 
 
   std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unfold_node;
   Leaf leaf;
+
   std::shared_ptr<DecisionNode> parent;
+  std::unordered_set<std::shared_ptr<DecisionNode>> siblings;
+  std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> children_unf_set;
+  // std::unordered_map<DecisionNodeID, std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>>> children_unf_map;
+
 protected:
 
 
 
+  // std::shared_ptr<DecisionNode> parent;
 
-  std::unordered_set<std::shared_ptr<DecisionNode>> siblings;
-
-  std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> children_unf_set;
+  // std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> siblings;
+  // Should be able to be used when each sibling is its own decisionNode
+  // std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> sleep;
+  // std::unordered_map<DecisionNodeID, std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>>> children_unf_map;
   SaturatedGraph graph_cache;
 
   std::unordered_map<DecisionNodeID, SaturatedGraph> temporary_graph_cache;
 };
+
+std::shared_ptr<DecisionNode> find_ancester(std::shared_ptr<DecisionNode> node, int wanted);
 
 
 
@@ -181,7 +181,7 @@ public:
   void print_wq();
 
 
-  std::shared_ptr<DecisionNode> get_next_sibling(std::shared_ptr<DecisionNode> *TB_work_item);
+  void get_next_sibling(std::shared_ptr<DecisionNode> *TB_work_item);
   void erase_sibling(std::pair<const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> sit);
   // SaturatedGraph &get_saturated_graph(std::shared_ptr<DecisionNode> decision);
 
@@ -197,8 +197,7 @@ protected:
 
   std::shared_ptr<DecisionNode> root;
 
-  std::vector<std::shared_ptr<DecisionNode>> decisions;
-  // std::unordered_set<std::shared_ptr<DecisionNode>> work_queue;
+  // std::vector<std::shared_ptr<DecisionNode>> decisions;
   std::vector<std::shared_ptr<DecisionNode>> work_queue;
 
 };

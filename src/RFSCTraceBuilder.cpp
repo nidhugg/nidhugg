@@ -221,16 +221,13 @@ Trace *RFSCTraceBuilder::get_trace() const{
 
 bool RFSCTraceBuilder::reset(){
 
-  // llvm::dbgs() << "reset: " <<  work_item->name << "\n";
-
   decision_tree.clear_unrealizable_siblings(&work_item);
 
   // if(work_item->depth == -1 && !decision_tree.work_queue_empty()) {
-  //   printf("ERROR: got to root while work queue is not empty!, wq->size: %ld\n\n\n", decision_tree.temp_wq_size());
+  //   printf("ERROR: got to root while work queue is not empty!, wq->size: %ld\n\n", decision_tree.temp_wq_size());
   //   decision_tree.print_wq();
   //   abort();
   // }
-  
 
   if(decision_tree.work_queue_empty()){
     /* No more branching is possible. */
@@ -254,16 +251,17 @@ bool RFSCTraceBuilder::reset(){
     }
     assert(i < prefix.size());
   }
-  
-  work_item = decision_tree.get_next_sibling(&work_item);  //TODO: get next from decision.wq
-  // llvm::dbgs() << "wItem: " << work_item->name << "\n";
+  // auto sit = decision_tree.get_next_sibling();  //TODO: get next from decision.wq
+  // Leaf l = std::move(sit.second);
+
+  decision_tree.get_next_sibling(&work_item);  //TODO: get next from decision.wq
   Leaf l = std::move(work_item->leaf);
+  auto unf = std::move(work_item->unfold_node);
 
   if (conf.debug_print_on_reset)
-      llvm::dbgs() << "Backtracking to decision node " << (work_item->depth) //(decision_tree.size()-1)
+      llvm::dbgs() << "Backtracking to decision node " << (work_item->depth)
                    << ", replaying " << l.prefix.size() << " events to read from "
-                   << (work_item->unfold_node ? std::to_string(work_item->unfold_node->seqno) : "init") << "\n";
-  // decision_tree.erase_sibling(sit);
+                   << (unf ? std::to_string(unf->seqno) : "init") << "\n";
 
   assert(!l.is_bottom());
 
@@ -286,7 +284,7 @@ bool RFSCTraceBuilder::reset(){
   }
 
 #ifndef NDEBUG
-  for (int d = 0; d <= int(work_item->depth); ++d) {
+  for (int d = 0; d < work_item->depth; ++d) {
     assert(std::any_of(new_prefix.begin(), new_prefix.end(),
                        [&](const Event &e) { return e.get_decision_depth() == d; }));
   }
@@ -1232,7 +1230,6 @@ void RFSCTraceBuilder::compute_prefixes() {
         int original_read_from = *prefix[i].read_from;
         std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> alt
           = unfold_alternative(j, prefix[i].event->read_from);
-        // std::shared_ptr<DecisionNode> decision = decision_tree.get(prefix[i].get_decision_depth());
         std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
         // Returns false if unfolding node is already known and therefore does not have to be further evaluated
         if (decision->unf_is_known(alt)) return;
@@ -1265,7 +1262,6 @@ void RFSCTraceBuilder::compute_prefixes() {
                && *prefix[j].read_from == int(unlock));
         std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> alt
           = unfold_alternative(j, prefix[i].event->read_from);
-        // std::shared_ptr<DecisionNode> decision = decision_tree.get(prefix[i].get_decision_depth());
         std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
         if (decision->unf_is_known(alt)) return;
         if (!can_swap_lock_by_vclocks(i, unlock, j)) {
@@ -1297,7 +1293,6 @@ void RFSCTraceBuilder::compute_prefixes() {
         auto jidx = threads[jp].last_event_index()+1;
         std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> alt
           = unfold_find_unfolding_node(jp, jidx, original_read_from);
-        // std::shared_ptr<DecisionNode> decision = decision_tree.get(prefix[i].get_decision_depth());
         std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
         if (decision->unf_is_known(alt)) return;
         int j = prefix_idx;
@@ -1378,7 +1373,6 @@ void RFSCTraceBuilder::compute_prefixes() {
              [=](int i) { return i == original_read_from; })
            || original_read_from == -1);
 
-      // std::shared_ptr<DecisionNode> decision = decision_tree.get(prefix[i].get_decision_depth());
       std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
 
       auto try_read_from_rmw = [&](int j) {
