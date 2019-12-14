@@ -240,7 +240,8 @@ bool RFSCTraceBuilder::reset(){
        */
       const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision
         = is_lock_type(i) ? prefix[i].event : prefix[i].event->read_from;
-      decision_tree.place_decision_into_sleepset(decision);
+      // decision_tree.place_decision_into_sleepset(decision);
+      work_item->place_decision_into_sleepset(decision);
       break;
     }
     assert(i < prefix.size());
@@ -1220,7 +1221,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         int original_read_from = *prefix[i].read_from;
         std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> alt
           = unfold_alternative(j, prefix[i].event->read_from);
-        std::shared_ptr<DecisionNode> decision = decision_tree.get(prefix[i].get_decision_depth());
+        std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
         // Returns false if unfolding node is already known and therefore does not have to be further evaluated
         if (decision->unf_is_known(alt)) return;
         if (!can_swap_by_vclocks(i, j)) {
@@ -1249,7 +1250,7 @@ void RFSCTraceBuilder::compute_prefixes() {
                && *prefix[j].read_from == int(unlock));
         std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> alt
           = unfold_alternative(j, prefix[i].event->read_from);
-        std::shared_ptr<DecisionNode> decision = decision_tree.get(prefix[i].get_decision_depth());
+        std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
         if (decision->unf_is_known(alt)) return;
         if (!can_swap_lock_by_vclocks(i, unlock, j)) {
           decision->alloc_unf(alt);
@@ -1277,7 +1278,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         auto jidx = threads[jp].last_event_index()+1;
         std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> alt
           = unfold_find_unfolding_node(jp, jidx, original_read_from);
-        std::shared_ptr<DecisionNode> decision = decision_tree.get(prefix[i].get_decision_depth());
+        std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
         if (decision->unf_is_known(alt)) return;
         int j = prefix_idx;
         assert(prefix_idx == int(prefix.size()));
@@ -1354,7 +1355,7 @@ void RFSCTraceBuilder::compute_prefixes() {
              [=](int i) { return i == original_read_from; })
            || original_read_from == -1);
 
-      std::shared_ptr<DecisionNode> decision = decision_tree.get(prefix[i].get_decision_depth());
+      std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
 
       auto try_read_from_rmw = [&](int j) {
         Timing::Guard analysis_timing_guard(try_read_from_context);

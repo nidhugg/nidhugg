@@ -101,7 +101,8 @@ public:
   // Decided to move this to DecisionTree
   // void sibling_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
   
-  void sleep_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
+  // void sleep_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
+  void place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
   void temporary_clear_sleep();
 
   std::shared_ptr<DecisionNode> make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
@@ -147,9 +148,9 @@ public:
   void prune_decisions(int blame);
   void clear_unrealizable_siblings(std::shared_ptr<DecisionNode> *TB_work_item);
   
-  size_t size() {return decisions.size();};
-  std::shared_ptr<DecisionNode> get(int decision) {return decisions[decision];}
-  void place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision);
+  // size_t size() {return decisions.size();};
+  // std::shared_ptr<DecisionNode> get(int decision) {return decisions[decision];}
+  // void place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision);
 
 
   // std::shared_ptr<DecisionNode> get_next_sibling(std::shared_ptr<DecisionNode> *TB_work_item);
