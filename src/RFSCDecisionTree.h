@@ -82,6 +82,10 @@ public:
         : parent(decision), depth(decision->depth+1), ID(++decision_id) {
       decision_count++;
     };
+  DecisionNode(std::shared_ptr<DecisionNode> decision, std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf, Leaf l)
+        : parent(decision), depth(decision->depth+1), ID(++decision_id), unfold_node(std::move(unf)), leaf(l) {
+      decision_count++;
+  };
   ~DecisionNode() { decision_count--; };
 
   int depth;
@@ -91,7 +95,8 @@ public:
   void alloc_unf(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
   
 
-  std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> &
+  // std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> &
+  std::unordered_set<std::shared_ptr<DecisionNode>> &
   get_siblings() {return parent->siblings;};
   // Decided to move this to DecisionTree
   // void sibling_emplace(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
@@ -106,16 +111,23 @@ public:
 
   SaturatedGraph &get_saturated_graph();
 
+  std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unfold_node;
+  Leaf leaf;
+
+  std::shared_ptr<DecisionNode> parent;
+  std::unordered_set<std::shared_ptr<DecisionNode>> siblings;
+  std::unordered_map<DecisionNodeID, std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>>> children_unf_map;
+
 protected:
 
 
 
-  std::shared_ptr<DecisionNode> parent;
+  // std::shared_ptr<DecisionNode> parent;
 
-  std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> siblings;
+  // std::unordered_map<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> siblings;
   // Should be able to be used when each sibling is its own decisionNode
   // std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>> sleep;
-  std::unordered_map<DecisionNodeID, std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>>> children_unf_map;
+  // std::unordered_map<DecisionNodeID, std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>>> children_unf_map;
   SaturatedGraph graph_cache;
 
   std::unordered_map<DecisionNodeID, SaturatedGraph> temporary_graph_cache;

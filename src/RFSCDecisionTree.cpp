@@ -44,7 +44,20 @@ void RFSCDecisionTree::place_decision_into_sleepset(const std::shared_ptr<RFSCUn
 
 std::pair<const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf>
 RFSCDecisionTree::get_next_sibling() {
-  return decisions.back()->get_next_sibling();
+  // return decisions.back()->get_next_sibling();
+
+  auto node = decisions.back().get();
+  while (node->get_siblings().empty())
+  {
+    node = node->parent.get();
+  }
+  
+  auto it = node->get_siblings().begin();
+  auto pair = std::pair<const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf>(it->get()->unfold_node, it->get()->leaf);
+  node->parent->children_unf_map[node->ID].erase(it->get()->unfold_node);
+  // parent->children_unf_map[this->ID].insert(it->first);
+  node->get_siblings().erase(it);
+  return pair;
 }
 
 void RFSCDecisionTree::erase_sibling(std::pair<const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> sit) {
@@ -100,25 +113,27 @@ void DecisionNode::sleep_emplace(const std::shared_ptr<RFSCUnfoldingTree::Unfold
 void DecisionNode::make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
   // printf("DEBUG:\nnode depth: %d\tparent ptr: %p\n", depth, parent.get());
   parent->children_unf_map[this->ID].insert(unf);
-  get_siblings().emplace(unf, l);
+  // get_siblings().emplace(unf, l);
+  auto sibling = std::make_shared<DecisionNode>(parent, unf, l);
+  get_siblings().insert(sibling);
 }
 
-std::pair<const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> 
-DecisionNode::get_next_sibling() {
-  auto node = this;
-  while (node->get_siblings().empty())
-  {
-    node = node->parent.get();
-  }
+// std::pair<const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> 
+// DecisionNode::get_next_sibling() {
+//   auto node = this;
+//   while (node->get_siblings().empty())
+//   {
+//     node = node->parent.get();
+//   }
   
-  auto it = node->get_siblings().begin();
-  auto pair = std::pair<const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf>(it->first, it->second);
-  node->parent->children_unf_map[node->ID].erase(it->first);
-  // parent->children_unf_map[this->ID].insert(it->first);
-  node->get_siblings().erase(it);
-  return pair;
+//   auto it = node->get_siblings().begin();
+//   auto pair = std::pair<const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf>(it->first, it->second);
+//   node->parent->children_unf_map[node->ID].erase(it->first);
+//   // parent->children_unf_map[this->ID].insert(it->first);
+//   node->get_siblings().erase(it);
+//   return pair;
 
-}
+// }
 
 void DecisionNode::temporary_clear_sleep() {
   // Should be able to be used when each sibling is its own decisionNode
