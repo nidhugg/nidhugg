@@ -157,9 +157,6 @@ protected:
   SaturatedGraph graph_cache;
 };
 
-
-
-
 class RFSCDecisionTree final {
 public:
   RFSCDecisionTree() : root(std::make_shared<DecisionNode>()) {};
