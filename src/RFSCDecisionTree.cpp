@@ -1,4 +1,4 @@
-/* Copyright (C) 2018 Magnus Lång and Tuan Phong Ngo
+/* Copyright (C) 2018 Alexis Remmers and Nodari Kankava
  *
  * This file is part of Nidhugg.
  *
@@ -30,6 +30,7 @@ static bool prune_node(std::shared_ptr<DecisionNode> node, const std::shared_ptr
   return false;
 }
 
+
 void RFSCDecisionTree::prune_decisions(std::shared_ptr<DecisionNode> blame) {
   // Would perhaps be more efficient with a remove_if()
   for( auto iter = work_queue.begin(); iter != work_queue.end(); ) {
@@ -41,7 +42,7 @@ void RFSCDecisionTree::prune_decisions(std::shared_ptr<DecisionNode> blame) {
 }
 
 
-void RFSCDecisionTree::clear_unrealizable_siblings(std::shared_ptr<DecisionNode> *TB_work_item) {
+void RFSCDecisionTree::backtrack_decision_tree(std::shared_ptr<DecisionNode> *TB_work_item) {
   auto node = *TB_work_item;
   std::shared_ptr<DecisionNode> tmp;
   while (node->get_siblings().empty()) {
@@ -50,63 +51,35 @@ void RFSCDecisionTree::clear_unrealizable_siblings(std::shared_ptr<DecisionNode>
     if (node->depth == -1) {
       break;
     }
-    tmp->temporary_clear_sleep();
+    // tmp->clear_unf_set();
   }
   *TB_work_item = node;
-  // decisions.resize(node->depth+1, decisions[0]);
 }
 
-// void RFSCDecisionTree::place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision) {
-//   decisions.back()->sleep_emplace(decision);
-// }
 
+void RFSCDecisionTree::get_next_work_task(std::shared_ptr<DecisionNode> *TB_work_item) {
 
-
-void
-RFSCDecisionTree::get_next_sibling(std::shared_ptr<DecisionNode> *TB_work_item) {
-
-
-
-// Possible way of operating through nodes
+#ifndef __WORK_QUEUE_VECTOR_COMPABILITY_MODE__
 
 /***************************************************************************************/
-/*    Taking the end of vector    */
+/* Taking the front of vector (as queue but compatible with vector)
+ *
+ * This does unfortunately not work as the oracle will find an infinite amount 
+ * of Leafs and reset() requires to know what node an event should be placed to 
+ * sleep in based on non-evaluated siblings.    */
 
-  // std::shared_ptr<DecisionNode> node = work_queue.back();
-  // node->get_siblings().erase(node);
-  // work_queue.pop_back();
-  
-  // *TB_work_item = std::move(node);
+  auto it = work_queue.begin();
+  std::shared_ptr<DecisionNode> node = *it;
+  work_queue.erase(it);
 
+
+#else
 /***************************************************************************************/
-/*    Taking the front of vector (queue)    */
-
-  // auto it = work_queue.begin();
-  // // if (it == work_queue.end()) {
-  // //   printf("ERROR:  Work queue is empty!\n");
-  // //   abort();
-  // // }
-  
-  // std::shared_ptr<DecisionNode> node = *it;
-  // // if (node->get_siblings().count(node) == 0)
-  // // {
-  // //   printf("Cant find itself in siblings\n");
-  // //   abort();
-  // // }
-
-  // // node->get_next_sibling();
-  // node->parent->children_unf_set.erase(node->unfold_node);
-  // size_t amount = node->get_siblings().erase(node);
-  // // if (amount != 1) {
-  // //   printf("ERROR: get_siblings().erase() erased wrong amount (should be 1): %ld\n", amount);
-  // //   abort();
-  // // }
-  // work_queue.erase(it);
-  // *TB_work_item = std::move(node);
-
-
-/***************************************************************************************/
-/*    Taking the first sibling (simulate decisions vector)    */
+/* Taking the first sibling (based on backtracking treepath to non-empty sibling-set)
+ *
+ * This simulates the old decisions vector by taking every sibling in an in-order fashion. 
+ * This cannot operate parallelized as it requires that each sibling in a given level 
+ * to be evaluated before going forth.    */
 
   std::shared_ptr<DecisionNode> node = *TB_work_item;
   auto it = node->get_siblings().begin();
@@ -119,77 +92,44 @@ RFSCDecisionTree::get_next_sibling(std::shared_ptr<DecisionNode> *TB_work_item) 
     }
   }
   
-  node->parent->children_unf_set.erase(node->unfold_node);
+#endif
+
+  // node->get_unf_set().erase(node->unfold_node);
   node->get_siblings().erase(node);
   *TB_work_item = std::move(node);
-
-
-
-/***************************************************************************************/
-/*    Old version still running from decisions-vector    */
-
-  // std::shared_ptr<DecisionNode> node = decisions.back();
-  // auto it = node->get_siblings().begin();
-  // decisions[decisions.size()-1] = *it;
-
-
-  // for (auto i = work_queue.begin(); i != work_queue.end(); i++)
-  // {
-  //   if ((*i)->ID == (*it)->ID) {
-  //     work_queue.erase(i);
-  //     break;
-  //   }
-  // }
-
-  // node->get_siblings().erase(it);
-  // // TODO: For now this does not erase the new decisions unf from children_unf_set,
-  // // making it possible for it to find older versions of unf and possibly introduce a bug to the compute_prefixes
-  // // (*it)->get_next_sibling();
-
-  // return decisions.back(); //->get_next_sibling();
 }
 
 
-void RFSCDecisionTree::erase_sibling(std::pair<const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>, Leaf> sit) {
-  // decisions.back()->get_siblings().erase(sit.first);
-  return;
-}
-
-
-
-std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(std::shared_ptr<DecisionNode> parent) {
+std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(std::shared_ptr<DecisionNode> parent, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
   auto decision = std::make_shared<DecisionNode>(parent);
-  // decisions.push_back(decision);
+  decision->place_decision_into_sleepset(unf);
   return decision;
 }
 
 
-
 void RFSCDecisionTree::construct_sibling(std::shared_ptr<DecisionNode> decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
-  auto sibling = decision->make_sibling(unf, l);
-  // work_queue.insert(sibling);
-  work_queue.push_back(sibling);
+  work_queue.push_back(std::move(decision->make_sibling(unf, l)));
 }
+
 
 bool RFSCDecisionTree::work_queue_empty() {
-  // if (decisions.empty() && !work_queue.empty()) {
-  //   printf("ERROR:  Decisions and work_queue do not match!\n");
-  //   abort();
-  // }
-  // if (work_queue.empty() && !decisions.empty()) {
-  //   printf("ERROR: work_queue and Decisions do not match!\n");
-  //   abort();
-  // }
-
-  // return decisions.empty();
   return work_queue.empty();
-
 }
+
 
 void RFSCDecisionTree::print_wq() {
   for (auto node : work_queue) {
     llvm::dbgs() <<  node->name << "\n";
   }
+}
+
+
+std::shared_ptr<DecisionNode> RFSCDecisionTree::find_ancestor(std::shared_ptr<DecisionNode> node, int wanted) {
+  assert(node->depth >= wanted);
+  while (node->depth != wanted) {
+    node = node->parent;
+  }
+  return node;
 }
 
 
@@ -201,6 +141,20 @@ void RFSCDecisionTree::print_wq() {
  * 
 *************************************************************************************************************/
 
+void DecisionNode::set_name() {
+    name = parent->name + '-' + parent->name_index;
+}
+void DecisionNode::set_sibling_name() {
+  char index = parent->name_index.back();
+  if (index == 'Z') {
+    parent->name_index.push_back('A');
+  }
+  else {
+    parent->name_index.pop_back();
+    parent->name_index.push_back(index+1);
+  }
+  name = parent->name + '-' + parent->name_index;
+}
 
 void DecisionNode::place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
   if (depth != -1) {
@@ -220,11 +174,8 @@ std::shared_ptr<DecisionNode> DecisionNode::make_sibling(const std::shared_ptr<R
   return sibling;
 }
 
-void DecisionNode::get_next_sibling() {
-  parent->children_unf_set.erase(unfold_node);
-}
 
-void DecisionNode::temporary_clear_sleep() {
+void DecisionNode::clear_unf_set() {
   if (depth >= 0)
     parent->children_unf_set.clear();
 }
@@ -232,13 +183,13 @@ void DecisionNode::temporary_clear_sleep() {
 
 SaturatedGraph &DecisionNode::get_saturated_graph() {
   assert(depth != -1);  
-  SaturatedGraph &g = parent->temporary_graph_cache[this->ID];
+  SaturatedGraph &g = parent->graph_cache;
   if (g.size() || depth == 0) return g;
   auto node = parent;
   do {
-    if (node->temporary_graph_cache[node->ID].size()) {
+    if (node->graph_cache.size()) {
       /* Reuse subgraph */
-      g = node->temporary_graph_cache[node->ID];
+      g = node->graph_cache;
       break;
     }
     node = node->parent;
@@ -255,12 +206,4 @@ bool DecisionNode::unf_is_known(const std::shared_ptr<RFSCUnfoldingTree::Unfoldi
 
 void DecisionNode::alloc_unf(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
   parent->children_unf_set.insert(unf);
-}
-
-
-std::shared_ptr<DecisionNode> find_ancester(std::shared_ptr<DecisionNode> node, int wanted) {
-  while (node->depth != wanted) {
-    node = node->parent;
-  }
-  return node;
 }

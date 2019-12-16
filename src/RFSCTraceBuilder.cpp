@@ -221,7 +221,7 @@ Trace *RFSCTraceBuilder::get_trace() const{
 
 bool RFSCTraceBuilder::reset(){
 
-  decision_tree.clear_unrealizable_siblings(&work_item);
+  decision_tree.backtrack_decision_tree(&work_item);
 
   // if(work_item->depth == -1 && !decision_tree.work_queue_empty()) {
   //   printf("ERROR: got to root while work queue is not empty!, wq->size: %ld\n\n", decision_tree.temp_wq_size());
@@ -246,7 +246,7 @@ bool RFSCTraceBuilder::reset(){
        */
       const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision
         = is_lock_type(i) ? prefix[i].event : prefix[i].event->read_from;
-      work_item->place_decision_into_sleepset(decision);
+      // work_item->place_decision_into_sleepset(decision);
       break;
     }
     assert(i < prefix.size());
@@ -254,7 +254,7 @@ bool RFSCTraceBuilder::reset(){
   // auto sit = decision_tree.get_next_sibling();  //TODO: get next from decision.wq
   // Leaf l = std::move(sit.second);
 
-  decision_tree.get_next_sibling(&work_item);  //TODO: get next from decision.wq
+  decision_tree.get_next_work_task(&work_item);  //TODO: get next from decision.wq
   Leaf l = std::move(work_item->leaf);
   auto unf = std::move(work_item->unfold_node);
 
@@ -277,9 +277,7 @@ bool RFSCTraceBuilder::reset(){
     new_prefix.back().size = b.size;
     new_prefix.back().sym = std::move(b.sym);
     new_prefix.back().pinned = b.pinned;
-    new_prefix.back().set_branch_decision(b.decision_ptr, work_item);
-    // new_prefix.back().set_decision_depth(b.decision_depth);
-    // new_prefix.back().set_decision_ptr(b.decision_ptr);
+    new_prefix.back().set_branch_decision(std::move(b.decision_ptr), work_item);
     iid_map_step(iid_map, new_prefix.back());
   }
 
@@ -292,9 +290,6 @@ bool RFSCTraceBuilder::reset(){
 
   prefix = std::move(new_prefix);
 
-  // for(unsigned i = 0; i < prefix.size(); ++i) {
-  //   printf("prefix[%d] decision_depth: %d\n", i, prefix[i].get_decision_depth());
-  // }
 
   CPS = CPidSystem();
   threads.clear();
@@ -929,7 +924,9 @@ void RFSCTraceBuilder::compute_unfolding() {
 
     if (int(i) >= replay_point) {
       if (is_load(i)) {
-        deepest_node = decision_tree.new_decision_node(deepest_node);
+        const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision
+        = is_lock_type(i) ? prefix[i].event : prefix[i].event->read_from;
+        deepest_node = decision_tree.new_decision_node(deepest_node, decision);
         prefix[i].set_decision(deepest_node);
       }
     }
@@ -1237,10 +1234,11 @@ void RFSCTraceBuilder::compute_prefixes() {
           decision->alloc_unf(alt);
           return;
         }
-        if (conf.debug_print_on_reset)
+        if (conf.debug_print_on_reset) {
           llvm::dbgs() << "Trying to swap " << pretty_index(i)
                        << " and " << pretty_index(j)
                        << ", after " << pretty_index(original_read_from);
+        }
         prefix[j].read_from = original_read_from;
         prefix[i].decision_swap(prefix[j]);
         // std::swap(prefix[i].decision, prefix[j].decision);

@@ -291,12 +291,12 @@ protected:
       return decision_ptr ? decision_depth : -1;
     };
     void set_decision(std::shared_ptr<DecisionNode> decision) {
-      decision_ptr = decision;
-      decision_depth = decision ? decision->depth : -1;
+      decision_ptr = std::move(decision);
+      decision_depth = decision_ptr ? decision_ptr->depth : -1;
     };
     void set_branch_decision(std::shared_ptr<DecisionNode> decision, std::shared_ptr<DecisionNode> work_item) {
       decision_depth = decision ? decision->depth : -1;
-      decision_ptr = decision_depth == -1 ? decision : find_ancester(work_item, decision_depth);
+      decision_ptr = decision_depth == -1 ? std::move(decision) : RFSCDecisionTree::find_ancestor(work_item, decision_depth);
     };
 
     void decision_swap(Event &e) {
