@@ -41,6 +41,7 @@ class RFSCTraceBuilder final : public TSOPSOTraceBuilder{
 public:
   RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
                    RFSCUnfoldingTree &unfolding_tree_,
+                   std::shared_ptr<DecisionNode> work_item_,
                    const Configuration &conf = Configuration::default_conf);
   virtual ~RFSCTraceBuilder();
   virtual bool schedule(int *proc, int *aux, int *alt, bool *dryrun);

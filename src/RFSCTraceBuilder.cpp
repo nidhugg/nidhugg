@@ -45,8 +45,9 @@ static Timing::Context sat_context("sat");
 
 RFSCTraceBuilder::RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
                                    RFSCUnfoldingTree &unfolding_tree_,
+                                   std::shared_ptr<DecisionNode> work_item_,
                                    const Configuration &conf)
-    : decision_tree(desicion_tree_), unfolding_tree(unfolding_tree_),
+    : decision_tree(desicion_tree_), unfolding_tree(unfolding_tree_), work_item(work_item_),
       TSOPSOTraceBuilder(conf) {
   threads.push_back(Thread(CPid(), -1));
   prefix_idx = -1;
@@ -55,7 +56,6 @@ RFSCTraceBuilder::RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
   last_full_memory_conflict = -1;
   last_md = 0;
   replay_point = 0;
-  work_item = decision_tree.get_root();
 }
 
 RFSCTraceBuilder::~RFSCTraceBuilder(){

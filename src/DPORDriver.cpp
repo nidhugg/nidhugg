@@ -205,7 +205,7 @@ DPORDriver::Result DPORDriver::run(){
     if(conf.dpor_algorithm != Configuration::READS_FROM){
       TB = new TSOTraceBuilder(conf);
     }else{
-      TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, conf); // TODO: pass decisions to trace builder
+      TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_root(), conf);
     }
     break;
   case Configuration::TSO:
