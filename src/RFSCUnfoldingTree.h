@@ -26,7 +26,7 @@
 #include "TSOPSOTraceBuilder.h"
 
 
-static unsigned unf_ctr = 0;
+
 
 /* An identifier for a thread. An index into this->threads.
    *
@@ -43,7 +43,7 @@ public:
   struct UnfoldingNode;
   typedef llvm::SmallVector<std::weak_ptr<UnfoldingNode>,1> UnfoldingNodeChildren;
 
-
+  static unsigned unf_ctr;
 
   // std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> find_unfolding_node
   //   (IPid pid, int index, Option<int> read_from);
@@ -64,7 +64,7 @@ public:
     UnfoldingNode(std::shared_ptr<UnfoldingNode> parent,
                   std::shared_ptr<UnfoldingNode> read_from)
       : parent(std::move(parent)), read_from(std::move(read_from)),
-        seqno(++unf_ctr) {};
+        seqno(++RFSCUnfoldingTree::unf_ctr) {};
     std::shared_ptr<UnfoldingNode> parent, read_from;
     UnfoldingNodeChildren children;
     unsigned seqno;

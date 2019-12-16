@@ -55,6 +55,7 @@ RFSCTraceBuilder::RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
   last_full_memory_conflict = -1;
   last_md = 0;
   replay_point = 0;
+  work_item = decision_tree.get_root();
 }
 
 RFSCTraceBuilder::~RFSCTraceBuilder(){
@@ -186,9 +187,9 @@ void RFSCTraceBuilder::cancel_replay(){
    * prune all later decisions. */
   int blame = -1; /* -1: All executions lead to this failure */
   for (int i = 0; i <= prefix_idx; ++i) {
-    blame = std::max(blame, prefix[i].decision);
+    blame = std::max(blame, prefix[i].get_decision_depth());
   }
-  decision_tree.prune_decisions(blame);
+  decision_tree.prune_decisions(prefix[blame].decision_ptr);
 }
 
 void RFSCTraceBuilder::metadata(const llvm::MDNode *md){
@@ -220,16 +221,22 @@ Trace *RFSCTraceBuilder::get_trace() const{
 
 bool RFSCTraceBuilder::reset(){
 
-  decision_tree.clear_unrealizable_siblings();
+  decision_tree.backtrack_decision_tree(&work_item);
 
-  if(decision_tree.empty()){
+  // if(work_item->depth == -1 && !decision_tree.work_queue_empty()) {
+  //   printf("ERROR: got to root while work queue is not empty!, wq->size: %ld\n\n", decision_tree.temp_wq_size());
+  //   decision_tree.print_wq();
+  //   abort();
+  // }
+
+  if(decision_tree.work_queue_empty()){
     /* No more branching is possible. */
     return false;
   }
 
   /* Insert current event in sleep */
-  for (unsigned i = 0;; ++i) { // TODO: remove?
-    if (prefix[i].decision == int(decision_tree.size()-1)) {
+  for (unsigned i = 0;; ++i) {
+    if (prefix[i].get_decision_depth() == int(work_item->depth)) {
       assert(!prefix[i].pinned);
       /* Icky performance hack to work around dreadful performance of
        * shared_ptr reference counting;
@@ -239,19 +246,22 @@ bool RFSCTraceBuilder::reset(){
        */
       const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision
         = is_lock_type(i) ? prefix[i].event : prefix[i].event->read_from;
-      decision_tree.place_decision_into_sleepset(decision);
+      // work_item->place_decision_into_sleepset(decision);
       break;
     }
     assert(i < prefix.size());
   }
-  auto sit = decision_tree.get_next_sibling();  //TODO: get next from decision.wq
-  Leaf l = std::move(sit->second);
+  // auto sit = decision_tree.get_next_sibling();  //TODO: get next from decision.wq
+  // Leaf l = std::move(sit.second);
+
+  decision_tree.get_next_work_task(&work_item);  //TODO: get next from decision.wq
+  Leaf l = std::move(work_item->leaf);
+  auto unf = std::move(work_item->unfold_node);
 
   if (conf.debug_print_on_reset)
-      llvm::dbgs() << "Backtracking to decision node " << (decision_tree.size()-1)
+      llvm::dbgs() << "Backtracking to decision node " << (work_item->depth)
                    << ", replaying " << l.prefix.size() << " events to read from "
-                   << (sit->first ? std::to_string(sit->first->seqno) : "init") << "\n";
-  decision_tree.erase_sibling(sit);
+                   << (unf ? std::to_string(unf->seqno) : "init") << "\n";
 
   assert(!l.is_bottom());
 
@@ -267,18 +277,19 @@ bool RFSCTraceBuilder::reset(){
     new_prefix.back().size = b.size;
     new_prefix.back().sym = std::move(b.sym);
     new_prefix.back().pinned = b.pinned;
-    new_prefix.back().decision = b.decision;
+    new_prefix.back().set_branch_decision(std::move(b.decision_ptr), work_item);
     iid_map_step(iid_map, new_prefix.back());
   }
 
 #ifndef NDEBUG
-  for (int d = 0; d < int(decision_tree.size()); ++d) {
+  for (int d = 0; d < work_item->depth; ++d) {
     assert(std::any_of(new_prefix.begin(), new_prefix.end(),
-                       [&](const Event &e) { return e.decision == d; }));
+                       [&](const Event &e) { return e.get_decision_depth() == d; }));
   }
 #endif
 
   prefix = std::move(new_prefix);
+
 
   CPS = CPidSystem();
   threads.clear();
@@ -349,7 +360,7 @@ void RFSCTraceBuilder::debug_print() const {
     IPid ipid = prefix[i].iid.get_pid();
     idx_offs = std::max(idx_offs,int(std::to_string(i).size()));
     iid_offs = std::max(iid_offs,2*ipid+int(iid_string(i).size()));
-    dec_offs = std::max(dec_offs,int(std::to_string(prefix[i].decision).size())
+    dec_offs = std::max(dec_offs,int(std::to_string(prefix[i].get_decision_depth()).size())
                         + (prefix[i].pinned ? 1 : 0));
     unf_offs = std::max(unf_offs,int(std::to_string(prefix[i].event->seqno).size()));
     rf_offs = std::max(rf_offs,prefix[i].read_from ?
@@ -365,7 +376,7 @@ void RFSCTraceBuilder::debug_print() const {
                  << rpad("",1+ipid*2)
                  << rpad(iid_string(i),iid_offs-ipid*2)
                  << " " << lpad((prefix[i].pinned ? "*" : "")
-                                + std::to_string(prefix[i].decision),dec_offs)
+                                + std::to_string(prefix[i].get_decision_depth()),dec_offs)
                  << " " << lpad(std::to_string(prefix[i].event->seqno),unf_offs)
                  << " " << lpad(prefix[i].read_from ? std::to_string(*prefix[i].read_from) : "-",rf_offs)
                  << " " << rpad(prefix[i].clock.to_string(),clock_offs)
@@ -856,8 +867,37 @@ void RFSCTraceBuilder::compute_vclocks(){
 }
 
 void RFSCTraceBuilder::compute_unfolding() {
+  // Find the deepest node in prefix first
+  // because the can be found in an undetermined order
+  auto deepest_node = decision_tree.get_root();
+  // for (unsigned int i = 0; i < prefix.size(); i++)
+  // {
+  //   auto last_decision = prefix[i].decision_ptr;
+  //   if (last_decision && last_decision->depth > deepest_node->depth) {
+  //     deepest_node = last_decision;
+  //   }
+  // }
+
+  // for (int i = 0; i < prefix.size(); i++)
+  // {
+  //   printf("i: %d\t decision: %d\t ptr_depth: %d\n",
+  //     i, prefix[i].get_decision_depth(), 
+  //     prefix[i].decision_ptr ? prefix[i].decision_ptr->depth : -9);
+  // }
+  
+  // printf("Root: %p\n", deepest_node.get());
+
+
   Timing::Guard timing_guard(unfolding_context);
   for (unsigned i = 0; i < prefix.size(); ++i) {
+    // printf("Deepest decision\n");
+    auto last_decision = prefix[i].decision_ptr;
+    if (last_decision && last_decision->depth > deepest_node->depth) {
+      deepest_node = last_decision;
+    }
+    // printf("Past Deepest decision\n");
+    // printf("Deepest: %p\n", deepest_node.get());
+
     RFSCUnfoldingTree::UnfoldingNodeChildren *parent_list;
     const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> null_ptr;
     const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> *parent;
@@ -884,11 +924,14 @@ void RFSCTraceBuilder::compute_unfolding() {
 
     if (int(i) >= replay_point) {
       if (is_load(i)) {
-        int decision = decision_tree.new_decision_node();
-        prefix[i].decision = decision;
+        const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision
+        = is_lock_type(i) ? prefix[i].event : prefix[i].event->read_from;
+        deepest_node = decision_tree.new_decision_node(deepest_node, decision);
+        prefix[i].set_decision(deepest_node);
       }
     }
   }
+  work_item = deepest_node;
 }
 
 std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> RFSCTraceBuilder::
@@ -1159,7 +1202,7 @@ void RFSCTraceBuilder::compute_prefixes() {
 
   auto pretty_index = [&] (int i) -> std::string {
     if (i==-1) return "init event";
-    return std::to_string(prefix[i].decision) + "("
+    return std::to_string(prefix[i].get_decision_depth()) + "("
       + std::to_string(prefix[i].event->seqno) + "):"
       + iid_string(i) + prefix[i].sym.to_string();
   };
@@ -1184,37 +1227,43 @@ void RFSCTraceBuilder::compute_prefixes() {
         int original_read_from = *prefix[i].read_from;
         std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> alt
           = unfold_alternative(j, prefix[i].event->read_from);
-        DecisionNode &decision = decision_tree.get(prefix[i].decision);
-        if (decision.siblings.count(alt)) return;
-        if (decision.sleep.count(alt)) return;
+        std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
+        // Returns false if unfolding node is already known and therefore does not have to be further evaluated
+        if (decision->unf_is_known(alt)) return;
         if (!can_swap_by_vclocks(i, j)) {
-          decision.siblings.emplace(alt, Leaf());
+          decision->alloc_unf(alt);
           return;
         }
-        if (conf.debug_print_on_reset)
+        if (conf.debug_print_on_reset) {
           llvm::dbgs() << "Trying to swap " << pretty_index(i)
                        << " and " << pretty_index(j)
                        << ", after " << pretty_index(original_read_from);
+        }
         prefix[j].read_from = original_read_from;
-        std::swap(prefix[i].decision, prefix[j].decision);
+        prefix[i].decision_swap(prefix[j]);
+        // std::swap(prefix[i].decision, prefix[j].decision);
 
         Leaf solution = try_sat({unsigned(j)}, writes_by_address);
-        decision.siblings.emplace(alt, std::move(solution));
-
+        if (!solution.is_bottom()) {
+          // decision.sibling_emplace(alt, std::move(solution));
+          decision_tree.construct_sibling(decision, alt, std::move(solution));
+        }
+        else {
+          decision->alloc_unf(alt);
+        }
         /* Reset read-from and decision */
         prefix[j].read_from = i;
-        std::swap(prefix[i].decision, prefix[j].decision);
+        prefix[i].decision_swap(prefix[j]);
       };
     auto try_swap_lock = [&](int i, int unlock, int j) {
         assert(does_lock(i) && is_unlock(unlock) && is_lock(j)
                && *prefix[j].read_from == int(unlock));
         std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> alt
           = unfold_alternative(j, prefix[i].event->read_from);
-        DecisionNode &decision = decision_tree.get(prefix[i].decision);//
-        if (decision.siblings.count(alt)) return;
-        if (decision.sleep.count(alt)) return;
+        std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
+        if (decision->unf_is_known(alt)) return;
         if (!can_swap_lock_by_vclocks(i, unlock, j)) {
-          decision.siblings.emplace(alt, Leaf());
+          decision->alloc_unf(alt);
           return;
         }
         int original_read_from = *prefix[i].read_from;
@@ -1223,48 +1272,62 @@ void RFSCTraceBuilder::compute_prefixes() {
                        << " and " << pretty_index(j)
                        << ", after " << pretty_index(original_read_from);
         prefix[j].read_from = original_read_from;
-        std::swap(prefix[i].decision, prefix[j].decision);
+        prefix[i].decision_swap(prefix[j]);
 
         Leaf solution = try_sat({unsigned(j)}, writes_by_address);
-        decision.siblings.emplace(alt, std::move(solution));
-
+        if (!solution.is_bottom()) {
+          // decision.sibling_emplace(alt, std::move(solution));
+          decision_tree.construct_sibling(decision, alt, std::move(solution));
+        }
+        else {
+          decision->alloc_unf(alt);
+        }
         /* Reset read-from and decision */
         prefix[j].read_from = unlock;
-        std::swap(prefix[i].decision, prefix[j].decision);
+        prefix[i].decision_swap(prefix[j]);
       };
     auto try_swap_blocked = [&](int i, IPid jp, SymEv sym) {
         int original_read_from = *prefix[i].read_from;
         auto jidx = threads[jp].last_event_index()+1;
         std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> alt
           = unfold_find_unfolding_node(jp, jidx, original_read_from);
-        DecisionNode &decision = decision_tree.get(prefix[i].decision);
-        if (decision.siblings.count(alt)) return;
-        if (decision.sleep.count(alt)) return;
+        std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
+        if (decision->unf_is_known(alt)) return;
         int j = prefix_idx;
         assert(prefix_idx == int(prefix.size()));
         prefix.emplace_back(IID<IPid>(jp, jidx), 0, std::move(sym));
         prefix[j].event = alt; // Only for debug print
         threads[jp].event_indices.push_back(j); // Not needed?
         compute_above_clock(j);
+
+
         if (!can_swap_by_vclocks(i, j)) {
-          decision.siblings.emplace(alt, Leaf());
-        } else {
+          decision->alloc_unf(alt);
+        }
+        else {
 
           if (conf.debug_print_on_reset)
             llvm::dbgs() << "Trying replace " << pretty_index(i)
                          << " with deadlocked " << pretty_index(j)
                          << ", after " << pretty_index(original_read_from);
           prefix[j].read_from = original_read_from;
-          std::swap(prefix[i].decision, prefix[j].decision);
+          prefix[i].decision_swap(prefix[j]);
+          // std::swap(prefix[i].decision, prefix[j].decision);
           assert(!prefix[i].pinned);
           prefix[i].pinned = true;
 
           Leaf solution = try_sat({unsigned(j)}, writes_by_address);
-          decision.siblings.emplace(alt, std::move(solution)); // TODO: add this to wq (if solution != bottom)
-          // TODO: decision.add_to_wq ...
+          if (!solution.is_bottom()) {
+            // decision.sibling_emplace(alt, std::move(solution));
+            // TODO: decision.add_to_wq ...
+            decision_tree.construct_sibling(decision, alt, std::move(solution));
+          }
+          else {
+            decision->alloc_unf(alt);
+          }
 
           /* Reset decision */
-          prefix[i].decision = prefix[j].decision;
+          prefix[i].decision_swap(prefix[j]);
           prefix[i].pinned = false;
         }
         /* Delete j */
@@ -1308,7 +1371,7 @@ void RFSCTraceBuilder::compute_prefixes() {
              [=](int i) { return i == original_read_from; })
            || original_read_from == -1);
 
-      DecisionNode &decision = decision_tree.get(prefix[i].decision);
+      std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
 
       auto try_read_from_rmw = [&](int j) {
         Timing::Guard analysis_timing_guard(try_read_from_context);
@@ -1318,10 +1381,9 @@ void RFSCTraceBuilder::compute_prefixes() {
         if (*prefix[j].read_from != int(i)) return;
         std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> read_from
           = unfold_alternative(j, prefix[i].event->read_from);
-        if (decision.siblings.count(read_from)) return;
-        if (decision.sleep.count(read_from)) return;
+        if (decision->unf_is_known(read_from)) return;
         if (!can_swap_by_vclocks(i, j)) {
-          decision.siblings.emplace(read_from, Leaf());
+          decision->alloc_unf(read_from);
           return;
         }
         if (conf.debug_print_on_reset)
@@ -1334,7 +1396,13 @@ void RFSCTraceBuilder::compute_prefixes() {
         auto undoi = recompute_cmpxhg_success(i, possible_writes);
 
         Leaf solution = try_sat({unsigned(j), i}, writes_by_address);
-        decision.siblings.emplace(read_from, std::move(solution));
+        if (!solution.is_bottom()) {
+          // decision.sibling_emplace(read_from, std::move(solution));
+          decision_tree.construct_sibling(decision, read_from, std::move(solution));
+        }
+        else {
+          decision->alloc_unf(read_from);
+        }
 
         /* Reset read-from */
         prefix[j].read_from = i;
@@ -1351,10 +1419,9 @@ void RFSCTraceBuilder::compute_prefixes() {
         } else {
           const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from =
             j == -1 ? nullptr : prefix[j].event;
-          if (decision.siblings.count(read_from)) return;
-          if (decision.sleep.count(read_from)) return;
+          if (decision->unf_is_known(read_from)) return;
           if (!can_rf_by_vclocks(i, original_read_from, j)) {
-            decision.siblings.emplace(read_from, Leaf());
+            decision->alloc_unf(read_from);
             return;
           }
           if (conf.debug_print_on_reset)
@@ -1365,7 +1432,13 @@ void RFSCTraceBuilder::compute_prefixes() {
           auto undoi = recompute_cmpxhg_success(i, possible_writes);
 
           Leaf solution = try_sat({i}, writes_by_address);
-          decision.siblings.emplace(read_from, std::move(solution));
+          if (!solution.is_bottom()) {
+            // decision.sibling_emplace(read_from, std::move(solution));
+            decision_tree.construct_sibling(decision, read_from, std::move(solution));
+          }
+          else {
+            decision->alloc_unf(read_from);
+          }
 
           undo_cmpxhg_recomputation(undoi, possible_writes);
         }
@@ -1488,8 +1561,10 @@ void RFSCTraceBuilder::add_event_to_graph(SaturatedGraph &g, unsigned i) const {
                              [this](unsigned j){return prefix[j].iid;}));
 }
 
-const SaturatedGraph &RFSCTraceBuilder::get_cached_graph(unsigned i) {
-  SaturatedGraph &g = decision_tree.get_saturated_graph(i);
+const SaturatedGraph &RFSCTraceBuilder::get_cached_graph(std::shared_ptr<DecisionNode> &decision) {
+  SaturatedGraph &g = decision->get_saturated_graph();
+  // SaturatedGraph &g = decision_tree.get_saturated_graph(decision);
+  int i = decision->depth;
   
   std::vector<bool> keep = causal_past(i-1);
   for (unsigned i = 0; i < prefix.size(); ++i) {
@@ -1510,8 +1585,9 @@ RFSCTraceBuilder::try_sat
  std::map<SymAddr,std::vector<int>> &writes_by_address){
   Timing::Guard timing_guard(graph_context);
   unsigned last_change = changed_events.end()[-1];
-  int decision = prefix[last_change].decision;
-  std::vector<bool> keep = causal_past(decision);
+  auto decision = prefix[last_change].decision_ptr;
+  int decision_depth = decision->depth;
+  std::vector<bool> keep = causal_past(decision_depth);
 
   SaturatedGraph g(get_cached_graph(decision));
   for (unsigned i = 0; i < prefix.size(); ++i) {
@@ -1541,7 +1617,7 @@ RFSCTraceBuilder::try_sat
     std::vector<unsigned> order = map(*res, [this](IID<int> iid) {
         return find_process_event(iid.get_pid(), iid.get_index());
       });
-    return order_to_leaf(decision, changed_events, std::move(order),
+    return order_to_leaf(decision_depth, changed_events, std::move(order),
                          std::move(g));
   }
 
@@ -1581,7 +1657,7 @@ RFSCTraceBuilder::try_sat
     llvm::dbgs() << "]\n";
   }
 
-  return order_to_leaf(decision, changed_events, std::move(order),
+  return order_to_leaf(decision_depth, changed_events, std::move(order),
                        std::move(g));
 }
 
@@ -1593,14 +1669,17 @@ Leaf RFSCTraceBuilder::order_to_leaf
   for (unsigned i : order) {
     bool is_changed = std::any_of(changed.begin(), changed.end(),
                                   [i](unsigned c) { return c == i; });
-    bool new_pinned = prefix[i].pinned || (prefix[i].decision > decision);
-    int new_decision = prefix[i].decision;
+    bool new_pinned = prefix[i].pinned || (prefix[i].get_decision_depth() > decision);
+    int new_decision = prefix[i].get_decision_depth();
+    std::shared_ptr<DecisionNode> new_decision_ptr = prefix[i].decision_ptr;
     if (new_decision > decision) {
       new_pinned = true;
       new_decision = -1;
+      new_decision_ptr = nullptr;
     }
     new_prefix.emplace_back(prefix[i].iid.get_pid(),
                             is_changed ? 1 : prefix[i].size,
+                            new_decision_ptr,
                             new_decision,
                             new_pinned,
                             prefix[i].sym);
@@ -1612,9 +1691,9 @@ Leaf RFSCTraceBuilder::order_to_leaf
 std::vector<bool> RFSCTraceBuilder::causal_past(int decision) const {
   std::vector<bool> acc(prefix.size());
   for (unsigned i = 0; i < prefix.size(); ++i) {
-    assert(!((prefix[i].decision != -1) && prefix[i].pinned));
-    assert(is_load(i) == ((prefix[i].decision != -1) || prefix[i].pinned));
-    if (prefix[i].decision != -1 && prefix[i].decision <= decision) {
+    assert(!((prefix[i].get_decision_depth() != -1) && prefix[i].pinned));
+    assert(is_load(i) == ((prefix[i].get_decision_depth() != -1) || prefix[i].pinned));
+    if (prefix[i].get_decision_depth() != -1 && prefix[i].get_decision_depth() <= decision) {
       causal_past_1(acc, i);
     }
   };

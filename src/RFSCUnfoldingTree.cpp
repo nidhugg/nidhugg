@@ -21,7 +21,7 @@
 #include "RFSCUnfoldingTree.h"
 
 
-
+unsigned RFSCUnfoldingTree::unf_ctr = 0;
 
 // std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> RFSCUnfoldingTree::
 // find_unfolding_node(IPid p, int index, Option<int> prefix_rf) {
