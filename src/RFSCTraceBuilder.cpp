@@ -221,40 +221,12 @@ Trace *RFSCTraceBuilder::get_trace() const{
 
 bool RFSCTraceBuilder::reset(){
 
-  decision_tree.backtrack_decision_tree(&work_item);
-
-  // if(work_item->depth == -1 && !decision_tree.work_queue_empty()) {
-  //   printf("ERROR: got to root while work queue is not empty!, wq->size: %ld\n\n", decision_tree.temp_wq_size());
-  //   decision_tree.print_wq();
-  //   abort();
-  // }
-
   if(decision_tree.work_queue_empty()){
     /* No more branching is possible. */
     return false;
   }
 
-  /* Insert current event in sleep */
-  for (unsigned i = 0;; ++i) {
-    if (prefix[i].get_decision_depth() == int(work_item->depth)) {
-      assert(!prefix[i].pinned);
-      /* Icky performance hack to work around dreadful performance of
-       * shared_ptr reference counting;
-       *
-       * The unfolding node of read events is the _read from_ event,
-       * whereas for lock events it is the event itself.
-       */
-      const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision
-        = is_lock_type(i) ? prefix[i].event : prefix[i].event->read_from;
-      // work_item->place_decision_into_sleepset(decision);
-      break;
-    }
-    assert(i < prefix.size());
-  }
-  // auto sit = decision_tree.get_next_sibling();  //TODO: get next from decision.wq
-  // Leaf l = std::move(sit.second);
-
-  decision_tree.get_next_work_task(&work_item);  //TODO: get next from decision.wq
+  work_item = decision_tree.get_next_work_task();
   Leaf l = std::move(work_item->leaf);
   auto unf = std::move(work_item->unfold_node);
 
@@ -277,7 +249,7 @@ bool RFSCTraceBuilder::reset(){
     new_prefix.back().size = b.size;
     new_prefix.back().sym = std::move(b.sym);
     new_prefix.back().pinned = b.pinned;
-    new_prefix.back().set_branch_decision(std::move(b.decision_ptr), work_item);
+    new_prefix.back().set_branch_decision(b.decision_depth, work_item);
     iid_map_step(iid_map, new_prefix.back());
   }
 
@@ -1671,15 +1643,12 @@ Leaf RFSCTraceBuilder::order_to_leaf
                                   [i](unsigned c) { return c == i; });
     bool new_pinned = prefix[i].pinned || (prefix[i].get_decision_depth() > decision);
     int new_decision = prefix[i].get_decision_depth();
-    std::shared_ptr<DecisionNode> new_decision_ptr = prefix[i].decision_ptr;
     if (new_decision > decision) {
       new_pinned = true;
       new_decision = -1;
-      new_decision_ptr = nullptr;
     }
     new_prefix.emplace_back(prefix[i].iid.get_pid(),
                             is_changed ? 1 : prefix[i].size,
-                            new_decision_ptr,
                             new_decision,
                             new_pinned,
                             prefix[i].sym);

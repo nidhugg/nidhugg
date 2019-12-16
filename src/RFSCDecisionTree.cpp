@@ -42,61 +42,12 @@ void RFSCDecisionTree::prune_decisions(std::shared_ptr<DecisionNode> blame) {
 }
 
 
-void RFSCDecisionTree::backtrack_decision_tree(std::shared_ptr<DecisionNode> *TB_work_item) {
-  auto node = *TB_work_item;
-  std::shared_ptr<DecisionNode> tmp;
-  while (node->get_siblings().empty()) {
-    tmp = node;
-    node = node->parent;
-    if (node->depth == -1) {
-      break;
-    }
-    // tmp->clear_unf_set();
-  }
-  *TB_work_item = node;
-}
-
-
-void RFSCDecisionTree::get_next_work_task(std::shared_ptr<DecisionNode> *TB_work_item) {
-
-#ifndef __WORK_QUEUE_VECTOR_COMPABILITY_MODE__
-
-/***************************************************************************************/
-/* Taking the front of vector (as queue but compatible with vector)
- *
- * This does unfortunately not work as the oracle will find an infinite amount 
- * of Leafs and reset() requires to know what node an event should be placed to 
- * sleep in based on non-evaluated siblings.    */
-
+std::shared_ptr<DecisionNode> RFSCDecisionTree::get_next_work_task() {
   auto it = work_queue.begin();
   std::shared_ptr<DecisionNode> node = *it;
   work_queue.erase(it);
 
-
-#else
-/***************************************************************************************/
-/* Taking the first sibling (based on backtracking treepath to non-empty sibling-set)
- *
- * This simulates the old decisions vector by taking every sibling in an in-order fashion. 
- * This cannot operate parallelized as it requires that each sibling in a given level 
- * to be evaluated before going forth.    */
-
-  std::shared_ptr<DecisionNode> node = *TB_work_item;
-  auto it = node->get_siblings().begin();
-  for (auto i = work_queue.begin(); i != work_queue.end(); i++)
-  {
-    if ((*i)->ID == (*it)->ID) {
-      node = *i;
-      work_queue.erase(i);
-      break;
-    }
-  }
-  
-#endif
-
-  // node->get_unf_set().erase(node->unfold_node);
-  node->get_siblings().erase(node);
-  *TB_work_item = std::move(node);
+  return std::move(node);
 }
 
 
@@ -114,13 +65,6 @@ void RFSCDecisionTree::construct_sibling(std::shared_ptr<DecisionNode> decision,
 
 bool RFSCDecisionTree::work_queue_empty() {
   return work_queue.empty();
-}
-
-
-void RFSCDecisionTree::print_wq() {
-  for (auto node : work_queue) {
-    llvm::dbgs() <<  node->name << "\n";
-  }
 }
 
 
@@ -168,16 +112,7 @@ void DecisionNode::place_decision_into_sleepset(const std::shared_ptr<RFSCUnfold
 
 std::shared_ptr<DecisionNode> DecisionNode::make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
   parent->children_unf_set.insert(unf);
-  auto sibling = std::make_shared<DecisionNode>(parent, unf, l);
-  get_siblings().insert(sibling);
-
-  return sibling;
-}
-
-
-void DecisionNode::clear_unf_set() {
-  if (depth >= 0)
-    parent->children_unf_set.clear();
+  return std::make_shared<DecisionNode>(parent, unf, l);
 }
 
 
