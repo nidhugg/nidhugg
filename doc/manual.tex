@@ -296,7 +296,7 @@ int main(int argc, char *argv[]){
   \textbf{Optimal-DPOR, Optimal-DPOR with Observers, and Optimal
     Reads-From-centric SMC algorithms are supported only for the SC memory
     model.}
-\item{\texttt{--robustness}}
+\item{\texttt{--check-robustness}}
 %
   Perform a robustness analysis. In addition to considering the usual
   safety criteria, also check robustness, and report an error if a
@@ -320,7 +320,7 @@ int main(int argc, char *argv[]){
   analyzed.
 %
   \limitsupport{SC, TSO, PSO}
-\item{\texttt{--disable-mutex-init-requirement}}
+\item{\texttt{--no-check-mutex-init}}
 %
   If this switch is given, the operations lock, trylock, unlock,
   destroy, cond\_wait are allowed to operate on mutex variables
