@@ -68,8 +68,8 @@ public:
       set_name();
     };
   /* Constructor for new siblings during compute_prefixes. */
-  DecisionNode(std::shared_ptr<DecisionNode> decision, std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf, Leaf l)
-        : parent(decision), depth(decision->depth+1), ID(++decision_id), unfold_node(std::move(unf)), leaf(l), name_index("A") {
+  DecisionNode(std::shared_ptr<DecisionNode> decision, std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf, Leaf l, std::vector<int> iid_map)
+        : parent(decision), depth(decision->depth+1), ID(++decision_id), unfold_node(std::move(unf)), leaf(l), name_index("A"), iid_map(iid_map) {
       set_sibling_name();
   };
 
@@ -90,6 +90,7 @@ public:
   /* The Leaf of a new sibling. */
   Leaf leaf;
 
+  std::vector<int> iid_map;
 
   /* True if the given UnfoldingNode has previously been allocated by this node or any previous sibling. */
   bool unf_is_known(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
@@ -103,7 +104,7 @@ public:
   
 
   /* Constructs a sibling and inserts in in the sibling-set. */
-  std::shared_ptr<DecisionNode> make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
+  std::shared_ptr<DecisionNode> make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l, std::vector<int> iid_map);
 
   /* Returns a given nodes SaturatedGraph, or reuses an ancestors graph if none exist. */
   SaturatedGraph &get_saturated_graph();
@@ -151,7 +152,7 @@ public:
   std::shared_ptr<DecisionNode> new_decision_node(std::shared_ptr<DecisionNode> parent, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
 
   /* Constructs a sibling Decision node and add it to work queue. */
-  void construct_sibling(std::shared_ptr<DecisionNode>decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
+  void construct_sibling(std::shared_ptr<DecisionNode>decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l, std::vector<int> iid_map);
 
   /* Returns the root of the global decision tree. */
   std::shared_ptr<DecisionNode> get_root() {return root;};

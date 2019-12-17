@@ -58,8 +58,8 @@ std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(std::shared_pt
 }
 
 
-void RFSCDecisionTree::construct_sibling(std::shared_ptr<DecisionNode> decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
-  work_queue.push_back(std::move(decision->make_sibling(unf, l)));
+void RFSCDecisionTree::construct_sibling(std::shared_ptr<DecisionNode> decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l, std::vector<int> iid_map) {
+  work_queue.push_back(std::move(decision->make_sibling(unf, l, iid_map)));
 }
 
 
@@ -110,9 +110,9 @@ void DecisionNode::place_decision_into_sleepset(const std::shared_ptr<RFSCUnfold
 }
 
 
-std::shared_ptr<DecisionNode> DecisionNode::make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
+std::shared_ptr<DecisionNode> DecisionNode::make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l, std::vector<int> iid_map) {
   parent->children_unf_set.insert(unf);
-  return std::make_shared<DecisionNode>(parent, unf, l);
+  return std::make_shared<DecisionNode>(parent, unf, l, iid_map);
 }
 
 

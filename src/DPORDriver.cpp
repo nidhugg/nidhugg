@@ -280,7 +280,12 @@ DPORDriver::Result DPORDriver::run(){
     if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
       estimate = std::round(TB->estimate_trace_count());
     }
-  }while(TB->reset());
+
+    if (decision_tree.work_queue_empty()) break;
+    
+    delete TB;
+    TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_next_work_task(), conf);
+  } while(true);
 
   if(conf.print_progress){
     llvm::dbgs() << esc << "[K\n";

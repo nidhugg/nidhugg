@@ -49,13 +49,17 @@ RFSCTraceBuilder::RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
                                    const Configuration &conf)
     : decision_tree(desicion_tree_), unfolding_tree(unfolding_tree_), work_item(work_item_),
       TSOPSOTraceBuilder(conf) {
-  threads.push_back(Thread(CPid(), -1));
-  prefix_idx = -1;
-  replay = false;
-  cancelled = false;
-  last_full_memory_conflict = -1;
-  last_md = 0;
-  replay_point = 0;
+  if (work_item->depth == -1) {
+    threads.push_back(Thread(CPid(), -1));
+    prefix_idx = -1;
+    replay = false;
+    cancelled = false;
+    last_full_memory_conflict = -1;
+    last_md = 0;
+    replay_point = 0;
+  } else {
+    reset();
+  }
 }
 
 RFSCTraceBuilder::~RFSCTraceBuilder(){
@@ -220,13 +224,6 @@ Trace *RFSCTraceBuilder::get_trace() const{
 }
 
 bool RFSCTraceBuilder::reset(){
-
-  if(decision_tree.work_queue_empty()){
-    /* No more branching is possible. */
-    return false;
-  }
-
-  work_item = decision_tree.get_next_work_task();
   Leaf l = std::move(work_item->leaf);
   auto unf = std::move(work_item->unfold_node);
 
@@ -241,7 +238,7 @@ bool RFSCTraceBuilder::reset(){
 
   std::vector<Event> new_prefix;
   new_prefix.reserve(l.prefix.size());
-  std::vector<int> iid_map = iid_map_at(0);
+  std::vector<int> iid_map = std::move(work_item->iid_map);
   for (Branch &b : l.prefix) {
     int index = iid_map[b.pid];
     IID<IPid> iid(b.pid, index);
@@ -1157,6 +1154,9 @@ bool RFSCTraceBuilder::can_swap_lock_by_vclocks(int f, int u, int s) const {
 }
 
 void RFSCTraceBuilder::compute_prefixes() {
+
+  std::vector<int> iid_map = iid_map_at(0);
+
   Timing::Guard analysis_timing_guard(analysis_context);
   compute_vclocks();
 
@@ -1218,7 +1218,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         Leaf solution = try_sat({unsigned(j)}, writes_by_address);
         if (!solution.is_bottom()) {
           // decision.sibling_emplace(alt, std::move(solution));
-          decision_tree.construct_sibling(decision, alt, std::move(solution));
+          decision_tree.construct_sibling(decision, alt, std::move(solution), iid_map);
         }
         else {
           decision->alloc_unf(alt);
@@ -1249,7 +1249,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         Leaf solution = try_sat({unsigned(j)}, writes_by_address);
         if (!solution.is_bottom()) {
           // decision.sibling_emplace(alt, std::move(solution));
-          decision_tree.construct_sibling(decision, alt, std::move(solution));
+          decision_tree.construct_sibling(decision, alt, std::move(solution), iid_map);
         }
         else {
           decision->alloc_unf(alt);
@@ -1292,7 +1292,7 @@ void RFSCTraceBuilder::compute_prefixes() {
           if (!solution.is_bottom()) {
             // decision.sibling_emplace(alt, std::move(solution));
             // TODO: decision.add_to_wq ...
-            decision_tree.construct_sibling(decision, alt, std::move(solution));
+            decision_tree.construct_sibling(decision, alt, std::move(solution), iid_map);
           }
           else {
             decision->alloc_unf(alt);
@@ -1370,7 +1370,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         Leaf solution = try_sat({unsigned(j), i}, writes_by_address);
         if (!solution.is_bottom()) {
           // decision.sibling_emplace(read_from, std::move(solution));
-          decision_tree.construct_sibling(decision, read_from, std::move(solution));
+          decision_tree.construct_sibling(decision, read_from, std::move(solution), iid_map);
         }
         else {
           decision->alloc_unf(read_from);
@@ -1406,7 +1406,7 @@ void RFSCTraceBuilder::compute_prefixes() {
           Leaf solution = try_sat({i}, writes_by_address);
           if (!solution.is_bottom()) {
             // decision.sibling_emplace(read_from, std::move(solution));
-            decision_tree.construct_sibling(decision, read_from, std::move(solution));
+            decision_tree.construct_sibling(decision, read_from, std::move(solution), iid_map);
           }
           else {
             decision->alloc_unf(read_from);
