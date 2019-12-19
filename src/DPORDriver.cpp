@@ -254,13 +254,19 @@ DPORDriver::Result DPORDriver::run(){
     if((computation_count+1) % 1000 == 0){
       reparse();
     }
-    bool t_used = false;
-    bool assume_blocked = false;
+
     
-    auto future_trace = std::async(std::launch::async, [this, &TB, &assume_blocked](){
-      return this->run_once(*TB, assume_blocked);
+    auto future_trace = std::async(std::launch::async, [this, &TB](){
+      bool assume_blocked = false;
+      Trace *t= this->run_once(*TB, assume_blocked);
+      return std::pair<Trace *, bool>(std::move(t), assume_blocked);
     });
-    Trace *t = future_trace.get();
+
+    auto future_result = future_trace.get();
+    Trace *t = future_result.first;
+    bool assume_blocked = future_result.second;
+
+    bool t_used = false;
     if(t && conf.debug_collect_all_traces){
       res.all_traces.push_back(t);
       t_used = true;
