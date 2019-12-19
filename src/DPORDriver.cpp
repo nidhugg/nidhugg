@@ -34,6 +34,7 @@
 #include "RFSCUnfoldingTree.h"
 
 #include <fstream>
+#include <future>
 #include <stdexcept>
 #include <iomanip>
 #include <cfloat>
@@ -255,7 +256,11 @@ DPORDriver::Result DPORDriver::run(){
     }
     bool t_used = false;
     bool assume_blocked = false;
-    Trace *t = run_once(*TB, assume_blocked);
+    
+    auto future_trace = std::async(std::launch::async, [this, &TB, &assume_blocked](){
+      return this->run_once(*TB, assume_blocked);
+    });
+    Trace *t = future_trace.get();
     if(t && conf.debug_collect_all_traces){
       res.all_traces.push_back(t);
       t_used = true;
