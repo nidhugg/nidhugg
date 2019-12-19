@@ -32,6 +32,7 @@ static bool prune_node(std::shared_ptr<DecisionNode> node, const std::shared_ptr
 
 
 void RFSCDecisionTree::prune_decisions(std::shared_ptr<DecisionNode> blame) {
+  std::lock_guard<std::mutex> lock(this->queue_mutex);
   // Would perhaps be more efficient with a remove_if()
   for( auto iter = work_queue.begin(); iter != work_queue.end(); ) {
     if( prune_node(*iter, blame) )
@@ -43,6 +44,8 @@ void RFSCDecisionTree::prune_decisions(std::shared_ptr<DecisionNode> blame) {
 
 
 std::shared_ptr<DecisionNode> RFSCDecisionTree::get_next_work_task() {
+  std::lock_guard<std::mutex> lock(this->queue_mutex);
+
   auto it = work_queue.begin();
   std::shared_ptr<DecisionNode> node = *it;
   work_queue.erase(it);
@@ -59,6 +62,7 @@ std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(std::shared_pt
 
 
 void RFSCDecisionTree::construct_sibling(std::shared_ptr<DecisionNode> decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l, std::vector<int> iid_map) {
+  std::lock_guard<std::mutex> lock(this->queue_mutex);
   work_queue.push_back(std::move(decision->make_sibling(unf, l, iid_map)));
 }
 

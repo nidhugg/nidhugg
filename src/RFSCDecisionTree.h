@@ -26,6 +26,7 @@
 #include "RFSCUnfoldingTree.h"
 
 #include <unordered_set>
+#include <mutex>
 
 
 struct DecisionNode;
@@ -168,9 +169,8 @@ protected:
 
   std::shared_ptr<DecisionNode> root;
 
-  // std::vector<std::shared_ptr<DecisionNode>> decisions;
   std::vector<std::shared_ptr<DecisionNode>> work_queue;
-
+  std::mutex queue_mutex;
 };
 
 
