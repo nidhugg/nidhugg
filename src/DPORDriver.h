@@ -124,6 +124,8 @@ private:
    */
   std::unique_ptr<DPORInterpreter>
   create_execution_engine(TraceBuilder &TB, const Configuration &conf) const;
+
+  Result run_parallel_rfsc();
 };
 
 #endif

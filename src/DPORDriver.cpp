@@ -198,6 +198,7 @@ DPORDriver::Result DPORDriver::run(){
   Result res;
 
   TraceBuilder *TB = nullptr;
+  std::vector<TraceBuilder *> TBs;
   RFSCDecisionTree decision_tree;
   RFSCUnfoldingTree unfolding_tree;
 
@@ -207,6 +208,7 @@ DPORDriver::Result DPORDriver::run(){
       TB = new TSOTraceBuilder(conf);
     }else{
       TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_root(), conf);
+      TBs.push_back(std::move(TB));
     }
     break;
   case Configuration::TSO:
@@ -254,48 +256,67 @@ DPORDriver::Result DPORDriver::run(){
     if((computation_count+1) % 1000 == 0){
       reparse();
     }
+  
+    std::vector<std::future<std::pair<Trace *, bool>>> futures;
 
-    
-    auto future_trace = std::async(std::launch::async, [this, &TB](){
-      bool assume_blocked = false;
-      Trace *t= this->run_once(*TB, assume_blocked);
-      return std::pair<Trace *, bool>(std::move(t), assume_blocked);
-    });
+    for (int i = 0; i < TBs.size(); i++) {
+      std::future<std::pair<Trace *, bool>> future_trace = std::async(std::launch::async, [this](auto TB){
+        bool assume_blocked = false;
+        Trace *t= this->run_once(*TB, assume_blocked);
+        return std::pair<Trace *, bool>(t, assume_blocked);
+      }, TBs[i]);
 
-    auto future_result = future_trace.get();
-    Trace *t = future_result.first;
-    bool assume_blocked = future_result.second;
+      futures.push_back(std::move(future_trace));
+    }
 
-    bool t_used = false;
-    if(t && conf.debug_collect_all_traces){
-      res.all_traces.push_back(t);
-      t_used = true;
-    }
-    if(!TB->sleepset_is_empty()) {
-      ++res.sleepset_blocked_trace_count;
-    }else if(assume_blocked){
-      ++res.assume_blocked_trace_count;
-    }else{
-      ++res.trace_count;
-    }
-    ++computation_count;
-    if(t && t->has_errors() && !res.has_errors()){
-      res.error_trace = t;
-      t_used = true;
-    }
-    bool has_errors = t && t->has_errors();
-    if(!t_used){
-      delete t;
-    }
-    if(has_errors && !conf.explore_all_traces) break;
-    if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
-      estimate = std::round(TB->estimate_trace_count());
+    for (int i = 0; i < futures.size(); i++) {
+      TraceBuilder *TB = TBs[i];
+      auto future_result = futures[i].get();
+      Trace *t = future_result.first;
+      bool assume_blocked = future_result.second;
+
+      bool t_used = false;
+      if(t && conf.debug_collect_all_traces){
+        res.all_traces.push_back(t);
+        t_used = true;
+      }
+      if(!TB->sleepset_is_empty()) {
+        ++res.sleepset_blocked_trace_count;
+      }else if(assume_blocked){
+        ++res.assume_blocked_trace_count;
+      }else{
+        ++res.trace_count;
+      }
+      ++computation_count;
+      if(t && t->has_errors() && !res.has_errors()){
+        res.error_trace = t;
+        t_used = true;
+      }
+      bool has_errors = t && t->has_errors();
+      if(!t_used){
+        delete t;
+      }
+      // if(has_errors && !conf.explore_all_traces) break; // needs rethinking
+      if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
+        estimate = std::round(TB->estimate_trace_count());
+      }
+
+      // delete TB;
     }
 
     if (decision_tree.work_queue_empty()) break;
     
-    delete TB;
-    TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_next_work_task(), conf);
+    // delete TB;
+
+    // for (int i = 0; i < TBs.size(); i++) {
+    //   delete TBs[i];
+    // }
+
+    TBs.clear();
+    while(!decision_tree.work_queue_empty()) {
+      TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_next_work_task(), conf);
+      TBs.push_back(std::move(TB));
+    }
   } while(true);
 
   if(conf.print_progress){
@@ -304,7 +325,7 @@ DPORDriver::Result DPORDriver::run(){
 
   SigSegvHandler::reset_signal_handler();
 
-  delete TB;
+  // delete TB;
 
   return res;
 }

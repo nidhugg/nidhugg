@@ -170,7 +170,7 @@ protected:
   std::shared_ptr<DecisionNode> root;
 
   std::vector<std::shared_ptr<DecisionNode>> work_queue;
-  std::mutex queue_mutex;
+  static std::recursive_mutex decision_tree_mutex;
 };
 
 
