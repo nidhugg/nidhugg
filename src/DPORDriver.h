@@ -35,6 +35,8 @@
 
 #include <string>
 
+static const char ESC_char = 27;
+
 namespace llvm{
   class ExecutionEngine;
 }
@@ -100,8 +102,9 @@ public:
 
   /* Explore the traces of the given module, and return the result.
    */
-  Result run();
-private:
+  virtual Result run();
+// private:
+protected:
   /* Configuration */
   const Configuration &conf;
   /* The module to explore */
@@ -124,6 +127,10 @@ private:
    */
   std::unique_ptr<DPORInterpreter>
   create_execution_engine(TraceBuilder &TB, const Configuration &conf) const;
+
+  void print_progress(uint64_t computation_count, long double estimate, Result &res);
+  bool handle_trace(TraceBuilder *TB, Trace *t, uint64_t *computation_count, Result &res, bool assume_blocked);
+  // Result rfsc_runner();
 };
 
 #endif
