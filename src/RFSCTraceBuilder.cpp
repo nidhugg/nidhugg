@@ -43,6 +43,8 @@ static Timing::Context ponder_mutex_context("ponder_mutex");
 static Timing::Context graph_context("graph");
 static Timing::Context sat_context("sat");
 
+std::recursive_mutex RFSCTraceBuilder::compute_prefixes_lock;
+
 RFSCTraceBuilder::RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
                                    RFSCUnfoldingTree &unfolding_tree_,
                                    std::shared_ptr<DecisionNode> work_item_,
@@ -153,7 +155,10 @@ bool RFSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   }
 
  no_available_threads:
-  compute_prefixes();
+ {
+   std::lock_guard<std::recursive_mutex> lock(compute_prefixes_lock);
+   compute_prefixes();
+ }
 
   return false; // No available threads
 }
