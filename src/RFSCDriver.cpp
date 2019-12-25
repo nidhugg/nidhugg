@@ -26,6 +26,7 @@
 #include "RFSCUnfoldingTree.h"
 
 #include "ctpl.h"
+#include "blockingconcurrentqueue.h"
 
 #define N_THREADS 1
 
@@ -46,6 +47,9 @@ DPORDriver *RFSCDriver::parseIRFile(const std::string &filename,
 DPORDriver::Result RFSCDriver::run(){
 
   Result res;
+
+  moodycamel::BlockingConcurrentQueue<std::pair<Trace *, bool>> queue;
+  std::pair<Trace *, bool> p;
 
   RFSCDecisionTree decision_tree;
   RFSCUnfoldingTree unfolding_tree;
@@ -73,9 +77,9 @@ DPORDriver::Result RFSCDriver::run(){
     }
 
 
-    auto future_trace = threadpool.push([this, &TBs](int id){
+    threadpool.push([this, &TBs, &queue](int id){
       bool assume_blocked = false;
-      llvm::dbgs() << "DEBUG:  Run once from " << id << "\n";
+      // llvm::dbgs() << "DEBUG:  Run once from " << id << "\n";
       Trace *t= this->run_once(*TBs[id], assume_blocked);
 
       // TODO:
@@ -84,18 +88,14 @@ DPORDriver::Result RFSCDriver::run(){
       // and later run comp_prefixes sequentially with a lock without hindering the trace consumer.
       TBs[id]->compute_unfolding();
       TBs[id]->compute_prefixes();
-      return std::pair<Trace *, bool>(std::move(t), assume_blocked);
-    });
-    
-    // auto future_trace = std::async(std::launch::async, [this, &TB](){
-    //   bool assume_blocked = false;
-    //   Trace *t= this->run_once(*TB, assume_blocked);
-    //   return std::pair<Trace *, bool>(std::move(t), assume_blocked);
-    // });
 
-    auto future_result = future_trace.get();
-    Trace *t = future_result.first;
-    bool assume_blocked = future_result.second;
+      queue.enqueue(std::pair<Trace *, bool>(std::move(t), assume_blocked));
+    });
+
+
+    queue.wait_dequeue(p);
+    Trace *t = p.first;
+    bool assume_blocked = p.second;
 
     if (handle_trace(TBs[0], t, &computation_count, res, assume_blocked)) break;
     if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
