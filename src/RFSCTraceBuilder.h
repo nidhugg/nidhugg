@@ -85,6 +85,14 @@ public:
   virtual void register_alternatives(int alt_count);
   virtual long double estimate_trace_count() const;
 
+  /* Perform planning of future executions. Requires the trace to be
+   * maximal or sleepset blocked, and that the vector clocks have been
+   * computed.
+   */
+  void compute_prefixes();
+
+  /* Assigns unfolding events to all executed steps. */
+  void compute_unfolding();
 
 protected:
   /* An identifier for a thread. An index into this->threads.
@@ -417,8 +425,8 @@ protected:
    */
   void compute_vclocks();
   int compute_above_clock(unsigned event);
-  /* Assigns unfolding events to all executed steps. */
-  void compute_unfolding();
+  // /* Assigns unfolding events to all executed steps. */
+  // void compute_unfolding();
 
   // Extracted into RFSCUnfoldingTree
   // TODO: Due to too many complicated interactions between modules
@@ -435,11 +443,11 @@ protected:
 
   void add_event_to_graph(SaturatedGraph &g, unsigned i) const;
   const SaturatedGraph &get_cached_graph(std::shared_ptr<DecisionNode> &decision);
-  /* Perform planning of future executions. Requires the trace to be
-   * maximal or sleepset blocked, and that the vector clocks have been
-   * computed.
-   */
-  void compute_prefixes();
+  // /* Perform planning of future executions. Requires the trace to be
+  //  * maximal or sleepset blocked, and that the vector clocks have been
+  //  * computed.
+  //  */
+  // void compute_prefixes();
   /* Checks whether an event is included in a vector clock. */
   bool happens_before(const Event &e, const VClock<IPid> &c) const;
   /* Check whether a read-from might be satisfiable according to the

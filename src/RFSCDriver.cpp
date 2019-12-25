@@ -27,6 +27,7 @@
 
 #include "ctpl.h"
 
+#define N_THREADS 1
 
 RFSCDriver::RFSCDriver(const Configuration &C) : DPORDriver(C) {}
 
@@ -49,10 +50,15 @@ DPORDriver::Result RFSCDriver::run(){
   RFSCDecisionTree decision_tree;
   RFSCUnfoldingTree unfolding_tree;
 
-  ctpl::thread_pool threadpool(1);
+  ctpl::thread_pool threadpool(N_THREADS);
+
+  std::vector<RFSCTraceBuilder*> TBs;
+  for (int i = 0; i < N_THREADS; i++) {
+    TBs.push_back(new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_root(), conf));
+  }
 
   
-  TraceBuilder *TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_root(), conf);
+  // TraceBuilder *TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_root(), conf);
   
   SigSegvHandler::setup_signal_handler();
 
@@ -67,10 +73,17 @@ DPORDriver::Result RFSCDriver::run(){
     }
 
 
-    auto future_trace = threadpool.push([this, &TB](int id){
+    auto future_trace = threadpool.push([this, &TBs](int id){
       bool assume_blocked = false;
       llvm::dbgs() << "DEBUG:  Run once from " << id << "\n";
-      Trace *t= this->run_once(*TB, assume_blocked);
+      Trace *t= this->run_once(*TBs[id], assume_blocked);
+
+      // TODO:
+      // By being able to move both compute unfolding, and compute prefix after returning trace from run_once,
+      // we could send the trace to a producer and compute unfolding concurrently,
+      // and later run comp_prefixes sequentially with a lock without hindering the trace consumer.
+      TBs[id]->compute_unfolding();
+      TBs[id]->compute_prefixes();
       return std::pair<Trace *, bool>(std::move(t), assume_blocked);
     });
     
@@ -84,15 +97,15 @@ DPORDriver::Result RFSCDriver::run(){
     Trace *t = future_result.first;
     bool assume_blocked = future_result.second;
 
-    if (handle_trace(TB, t, &computation_count, res, assume_blocked)) break;
+    if (handle_trace(TBs[0], t, &computation_count, res, assume_blocked)) break;
     if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
-      estimate = std::round(TB->estimate_trace_count());
+      estimate = std::round(TBs[0]->estimate_trace_count());
     }
 
     if (decision_tree.work_queue_empty()) break;
     
-    delete TB;
-    TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_next_work_task(), conf);
+    delete TBs[0];
+    TBs[0] = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_next_work_task(), conf);
   } while(true);
 
   if(conf.print_progress){
@@ -101,7 +114,7 @@ DPORDriver::Result RFSCDriver::run(){
 
   SigSegvHandler::reset_signal_handler();
 
-  delete TB;
+  delete TBs[0];
 
   return res;  
 }

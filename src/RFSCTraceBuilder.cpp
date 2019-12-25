@@ -153,7 +153,7 @@ bool RFSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   }
 
  no_available_threads:
-  compute_prefixes();
+  // compute_prefixes();
 
   return false; // No available threads
 }
@@ -1138,7 +1138,7 @@ void RFSCTraceBuilder::compute_prefixes() {
   Timing::Guard analysis_timing_guard(analysis_context);
   compute_vclocks();
 
-  compute_unfolding();
+  // compute_unfolding();
 
   if(conf.debug_print_on_reset){
     llvm::dbgs() << " === RFSCTraceBuilder state ===\n";
