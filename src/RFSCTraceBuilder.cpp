@@ -45,11 +45,10 @@ static Timing::Context sat_context("sat");
 
 RFSCTraceBuilder::RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
                                    RFSCUnfoldingTree &unfolding_tree_,
-                                   std::shared_ptr<DecisionNode> work_item_,
                                    const Configuration &conf)
-    : decision_tree(desicion_tree_), unfolding_tree(unfolding_tree_), work_item(work_item_),
+    : decision_tree(desicion_tree_), unfolding_tree(unfolding_tree_),
       TSOPSOTraceBuilder(conf) {
-  if (work_item->depth == -1) {
+  // if (work_item->depth == -1) {
     threads.push_back(Thread(CPid(), -1));
     prefix_idx = -1;
     replay = false;
@@ -57,9 +56,9 @@ RFSCTraceBuilder::RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
     last_full_memory_conflict = -1;
     last_md = 0;
     replay_point = 0;
-  } else {
-    reset();
-  }
+  // } else {
+  //   reset();
+  // }
 }
 
 RFSCTraceBuilder::~RFSCTraceBuilder(){
@@ -224,6 +223,15 @@ Trace *RFSCTraceBuilder::get_trace() const{
 }
 
 bool RFSCTraceBuilder::reset(){
+
+  if(decision_tree.work_queue_empty()) return false;
+
+  work_item = decision_tree.get_next_work_task();
+  if (work_item->depth != -1)
+  {
+  
+  
+
   Leaf l = std::move(work_item->leaf);
   auto unf = std::move(work_item->unfold_node);
 
@@ -274,6 +282,7 @@ bool RFSCTraceBuilder::reset(){
   last_md = 0;
   reset_cond_branch_log();
 
+  }
   return true;
 }
 

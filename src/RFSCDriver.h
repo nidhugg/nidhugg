@@ -23,6 +23,8 @@
 #define __RFSC_DRIVER_H__
 
 #include "DPORDriver.h"
+#include "RFSCTraceBuilder.h"
+#include "blockingconcurrentqueue.h"
 // #include "Configuration.h"
 // #include "Trace.h"
 // #include "TraceBuilder.h"
@@ -52,6 +54,8 @@ class RFSCDriver : public DPORDriver{
   RFSCDriver(const Configuration &conf);
 
   virtual Result run();
+
+  void thread_runner(int id, RFSCDriver *driver, std::vector<RFSCTraceBuilder *> &TBs, moodycamel::BlockingConcurrentQueue<std::tuple<bool, Trace *, bool>> &queue);
 };
 
 #endif
