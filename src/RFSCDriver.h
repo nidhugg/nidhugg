@@ -55,7 +55,7 @@ class RFSCDriver : public DPORDriver{
 
   virtual Result run();
 
-  void thread_runner(int id, RFSCDriver *driver, std::vector<RFSCTraceBuilder *> &TBs, moodycamel::BlockingConcurrentQueue<std::tuple<bool, Trace *, bool>> &queue);
+  // void thread_runner(int id, RFSCDriver *driver, std::vector<RFSCTraceBuilder *> &TBs, moodycamel::BlockingConcurrentQueue<std::tuple<bool, Trace *, bool>> &queue);
 };
 
 #endif

@@ -62,7 +62,7 @@ std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(const std::sha
 void RFSCDecisionTree::construct_sibling(const std::shared_ptr<DecisionNode> &decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l, std::vector<int> iid_map) {
   std::lock_guard<std::mutex> lock(this->queue_mutex);
   work_queue.push_back(std::move(decision->make_sibling(unf, l, iid_map)));
-  threadpool->push(run_func);
+  // threadpool->push(run_func);
 }
 
 

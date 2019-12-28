@@ -93,6 +93,8 @@ public:
   /* Assigns unfolding events to all executed steps. */
   void compute_unfolding();
 
+  int tasks_created;
+
 protected:
   /* An identifier for a thread. An index into this->threads.
    *
@@ -328,6 +330,9 @@ protected:
   // TODO: Add documentation
   RFSCDecisionTree &decision_tree;
   std::shared_ptr<DecisionNode> work_item;
+  // static std::recursive_mutex compute_prefixes_lock;
+  static std::mutex compute_prefixes_mutex;
+
 
   /* The index into prefix corresponding to the last event that was
    * scheduled. Has the value -1 when no events have been scheduled.

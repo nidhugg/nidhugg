@@ -43,6 +43,9 @@ static Timing::Context ponder_mutex_context("ponder_mutex");
 static Timing::Context graph_context("graph");
 static Timing::Context sat_context("sat");
 
+// std::recursive_mutex RFSCTraceBuilder::compute_prefixes_lock;
+std::mutex RFSCTraceBuilder::compute_prefixes_mutex;
+
 RFSCTraceBuilder::RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
                                    RFSCUnfoldingTree &unfolding_tree_,
                                    const Configuration &conf)
@@ -56,6 +59,7 @@ RFSCTraceBuilder::RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
     last_full_memory_conflict = -1;
     last_md = 0;
     replay_point = 0;
+    tasks_created = 0;
   // } else {
   //   reset();
   // }
@@ -151,8 +155,11 @@ bool RFSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
     }
   }
 
- no_available_threads:
-  // compute_prefixes();
+  no_available_threads:
+  {
+    std::lock_guard<std::mutex> lock(compute_prefixes_mutex);
+    compute_prefixes();
+  }
 
   return false; // No available threads
 }
@@ -280,6 +287,7 @@ bool RFSCTraceBuilder::reset(){
   replay = true;
   cancelled = false;
   last_md = 0;
+  tasks_created = 0;
   reset_cond_branch_log();
 
   }
@@ -1147,7 +1155,7 @@ void RFSCTraceBuilder::compute_prefixes() {
   Timing::Guard analysis_timing_guard(analysis_context);
   compute_vclocks();
 
-  // compute_unfolding();
+  compute_unfolding();
 
   if(conf.debug_print_on_reset){
     llvm::dbgs() << " === RFSCTraceBuilder state ===\n";
@@ -1206,6 +1214,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         if (!solution.is_bottom()) {
           // decision.sibling_emplace(alt, std::move(solution));
           decision_tree.construct_sibling(decision, alt, std::move(solution), iid_map);
+          tasks_created++;
         }
         else {
           decision->alloc_unf(alt);
@@ -1237,6 +1246,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         if (!solution.is_bottom()) {
           // decision.sibling_emplace(alt, std::move(solution));
           decision_tree.construct_sibling(decision, alt, std::move(solution), iid_map);
+          tasks_created++;
         }
         else {
           decision->alloc_unf(alt);
@@ -1280,6 +1290,7 @@ void RFSCTraceBuilder::compute_prefixes() {
             // decision.sibling_emplace(alt, std::move(solution));
             // TODO: decision.add_to_wq ...
             decision_tree.construct_sibling(decision, alt, std::move(solution), iid_map);
+            tasks_created++;
           }
           else {
             decision->alloc_unf(alt);
@@ -1358,6 +1369,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         if (!solution.is_bottom()) {
           // decision.sibling_emplace(read_from, std::move(solution));
           decision_tree.construct_sibling(decision, read_from, std::move(solution), iid_map);
+          tasks_created++;
         }
         else {
           decision->alloc_unf(read_from);
@@ -1394,6 +1406,7 @@ void RFSCTraceBuilder::compute_prefixes() {
           if (!solution.is_bottom()) {
             // decision.sibling_emplace(read_from, std::move(solution));
             decision_tree.construct_sibling(decision, read_from, std::move(solution), iid_map);
+            tasks_created++;
           }
           else {
             decision->alloc_unf(read_from);
