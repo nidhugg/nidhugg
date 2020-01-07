@@ -27,10 +27,10 @@
 
 #include <vector>
 
-/* We are never sharing immer datastructures between threads; omit
- * expensive atomic reference counting operations.
- */
-#define IMMER_NO_THREAD_SAFETY 1
+// /* We are never sharing immer datastructures between threads; omit
+//  * expensive atomic reference counting operations.
+//  */
+// #define IMMER_NO_THREAD_SAFETY 1
 
 #include <immer/vector.hpp>
 #include <immer/flex_vector.hpp>

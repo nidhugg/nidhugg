@@ -43,8 +43,6 @@ static Timing::Context ponder_mutex_context("ponder_mutex");
 static Timing::Context graph_context("graph");
 static Timing::Context sat_context("sat");
 
-std::recursive_mutex RFSCTraceBuilder::compute_prefixes_lock;
-
 RFSCTraceBuilder::RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
                                    RFSCUnfoldingTree &unfolding_tree_,
                                    std::shared_ptr<DecisionNode> work_item_,
@@ -156,7 +154,6 @@ bool RFSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
 
  no_available_threads:
  {
-   std::lock_guard<std::recursive_mutex> lock(compute_prefixes_lock);
    compute_prefixes();
  }
 
@@ -243,9 +240,9 @@ bool RFSCTraceBuilder::reset(){
 
   std::vector<Event> new_prefix;
   new_prefix.reserve(l.prefix.size());
-  std::vector<int> iid_map = std::move(work_item->iid_map);
+  std::vector<int> iid_map;
   for (Branch &b : l.prefix) {
-    int index = iid_map[b.pid];
+    int index = (iid_map.size() <= b.pid) ? 1 : iid_map[b.pid];
     IID<IPid> iid(b.pid, index);
     new_prefix.emplace_back(iid);
     new_prefix.back().size = b.size;
@@ -1160,8 +1157,6 @@ bool RFSCTraceBuilder::can_swap_lock_by_vclocks(int f, int u, int s) const {
 
 void RFSCTraceBuilder::compute_prefixes() {
 
-  std::vector<int> iid_map = iid_map_at(0);
-
   Timing::Guard analysis_timing_guard(analysis_context);
   compute_vclocks();
 
@@ -1223,7 +1218,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         Leaf solution = try_sat({unsigned(j)}, writes_by_address);
         if (!solution.is_bottom()) {
           // decision.sibling_emplace(alt, std::move(solution));
-          decision_tree.construct_sibling(decision, alt, std::move(solution), iid_map);
+          decision_tree.construct_sibling(decision, alt, std::move(solution));
         }
         else {
           decision->alloc_unf(alt);
@@ -1254,7 +1249,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         Leaf solution = try_sat({unsigned(j)}, writes_by_address);
         if (!solution.is_bottom()) {
           // decision.sibling_emplace(alt, std::move(solution));
-          decision_tree.construct_sibling(decision, alt, std::move(solution), iid_map);
+          decision_tree.construct_sibling(decision, alt, std::move(solution));
         }
         else {
           decision->alloc_unf(alt);
@@ -1297,7 +1292,7 @@ void RFSCTraceBuilder::compute_prefixes() {
           if (!solution.is_bottom()) {
             // decision.sibling_emplace(alt, std::move(solution));
             // TODO: decision.add_to_wq ...
-            decision_tree.construct_sibling(decision, alt, std::move(solution), iid_map);
+            decision_tree.construct_sibling(decision, alt, std::move(solution));
           }
           else {
             decision->alloc_unf(alt);
@@ -1375,7 +1370,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         Leaf solution = try_sat({unsigned(j), i}, writes_by_address);
         if (!solution.is_bottom()) {
           // decision.sibling_emplace(read_from, std::move(solution));
-          decision_tree.construct_sibling(decision, read_from, std::move(solution), iid_map);
+          decision_tree.construct_sibling(decision, read_from, std::move(solution));
         }
         else {
           decision->alloc_unf(read_from);
@@ -1411,7 +1406,7 @@ void RFSCTraceBuilder::compute_prefixes() {
           Leaf solution = try_sat({i}, writes_by_address);
           if (!solution.is_bottom()) {
             // decision.sibling_emplace(read_from, std::move(solution));
-            decision_tree.construct_sibling(decision, read_from, std::move(solution), iid_map);
+            decision_tree.construct_sibling(decision, read_from, std::move(solution));
           }
           else {
             decision->alloc_unf(read_from);
@@ -1538,9 +1533,10 @@ void RFSCTraceBuilder::add_event_to_graph(SaturatedGraph &g, unsigned i) const {
                              [this](unsigned j){return prefix[j].iid;}));
 }
 
-const SaturatedGraph &RFSCTraceBuilder::get_cached_graph(std::shared_ptr<DecisionNode> &decision) {
-  SaturatedGraph &g = decision->get_saturated_graph();
+const SaturatedGraph RFSCTraceBuilder::get_cached_graph(std::shared_ptr<DecisionNode> &decision) {
+  // SaturatedGraph &g = decision->get_saturated_graph();
   // SaturatedGraph &g = decision_tree.get_saturated_graph(decision);
+  SaturatedGraph g;
   int i = decision->depth;
   
   std::vector<bool> keep = causal_past(i-1);

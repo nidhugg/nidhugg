@@ -76,7 +76,7 @@ protected:
   
 
   std::map<CPid,UnfoldingNodeChildren> first_events;
-  std::recursive_mutex unfolding_tree_mutex;
+  std::mutex unfolding_tree_mutex;
 
 };
 #endif

@@ -23,6 +23,7 @@
 
 #include <string>
 
+#define NO_TIMING
 #ifdef NO_TIMING
 
 namespace Timing {

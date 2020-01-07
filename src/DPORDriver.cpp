@@ -304,19 +304,27 @@ DPORDriver::Result DPORDriver::run(){
       // delete TB;
     }
 
+    for (int i = 0; i < TBs.size(); i++) {
+      delete TBs[i];
+    }
+    TBs.clear();
+
     if (decision_tree.work_queue_empty()) break;
     
     // delete TB;
 
-    // for (int i = 0; i < TBs.size(); i++) {
-    //   delete TBs[i];
-    // }
+    int max_concurrent_tasks = 12;
 
-    TBs.clear();
-    while(!decision_tree.work_queue_empty()) {
+    for (int i = 0; i < max_concurrent_tasks; i++) {
+      if (decision_tree.work_queue_empty()) break;
       TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_next_work_task(), conf);
       TBs.push_back(std::move(TB));
     }
+
+    // while(!decision_tree.work_queue_empty()) {
+    //   TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_next_work_task(), conf);
+    //   TBs.push_back(std::move(TB));
+    // }
   } while(true);
 
   if(conf.print_progress){

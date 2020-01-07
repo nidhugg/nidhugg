@@ -27,7 +27,7 @@ std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> RFSCUnfoldingTree::
 find_unfolding_node(UnfoldingNodeChildren &parent_list,
                     const std::shared_ptr<UnfoldingNode> &parent,
                     const std::shared_ptr<UnfoldingNode> &read_from) {
-  std::lock_guard<std::recursive_mutex> lock(this->unfolding_tree_mutex);
+  std::lock_guard<std::mutex> lock(this->unfolding_tree_mutex);
   for (unsigned ci = 0; ci < parent_list.size();) {
     std::shared_ptr<UnfoldingNode> c = parent_list[ci].lock();
     if (!c) {
@@ -52,6 +52,6 @@ find_unfolding_node(UnfoldingNodeChildren &parent_list,
 }
 
 RFSCUnfoldingTree::UnfoldingNodeChildren *RFSCUnfoldingTree::first_event_parentlist(CPid cpid) {
-  std::lock_guard<std::recursive_mutex> lock(this->unfolding_tree_mutex);
+  std::lock_guard<std::mutex> lock(this->unfolding_tree_mutex);
   return &first_events[cpid];
 }

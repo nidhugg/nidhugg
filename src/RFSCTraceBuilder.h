@@ -434,13 +434,12 @@ protected:
   // END TODO
 
   void add_event_to_graph(SaturatedGraph &g, unsigned i) const;
-  const SaturatedGraph &get_cached_graph(std::shared_ptr<DecisionNode> &decision);
+  const SaturatedGraph get_cached_graph(std::shared_ptr<DecisionNode> &decision);
   /* Perform planning of future executions. Requires the trace to be
    * maximal or sleepset blocked, and that the vector clocks have been
    * computed.
    */
   void compute_prefixes();
-  static std::recursive_mutex compute_prefixes_lock;
   /* Checks whether an event is included in a vector clock. */
   bool happens_before(const Event &e, const VClock<IPid> &c) const;
   /* Check whether a read-from might be satisfiable according to the
