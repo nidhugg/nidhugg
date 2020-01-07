@@ -21,7 +21,6 @@
 
 #include "Configuration.h"
 #include "DPORDriver.h"
-#include "RFSCDriver.h"
 #include "GlobalContext.h"
 #include "Transform.h"
 #include "Timing.h"
@@ -112,13 +111,7 @@ int main(int argc, char *argv[]){
       Transform::transform(cl_input_file,cl_transform,conf);
     }else{
       /* Use DPORDriver to explore the given module */
-      DPORDriver *driver;
-      if (conf.memory_model == Configuration::SC && conf.dpor_algorithm == Configuration::READS_FROM) {
-        driver = RFSCDriver::parseIRFile(cl_input_file,conf);
-      }
-      else {
-        driver = DPORDriver::parseIRFile(cl_input_file,conf);
-      }
+      DPORDriver *driver = DPORDriver::parseIRFile(cl_input_file,conf);
 
       DPORDriver::Result res = driver->run();
       std::cout << "Trace count: " << res.trace_count << std::endl;
