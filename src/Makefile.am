@@ -46,6 +46,7 @@ libnidhugg_a_SOURCES = \
   RFSCUnfoldingTree.cpp RFSCUnfoldingTree.h \
   RFSCDecisionTree.cpp RFSCDecisionTree.h \
   RFSCTraceBuilder.cpp RFSCTraceBuilder.h \
+  RFSCDriver.cpp RFSCDriver.h \
   VClock.cpp VClock.h VClock.tcc \
   vecset.h vecset.tcc
 libnidhugg_a_CXXFLAGS = -fno-rtti
