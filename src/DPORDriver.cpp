@@ -243,7 +243,7 @@ bool DPORDriver::handle_trace(TraceBuilder *TB, Trace *t, uint64_t *computation_
 DPORDriver::Result DPORDriver::run_parallel_rfsc() {
   Result res;
 
-  TraceBuilder *TB = nullptr;
+  RFSCTraceBuilder *TB = nullptr;
   std::vector<TraceBuilder *> TBs;
   RFSCDecisionTree decision_tree;
   RFSCUnfoldingTree unfolding_tree;
@@ -334,7 +334,9 @@ DPORDriver::Result DPORDriver::run(){
     if(conf.dpor_algorithm != Configuration::READS_FROM){
       TB = new TSOTraceBuilder(conf);
     }else{
-      return run_parallel_rfsc();
+      // Why oh why cant I just return this function call without breaking ARM_test?!
+      res = run_parallel_rfsc();
+      return res;
     }
     break;
   case Configuration::TSO:
