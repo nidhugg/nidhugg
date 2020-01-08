@@ -300,10 +300,7 @@ DPORDriver::Result DPORDriver::run_parallel_rfsc() {
     if (has_error) break;
     if (decision_tree.work_queue_empty()) break;
 
-
-    int max_concurrent_tasks = 12;
-
-    for (int i = 0; i < max_concurrent_tasks; i++) {
+    for (int i = 0; i < conf.n_threads; i++) {
       if (decision_tree.work_queue_empty()) break;
       TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_next_work_task(), conf);
       TBs.push_back(std::move(TB));
@@ -318,11 +315,8 @@ DPORDriver::Result DPORDriver::run_parallel_rfsc() {
 
   SigSegvHandler::reset_signal_handler();
 
-
   return res;
 }
-
-
 
 DPORDriver::Result DPORDriver::run(){
   Result res;
