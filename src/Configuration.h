@@ -52,6 +52,7 @@ public:
   };
   /* Assign default values to all configuration parameters. */
   Configuration(){
+    n_threads = 1;
     explore_all_traces = false;
     malloc_may_fail = false;
     mutex_require_init = true;
@@ -105,6 +106,8 @@ public:
    * warnings if incompatible switches are supplied.
    */
   void check_commandline();
+
+  int n_threads;
 
   /* Should analysis continue, even when an error was discovered,
    * until all traces have been explored?
