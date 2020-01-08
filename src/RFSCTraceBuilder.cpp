@@ -838,36 +838,14 @@ void RFSCTraceBuilder::compute_vclocks(){
 }
 
 void RFSCTraceBuilder::compute_unfolding() {
-  // Find the deepest node in prefix first
-  // because the can be found in an undetermined order
-  auto deepest_node = decision_tree.get_root();
-  // for (unsigned int i = 0; i < prefix.size(); i++)
-  // {
-  //   auto last_decision = prefix[i].decision_ptr;
-  //   if (last_decision && last_decision->depth > deepest_node->depth) {
-  //     deepest_node = last_decision;
-  //   }
-  // }
-
-  // for (int i = 0; i < prefix.size(); i++)
-  // {
-  //   printf("i: %d\t decision: %d\t ptr_depth: %d\n",
-  //     i, prefix[i].get_decision_depth(), 
-  //     prefix[i].decision_ptr ? prefix[i].decision_ptr->depth : -9);
-  // }
-  
-  // printf("Root: %p\n", deepest_node.get());
-
+  auto deepest_node = work_item;
 
   Timing::Guard timing_guard(unfolding_context);
   for (unsigned i = 0; i < prefix.size(); ++i) {
-    // printf("Deepest decision\n");
     auto last_decision = prefix[i].decision_ptr;
     if (last_decision && last_decision->depth > deepest_node->depth) {
       deepest_node = last_decision;
     }
-    // printf("Past Deepest decision\n");
-    // printf("Deepest: %p\n", deepest_node.get());
 
     RFSCUnfoldingTree::UnfoldingNodeChildren *parent_list;
     const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> null_ptr;
@@ -876,7 +854,7 @@ void RFSCTraceBuilder::compute_unfolding() {
     IPid p = iid.get_pid();
     if (iid.get_index() == 1) {
       parent = &null_ptr;
-      parent_list =  unfolding_tree.first_event_parentlist(threads[p].cpid); //&first_events[threads[p].cpid];
+      parent_list =  unfolding_tree.first_event_parentlist(threads[p].cpid);
     } else {
       int par_idx = find_process_event(p, iid.get_index()-1);
       parent = &prefix[par_idx].event;
@@ -897,12 +875,12 @@ void RFSCTraceBuilder::compute_unfolding() {
       if (is_load(i)) {
         const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision
         = is_lock_type(i) ? prefix[i].event : prefix[i].event->read_from;
-        deepest_node = decision_tree.new_decision_node(deepest_node, decision);
+        deepest_node = decision_tree.new_decision_node(std::move(deepest_node), decision);
         prefix[i].set_decision(deepest_node);
       }
     }
   }
-  work_item = deepest_node;
+  work_item = std::move(deepest_node);
 }
 
 std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> RFSCTraceBuilder::
