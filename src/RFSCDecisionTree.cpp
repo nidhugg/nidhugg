@@ -64,7 +64,15 @@ std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(const std::sha
 void RFSCDecisionTree::construct_sibling(const std::shared_ptr<DecisionNode> &decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
   std::lock_guard<std::mutex> lock(decision_tree_mutex);
   work_queue.push_back(std::move(decision->make_sibling(unf, l)));
-  // threadpool->push(thread_runner);
+  if (threadpool) {
+    threadpool->push(thread_runner);
+
+    /* NOTE:
+     * If the threadrunner would take the unique_ptr as argument and by itself set the work item,
+     * the work_queue could be deprecated. example of this seen below. */
+
+    // threadpool->push(thread_runner, std::move(decision->make_sibling(unf, l)));
+  }
 }
 
 

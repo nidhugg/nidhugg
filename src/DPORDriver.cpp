@@ -29,6 +29,8 @@
 #include "SigSegvHandler.h"
 #include "StrModule.h"
 #include "ThreadPool.h"
+#include "ctpl.h"
+#include "blockingconcurrentqueue.h"
 #include "TSOInterpreter.h"
 #include "TSOTraceBuilder.h"
 #include "RFSCTraceBuilder.h"
@@ -400,6 +402,182 @@ DPORDriver::Result DPORDriver::run_rfsc_threadpool() {
   return res;
 }
 
+DPORDriver::Result DPORDriver::run_rfsc_ctpl_threadpool() {
+  Result res;
+  ctpl::thread_pool threadpool(conf.n_threads);
+
+  RFSCDecisionTree decision_tree;
+  RFSCUnfoldingTree unfolding_tree;
+
+  std::queue<std::future<std::tuple<Trace *, bool, int>>> futures;
+
+  std::vector<RFSCTraceBuilder*> TBs;
+  for (int i = 0; i < conf.n_threads; i++) {
+    TBs.push_back(new RFSCTraceBuilder(decision_tree, unfolding_tree, conf));
+  }
+
+  auto thread_runner = [this, &TBs] (int id) {
+    bool assume_blocked = false;
+    TBs[id]->reset();
+    Trace *t= this->run_once(*TBs[id], assume_blocked);
+
+    return std::make_tuple(std::move(t), assume_blocked, TBs[id]->tasks_created);
+    };
+
+
+  SigSegvHandler::setup_signal_handler();
+
+  uint64_t computation_count = 0;
+  long double estimate = 1;
+
+  // Initialize the first run.
+  futures.emplace(
+    threadpool.push(thread_runner)
+  );
+  int tasks_left = 1;
+
+  do{
+    if(conf.print_progress){
+      print_progress(computation_count, estimate, res);
+    }
+    if((computation_count+1) % 1000 == 0){
+      reparse();
+    }
+
+    bool has_error = false;
+    while (!futures.empty()) {
+      auto future_result = futures.front().get();
+      tasks_left--;
+      Trace *t;
+      bool assume_blocked;
+      int to_create = 0;
+      std::tie(t, assume_blocked, to_create) = future_result;
+
+      // handle_trace requires a TB but with RFSC this is a constant value, so it does not matter which TB it is.
+      if (handle_trace(TBs[0], t, &computation_count, res, assume_blocked)) {
+        has_error = true;
+        threadpool.stop(false);
+        break;
+      }
+      // TODO: Estimations are run on a TB prefix, for now we ignore this functionality.
+      // if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
+      //   estimate = std::round(TB->estimate_trace_count());
+      // }
+
+      tasks_left += to_create;
+      for(int i = 0; i < to_create; i++) {
+        futures.emplace(
+          threadpool.push(thread_runner)
+        );
+      }
+
+      futures.pop();
+    }
+
+    if (has_error) break;
+
+  } while(tasks_left);
+
+
+  if(conf.print_progress){
+    llvm::dbgs() << ESC_char << "[K\n";
+  }
+
+  SigSegvHandler::reset_signal_handler();
+
+  for (int i = 0; i < conf.n_threads; i++) {
+    delete TBs[i];
+  }
+
+  return res;
+}
+
+DPORDriver::Result DPORDriver::run_rfsc_ctpl_prod_consume() {
+
+  Result res;
+
+  moodycamel::BlockingConcurrentQueue<std::tuple<Trace *, bool, int>> queue;
+  std::tuple<Trace *, bool, int> tup;
+
+  RFSCDecisionTree decision_tree;
+  RFSCUnfoldingTree unfolding_tree;
+
+  ctpl::thread_pool threadpool(conf.n_threads);
+
+  std::vector<RFSCTraceBuilder*> TBs;
+  for (int i = 0; i < conf.n_threads; i++) {
+    TBs.push_back(new RFSCTraceBuilder(decision_tree, unfolding_tree, conf));
+  }
+
+  auto thread_runner = [this, &TBs, &queue] (int id) {
+    bool assume_blocked = false;
+    TBs[id]->reset();
+    Trace *t= this->run_once(*TBs[id], assume_blocked);
+
+    queue.enqueue(std::make_tuple(std::move(t), assume_blocked, TBs[id]->tasks_created));
+    };
+
+  // TODO: Letting the decision tree have the ability to directly push a new thread-task after a work_item have been inserted into wq
+  decision_tree.thread_runner = thread_runner;
+  decision_tree.threadpool = &threadpool;
+
+  uint64_t computation_count = 0;
+  long double estimate = 1;
+
+  // Initialize the first run.
+  threadpool.push(thread_runner);
+  int tasks_left = 1;
+
+  do{
+    if(conf.print_progress){
+      print_progress(computation_count, estimate, res);
+    }
+    if((computation_count+1) % 1000 == 0){
+      reparse();
+    }
+
+
+    queue.wait_dequeue(tup);
+    tasks_left--;
+
+    Trace *t;
+    bool assume_blocked;
+    int to_create;
+    std::tie(t, assume_blocked, to_create) = tup;
+
+    tasks_left += to_create;
+
+    // handle_trace requires a TB but with RFSC this is a constant value, so it does not matter which TB it is.
+    if (handle_trace(TBs[0], t, &computation_count, res, assume_blocked)) {
+      tasks_left = 0;
+      threadpool.stop(false);
+      break;
+    }
+    // TODO: Estimations are run on a TB prefix, for now we ignore this functionality.
+    // if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
+    //   estimate = std::round(TB->estimate_trace_count());
+    // }
+
+    // letting the decision tree handle pushing of tasks
+    // for(int i = 0; i < to_create; i++) {
+    //   threadpool.push(thread_runner);
+    // }
+
+  } while(tasks_left);
+
+  if(conf.print_progress){
+    llvm::dbgs() << ESC_char << "[K\n";
+  }
+
+  SigSegvHandler::reset_signal_handler();
+
+  for (int i = 0; i < conf.n_threads; i++) {
+    delete TBs[i];
+  }
+
+  return res;
+}
+
 DPORDriver::Result DPORDriver::run(){
   Result res;
 
@@ -410,9 +588,11 @@ DPORDriver::Result DPORDriver::run(){
     if(conf.dpor_algorithm != Configuration::READS_FROM){
       TB = new TSOTraceBuilder(conf);
     }else{
-      // Why oh why cant I just return this function call without breaking ARM_test?!
+      /* Why oh why cant I just return this function call without breaking ARM_test?! */
       // res = run_rfsc_async_futures();
-      res = run_rfsc_threadpool();
+      // res = run_rfsc_threadpool();
+      // res = run_rfsc_ctpl_threadpool();
+      res = run_rfsc_ctpl_prod_consume();
       return res;
     }
     break;

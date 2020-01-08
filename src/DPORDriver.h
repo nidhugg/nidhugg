@@ -135,6 +135,8 @@ protected:
 
   Result run_rfsc_async_futures();
   Result run_rfsc_threadpool();
+  Result run_rfsc_ctpl_threadpool();
+  Result run_rfsc_ctpl_prod_consume();
 };
 
 #endif
