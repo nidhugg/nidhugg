@@ -28,7 +28,7 @@
 #include "ctpl.h"
 
 
-#define N_THREADS 1
+#define N_THREADS 4
 
 RFSCDriver::RFSCDriver(const Configuration &C) : DPORDriver(C) {}
 
@@ -42,26 +42,6 @@ DPORDriver *RFSCDriver::parseIRFile(const std::string &filename,
   CheckModule::check_functions(driver->mod);
   return driver;
 }
-// typedef Trace * (*driver_runner)(TraceBuilder &TB, bool &assume_blocked);
-
-// void thread_runner(int id, RFSCDriver *driver, std::vector<RFSCTraceBuilder *> &TBs, moodycamel::BlockingConcurrentQueue<std::tuple<bool, Trace *, bool>> &queue) {
-//   bool assume_blocked = false;
-//   // llvm::dbgs() << "DEBUG:  Run once from " << id << "\n";
-//   if (!TBs[id]->reset()) {
-//     queue.enqueue(std::make_tuple(false, nullptr, false));
-//     return;
-//   };
-//   Trace *t= driver->run_once(*TBs[id], assume_blocked);
-
-//   // TODO:
-//   // By being able to move both compute unfolding, and compute prefix after returning trace from run_once,
-//   // we could send the trace to a producer and compute unfolding concurrently,
-//   // and later run comp_prefixes sequentially with a lock without hindering the trace consumer.
-//   TBs[id]->compute_unfolding();
-//   TBs[id]->compute_prefixes();
-
-//   queue.enqueue(std::make_tuple(true, std::move(t), assume_blocked));
-// }
 
 
 DPORDriver::Result RFSCDriver::run(){
@@ -84,35 +64,23 @@ DPORDriver::Result RFSCDriver::run(){
   auto thread_runner = [this, &TBs, &queue] (int id) {
     bool assume_blocked = false;
     // llvm::dbgs() << "DEBUG:  Run once from " << id << "\n";
-    if (!TBs[id]->reset()) {
-      queue.enqueue(std::make_tuple(false, nullptr, false, 0));
-      return;
-    };
+    TBs[id]->reset();
     Trace *t= this->run_once(*TBs[id], assume_blocked);
-
-    // TODO:
-    // By being able to move both compute unfolding, and compute prefix after returning trace from run_once,
-    // we could send the trace to a producer and compute unfolding concurrently,
-    // and later run comp_prefixes sequentially with a lock without hindering the trace consumer.
-    // TBs[id]->compute_unfolding();
-    // TBs[id]->compute_prefixes();
 
     queue.enqueue(std::make_tuple(true, std::move(t), assume_blocked, TBs[id]->tasks_created));
     };
 
+  // TODO: Letting the decision tree have the ability to directly push a new thread-task after a work_item have been inserted into wq
   decision_tree.run_func = thread_runner;
   decision_tree.threadpool = &threadpool;
-  
-  // TraceBuilder *TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_root(), conf);
   
   SigSegvHandler::setup_signal_handler();
 
   uint64_t computation_count = 0;
   long double estimate = 1;
-  // threadpool.push(decision_tree.run_func);
+
+  // Initialize the first run.
   threadpool.push(thread_runner);
-  // threadpool.push(fun);
-  // threadpool.push(thread_runner);
   int tasks_left = 1;
 
   do{
@@ -123,30 +91,6 @@ DPORDriver::Result RFSCDriver::run(){
       reparse();
     }
 
-    // auto fun = [this, &TBs, &queue] (int id) {thread_runner(id, this, TBs, queue);};
-
-    
-
-    // threadpool.push([this, &TBs, &queue] (int id) {thread_runner(id, this, TBs, queue);});
-
-    // threadpool.push(fun);
-
-    // threadpool.push([this, &TBs, &queue](int id){
-    //   bool assume_blocked = false;
-    //   // llvm::dbgs() << "DEBUG:  Run once from " << id << "\n";
-    //   TBs[id]->reset();
-    //   Trace *t= this->run_once(*TBs[id], assume_blocked);
-
-    //   // TODO:
-    //   // By being able to move both compute unfolding, and compute prefix after returning trace from run_once,
-    //   // we could send the trace to a producer and compute unfolding concurrently,
-    //   // and later run comp_prefixes sequentially with a lock without hindering the trace consumer.
-    //   TBs[id]->compute_unfolding();
-    //   TBs[id]->compute_prefixes();
-
-    //   queue.enqueue(std::pair<Trace *, bool>(std::move(t), assume_blocked));
-    // });
-
 
     queue.wait_dequeue(tup);
     tasks_left--;
@@ -155,37 +99,20 @@ DPORDriver::Result RFSCDriver::run(){
     Trace *t;
     bool assume_blocked;
     int to_create;
-
     std::tie(working, t, assume_blocked, to_create) = tup;
-    if (!working) {
-      llvm::dbgs() << "DEBUG:  Exit due to getting the null exit-trace\n";
-      break;
-    }
+
 
     if (handle_trace(TBs[0], t, &computation_count, res, assume_blocked)) break;
     if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
       estimate = std::round(TBs[0]->estimate_trace_count());
     }
-    for(int i = 0; i < to_create; i++) {
-      threadpool.push(thread_runner);
-      tasks_left++;
-    }
+    tasks_left += to_create;
+    // for(int i = 0; i < to_create; i++) {
+    //   threadpool.push(thread_runner);
+    //   // tasks_left++;
+    // }
 
-    if (tasks_left < 0) {
-      llvm::dbgs() << "ERROR:  task left got lower than 0!\n";
-      abort();
-    }
-
-    if (!tasks_left) {
-      llvm::dbgs() << "DEBUG:  Exit due to tasks_left got empty\n";
-      break;
-    }
-
-    // if (decision_tree.work_queue_empty()) break;
-    
-    // delete TBs[0];
-    // TBs[0] = new RFSCTraceBuilder(decision_tree, unfolding_tree, conf);
-  } while(true);
+  } while(tasks_left);
 
   if(conf.print_progress){
     llvm::dbgs() << ESC_char << "[K\n";
@@ -193,7 +120,9 @@ DPORDriver::Result RFSCDriver::run(){
 
   SigSegvHandler::reset_signal_handler();
 
-  delete TBs[0];
+  // delete TBs[0];
+  // while(queue.try_dequeue(tup));
+  TBs.clear();
 
   return res;  
 }

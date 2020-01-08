@@ -22,6 +22,7 @@
 #define __RFSC_UNFOLDING_TREE_H__
 
 #include <unordered_set>
+#include <mutex>
 
 #include "TSOPSOTraceBuilder.h"
 
@@ -75,10 +76,7 @@ protected:
   
 
   std::map<CPid,UnfoldingNodeChildren> first_events;
-
-
-
-
+  std::recursive_mutex unfolding_tree_mutex;
 
 };
 #endif

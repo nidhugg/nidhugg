@@ -157,7 +157,8 @@ bool RFSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
 
   no_available_threads:
   {
-    std::lock_guard<std::mutex> lock(compute_prefixes_mutex);
+    // std::lock_guard<std::mutex> lock(compute_prefixes_mutex);
+    // std::lock_guard<std::recursive_mutex> lock(compute_prefixes_lock);
     compute_prefixes();
   }
 
@@ -231,13 +232,11 @@ Trace *RFSCTraceBuilder::get_trace() const{
 
 bool RFSCTraceBuilder::reset(){
 
-  if(decision_tree.work_queue_empty()) return false;
+  // if(decision_tree.work_queue_empty()) return false;
 
   work_item = decision_tree.get_next_work_task();
   if (work_item->depth != -1)
   {
-  
-  
 
   Leaf l = std::move(work_item->leaf);
   auto unf = std::move(work_item->unfold_node);
@@ -1149,6 +1148,7 @@ bool RFSCTraceBuilder::can_swap_lock_by_vclocks(int f, int u, int s) const {
 }
 
 void RFSCTraceBuilder::compute_prefixes() {
+  std::lock_guard<std::mutex> lock(compute_prefixes_mutex);
 
   std::vector<int> iid_map = iid_map_at(0);
 

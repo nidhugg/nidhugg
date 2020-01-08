@@ -23,31 +23,11 @@
 
 unsigned RFSCUnfoldingTree::unf_ctr = 0;
 
-// std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> RFSCUnfoldingTree::
-// find_unfolding_node(IPid p, int index, Option<int> prefix_rf) {
-//   UnfoldingNodeChildren *parent_list;
-//   const std::shared_ptr<UnfoldingNode> null_ptr;
-//   const std::shared_ptr<UnfoldingNode> *parent;
-//   if (index == 1) {
-//     parent = &null_ptr;
-//     parent_list = &first_events[threads[p].cpid];
-//   } else {
-//     int par_idx = find_process_event(p, index-1);
-//     parent = &prefix[par_idx].event;
-//     parent_list = &(*parent)->children;
-//   }
-//   // TODO: Put back inte trace builder
-//   const std::shared_ptr<UnfoldingNode> *read_from = &null_ptr;
-//   if (prefix_rf && *prefix_rf != -1) {
-//     read_from = &prefix[*prefix_rf].event;
-//   }
-//   return find_unfolding_node(*parent_list, *parent, *read_from);
-// }
-
 std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> RFSCUnfoldingTree::
 find_unfolding_node(UnfoldingNodeChildren &parent_list,
                     const std::shared_ptr<UnfoldingNode> &parent,
                     const std::shared_ptr<UnfoldingNode> &read_from) {
+  std::lock_guard<std::recursive_mutex> lock(this->unfolding_tree_mutex);
   for (unsigned ci = 0; ci < parent_list.size();) {
     std::shared_ptr<UnfoldingNode> c = parent_list[ci].lock();
     if (!c) {
@@ -71,22 +51,7 @@ find_unfolding_node(UnfoldingNodeChildren &parent_list,
   return c;
 }
 
-// std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> RFSCUnfoldingTree::alternative
-// (unsigned i, 
-// const std::shared_ptr<UnfoldingNode> &read_from,
-// std::shared_ptr<UnfoldingNode> &parent,
-// CPid cpid) {
-//   UnfoldingNodeChildren *parent_list;
-//   if (parent) {
-//     parent_list = &parent->children;
-//   } else {
-    
-//     parent_list = &first_events[cpid];
-//   }
-
-//   return find_unfolding_node(*parent_list, parent, read_from);
-// }
-
 RFSCUnfoldingTree::UnfoldingNodeChildren *RFSCUnfoldingTree::first_event_parentlist(CPid cpid) {
-    return &first_events[cpid];
+  std::lock_guard<std::recursive_mutex> lock(this->unfolding_tree_mutex);
+  return &first_events[cpid];
 }

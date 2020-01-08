@@ -183,7 +183,8 @@ protected:
   // std::shared_ptr<DecisionNode> root;
 
   std::list<std::unique_ptr<DecisionNode>> work_queue;
-  std::mutex queue_mutex;
+  static std::recursive_mutex decision_tree_mutex;
+  // std::mutex queue_mutex;
 };
 
 

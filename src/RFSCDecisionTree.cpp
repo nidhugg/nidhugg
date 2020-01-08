@@ -30,9 +30,11 @@ static bool prune_node(DecisionNode *node, const DecisionNode *blame) {
   return false;
 }
 
+std::recursive_mutex RFSCDecisionTree::decision_tree_mutex;
 
 void RFSCDecisionTree::prune_decisions(const std::shared_ptr<DecisionNode> &blame) {
-  std::lock_guard<std::mutex> lock(this->queue_mutex);
+  std::lock_guard<std::recursive_mutex> lock(decision_tree_mutex);
+  // std::lock_guard<std::mutex> lock(this->queue_mutex);
   // Would perhaps be more efficient with a remove_if()
   for( auto iter = work_queue.begin(); iter != work_queue.end(); ) {
     if( prune_node(iter->get(), blame.get()) )
@@ -44,7 +46,8 @@ void RFSCDecisionTree::prune_decisions(const std::shared_ptr<DecisionNode> &blam
 
 
 std::unique_ptr<DecisionNode> RFSCDecisionTree::get_next_work_task() {
-  std::lock_guard<std::mutex> lock(this->queue_mutex);
+  std::lock_guard<std::recursive_mutex> lock(decision_tree_mutex);
+  // std::lock_guard<std::mutex> lock(this->queue_mutex);
   std::unique_ptr<DecisionNode> node = std::move(work_queue.front());
   work_queue.pop_front();
 
@@ -53,6 +56,7 @@ std::unique_ptr<DecisionNode> RFSCDecisionTree::get_next_work_task() {
 
 
 std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(const std::shared_ptr<DecisionNode> &parent, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
+  std::lock_guard<std::recursive_mutex> lock(decision_tree_mutex);
   auto decision = std::make_shared<DecisionNode>(parent);
   decision->place_decision_into_sleepset(unf);
   return std::move(decision);
@@ -60,18 +64,21 @@ std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(const std::sha
 
 
 void RFSCDecisionTree::construct_sibling(const std::shared_ptr<DecisionNode> &decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l, std::vector<int> iid_map) {
-  std::lock_guard<std::mutex> lock(this->queue_mutex);
+  std::lock_guard<std::recursive_mutex> lock(decision_tree_mutex);
+  // std::lock_guard<std::mutex> lock(this->queue_mutex);
   work_queue.push_back(std::move(decision->make_sibling(unf, l, iid_map)));
-  // threadpool->push(run_func);
+  threadpool->push(run_func);
 }
 
 
 bool RFSCDecisionTree::work_queue_empty() {
+  std::lock_guard<std::recursive_mutex> lock(decision_tree_mutex);
   return work_queue.empty();
 }
 
 
 const std::shared_ptr<DecisionNode> &RFSCDecisionTree::find_ancestor(const std::shared_ptr<DecisionNode> &node, int wanted) {
+  std::lock_guard<std::recursive_mutex> lock(decision_tree_mutex);
   assert(node->depth >= wanted);
 
   /* Ugly hack to traverse the tree without updating the ref_count 
