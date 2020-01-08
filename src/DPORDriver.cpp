@@ -241,7 +241,7 @@ bool DPORDriver::handle_trace(TraceBuilder *TB, Trace *t, uint64_t *computation_
   return has_errors && !conf.explore_all_traces;
 }
 
-DPORDriver::Result DPORDriver::run_parallel_rfsc() {
+DPORDriver::Result DPORDriver::run_rfsc_async_futures() {
   Result res;
 
   RFSCTraceBuilder *TB = nullptr;
@@ -319,7 +319,7 @@ DPORDriver::Result DPORDriver::run_parallel_rfsc() {
   return res;
 }
 
-DPORDriver::Result DPORDriver::run_parallel_rfsc_v2() {
+DPORDriver::Result DPORDriver::run_rfsc_threadpool() {
   Result res;
   ThreadPool pool(conf.n_threads);
 
@@ -407,8 +407,8 @@ DPORDriver::Result DPORDriver::run(){
       TB = new TSOTraceBuilder(conf);
     }else{
       // Why oh why cant I just return this function call without breaking ARM_test?!
-      // res = run_parallel_rfsc();
-      res = run_parallel_rfsc_v2();
+      // res = run_rfsc_async_futures();
+      res = run_rfsc_threadpool();
       return res;
     }
     break;
