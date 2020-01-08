@@ -103,6 +103,7 @@ public:
   /* Explore the traces of the given module, and return the result.
    */
   virtual Result run();
+  // Trace *run_once(TraceBuilder &TB, bool &assume_blocked) const;
 // private:
 protected:
   /* Configuration */

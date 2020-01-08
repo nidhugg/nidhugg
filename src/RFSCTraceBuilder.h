@@ -41,7 +41,6 @@ class RFSCTraceBuilder final : public TSOPSOTraceBuilder{
 public:
   RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
                    RFSCUnfoldingTree &unfolding_tree_,
-                   std::shared_ptr<DecisionNode> work_item_,
                    const Configuration &conf = Configuration::default_conf);
   virtual ~RFSCTraceBuilder();
   virtual bool schedule(int *proc, int *aux, int *alt, bool *dryrun);
@@ -85,6 +84,8 @@ public:
   virtual void register_alternatives(int alt_count);
   virtual long double estimate_trace_count() const;
 
+
+  int tasks_created;
 
 protected:
   /* An identifier for a thread. An index into this->threads.
@@ -321,6 +322,9 @@ protected:
   // TODO: Add documentation
   RFSCDecisionTree &decision_tree;
   std::shared_ptr<DecisionNode> work_item;
+  // static std::recursive_mutex compute_prefixes_lock;
+  static std::mutex compute_prefixes_mutex;
+
 
   /* The index into prefix corresponding to the last event that was
    * scheduled. Has the value -1 when no events have been scheduled.

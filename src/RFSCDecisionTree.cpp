@@ -64,6 +64,7 @@ std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(const std::sha
 void RFSCDecisionTree::construct_sibling(const std::shared_ptr<DecisionNode> &decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
   std::lock_guard<std::mutex> lock(decision_tree_mutex);
   work_queue.push_back(std::move(decision->make_sibling(unf, l)));
+  // threadpool->push(thread_runner);
 }
 
 
@@ -132,7 +133,7 @@ std::unique_ptr<DecisionNode> DecisionNode::make_sibling(const std::shared_ptr<R
 
 SaturatedGraph &DecisionNode::get_saturated_graph() {
   std::lock_guard<std::mutex> lock(parent->decision_node_mutex);
-  assert(depth != -1);  
+  assert(depth != -1);
   SaturatedGraph &g = parent->graph_cache;
   if (g.size() || depth == 0) return g;
   auto node = parent;

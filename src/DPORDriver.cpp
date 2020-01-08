@@ -249,7 +249,8 @@ DPORDriver::Result DPORDriver::run_rfsc_async_futures() {
   RFSCDecisionTree decision_tree;
   RFSCUnfoldingTree unfolding_tree;
 
-  TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_root(), conf);
+  TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, conf);
+  TB->reset();
   TBs.push_back(std::move(TB));
 
   SigSegvHandler::setup_signal_handler();
@@ -303,7 +304,8 @@ DPORDriver::Result DPORDriver::run_rfsc_async_futures() {
 
     for (int i = 0; i < conf.n_threads; i++) {
       if (decision_tree.work_queue_empty()) break;
-      TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_next_work_task(), conf);
+      TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, conf);
+      TB->reset();
       TBs.push_back(std::move(TB));
     }
 
@@ -329,7 +331,8 @@ DPORDriver::Result DPORDriver::run_rfsc_threadpool() {
 
   std::queue<std::future<std::tuple<TraceBuilder *, Trace *, bool>>> futures;
 
-  TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_root(), conf);
+  TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, conf);
+  TB->reset();
   futures.emplace(
     pool.enqueue([this](auto TB){
       bool assume_blocked = false;
@@ -374,7 +377,8 @@ DPORDriver::Result DPORDriver::run_rfsc_threadpool() {
     if (decision_tree.work_queue_empty()) break;
 
     while(!decision_tree.work_queue_empty()) {
-      TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_next_work_task(), conf);
+      TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, conf);
+      TB->reset();
       futures.emplace(
         pool.enqueue([this](auto TB){
           bool assume_blocked = false;

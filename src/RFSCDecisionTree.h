@@ -24,10 +24,12 @@
 #include "SymEv.h"
 #include "SaturatedGraph.h"
 #include "RFSCUnfoldingTree.h"
+#include "ctpl.h"
 
 #include <unordered_set>
 #include <mutex>
 #include <list>
+#include <functional>
 
 
 struct DecisionNode;
@@ -137,7 +139,11 @@ protected:
 
 class RFSCDecisionTree final {
 public:
-  RFSCDecisionTree() : root(std::make_shared<DecisionNode>()) {};
+  // RFSCDecisionTree() : root(std::make_shared<DecisionNode>()) {};
+  RFSCDecisionTree() {
+    // Initiallize the work queue with a "root"-node
+    work_queue.push_back(std::make_unique<DecisionNode>());
+  };
 
   /* Using the last decision that caused a failure, and then
    * prune all later decisions. */
@@ -156,7 +162,7 @@ public:
   void construct_sibling(const std::shared_ptr<DecisionNode> &decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
 
   /* Returns the root of the global decision tree. */
-  std::shared_ptr<DecisionNode> get_root() {return root;};
+  // std::shared_ptr<DecisionNode> get_root() {return root;};
 
   /* True if no unevaluated siblings have been found. */
   bool work_queue_empty();
@@ -165,9 +171,13 @@ public:
   static const std::shared_ptr<DecisionNode> &find_ancestor(const std::shared_ptr<DecisionNode> &node, int wanted);
 
 
+  std::function<void(int)> thread_runner;
+  ctpl::thread_pool *threadpool;
+
+
 protected:
 
-  std::shared_ptr<DecisionNode> root;
+  // std::shared_ptr<DecisionNode> root;
 
   static std::mutex decision_tree_mutex;
   std::list<std::unique_ptr<DecisionNode>> work_queue;
