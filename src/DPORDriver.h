@@ -132,7 +132,8 @@ protected:
   bool handle_trace(TraceBuilder *TB, Trace *t, uint64_t *computation_count, Result &res, bool assume_blocked);
   // Result rfsc_runner();
 
-  Result run_parallel_rfsc(); // TODO: implementation
+  Result run_parallel_rfsc();
+  Result run_parallel_rfsc_v2();
 };
 
 #endif

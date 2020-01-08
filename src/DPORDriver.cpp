@@ -28,6 +28,7 @@
 #include "PSOTraceBuilder.h"
 #include "SigSegvHandler.h"
 #include "StrModule.h"
+#include "ThreadPool.h"
 #include "TSOInterpreter.h"
 #include "TSOTraceBuilder.h"
 #include "RFSCTraceBuilder.h"
@@ -318,6 +319,83 @@ DPORDriver::Result DPORDriver::run_parallel_rfsc() {
   return res;
 }
 
+DPORDriver::Result DPORDriver::run_parallel_rfsc_v2() {
+  Result res;
+  ThreadPool pool(conf.n_threads);
+
+  RFSCTraceBuilder *TB = nullptr;
+  RFSCDecisionTree decision_tree;
+  RFSCUnfoldingTree unfolding_tree;
+
+  std::queue<std::future<std::tuple<TraceBuilder *, Trace *, bool>>> futures;
+
+  TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_root(), conf);
+  futures.emplace(
+    pool.enqueue([this](auto TB){
+      bool assume_blocked = false;
+      Trace *t= this->run_once(*TB, assume_blocked);
+      return std::tuple<TraceBuilder *, Trace *, bool>(TB, t, assume_blocked);
+    }, TB)
+  );
+
+  SigSegvHandler::setup_signal_handler();
+
+  uint64_t computation_count = 0;
+  long double estimate = 1;
+  do{
+    if(conf.print_progress){
+      print_progress(computation_count, estimate, res);
+    }
+    if((computation_count+1) % 1000 == 0){
+      reparse();
+    }
+
+    bool has_error = false;
+    while (!futures.empty()) {
+      auto future_result = futures.front().get();
+      TraceBuilder *TB;
+      Trace *t;
+      bool assume_blocked;
+      std::tie(TB, t, assume_blocked) = future_result;
+
+      if (handle_trace(TB, t, &computation_count, res, assume_blocked)) {
+        has_error = true;
+        // break;
+      }
+      if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
+        estimate = std::round(TB->estimate_trace_count());
+      }
+
+      delete TB;
+      futures.pop();
+    }
+
+    if (has_error) break;
+    if (decision_tree.work_queue_empty()) break;
+
+    while(!decision_tree.work_queue_empty()) {
+      TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, decision_tree.get_next_work_task(), conf);
+      futures.emplace(
+        pool.enqueue([this](auto TB){
+          bool assume_blocked = false;
+          Trace *t= this->run_once(*TB, assume_blocked);
+          return std::tuple<TraceBuilder *, Trace *, bool>(TB, t, assume_blocked);
+        }, TB)
+      );
+    }
+
+  } while(true);
+
+
+  if(conf.print_progress){
+    llvm::dbgs() << ESC_char << "[K\n";
+  }
+
+  SigSegvHandler::reset_signal_handler();
+
+  return res;
+}
+
 DPORDriver::Result DPORDriver::run(){
   Result res;
 
@@ -329,7 +407,8 @@ DPORDriver::Result DPORDriver::run(){
       TB = new TSOTraceBuilder(conf);
     }else{
       // Why oh why cant I just return this function call without breaking ARM_test?!
-      res = run_parallel_rfsc();
+      // res = run_parallel_rfsc();
+      res = run_parallel_rfsc_v2();
       return res;
     }
     break;
