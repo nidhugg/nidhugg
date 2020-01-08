@@ -140,7 +140,7 @@ protected:
 class RFSCDecisionTree final {
 public:
   // RFSCDecisionTree() : root(std::make_shared<DecisionNode>()) {};
-  RFSCDecisionTree() {
+  RFSCDecisionTree() : threadpool(nullptr) {
     // Initiallize the work queue with a "root"-node
     work_queue.push_back(std::make_unique<DecisionNode>());
   };
