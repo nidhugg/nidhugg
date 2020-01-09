@@ -89,8 +89,7 @@ bool DeclareAssumePass::runOnModule(llvm::Module &M){
     AttributeList assumeAttrs =
       AttributeList::get(M.getContext(),AttributeList::FunctionIndex,
                               std::vector<llvm::Attribute::AttrKind>({llvm::Attribute::NoUnwind}));
-    F_assume = llvm::dyn_cast<llvm::Function>(M.getOrInsertFunction("__VERIFIER_assume",assumeTy,assumeAttrs));
-    assert(F_assume);
+    M.getOrInsertFunction("__VERIFIER_assume",assumeTy,assumeAttrs);
     modified_M = true;
   }
   return modified_M;

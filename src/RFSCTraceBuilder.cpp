@@ -944,7 +944,7 @@ find_unfolding_node(UnfoldingNodeChildren &parent_list,
   /* Did not exist, create it. */
   std::shared_ptr<UnfoldingNode> c =
     std::make_shared<UnfoldingNode>(parent, read_from);
-  parent_list.emplace_back(c);
+  parent_list.push_back(c);
   return c;
 }
 

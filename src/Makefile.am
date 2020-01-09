@@ -52,8 +52,8 @@ EXTRA_PROGRAMS = nidhuggc
 bin_PROGRAMS = nidhugg @NIDHUGGCBIN@
 nidhugg_SOURCES = main.cpp
 nidhugg_LDADD = libnidhugg.a @BOOST_SYSTEM_LIB@
-nidhugg_LDFLAGS = -pthread @BOOST_LDFLAGS@
-nidhugg_CXXFLAGS = -fno-rtti @BOOST_CPPFLAGS@
+nidhugg_LDFLAGS = -pthread
+nidhugg_CXXFLAGS = -fno-rtti
 nidhuggc_SOURCES = nidhuggc.py
 
 TESTS = unittest
@@ -83,8 +83,7 @@ unittest_SOURCES = \
   VClock_int_test.cpp \
   unittest.cpp
 unittest_LDADD=libnidhugg.a @BOOST_SYSTEM_LIB@ @BOOST_UNIT_TEST_FRAMEWORK_LIB@
-unittest_LDFLAGS=-pthread @BOOST_LDFLAGS@
-unittest_CXXFLAGS=@BOOST_CPPFLAGS@
+unittest_LDFLAGS=-pthread
 
 
 ## Run only the tests matching UTEST. Default: all.
@@ -102,11 +101,11 @@ valtest: unittest
 	valgrind --leak-check=full ./unittest $(BOOSTTESTFLAGS) --show_progress \
 		`test -z "$(UTEST)" || echo "--run_test=$(UTEST)"`
 litmus_test: nidhugg$(EXEEXT) nidhuggc$(EXEEXT)
-	cd $(top_builddir)/tests/litmus && \
+	cd $(top_srcdir)/tests/litmus && \
 	python3 ./test-nidhugg.py --nidhuggc=$(CURDIR)/nidhuggc all
 
 smoke_test: nidhugg$(EXEEXT) nidhuggc$(EXEEXT)
-	cd $(top_builddir)/tests/smoke && \
+	cd $(top_srcdir)/tests/smoke && \
 	python3 ./test-nidhugg.py --nidhuggc=$(CURDIR)/nidhuggc all
 
 nidhuggc$(EXEEXT): $(srcdir)/nidhuggc.py
