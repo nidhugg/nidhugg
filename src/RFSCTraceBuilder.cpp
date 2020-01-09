@@ -152,9 +152,8 @@ bool RFSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
     }
   }
 
-  no_available_threads:
-
-    compute_prefixes();
+ no_available_threads:
+  compute_prefixes();
 
   return false; // No available threads
 }
@@ -226,8 +225,6 @@ Trace *RFSCTraceBuilder::get_trace() const{
 
 bool RFSCTraceBuilder::reset(){
 
-  // if(decision_tree.work_queue_empty()) return false;
-
   work_item = decision_tree.get_next_work_task();
   if (work_item->depth != -1)
   {
@@ -266,7 +263,6 @@ bool RFSCTraceBuilder::reset(){
 #endif
 
   prefix = std::move(new_prefix);
-
 
   CPS = CPidSystem();
   threads.clear();
@@ -1142,7 +1138,6 @@ bool RFSCTraceBuilder::can_swap_lock_by_vclocks(int f, int u, int s) const {
 }
 
 void RFSCTraceBuilder::compute_prefixes() {
-
   Timing::Guard analysis_timing_guard(analysis_context);
   compute_vclocks();
 
@@ -1523,7 +1518,7 @@ const SaturatedGraph RFSCTraceBuilder::get_cached_graph(std::shared_ptr<Decision
   // SaturatedGraph &g = decision_tree.get_saturated_graph(decision);
   SaturatedGraph g;
   int i = decision->depth;
-  
+
   std::vector<bool> keep = causal_past(i-1);
   for (unsigned i = 0; i < prefix.size(); ++i) {
     if (keep[i] && !g.has_event(prefix[i].iid)) {

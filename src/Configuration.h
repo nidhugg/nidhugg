@@ -24,6 +24,7 @@
 
 #include "vecset.h"
 #include "SatSolver.h"
+#include "Option.h"
 
 #include <set>
 #include <string>
@@ -93,6 +94,7 @@ public:
     debug_print_on_error = false;
     transform_spin_assume = true;
     transform_loop_unroll = -1;
+    svcomp_nondet_int = nullptr;
     print_progress = false;
     print_progress_estimate = false;
     sat_solver = SMTLIB;
@@ -185,6 +187,8 @@ public:
    * transform_loop_unroll.
    */
   int transform_loop_unroll;
+  /* Number to return from __VERIFIER_nondet_u?int() */
+  Option<int> svcomp_nondet_int;
   /* If set, DPORDriver will continually print its progress to stdout. */
   bool print_progress;
   /* If set and print_progress is set, DPORDriver will together with

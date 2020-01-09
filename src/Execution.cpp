@@ -3050,11 +3050,16 @@ void Interpreter::callPthreadCondDestroy(Function *F,
 }
 
 void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals){
-  std::uniform_int_distribution<int> distr(std::numeric_limits<int>::min(),
-                                           std::numeric_limits<int>::max());
+  int int_result;
+  if (conf.svcomp_nondet_int) {
+    int_result = *conf.svcomp_nondet_int;
+  } else {
+    std::uniform_int_distribution<int> distr(std::numeric_limits<int>::min(),
+                                             std::numeric_limits<int>::max());
+    int_result = distr(Threads[CurrentThread].RandEng);
+  }
   GenericValue Result;
-  Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),
-                        distr(Threads[CurrentThread].RandEng),true);
+  Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),int_result,true);
   returnValueToCaller(F->getReturnType(),Result);
 }
 
