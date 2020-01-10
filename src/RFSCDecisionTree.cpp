@@ -64,15 +64,6 @@ std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(const std::sha
 void RFSCDecisionTree::construct_sibling(const std::shared_ptr<DecisionNode> &decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
   std::lock_guard<std::mutex> lock(decision_tree_mutex);
   work_queue.push_back(std::move(decision->make_sibling(unf, l)));
-  if (threadpool) {
-    threadpool->push(thread_runner);
-
-    /* NOTE:
-     * If the threadrunner would take the unique_ptr as argument and by itself set the work item,
-     * the work_queue could be deprecated. example of this seen below. */
-
-    // threadpool->push(thread_runner, std::move(decision->make_sibling(unf, l)));
-  }
 }
 
 
@@ -139,11 +130,14 @@ std::unique_ptr<DecisionNode> DecisionNode::make_sibling(const std::shared_ptr<R
 }
 
 
-SaturatedGraph &DecisionNode::get_saturated_graph() {
+SaturatedGraph &DecisionNode::get_saturated_graph(bool &complete) {
   std::lock_guard<std::mutex> lock(parent->decision_node_mutex);
   assert(depth != -1);
   SaturatedGraph &g = parent->graph_cache;
-  if (g.size() || depth == 0) return g;
+  if (g.size() || depth == 0) {
+    complete = true;
+    return g;
+  }
   auto node = parent;
   do {
     if (node->graph_cache.size()) {
@@ -155,6 +149,7 @@ SaturatedGraph &DecisionNode::get_saturated_graph() {
     
   } while (node->depth != -1);
 
+  complete = false;
   return g;
 }
 

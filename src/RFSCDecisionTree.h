@@ -109,7 +109,7 @@ public:
   std::unique_ptr<DecisionNode> make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
 
   /* Returns a given nodes SaturatedGraph, or reuses an ancestors graph if none exist. */
-  SaturatedGraph &get_saturated_graph();
+  SaturatedGraph &get_saturated_graph(bool &complete);
 
 
   /* These are exposed to be operated by RFSCDecisionTree, should not be used externally. */
@@ -140,7 +140,7 @@ protected:
 class RFSCDecisionTree final {
 public:
   // RFSCDecisionTree() : root(std::make_shared<DecisionNode>()) {};
-  RFSCDecisionTree() : threadpool(nullptr) {
+  RFSCDecisionTree() {
     // Initiallize the work queue with a "root"-node
     work_queue.push_back(std::make_unique<DecisionNode>());
   };
@@ -172,7 +172,6 @@ public:
 
 
   std::function<void(int)> thread_runner;
-  ctpl::thread_pool *threadpool;
 
 
 protected:
