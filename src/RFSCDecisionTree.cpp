@@ -33,48 +33,63 @@ static bool prune_node(DecisionNode *node, const DecisionNode *blame) {
 std::mutex RFSCDecisionTree::decision_tree_mutex;
 
 void RFSCDecisionTree::prune_decisions(const std::shared_ptr<DecisionNode> &blame) {
-  std::lock_guard<std::mutex> lock(decision_tree_mutex);
-  // Would perhaps be more efficient with a remove_if()
-  for( auto iter = work_queue.begin(); iter != work_queue.end(); ) {
-    if( prune_node(iter->get(), blame.get()) )
-      iter = work_queue.erase( iter ); // advances iter
-    else
-      ++iter ; // don't remove
-  }
+  // std::lock_guard<std::mutex> lock(decision_tree_mutex);
+  // // Would perhaps be more efficient with a remove_if()
+  // for( auto iter = work_queue.begin(); iter != work_queue.end(); ) {
+  //   if( prune_node(iter->get(), blame.get()) )
+  //     iter = work_queue.erase( iter ); // advances iter
+  //   else
+  //     ++iter ; // don't remove
+  // }
+
+  blame->pruned_subtree.store(true, std::memory_order_release);
 }
 
 
 std::unique_ptr<DecisionNode> RFSCDecisionTree::get_next_work_task() {
-  std::lock_guard<std::mutex> lock(decision_tree_mutex);
-  std::unique_ptr<DecisionNode> node = std::move(work_queue.front());
-  work_queue.pop_front();
+  // std::lock_guard<std::mutex> lock(decision_tree_mutex);
+  // std::unique_ptr<DecisionNode> node = std::move(work_queue.front());
+  // work_queue.pop_front();
+
+  std::unique_ptr<DecisionNode> node;
+  c_work_queue.try_dequeue(node);
 
   return std::move(node);
 }
 
 
 std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(const std::shared_ptr<DecisionNode> &parent, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
-  std::lock_guard<std::mutex> lock(decision_tree_mutex);
+  // std::lock_guard<std::mutex> lock(decision_tree_mutex);
+  // auto decision = std::make_shared<DecisionNode>(parent);
+  // decision->place_decision_into_sleepset(unf);
+  // return std::move(decision);
+
   auto decision = std::make_shared<DecisionNode>(parent);
+  {
+  std::lock_guard<std::mutex> lock(decision_tree_mutex);
   decision->place_decision_into_sleepset(unf);
+  }
   return std::move(decision);
 }
 
 
 void RFSCDecisionTree::construct_sibling(const std::shared_ptr<DecisionNode> &decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
-  std::lock_guard<std::mutex> lock(decision_tree_mutex);
-  work_queue.push_back(std::move(decision->make_sibling(unf, l)));
+  // std::lock_guard<std::mutex> lock(decision_tree_mutex);
+  // work_queue.push_back(std::move(decision->make_sibling(unf, l)));
+  c_work_queue.enqueue(std::move(decision->make_sibling(unf, l)));
 }
 
 
 bool RFSCDecisionTree::work_queue_empty() {
-  std::lock_guard<std::mutex> lock(decision_tree_mutex);
-  return work_queue.empty();
+  // std::lock_guard<std::mutex> lock(decision_tree_mutex);
+  // return work_queue.empty();
+
+  return !c_work_queue.size_approx();
 }
 
 
 const std::shared_ptr<DecisionNode> &RFSCDecisionTree::find_ancestor(const std::shared_ptr<DecisionNode> &node, int wanted) {
-  std::lock_guard<std::mutex> lock(decision_tree_mutex);
+  // std::lock_guard<std::mutex> lock(decision_tree_mutex);
   assert(node->depth >= wanted);
 
   /* Ugly hack to traverse the tree without updating the ref_count 
@@ -124,8 +139,8 @@ void DecisionNode::place_decision_into_sleepset(const std::shared_ptr<RFSCUnfold
 
 
 std::unique_ptr<DecisionNode> DecisionNode::make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
-  std::lock_guard<std::mutex> lock(parent->decision_node_mutex);
-  parent->children_unf_set.insert(unf);
+  // std::lock_guard<std::mutex> lock(parent->decision_node_mutex);
+  // parent->children_unf_set.insert(unf);
   return std::make_unique<DecisionNode>(parent, unf, l);
 }
 
@@ -160,6 +175,16 @@ bool DecisionNode::unf_is_known(const std::shared_ptr<RFSCUnfoldingTree::Unfoldi
 }
 
 void DecisionNode::alloc_unf(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
-  std::lock_guard<std::mutex> lock(parent->decision_node_mutex);
-  parent->children_unf_set.insert(unf);
+  // std::lock_guard<std::mutex> lock(parent->decision_node_mutex);
+  // parent->children_unf_set.insert(unf);
+}
+
+bool DecisionNode::defined_pruned() {
+
+  for (auto node = this; node->depth != -1; node = node->parent.get()) {
+    if (node->pruned_subtree.load(std::memory_order_acquire))
+      return true;
+  }
+  return false;
+
 }

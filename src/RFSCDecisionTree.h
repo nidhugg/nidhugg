@@ -25,11 +25,13 @@
 #include "SaturatedGraph.h"
 #include "RFSCUnfoldingTree.h"
 #include "ctpl.h"
+#include "concurrentqueue.h"
 
 #include <unordered_set>
 #include <mutex>
 #include <list>
 #include <functional>
+#include <atomic>
 
 
 struct DecisionNode;
@@ -65,15 +67,15 @@ static DecisionNodeID decision_id;
 struct DecisionNode {
 public:
   /* Empty constructor for root. */
-  DecisionNode() : parent(nullptr), depth(-1), name("ROOT"), name_index("A") { decision_id = 0;}
+  DecisionNode() : parent(nullptr), depth(-1), name("ROOT"), name_index("A"), pruned_subtree(false) { decision_id = 0;}
   /* Constructor for new nodes during compute_unfolding. */
   DecisionNode(std::shared_ptr<DecisionNode> decision)
-        : parent(std::move(decision)), depth(decision->depth+1), ID(++decision_id), name_index("A") {
+        : parent(std::move(decision)), depth(decision->depth+1), ID(++decision_id), name_index("A"), pruned_subtree(false) {
       set_name();
     };
   /* Constructor for new siblings during compute_prefixes. */
   DecisionNode(std::shared_ptr<DecisionNode> decision, std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf, Leaf l)
-        : parent(std::move(decision)), depth(decision->depth+1), ID(++decision_id), unfold_node(std::move(unf)), leaf(l), name_index("A") {
+        : parent(std::move(decision)), depth(decision->depth+1), ID(++decision_id), unfold_node(std::move(unf)), leaf(l), name_index("A"), pruned_subtree(false) {
       set_sibling_name();
   };
 
@@ -111,6 +113,8 @@ public:
   /* Returns a given nodes SaturatedGraph, or reuses an ancestors graph if none exist. */
   SaturatedGraph &get_saturated_graph(bool &complete);
 
+  bool defined_pruned();
+
 
   /* These are exposed to be operated by RFSCDecisionTree, should not be used externally. */
 
@@ -121,6 +125,7 @@ public:
     return parent->children_unf_set;
   };
   
+  std::atomic_bool pruned_subtree;
 
 protected:
 
@@ -142,7 +147,8 @@ public:
   // RFSCDecisionTree() : root(std::make_shared<DecisionNode>()) {};
   RFSCDecisionTree() {
     // Initiallize the work queue with a "root"-node
-    work_queue.push_back(std::make_unique<DecisionNode>());
+    // work_queue.push_back(std::make_unique<DecisionNode>());
+    c_work_queue.enqueue(std::make_unique<DecisionNode>());
   };
 
   /* Using the last decision that caused a failure, and then
@@ -179,7 +185,8 @@ protected:
   // std::shared_ptr<DecisionNode> root;
 
   static std::mutex decision_tree_mutex;
-  std::list<std::unique_ptr<DecisionNode>> work_queue;
+  // std::list<std::unique_ptr<DecisionNode>> work_queue;
+  moodycamel::ConcurrentQueue<std::unique_ptr<DecisionNode>> c_work_queue;
 };
 
 

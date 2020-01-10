@@ -226,6 +226,11 @@ Trace *RFSCTraceBuilder::get_trace() const{
 bool RFSCTraceBuilder::reset(){
 
   work_item = decision_tree.get_next_work_task();
+
+  while (work_item->defined_pruned()) {
+    tasks_created--;
+    work_item = decision_tree.get_next_work_task();
+  }
   if (work_item->depth != -1)
   {
 
