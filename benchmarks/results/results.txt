@@ -1,0 +1,86 @@
+Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
+CPU(s):              12
+On-line CPU(s) list: 0-11
+Thread(s) per core:  2
+Core(s) per socket:  6
+L1d cache:           32K
+L1i cache:           32K
+L2 cache:            256K
+L3 cache:            12288K
+
+from_CONCUERROR:
+    benchmark  n   rfsc_traces  rfsc_time  rfsc_mem  rfsct1_traces  rfsct1_time  rfsct1_mem  rfsct2_traces  rfsct2_time  rfsct2_mem  rfsct4_traces  rfsct4_time  rfsct4_mem  rfsct6_traces  rfsct6_time  rfsct6_mem
+    lastzero   9   1536         1.07       33472     1536           0.93         37156       1536           0.51         36900       1536           0.33         36808       1536           0.25         36916
+    lastzero   11  7168         3.78       33220     7168           4.85         48396       7168           2.56         48904       7168           1.75         49192       7168           1.42         48772
+    lastzero   13  32768        20.29      33636     32768          25.71        109888      32768          13.71        109888      32768          9.17         110804      32768          7.66         112612
+
+from_DCDPOR:
+    benchmark  n     rfsc_traces  rfsc_time  rfsc_mem  rfsct1_traces  rfsct1_time  rfsct1_mem  rfsct2_traces  rfsct2_time  rfsct2_mem  rfsct4_traces  rfsct4_time  rfsct4_mem  rfsct6_traces  rfsct6_time  rfsct6_mem
+    opt-lock   11    127          0.05       33236     127            0.10         33856       127            0.07         34044       127            0.06         34588       127            0.06         35040
+    opt-lock   13    151          0.07       33340     151            0.13         33740       151            0.08         34300       151            0.07         34604       151            0.07         35360
+    opt-lock   100   1195         2.02       35336     1195           6.32         36108       1195           3.95         37888       1195           3.36         40920       1195           3.43         44624
+    opt-lock   1000  11995        209.00     59112     11995          875.56       77780       11995          510.07       95620       11995          390.84       125224      11995          382.36       175340
+    parker     8     3059         1.20       34048     3059           1.97         37384       3059           1.17         37740       3059           0.93         38356       3059           0.90         39472
+    parker     12    9407         4.56       34452     9407           7.71         44556       9407           4.60         45160       9407           3.92         46188       9407           3.81         46836
+    parker     16    21195        11.95      34836     21195          21.80        59200       21195          12.92        60160       21195          10.80        60660       21195          10.71        61604
+
+from_OBSERVERS:
+    benchmark      n   rfsc_traces  rfsc_time  rfsc_mem  rfsct1_traces  rfsct1_time  rfsct1_mem  rfsct2_traces  rfsct2_time  rfsct2_mem  rfsct4_traces  rfsct4_time  rfsct4_mem  rfsct6_traces  rfsct6_time  rfsct6_mem
+    fib-bench      2   140          0.04       33284     140            0.05         33724       140            0.04         33616       140            0.03         34024       140            0.03         34440
+    fib-bench      4   19605        5.78       37100     19605          7.34         100484      19605          4.31         100024      19605          2.91         100016      19605          2.40         100240
+    fib-bench      6   2364418      1131.40    407544    {\error}       {\error}     {\error}    {\error}       {\error}     {\error}    {\error}       {\error}     {\error}    {\error}       {\error}     {\error}
+    floating-read  6   7            0.01       32900     7              0.01         32992       7              0.02         33040       7              0.01         33680       7              0.02         33332
+    floating-read  8   9            0.01       32912     9              0.01         33136       9              0.02         33376       9              0.02         33708       9              0.01         33644
+    floating-read  12  13           0.01       33156     13             0.02         33088       13             0.02         33260       13             0.02         33648       13             0.02         33792
+    floating-read  16  17           0.02       33412     17             0.02         33472       17             0.02         33592       17             0.02         33696       17             0.02         34184
+    lamport        2   22           0.02       32912     22             0.01         33088       22             0.01         33596       22             0.01         33668       22             0.01         33888
+    lamport        3   8175         2.82       34072     8175           5.14         53940       8175           2.99         55144       8175           2.33         55452       8175           2.35         55992
+    lastwrite      2   2            0.01       32792     2              0.02         33336       2              0.02         32960       2              0.01         33068       2              0.01         33184
+    lastwrite      7   7            0.01       33120     7              0.02         33148       7              0.02         33496       7              0.02         33612       7              0.02         33320
+    lastwrite      8   8            0.01       33260     8              0.01         33632       8              0.02         33548       8              0.02         33736       8              0.02         33392
+    lastwrite      9   9            0.01       33240     9              0.02         33228       9              0.02         33344       9              0.02         33516       9              0.02         33976
+
+from_RCMC:
+    benchmark  n   rfsc_traces  rfsc_time  rfsc_mem  rfsct1_traces  rfsct1_time  rfsct1_mem  rfsct2_traces  rfsct2_time  rfsct2_mem  rfsct4_traces  rfsct4_time  rfsct4_mem  rfsct6_traces  rfsct6_time  rfsct6_mem
+    casrot     8   2048         0.72       33072     2048           0.88         40936       2048           0.46         41232       2048           0.31         41340       2048           0.27         41696
+    casrot     9   8597         3.34       33112     8597           3.94         64176       8597           2.11         64636       8597           1.33         67308       8597           1.26         72104
+    casrot     10  38486        16.86      33528     38486          19.26        186088      38486          10.48        187616      38486          7.11         192452      38486          6.07         202832
+    readers    9   512          0.21       33184     512            0.24         34928       512            0.14         35268       512            0.10         35532       512            0.09         35280
+    readers    11  2048         0.94       33132     2048           1.09         38652       2048           0.61         38788       2048           0.39         41276       2048           0.36         41236
+    readers    13  8192         4.19       33376     8192           5.02         62072       8192           2.67         61040       8192           1.79         63504       8192           1.54         64120
+
+from_SCTBench:
+    benchmark        n  rfsc_traces  rfsc_time  rfsc_mem  rfsct1_traces  rfsct1_time  rfsct1_mem  rfsct2_traces  rfsct2_time  rfsct2_mem  rfsct4_traces  rfsct4_time  rfsct4_mem  rfsct6_traces  rfsct6_time  rfsct6_mem
+    circular-buffer  7  3432         2.09       34376     3432           1.62         39560       3432           1.41         39776       3432           0.59         40276       3432           0.61         40416
+    circular-buffer  8  12870        8.73       34412     12870          7.62         55228       12870          5.86         55316       12870          2.40         55872       12870          2.46         56628
+    circular-buffer  9  48620        35.94      34716     48620          45.98        111356      48620          16.56        111976      48620          9.94         111436      {\error}       {\error}     {\error}
+
+from_TRACER:
+    benchmark       n   rfsc_traces  rfsc_time  rfsc_mem  rfsct1_traces  rfsct1_time  rfsct1_mem  rfsct2_traces  rfsct2_time  rfsct2_mem  rfsct4_traces  rfsct4_time  rfsct4_mem  rfsct6_traces  rfsct6_time  rfsct6_mem
+    control-flow    5   43           0.02       33284     43             0.03         33280       43             0.03         33588       43             0.02         33844       43             0.02         33788
+    control-flow    7   143          0.06       33400     143            0.08         33684       143            0.06         33728       143            0.04         34232       143            0.04         35036
+    control-flow    11  2071         1.02       33288     2071           1.31         43460       2071           0.73         43560       2071           0.49         44496       2071           0.45         43828
+    control-flow    13  8219         4.52       33364     8219           5.92         73628       8219           3.23         75508       8219           2.16         77536       8219           1.97         80480
+    exponential-bug  3  3634         1.02       33408     3634           1.63         48824       3634           0.93         48740       3634           0.66         50560       3634           0.65         51332
+    exponential-bug  5  10131        3.04       33964     10131          4.94         86472       10131          2.79         85032       10131          2.04         87944       10131          2.08         90692
+    exponential-bug  7  22694        7.31       33904     22694          11.70        170248      22694          6.87         165908      22694          5.41         171676      22694          5.07         182836
+
+other:
+    benchmark        n  rfsc_traces  rfsc_time  rfsc_mem  rfsct1_traces  rfsct1_time  rfsct1_mem  rfsct2_traces  rfsct2_time  rfsct2_mem  rfsct4_traces  rfsct4_time  rfsct4_mem  rfsct6_traces  rfsct6_time  rfsct6_mem
+    approxds-append  4  580          0.29       33296     580            0.39         34468       580            0.22         35704       580            0.15         34744       580            0.14         35132
+    approxds-append  5  9945         5.76       33444     9945           8.65         79524       9945           4.81         79472       9945           3.86         80060       9945           3.32         79048
+    approxds-append  6  198936       135.69     33736     198936         211.25       1148112     198936         124.12       1141452     198936         91.84        1131792     198936         83.50        1149168
+
+SV-COMP:
+    benchmark  n  rfsc_traces  rfsc_time  rfsc_mem  rfsct1_traces  rfsct1_time  rfsct1_mem  rfsct2_traces  rfsct2_time  rfsct2_mem  rfsct4_traces  rfsct4_time  rfsct4_mem  rfsct6_traces  rfsct6_time  rfsct6_mem
+    sigma      5  120          0.04       33036     120            0.06         33624       120            0.04         33952       120            0.03         33752       120            0.03         34092
+    sigma      6  720          0.21       33336     720            0.30         35996       720            0.18         35992       720            0.13         36332       720            0.11         36548
+    sigma      7  5040         1.56       33464     5040           2.27         55672       5040           1.31         54472       5040           0.89         55252       5040           0.87         56452
+    sigma      8  40320        13.99      33464     40320          20.21        218860      40320          11.96        219648      40320          8.43         225776      40320          7.81         238544
+
+synthetic:
+    benchmark        n  rfsc_traces  rfsc_time  rfsc_mem  rfsct1_traces  rfsct1_time  rfsct1_mem  rfsct2_traces  rfsct2_time  rfsct2_mem  rfsct4_traces  rfsct4_time  rfsct4_mem  rfsct6_traces  rfsct6_time  rfsct6_mem
+    race-parametric  4  1107         1.22       35068     1107           2.70         53640       1107           1.70         52740       1107           1.23         53420       1107           1.17         55188
+    race-parametric  5  8953         9.59       38684     8953           22.30        183872      8953           13.48        180460      8953           9.60         183280      8953           9.59         183644
+    race-parametric  6  73789        80.13      57036     73789          188.56       1213344     73789          113.16       1208244     73789          91.28        1223828     73789          91.69        1230800
+    race-parametric  7  616227       687.86     124184    {\error}       {\error}     {\error}    {\error}       {\error}     {\error}    {\error}       {\error}     {\error}    {\error}       {\error}     {\error}
