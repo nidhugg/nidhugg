@@ -226,6 +226,11 @@ Trace *RFSCTraceBuilder::get_trace() const{
 bool RFSCTraceBuilder::reset(){
 
   work_item = decision_tree.get_next_work_task();
+
+  while (work_item->defined_pruned()) {
+    tasks_created--;
+    work_item = decision_tree.get_next_work_task();
+  }
   if (work_item->depth != -1)
   {
 
@@ -1182,11 +1187,8 @@ void RFSCTraceBuilder::compute_prefixes() {
           = unfold_alternative(j, prefix[i].event->read_from);
         std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
         // Returns false if unfolding node is already known and therefore does not have to be further evaluated
-        if (decision->unf_is_known(alt)) return;
-        if (!can_swap_by_vclocks(i, j)) {
-          decision->alloc_unf(alt);
-          return;
-        }
+        if (!decision->try_alloc_unf(alt)) return;
+        if (!can_swap_by_vclocks(i, j)) return;
         if (conf.debug_print_on_reset) {
           llvm::dbgs() << "Trying to swap " << pretty_index(i)
                        << " and " << pretty_index(j)
@@ -1201,9 +1203,6 @@ void RFSCTraceBuilder::compute_prefixes() {
           decision_tree.construct_sibling(decision, alt, std::move(solution));
           tasks_created++;
         }
-        else {
-          decision->alloc_unf(alt);
-        }
         /* Reset read-from and decision */
         prefix[j].read_from = i;
         prefix[i].decision_swap(prefix[j]);
@@ -1214,11 +1213,8 @@ void RFSCTraceBuilder::compute_prefixes() {
         std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> alt
           = unfold_alternative(j, prefix[i].event->read_from);
         std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
-        if (decision->unf_is_known(alt)) return;
-        if (!can_swap_lock_by_vclocks(i, unlock, j)) {
-          decision->alloc_unf(alt);
-          return;
-        }
+        if (!decision->try_alloc_unf(alt)) return;
+        if (!can_swap_lock_by_vclocks(i, unlock, j)) return;
         int original_read_from = *prefix[i].read_from;
         if (conf.debug_print_on_reset)
           llvm::dbgs() << "Trying to swap " << pretty_index(i)
@@ -1232,9 +1228,6 @@ void RFSCTraceBuilder::compute_prefixes() {
           decision_tree.construct_sibling(decision, alt, std::move(solution));
           tasks_created++;
         }
-        else {
-          decision->alloc_unf(alt);
-        }
         /* Reset read-from and decision */
         prefix[j].read_from = unlock;
         prefix[i].decision_swap(prefix[j]);
@@ -1245,7 +1238,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> alt
           = unfold_find_unfolding_node(jp, jidx, original_read_from);
         std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
-        if (decision->unf_is_known(alt)) return;
+        if (!decision->try_alloc_unf(alt)) return;
         int j = prefix_idx;
         assert(prefix_idx == int(prefix.size()));
         prefix.emplace_back(IID<IPid>(jp, jidx), 0, std::move(sym));
@@ -1254,10 +1247,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         compute_above_clock(j);
 
 
-        if (!can_swap_by_vclocks(i, j)) {
-          decision->alloc_unf(alt);
-        }
-        else {
+        if (can_swap_by_vclocks(i, j)) {
 
           if (conf.debug_print_on_reset)
             llvm::dbgs() << "Trying replace " << pretty_index(i)
@@ -1273,9 +1263,6 @@ void RFSCTraceBuilder::compute_prefixes() {
           if (!solution.is_bottom()) {
             decision_tree.construct_sibling(decision, alt, std::move(solution));
             tasks_created++;
-          }
-          else {
-            decision->alloc_unf(alt);
           }
 
           /* Reset decision */
@@ -1333,11 +1320,8 @@ void RFSCTraceBuilder::compute_prefixes() {
         if (*prefix[j].read_from != int(i)) return;
         std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> read_from
           = unfold_alternative(j, prefix[i].event->read_from);
-        if (decision->unf_is_known(read_from)) return;
-        if (!can_swap_by_vclocks(i, j)) {
-          decision->alloc_unf(read_from);
-          return;
-        }
+        if (!decision->try_alloc_unf(read_from)) return;
+        if (!can_swap_by_vclocks(i, j)) return;
         if (conf.debug_print_on_reset)
           llvm::dbgs() << "Trying to swap " << pretty_index(i)
                        << " and " << pretty_index(j)
@@ -1351,9 +1335,6 @@ void RFSCTraceBuilder::compute_prefixes() {
         if (!solution.is_bottom()) {
           decision_tree.construct_sibling(decision, read_from, std::move(solution));
           tasks_created++;
-        }
-        else {
-          decision->alloc_unf(read_from);
         }
 
         /* Reset read-from */
@@ -1371,11 +1352,8 @@ void RFSCTraceBuilder::compute_prefixes() {
         } else {
           const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from =
             j == -1 ? nullptr : prefix[j].event;
-          if (decision->unf_is_known(read_from)) return;
-          if (!can_rf_by_vclocks(i, original_read_from, j)) {
-            decision->alloc_unf(read_from);
-            return;
-          }
+          if (!decision->try_alloc_unf(read_from)) return;
+          if (!can_rf_by_vclocks(i, original_read_from, j)) return;
           if (conf.debug_print_on_reset)
             llvm::dbgs() << "Trying to make " << pretty_index(i)
                          << " read from " << pretty_index(j)
@@ -1387,9 +1365,6 @@ void RFSCTraceBuilder::compute_prefixes() {
           if (!solution.is_bottom()) {
             decision_tree.construct_sibling(decision, read_from, std::move(solution));
             tasks_created++;
-          }
-          else {
-            decision->alloc_unf(read_from);
           }
 
           undo_cmpxhg_recomputation(undoi, possible_writes);

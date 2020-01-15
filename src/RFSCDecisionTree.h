@@ -30,6 +30,7 @@
 #include <mutex>
 #include <queue>
 #include <functional>
+#include <atomic>
 
 
 struct DecisionNode;
@@ -65,15 +66,15 @@ static DecisionNodeID decision_id;
 struct DecisionNode {
 public:
   /* Empty constructor for root. */
-  DecisionNode() : parent(nullptr), depth(-1), name("ROOT"), name_index("A") { decision_id = 0;}
+  DecisionNode() : parent(nullptr), depth(-1), name("ROOT"), name_index("A"), pruned_subtree(false) { decision_id = 0;}
   /* Constructor for new nodes during compute_unfolding. */
   DecisionNode(std::shared_ptr<DecisionNode> decision)
-        : parent(std::move(decision)), depth(decision->depth+1), ID(++decision_id), name_index("A") {
+        : parent(std::move(decision)), depth(decision->depth+1), ID(++decision_id), name_index("A"), pruned_subtree(false) {
       set_name();
     };
   /* Constructor for new siblings during compute_prefixes. */
   DecisionNode(std::shared_ptr<DecisionNode> decision, std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf, Leaf l)
-        : parent(std::move(decision)), depth(decision->depth+1), ID(++decision_id), unfold_node(std::move(unf)), leaf(l), name_index("A") {
+        : parent(std::move(decision)), depth(decision->depth+1), ID(++decision_id), unfold_node(std::move(unf)), leaf(l), name_index("A"), pruned_subtree(false) {
       set_sibling_name();
   };
 
@@ -94,11 +95,9 @@ public:
   /* The Leaf of a new sibling. */
   Leaf leaf;
 
-  /* True if the given UnfoldingNode has previously been allocated by this node or any previous sibling. */
-  bool unf_is_known(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
-
-  /* Inserts the UnfoldingNode into the known set*/
-  void alloc_unf(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
+  /* Tries to allocate a given UnfoldingNode.
+   * Returns false if it previously been allocated by this node or any previous sibling. */
+  bool try_alloc_unf(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
 
 
   /* Places an UnfoldingNode into the known unfolding-set. */
@@ -111,6 +110,8 @@ public:
   /* Returns a given nodes SaturatedGraph, or reuses an ancestors graph if none exist. */
   SaturatedGraph &get_saturated_graph(bool &complete);
 
+  bool defined_pruned();
+
 
   /* These are exposed to be operated by RFSCDecisionTree, should not be used externally. */
 
@@ -121,6 +122,7 @@ public:
     return parent->children_unf_set;
   };
   
+  std::atomic_bool pruned_subtree;
 
 protected:
 
@@ -147,7 +149,7 @@ public:
 class RFSCDecisionTree final {
 public:
   // RFSCDecisionTree() : root(std::make_shared<DecisionNode>()) {};
-  RFSCDecisionTree() : threadpool(nullptr) {
+  RFSCDecisionTree() {
     // Initiallize the work queue with a "root"-node
     work_queue.push(std::make_shared<DecisionNode>());
   };
@@ -177,7 +179,6 @@ public:
 
 
   std::function<void(int)> thread_runner;
-  ctpl::thread_pool *threadpool;
 
 
 protected:

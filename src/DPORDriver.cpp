@@ -243,6 +243,60 @@ bool DPORDriver::handle_trace(TraceBuilder *TB, Trace *t, uint64_t *computation_
   return has_errors && !conf.explore_all_traces;
 }
 
+
+DPORDriver::Result DPORDriver::run_rfsc_sequential() {
+
+  Result res;
+
+  std::tuple<Trace *, bool, int> tup;
+
+  RFSCDecisionTree decision_tree;
+  RFSCUnfoldingTree unfolding_tree;
+
+  RFSCTraceBuilder *TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, conf);
+
+  uint64_t computation_count = 0;
+  long double estimate = 1;
+  int tasks_left = 1;
+
+  do{
+    if(conf.print_progress){
+      print_progress(computation_count, estimate, res);
+    }
+    if((computation_count+1) % 1000 == 0){
+      reparse();
+    }
+
+    bool assume_blocked = false;
+    TB->reset();
+    Trace *t= this->run_once(*TB, assume_blocked);
+    tasks_left--;
+
+    int to_create = TB->tasks_created;
+
+
+    tasks_left += to_create;
+
+    if (handle_trace(TB, t, &computation_count, res, assume_blocked)) {
+      break;
+    }
+    if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
+      estimate = std::round(TB->estimate_trace_count());
+    }
+
+  } while(tasks_left);
+
+  if(conf.print_progress){
+    llvm::dbgs() << ESC_char << "[K\n";
+  }
+
+  SigSegvHandler::reset_signal_handler();
+
+  delete TB;
+
+  return res;
+}
+
 DPORDriver::Result DPORDriver::run_rfsc_async_futures() {
   Result res;
 
@@ -517,9 +571,6 @@ DPORDriver::Result DPORDriver::run_rfsc_ctpl_prod_consume() {
     queue.enqueue(std::make_tuple(std::move(t), assume_blocked, TBs[id]->tasks_created));
     };
 
-  // TODO: Letting the decision tree have the ability to directly push a new thread-task after a work_item have been inserted into wq
-  decision_tree.thread_runner = thread_runner;
-  decision_tree.threadpool = &threadpool;
 
   uint64_t computation_count = 0;
   long double estimate = 1;
@@ -558,7 +609,6 @@ DPORDriver::Result DPORDriver::run_rfsc_ctpl_prod_consume() {
     //   estimate = std::round(TB->estimate_trace_count());
     // }
 
-    // letting the decision tree handle pushing of tasks
     for(int i = 0; i < to_create; i++) {
       threadpool.push(thread_runner);
     }
@@ -589,6 +639,7 @@ DPORDriver::Result DPORDriver::run(){
       TB = new TSOTraceBuilder(conf);
     }else{
       /* Why oh why cant I just return this function call without breaking ARM_test?! */
+      // res = run_rfsc_sequential();
       // res = run_rfsc_async_futures();
       // res = run_rfsc_threadpool();
       // res = run_rfsc_ctpl_threadpool();
