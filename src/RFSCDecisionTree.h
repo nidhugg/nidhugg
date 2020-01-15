@@ -28,7 +28,7 @@
 
 #include <unordered_set>
 #include <mutex>
-#include <list>
+#include <queue>
 #include <functional>
 
 
@@ -106,10 +106,10 @@ public:
   
 
   /* Constructs a sibling and inserts in in the sibling-set. */
-  std::unique_ptr<DecisionNode> make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
+  std::shared_ptr<DecisionNode> make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
 
   /* Returns a given nodes SaturatedGraph, or reuses an ancestors graph if none exist. */
-  SaturatedGraph &get_saturated_graph();
+  SaturatedGraph &get_saturated_graph(bool &complete);
 
 
   /* These are exposed to be operated by RFSCDecisionTree, should not be used externally. */
@@ -137,12 +137,19 @@ protected:
   std::mutex decision_node_mutex;
 };
 
+class DecisionCompare {
+public:
+  bool operator()(const std::shared_ptr<DecisionNode> &a, const std::shared_ptr<DecisionNode> &b) const {
+    return !(a->name < b->name);
+  }
+};
+
 class RFSCDecisionTree final {
 public:
   // RFSCDecisionTree() : root(std::make_shared<DecisionNode>()) {};
   RFSCDecisionTree() : threadpool(nullptr) {
     // Initiallize the work queue with a "root"-node
-    work_queue.push_back(std::make_unique<DecisionNode>());
+    work_queue.push(std::make_shared<DecisionNode>());
   };
 
   /* Using the last decision that caused a failure, and then
@@ -153,7 +160,7 @@ public:
   void backtrack_decision_tree(std::shared_ptr<DecisionNode> *TB_work_item);
 
   /* Replace the current work item with a new DecisionNode */
-  std::unique_ptr<DecisionNode> get_next_work_task();  
+  std::shared_ptr<DecisionNode> get_next_work_task();
 
   /* Constructs an empty Decision node. */
   std::shared_ptr<DecisionNode> new_decision_node(const std::shared_ptr<DecisionNode> &parent, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
@@ -161,8 +168,6 @@ public:
   /* Constructs a sibling Decision node and add it to work queue. */
   void construct_sibling(const std::shared_ptr<DecisionNode> &decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
 
-  /* Returns the root of the global decision tree. */
-  // std::shared_ptr<DecisionNode> get_root() {return root;};
 
   /* True if no unevaluated siblings have been found. */
   bool work_queue_empty();
@@ -177,10 +182,9 @@ public:
 
 protected:
 
-  // std::shared_ptr<DecisionNode> root;
 
   static std::mutex decision_tree_mutex;
-  std::list<std::unique_ptr<DecisionNode>> work_queue;
+  std::priority_queue<std::shared_ptr<DecisionNode>, std::vector<std::shared_ptr<DecisionNode>>, DecisionCompare> work_queue;
 };
 
 

@@ -559,9 +559,9 @@ DPORDriver::Result DPORDriver::run_rfsc_ctpl_prod_consume() {
     // }
 
     // letting the decision tree handle pushing of tasks
-    // for(int i = 0; i < to_create; i++) {
-    //   threadpool.push(thread_runner);
-    // }
+    for(int i = 0; i < to_create; i++) {
+      threadpool.push(thread_runner);
+    }
 
   } while(tasks_left);
 

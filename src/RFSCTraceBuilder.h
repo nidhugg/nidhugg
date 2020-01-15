@@ -322,8 +322,7 @@ protected:
   // TODO: Add documentation
   RFSCDecisionTree &decision_tree;
   std::shared_ptr<DecisionNode> work_item;
-  // static std::recursive_mutex compute_prefixes_lock;
-  static std::mutex compute_prefixes_mutex;
+  static std::mutex cached_graph_mutex;
 
 
   /* The index into prefix corresponding to the last event that was
