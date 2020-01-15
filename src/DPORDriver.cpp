@@ -489,17 +489,16 @@ DPORDriver::Result DPORDriver::run_rfsc_ctpl_threadpool() {
     threadpool.push(thread_runner)
   );
   int tasks_left = 1;
+  bool has_error = false;
 
   do{
-    if(conf.print_progress){
+
+      if(conf.print_progress){
       print_progress(computation_count, estimate, res);
     }
-    if((computation_count+1) % 1000 == 0){
-      reparse();
-    }
-
-    bool has_error = false;
-    while (!futures.empty()) {
+    // if((computation_count+1) % 1000 == 0){
+    //   reparse();
+    // }
       auto future_result = futures.front().get();
       tasks_left--;
       Trace *t;
@@ -526,7 +525,6 @@ DPORDriver::Result DPORDriver::run_rfsc_ctpl_threadpool() {
       }
 
       futures.pop();
-    }
 
     if (has_error) break;
 
@@ -583,9 +581,9 @@ DPORDriver::Result DPORDriver::run_rfsc_ctpl_prod_consume() {
     if(conf.print_progress){
       print_progress(computation_count, estimate, res);
     }
-    if((computation_count+1) % 1000 == 0){
-      reparse();
-    }
+    // if((computation_count+1) % 1000 == 0){
+    //   reparse();
+    // }
 
 
     queue.wait_dequeue(tup);
