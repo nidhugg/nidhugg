@@ -72,6 +72,9 @@ std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(const std::sha
 void RFSCDecisionTree::construct_sibling(const std::shared_ptr<DecisionNode> &decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
   std::lock_guard<std::mutex> lock(decision_tree_mutex);
   work_queue.push(std::move(decision->make_sibling(unf, l)));
+  if (threadpool) {
+    threadpool->push(thread_runner);
+  }
 }
 
 

@@ -556,12 +556,14 @@ DPORDriver::Result DPORDriver::run_rfsc_ctpl_prod_consume() {
 
   ctpl::thread_pool threadpool(conf.n_threads);
 
+  decision_tree.threadpool = &threadpool;
+
   std::vector<RFSCTraceBuilder*> TBs;
   for (int i = 0; i < conf.n_threads; i++) {
     TBs.push_back(new RFSCTraceBuilder(decision_tree, unfolding_tree, conf));
   }
 
-  auto thread_runner = [this, &TBs, &queue] (int id) {
+  decision_tree.thread_runner = [this, &TBs, &queue] (int id) {
     bool assume_blocked = false;
     TBs[id]->reset();
     Trace *t= this->run_once(*TBs[id], assume_blocked);
@@ -574,7 +576,7 @@ DPORDriver::Result DPORDriver::run_rfsc_ctpl_prod_consume() {
   long double estimate = 1;
 
   // Initialize the first run.
-  threadpool.push(thread_runner);
+  threadpool.push(decision_tree.thread_runner);
   int tasks_left = 1;
 
   do{
@@ -607,9 +609,10 @@ DPORDriver::Result DPORDriver::run_rfsc_ctpl_prod_consume() {
     //   estimate = std::round(TB->estimate_trace_count());
     // }
 
-    for(int i = 0; i < to_create; i++) {
-      threadpool.push(thread_runner);
-    }
+    // letting the decision tree handle pushing of tasks
+    // for(int i = 0; i < to_create; i++) {
+    //   threadpool.push(thread_runner);
+    // }
 
   } while(tasks_left);
 
