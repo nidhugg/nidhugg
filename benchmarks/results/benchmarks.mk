@@ -2,7 +2,7 @@ SHELL = /bin/bash -o pipefail
 
 TIME_LIMIT ?= 60 # seconds
 STACK_LIMIT ?= 65536 # kB
-MEM_LIMIT ?= 8388608 # kB
+MEM_LIMIT ?= 12388608 #8388608 # kB
 
 SRCDIR = ../../..
 CLANG = clang
@@ -13,7 +13,11 @@ NIDHUGG ?= nidhugg
 SOURCE    = $(NIDHUGG) -c11 -sc -source
 OPTIMAL   = $(NIDHUGG) -c11 -sc -optimal
 OBSERVERS = $(NIDHUGG) -c11 -sc -observers
-RFSC      = $(NIDHUGG) -c11 -sc -rf
+# RFSC      = $(NIDHUGG) -c11 -sc -rf
+RFSCT1    = $(NIDHUGG) -c11 -sc -rf -n-threads=1
+RFSCT2    = $(NIDHUGG) -c11 -sc -rf -n-threads=2
+RFSCT4    = $(NIDHUGG) -c11 -sc -rf -n-threads=4
+RFSCT6    = $(NIDHUGG) -c11 -sc -rf -n-threads=6
 DCDPOR ?= dcdpor -dc
 RCMC ?= rcmc
 WRCMC ?= $(RCMC) --wrc11
@@ -24,12 +28,14 @@ ULIMIT = ulimit -Ss $(STACK_LIMIT) && ulimit -Sv $(MEM_LIMIT) &&
 RUN = -$(ULIMIT) $(TIMEOUT) $(TIME)
 TABULATE = ../../tabulate.sh
 
-TOOLS = optimal observers rfsc dcdpor rcmc wrcmc
-ifneq ($(wildcard $(CDSC_DIR)/.),)
-        TOOLS += cdsc
-else
-	NATOOLS += cdsc
-endif
+# TOOLS = optimal observers rfsc dcdpor rcmc wrcmc
+# ifneq ($(wildcard $(CDSC_DIR)/.),)
+#         TOOLS += cdsc
+# else
+# 	NATOOLS += cdsc
+# endif
+
+TOOLS = rfsct1 rfsct2 rfsct4 rfsct6
 
 TABLES = $(TOOLS:%=%.txt) wide.txt
 ALL_RESULTS = $(TOOLS:%=%_results)
@@ -41,14 +47,18 @@ all: $(TABLES) $(BITCODE_FILES)
 
 # Hack to not duplicate tabulation rule; causes the table to be rebuilt on each
 # invocation
-rcmc_results:: $(N:%=rcmc_%.txt)
-wrcmc_results:: $(N:%=wrcmc_%.txt)
-source_results:: $(N:%=source_%.txt)
-optimal_results:: $(N:%=optimal_%.txt)
-observers_results:: $(N:%=observers_%.txt)
-rfsc_results:: $(N:%=rfsc_%.txt)
-dcdpor_results:: $(N:%=dcdpor_%.txt)
-cdsc_results:: $(N:%=cdsc_%.txt)
+# rcmc_results:: $(N:%=rcmc_%.txt)
+# wrcmc_results:: $(N:%=wrcmc_%.txt)
+# source_results:: $(N:%=source_%.txt)
+# optimal_results:: $(N:%=optimal_%.txt)
+# observers_results:: $(N:%=observers_%.txt)
+# rfsc_results:: $(N:%=rfsc_%.txt)
+# dcdpor_results:: $(N:%=dcdpor_%.txt)
+# cdsc_results:: $(N:%=cdsc_%.txt)
+rfsct1_results:: $(N:%=rfsct1_%.txt)
+rfsct2_results:: $(N:%=rfsct2_%.txt)
+rfsct4_results:: $(N:%=rfsct4_%.txt)
+rfsct6_results:: $(N:%=rfsct6_%.txt)
 
 code_%.bc: $(SRCDIR)/$(FILE)
 	$(CLANG) -DN=$* $(CLANGFLAGS) -o $@ $<
@@ -71,9 +81,22 @@ observers_%.txt: code_%.bc
 	@date
 	$(RUN) $(OBSERVERS) $< 2>&1 | tee $@
 
-rfsc_%.txt: code_%.bc
+# rfsc_%.txt: code_%.bc
+# 	@date
+# 	$(RUN) $(RFSC) $< 2>&1 | tee $@
+
+rfsct1_%.txt: code_%.bc
 	@date
-	$(RUN) $(RFSC) $< 2>&1 | tee $@
+	$(RUN) $(RFSCT1) $< 2>&1 | tee $@
+rfsct2_%.txt: code_%.bc
+	@date
+	$(RUN) $(RFSCT2) $< 2>&1 | tee $@
+rfsct4_%.txt: code_%.bc
+	@date
+	$(RUN) $(RFSCT4) $< 2>&1 | tee $@
+rfsct6_%.txt: code_%.bc
+	@date
+	$(RUN) $(RFSCT6) $< 2>&1 | tee $@
 
 dcdpor_%.txt: code_%.bc
 	@date
