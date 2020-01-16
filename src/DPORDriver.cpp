@@ -300,16 +300,18 @@ DPORDriver::Result DPORDriver::run_rfsc_parallel() {
 
   Result res;
 
+  int n_threadrunners = conf.n_threads-1;
+
   moodycamel::BlockingConcurrentQueue<std::tuple<Trace *, bool, int>> queue;
   std::tuple<Trace *, bool, int> tup;
 
   RFSCDecisionTree decision_tree;
   RFSCUnfoldingTree unfolding_tree;
 
-  ctpl::thread_pool threadpool(conf.n_threads);
+  ctpl::thread_pool threadpool(n_threadrunners);
 
   std::vector<RFSCTraceBuilder*> TBs;
-  for (int i = 0; i < conf.n_threads; i++) {
+  for (int i = 0; i < n_threadrunners; i++) {
     TBs.push_back(new RFSCTraceBuilder(decision_tree, unfolding_tree, conf));
   }
 
@@ -370,8 +372,8 @@ DPORDriver::Result DPORDriver::run_rfsc_parallel() {
   SigSegvHandler::reset_signal_handler();
 
   // Spinlock to make sure all worker threads have finished their task before deleting TraceBuilders
-  while (threadpool.n_idle() != conf.n_threads);
-  for (int i = 0; i < conf.n_threads; i++) {
+  while (threadpool.n_idle() != n_threadrunners);
+  for (int i = 0; i < n_threadrunners; i++) {
     delete TBs[i];
   }
 
