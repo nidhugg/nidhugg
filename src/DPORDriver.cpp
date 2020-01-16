@@ -28,7 +28,6 @@
 #include "PSOTraceBuilder.h"
 #include "SigSegvHandler.h"
 #include "StrModule.h"
-#include "ThreadPool.h"
 #include "ctpl.h"
 #include "blockingconcurrentqueue.h"
 #include "TSOInterpreter.h"
@@ -255,6 +254,9 @@ DPORDriver::Result DPORDriver::run_rfsc_sequential() {
 
   RFSCTraceBuilder *TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, conf);
 
+
+  SigSegvHandler::setup_signal_handler();
+
   uint64_t computation_count = 0;
   long double estimate = 1;
   int tasks_left = 1;
@@ -262,9 +264,6 @@ DPORDriver::Result DPORDriver::run_rfsc_sequential() {
   do{
     if(conf.print_progress){
       print_progress(computation_count, estimate, res);
-    }
-    if((computation_count+1) % 1000 == 0){
-      reparse();
     }
 
     bool assume_blocked = false;
@@ -297,254 +296,7 @@ DPORDriver::Result DPORDriver::run_rfsc_sequential() {
   return res;
 }
 
-DPORDriver::Result DPORDriver::run_rfsc_async_futures() {
-  Result res;
-
-  RFSCTraceBuilder *TB = nullptr;
-  std::vector<TraceBuilder *> TBs;
-  RFSCDecisionTree decision_tree;
-  RFSCUnfoldingTree unfolding_tree;
-
-  TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, conf);
-  TB->reset();
-  TBs.push_back(std::move(TB));
-
-  SigSegvHandler::setup_signal_handler();
-
-  uint64_t computation_count = 0;
-  long double estimate = 1;
-  do{
-    if(conf.print_progress){
-      print_progress(computation_count, estimate, res);
-    }
-    if((computation_count+1) % 1000 == 0){
-      reparse();
-    }
-
-    std::vector<std::future<std::pair<Trace *, bool>>> futures;
-
-    for (int i = 0; i < TBs.size(); i++) {
-      std::future<std::pair<Trace *, bool>> future_trace = std::async(std::launch::async, [this](auto TB){
-        bool assume_blocked = false;
-        Trace *t= this->run_once(*TB, assume_blocked);
-        return std::pair<Trace *, bool>(t, assume_blocked);
-      }, TBs[i]);
-
-      futures.push_back(std::move(future_trace));
-    }
-
-    bool has_error = false;
-    for (int i = 0; i < futures.size(); i++) {
-      TraceBuilder *TB = TBs[i];
-      auto future_result = futures[i].get();
-      Trace *t = future_result.first;
-      bool assume_blocked = future_result.second;
-
-      if (handle_trace(TB, t, &computation_count, res, assume_blocked)) {
-        has_error = true;
-        // break;
-      }
-      if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
-        estimate = std::round(TB->estimate_trace_count());
-      }
-
-    }
-
-    for (int i = 0; i < TBs.size(); i++) {
-      delete TBs[i];
-    }
-    TBs.clear();
-
-    if (has_error) break;
-    if (decision_tree.work_queue_empty()) break;
-
-    for (int i = 0; i < conf.n_threads; i++) {
-      if (decision_tree.work_queue_empty()) break;
-      TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, conf);
-      TB->reset();
-      TBs.push_back(std::move(TB));
-    }
-
-  } while(true);
-
-
-  if(conf.print_progress){
-    llvm::dbgs() << ESC_char << "[K\n";
-  }
-
-  SigSegvHandler::reset_signal_handler();
-
-  return res;
-}
-
-DPORDriver::Result DPORDriver::run_rfsc_threadpool() {
-  Result res;
-  ThreadPool pool(conf.n_threads);
-
-  RFSCTraceBuilder *TB = nullptr;
-  RFSCDecisionTree decision_tree;
-  RFSCUnfoldingTree unfolding_tree;
-
-  std::queue<std::future<std::tuple<TraceBuilder *, Trace *, bool>>> futures;
-
-  TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, conf);
-  TB->reset();
-  futures.emplace(
-    pool.enqueue([this](auto TB){
-      bool assume_blocked = false;
-      Trace *t= this->run_once(*TB, assume_blocked);
-      return std::tuple<TraceBuilder *, Trace *, bool>(TB, t, assume_blocked);
-    }, TB)
-  );
-
-  SigSegvHandler::setup_signal_handler();
-
-  uint64_t computation_count = 0;
-  long double estimate = 1;
-  do{
-    if(conf.print_progress){
-      print_progress(computation_count, estimate, res);
-    }
-    if((computation_count+1) % 1000 == 0){
-      reparse();
-    }
-
-    bool has_error = false;
-    while (!futures.empty()) {
-      auto future_result = futures.front().get();
-      TraceBuilder *TB;
-      Trace *t;
-      bool assume_blocked;
-      std::tie(TB, t, assume_blocked) = future_result;
-
-      if (handle_trace(TB, t, &computation_count, res, assume_blocked)) {
-        has_error = true;
-        // break;
-      }
-      if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
-        estimate = std::round(TB->estimate_trace_count());
-      }
-
-      delete TB;
-      futures.pop();
-    }
-
-    if (has_error) break;
-    if (decision_tree.work_queue_empty()) break;
-
-    while(!decision_tree.work_queue_empty()) {
-      TB = new RFSCTraceBuilder(decision_tree, unfolding_tree, conf);
-      TB->reset();
-      futures.emplace(
-        pool.enqueue([this](auto TB){
-          bool assume_blocked = false;
-          Trace *t= this->run_once(*TB, assume_blocked);
-          return std::tuple<TraceBuilder *, Trace *, bool>(TB, t, assume_blocked);
-        }, TB)
-      );
-    }
-
-  } while(true);
-
-
-  if(conf.print_progress){
-    llvm::dbgs() << ESC_char << "[K\n";
-  }
-
-  SigSegvHandler::reset_signal_handler();
-
-  return res;
-}
-
-DPORDriver::Result DPORDriver::run_rfsc_ctpl_threadpool() {
-  Result res;
-  ctpl::thread_pool threadpool(conf.n_threads);
-
-  RFSCDecisionTree decision_tree;
-  RFSCUnfoldingTree unfolding_tree;
-
-  std::queue<std::future<std::tuple<Trace *, bool, int>>> futures;
-
-  std::vector<RFSCTraceBuilder*> TBs;
-  for (int i = 0; i < conf.n_threads; i++) {
-    TBs.push_back(new RFSCTraceBuilder(decision_tree, unfolding_tree, conf));
-  }
-
-  auto thread_runner = [this, &TBs] (int id) {
-    bool assume_blocked = false;
-    TBs[id]->reset();
-    Trace *t= this->run_once(*TBs[id], assume_blocked);
-
-    return std::make_tuple(std::move(t), assume_blocked, TBs[id]->tasks_created);
-    };
-
-
-  SigSegvHandler::setup_signal_handler();
-
-  uint64_t computation_count = 0;
-  long double estimate = 1;
-
-  // Initialize the first run.
-  futures.emplace(
-    threadpool.push(thread_runner)
-  );
-  int tasks_left = 1;
-  bool has_error = false;
-
-  do{
-
-      if(conf.print_progress){
-      print_progress(computation_count, estimate, res);
-    }
-    // if((computation_count+1) % 1000 == 0){
-    //   reparse();
-    // }
-      auto future_result = futures.front().get();
-      tasks_left--;
-      Trace *t;
-      bool assume_blocked;
-      int to_create = 0;
-      std::tie(t, assume_blocked, to_create) = future_result;
-
-      // handle_trace requires a TB but with RFSC this is a constant value, so it does not matter which TB it is.
-      if (handle_trace(TBs[0], t, &computation_count, res, assume_blocked)) {
-        has_error = true;
-        threadpool.stop(false);
-        break;
-      }
-      // TODO: Estimations are run on a TB prefix, for now we ignore this functionality.
-      // if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
-      //   estimate = std::round(TB->estimate_trace_count());
-      // }
-
-      tasks_left += to_create;
-      for(int i = 0; i < to_create; i++) {
-        futures.emplace(
-          threadpool.push(thread_runner)
-        );
-      }
-
-      futures.pop();
-
-    if (has_error) break;
-
-  } while(tasks_left);
-
-
-  if(conf.print_progress){
-    llvm::dbgs() << ESC_char << "[K\n";
-  }
-
-  SigSegvHandler::reset_signal_handler();
-
-  for (int i = 0; i < conf.n_threads; i++) {
-    delete TBs[i];
-  }
-
-  return res;
-}
-
-DPORDriver::Result DPORDriver::run_rfsc_ctpl_prod_consume() {
+DPORDriver::Result DPORDriver::run_rfsc_parallel() {
 
   Result res;
 
@@ -556,14 +308,12 @@ DPORDriver::Result DPORDriver::run_rfsc_ctpl_prod_consume() {
 
   ctpl::thread_pool threadpool(conf.n_threads);
 
-  decision_tree.threadpool = &threadpool;
-
   std::vector<RFSCTraceBuilder*> TBs;
   for (int i = 0; i < conf.n_threads; i++) {
     TBs.push_back(new RFSCTraceBuilder(decision_tree, unfolding_tree, conf));
   }
 
-  decision_tree.thread_runner = [this, &TBs, &queue] (int id) {
+  auto thread_runner = [this, &TBs, &queue] (int id) {
     bool assume_blocked = false;
     TBs[id]->reset();
     Trace *t= this->run_once(*TBs[id], assume_blocked);
@@ -571,22 +321,20 @@ DPORDriver::Result DPORDriver::run_rfsc_ctpl_prod_consume() {
     queue.enqueue(std::make_tuple(std::move(t), assume_blocked, TBs[id]->tasks_created));
     };
 
+  SigSegvHandler::setup_signal_handler();
+
 
   uint64_t computation_count = 0;
   long double estimate = 1;
 
   // Initialize the first run.
-  threadpool.push(decision_tree.thread_runner);
+  threadpool.push(thread_runner);
   int tasks_left = 1;
 
   do{
     if(conf.print_progress){
       print_progress(computation_count, estimate, res);
     }
-    // if((computation_count+1) % 1000 == 0){
-    //   reparse();
-    // }
-
 
     queue.wait_dequeue(tup);
     tasks_left--;
@@ -609,10 +357,9 @@ DPORDriver::Result DPORDriver::run_rfsc_ctpl_prod_consume() {
     //   estimate = std::round(TB->estimate_trace_count());
     // }
 
-    // letting the decision tree handle pushing of tasks
-    // for(int i = 0; i < to_create; i++) {
-    //   threadpool.push(thread_runner);
-    // }
+    for(int i = 0; i < to_create; i++) {
+      threadpool.push(thread_runner);
+    }
 
   } while(tasks_left);
 
@@ -622,6 +369,8 @@ DPORDriver::Result DPORDriver::run_rfsc_ctpl_prod_consume() {
 
   SigSegvHandler::reset_signal_handler();
 
+  // Spinlock to make sure all worker threads have finished their task before deleting TraceBuilders
+  while (threadpool.n_idle() != conf.n_threads);
   for (int i = 0; i < conf.n_threads; i++) {
     delete TBs[i];
   }
@@ -640,11 +389,11 @@ DPORDriver::Result DPORDriver::run(){
       TB = new TSOTraceBuilder(conf);
     }else{
       /* Why oh why cant I just return this function call without breaking ARM_test?! */
-      // res = run_rfsc_sequential();
-      // res = run_rfsc_async_futures();
-      // res = run_rfsc_threadpool();
-      // res = run_rfsc_ctpl_threadpool();
-      res = run_rfsc_ctpl_prod_consume();
+      if (conf.n_threads == 1){
+        res = run_rfsc_sequential();
+      } else {
+        res = run_rfsc_parallel();
+      }
       return res;
     }
     break;

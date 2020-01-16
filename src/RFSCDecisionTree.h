@@ -24,12 +24,10 @@
 #include "SymEv.h"
 #include "SaturatedGraph.h"
 #include "RFSCUnfoldingTree.h"
-#include "ctpl.h"
 
 #include <unordered_set>
 #include <mutex>
 #include <queue>
-#include <functional>
 #include <atomic>
 
 
@@ -149,7 +147,7 @@ public:
 class RFSCDecisionTree final {
 public:
   // RFSCDecisionTree() : root(std::make_shared<DecisionNode>()) {};
-  RFSCDecisionTree() : threadpool(nullptr) {
+  RFSCDecisionTree() {
     // Initiallize the work queue with a "root"-node
     work_queue.push(std::make_shared<DecisionNode>());
   };
@@ -176,10 +174,6 @@ public:
 
   /* Given a DecisionNode whose depth >= to wanted, returns a parent with the wanted depth. */
   static const std::shared_ptr<DecisionNode> &find_ancestor(const std::shared_ptr<DecisionNode> &node, int wanted);
-
-
-  ctpl::thread_pool *threadpool;
-  std::function<void(int)> thread_runner;
 
 
 protected:
