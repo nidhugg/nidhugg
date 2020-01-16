@@ -47,6 +47,9 @@ void RFSCDecisionTree::prune_decisions(const std::shared_ptr<DecisionNode> &blam
 
 std::shared_ptr<DecisionNode> RFSCDecisionTree::get_next_work_task() {
   std::lock_guard<std::mutex> lock(decision_tree_mutex);
+  if (work_queue.empty()) {
+    return nullptr;
+  }
   std::shared_ptr<DecisionNode> node = work_queue.top();
   work_queue.pop();
 

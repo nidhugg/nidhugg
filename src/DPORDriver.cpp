@@ -317,11 +317,12 @@ DPORDriver::Result DPORDriver::run_rfsc_parallel() {
 
   auto thread_runner = [this, &TBs, &queue] (int id) {
     bool assume_blocked = false;
-    TBs[id]->reset();
-    Trace *t= this->run_once(*TBs[id], assume_blocked);
+    if (TBs[id]->reset()) {
+      Trace *t= this->run_once(*TBs[id], assume_blocked);
 
-    queue.enqueue(std::make_tuple(std::move(t), assume_blocked, TBs[id]->tasks_created));
-    };
+      queue.enqueue(std::make_tuple(std::move(t), assume_blocked, TBs[id]->tasks_created));
+    }
+  };
 
   SigSegvHandler::setup_signal_handler();
 

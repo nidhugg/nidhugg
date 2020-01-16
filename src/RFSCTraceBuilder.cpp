@@ -48,7 +48,6 @@ RFSCTraceBuilder::RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
                                    const Configuration &conf)
     : decision_tree(desicion_tree_), unfolding_tree(unfolding_tree_),
       TSOPSOTraceBuilder(conf) {
-  // if (work_item->depth == -1) {
     threads.push_back(Thread(CPid(), -1));
     prefix_idx = -1;
     replay = false;
@@ -57,9 +56,6 @@ RFSCTraceBuilder::RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
     last_md = 0;
     replay_point = 0;
     tasks_created = 0;
-  // } else {
-  //   reset();
-  // }
 }
 
 RFSCTraceBuilder::~RFSCTraceBuilder(){
@@ -227,10 +223,15 @@ bool RFSCTraceBuilder::reset(){
 
   work_item = decision_tree.get_next_work_task();
 
-  while (work_item->defined_pruned()) {
+  while (work_item != nullptr && work_item->defined_pruned()) {
     tasks_created--;
     work_item = decision_tree.get_next_work_task();
   }
+
+  if (work_item == nullptr) {
+    return false;
+  }
+
   if (work_item->depth != -1)
   {
 
