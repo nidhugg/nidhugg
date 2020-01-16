@@ -306,7 +306,7 @@ DPORDriver::Result DPORDriver::run_rfsc_parallel() {
   RFSCDecisionTree decision_tree;
   RFSCUnfoldingTree unfolding_tree;
 
-  ctpl::thread_pool threadpool(conf.n_threads);
+  ctpl::thread_pool threadpool(conf.n_threads - 1);
 
   std::vector<RFSCTraceBuilder*> TBs;
   for (int i = 0; i < conf.n_threads; i++) {
