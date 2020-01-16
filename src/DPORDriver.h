@@ -133,10 +133,8 @@ protected:
   bool handle_trace(TraceBuilder *TB, Trace *t, uint64_t *computation_count, Result &res, bool assume_blocked);
   // Result rfsc_runner();
 
-  Result run_rfsc_async_futures();
-  Result run_rfsc_threadpool();
-  Result run_rfsc_ctpl_threadpool();
-  Result run_rfsc_ctpl_prod_consume();
+  Result run_rfsc_sequential();
+  Result run_rfsc_parallel();
 };
 
 #endif
