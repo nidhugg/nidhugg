@@ -88,11 +88,10 @@ Basic Installation
 
       $ autoreconf --install
 
-   3. Build as usual. Make sure to pass the include flag for the immer
-      dependency, as shown below. See Installation Options below for options
-      about e.g. installation location.
+   3. Build as usual. See Installation Options below for options about e.g.
+      installation location.
 
-      $ ./configure CXXFLAGS="-I../deps/immer"
+      $ ./configure
       $ make
 
    4. Install:
