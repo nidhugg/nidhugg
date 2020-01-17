@@ -189,7 +189,7 @@ void RFSCTraceBuilder::cancel_replay(){
   for (int i = 0; i <= prefix_idx; ++i) {
     blame = std::max(blame, prefix[i].get_decision_depth());
   }
-  decision_tree.prune_decisions(prefix[blame].decision_ptr);
+  prefix[blame].decision_ptr->prune_decisions();
 }
 
 void RFSCTraceBuilder::metadata(const llvm::MDNode *md){

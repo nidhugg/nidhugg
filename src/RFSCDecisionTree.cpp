@@ -20,33 +20,13 @@
 #include "Debug.h"
 #include "RFSCDecisionTree.h"
 
-static bool prune_node(DecisionNode *node, const DecisionNode *blame) {
-  while (node->parent != nullptr) {
-    if (node == blame) {
-      return true;
-    }
-    node = node->parent.get();
-  }
-  return false;
-}
 
-std::mutex RFSCDecisionTree::decision_tree_mutex;
+std::mutex RFSCDecisionTree::work_queue_mutex;
 
-void RFSCDecisionTree::prune_decisions(const std::shared_ptr<DecisionNode> &blame) {
-  // std::lock_guard<std::mutex> lock(decision_tree_mutex);
-  // // Would perhaps be more efficient with a remove_if()
-  // for( auto iter = work_queue.begin(); iter != work_queue.end(); ) {
-  //   if( prune_node(iter->get(), blame.get()) )
-  //     iter = work_queue.erase( iter ); // advances iter
-  //   else
-  //     ++iter ; // don't remove
-  // }
-  blame->pruned_subtree.store(true, std::memory_order_release);
-}
 
 
 std::shared_ptr<DecisionNode> RFSCDecisionTree::get_next_work_task() {
-  std::lock_guard<std::mutex> lock(decision_tree_mutex);
+  std::lock_guard<std::mutex> lock(work_queue_mutex);
   if (work_queue.empty()) {
     return nullptr;
   }
@@ -58,34 +38,25 @@ std::shared_ptr<DecisionNode> RFSCDecisionTree::get_next_work_task() {
 
 
 std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node(const std::shared_ptr<DecisionNode> &parent, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
-  // std::lock_guard<std::mutex> lock(decision_tree_mutex);
-  // auto decision = std::make_shared<DecisionNode>(parent);
-  // decision->place_decision_into_sleepset(unf);
-  // return std::move(decision);
-
   auto decision = std::make_shared<DecisionNode>(parent);
-  {
-  std::lock_guard<std::mutex> lock(decision_tree_mutex);
-  decision->place_decision_into_sleepset(unf);
-  }
+  decision->try_alloc_unf(unf);
   return std::move(decision);
 }
 
 
 void RFSCDecisionTree::construct_sibling(const std::shared_ptr<DecisionNode> &decision, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
-  std::lock_guard<std::mutex> lock(decision_tree_mutex);
+  std::lock_guard<std::mutex> lock(work_queue_mutex);
   work_queue.push(std::move(decision->make_sibling(unf, l)));
 }
 
 
 bool RFSCDecisionTree::work_queue_empty() {
-  std::lock_guard<std::mutex> lock(decision_tree_mutex);
+  std::lock_guard<std::mutex> lock(work_queue_mutex);
   return work_queue.empty();
 }
 
 
 const std::shared_ptr<DecisionNode> &RFSCDecisionTree::find_ancestor(const std::shared_ptr<DecisionNode> &node, int wanted) {
-  // std::lock_guard<std::mutex> lock(decision_tree_mutex);
   assert(node->depth >= wanted);
 
   /* Ugly workaround to traverse the tree without updating the ref_count
@@ -93,11 +64,7 @@ const std::shared_ptr<DecisionNode> &RFSCDecisionTree::find_ancestor(const std::
   if (node->depth == wanted) {
     return node;
   }
-  auto it = node.get();
-  while (it->parent->depth != wanted) {
-    it = it->parent.get();
-  }
-  return it->parent;
+  return DecisionNode::get_ancestor(node.get(), wanted);
 }
 
 
@@ -108,30 +75,6 @@ const std::shared_ptr<DecisionNode> &RFSCDecisionTree::find_ancestor(const std::
  *      DecisionNode
  * 
 *************************************************************************************************************/
-
-void DecisionNode::set_name() {
-  name = parent->name + '-' + parent->name_index;
-}
-void DecisionNode::set_sibling_name() {
-  char index = parent->name_index.back();
-  if (index == 'Z') {
-    parent->name_index.push_back('A');
-  }
-  else {
-    parent->name_index.pop_back();
-    parent->name_index.push_back(index+1);
-  }
-  name = parent->name + '-' + parent->name_index;
-}
-
-void DecisionNode::place_decision_into_sleepset(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
-  if (depth != -1) {
-    parent->children_unf_set.emplace(unf);
-  }
-  else {
-    children_unf_set.emplace(unf);
-  }
-}
 
 
 std::shared_ptr<DecisionNode> DecisionNode::make_sibling(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
@@ -168,6 +111,10 @@ bool DecisionNode::try_alloc_unf(const std::shared_ptr<RFSCUnfoldingTree::Unfold
   return parent->children_unf_set.insert(unf).second;
 }
 
+void DecisionNode::prune_decisions() {
+  pruned_subtree.store(true, std::memory_order_release);
+}
+
 bool DecisionNode::defined_pruned() {
 
   for (auto node = this; node->depth != -1; node = node->parent.get()) {
@@ -175,5 +122,11 @@ bool DecisionNode::defined_pruned() {
       return true;
   }
   return false;
+}
 
+const std::shared_ptr<DecisionNode> &DecisionNode::get_ancestor(const DecisionNode * node, int wanted) {
+  while (node->parent->depth != wanted) {
+    node = node->parent.get();
+  }
+  return node->parent;
 }
