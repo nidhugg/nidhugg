@@ -135,9 +135,9 @@ public:
      *
      * Pre: 0 <= i <= vec.size()
      */
-    const_iterator(int i, const std::vector<T> &vec)
+    const_iterator(int i, const std::vector<T> *vec)
       : i(i), vec(vec) {
-      assert(0 <= i && i <= int(vec.size()));
+      assert(0 <= i && i <= int(vec->size()));
     };
     const_iterator(const const_iterator &) = default;
     const_iterator &operator=(const const_iterator&) = default;
@@ -149,11 +149,11 @@ public:
     bool operator>=(const const_iterator &it) const { return i >= it.i; };
     const_iterator operator++(int) {
       const_iterator it = *this;
-      if(i < int(vec.size())) i++;
+      if(i < int(vec->size())) i++;
       return it;
     };
     const_iterator &operator++(){
-      if(i < int(vec.size())) i++;
+      if(i < int(vec->size())) i++;
       return *this;
     };
     const_iterator operator--(int) {
@@ -166,17 +166,17 @@ public:
       return *this;
     };
     const T &operator*() const{
-      return vec[i];
+      return (*vec)[i];
     };
     const T *operator->() const{
-      return &vec[i];
+      return &(*vec)[i];
     };
   private:
     int i;
-    const std::vector<T> &vec;
+    const std::vector<T> *vec;
   };
-  const_iterator begin() const { return const_iterator(0,vec); };
-  const_iterator end() const { return const_iterator(vec.size(),vec); };
+  const_iterator begin() const { return const_iterator(0,&vec); };
+  const_iterator end() const { return const_iterator(vec.size(),&vec); };
   const std::vector<T> &get_vector() const { return vec; };
   bool operator==(const VecSet<T> &s) const { return vec == s.vec; };
   bool operator<(const VecSet<T> &s) const { return vec < s.vec; };
