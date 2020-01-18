@@ -46,7 +46,11 @@ AC_CHECK_HEADER([immer/vector.hpp],[],[
     # Hack: Undo caching of test
     unset ac_cv_header_immer_vector_hpp
     AC_CHECK_HEADER([immer/vector.hpp],[
-        CPPFLAGS="$old_CPPFLAGS -I$(realpath --relative-to="./src" "$srcdir/deps/immer")"
+        case "$srcdir" in
+            (/*) immer_dir=$srcdir/deps/immer;;
+            (*)  immer_dir=../$srcdir/deps/immer;;
+        esac
+        CPPFLAGS="$old_CPPFLAGS -I$immer_dir"
     ],[
         AC_MSG_WARN([Nidhugg requires the "immer" library.])
         AC_MSG_WARN([It is included as a submodule, but it seems like it has not been updated.])
