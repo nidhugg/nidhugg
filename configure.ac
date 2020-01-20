@@ -31,12 +31,18 @@ AX_LLVM(,[AC_MSG_FAILURE(LLVM is required.)])
 CXXFLAGS="`echo " $CXXFLAGS " | sed 's/ -fno-rtti / /' | sed 's/ -fno-exceptions / /'` --std=c++14 $BOOST_CPPFLAGS"
 LDFLAGS="$LDFLAGS $BOOST_LDFLAGS"
 AC_CHECK_LIB([dl], [dlopen],[],[AC_MSG_FAILURE([Could not find library libdl.])])
-PKG_CHECK_MODULES([FFI], [libffi], [
-  AC_DEFINE([HAVE_LIBFFI], [1], [Define to 1 if we have libffi])
-  CFLAGS="$CFLAGS $FFI_CFLAGS"
-  CXXFLAGS="$CXXFLAGS $FFI_CFLAGS"
-  LIBS="$LIBS $FFI_LIBS"
+ifdef([PKG_CHECK_MODULES],[
+  PKG_CHECK_MODULES([FFI], [libffi], [
+    AC_DEFINE([HAVE_LIBFFI], [1], [Define to 1 if we have libffi])
+    CFLAGS="$CFLAGS $FFI_CFLAGS"
+    CXXFLAGS="$CXXFLAGS $FFI_CFLAGS"
+    LIBS="$LIBS $FFI_LIBS"
+  ],[
+    AC_CHECK_LIB([ffi], [ffi_call],[],[AC_MSG_FAILURE([Could not find library libffi.])])
+  ])
 ],[
+  errprint([WARNING: pkg-config not found, generating configure script without pkg-config support.
+])
   AC_CHECK_LIB([ffi], [ffi_call],[],[AC_MSG_FAILURE([Could not find library libffi.])])
 ])
 AC_CHECK_HEADER([immer/vector.hpp],[],[
