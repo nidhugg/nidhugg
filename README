@@ -44,9 +44,13 @@ Requirements
 
    8. Boost Unit Test Framework, version 1.64 or higher.
 
-   (9). Optional: Valgrind
+   (9). pkg-config, for generating a fully-featured configure script,
+        capable of autodetecting the flags needed for libffi.
+        Optional, but recommended.
 
-   (10). Optional: For documentation: pdflatex
+   (10). Optional: Valgrind
+
+   (11). Optional: For documentation: pdflatex
          (with packages article, inputenc, amssymb)
 
 For Users of Debian-like Systems
@@ -57,7 +61,8 @@ For Users of Debian-like Systems
 
    Mandatory:
    clang, libc6, libc6-dev, libstdc++6, autoconf, automake, python3,
-   llvm, llvm-dev, libffi-dev, libboost-test-dev, libboost-system-dev
+   llvm, llvm-dev, libffi-dev, libboost-test-dev, libboost-system-dev,
+   pkg-config
 
    Optional:
    valgrind, texlive-latex-base, texlive-base
