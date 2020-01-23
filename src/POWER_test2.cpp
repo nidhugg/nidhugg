@@ -1808,6 +1808,39 @@ declare i32 @pthread_mutex_unlock(i32*) nounwind
   delete driver;
 }
 
+BOOST_AUTO_TEST_CASE(Pthread_t_pointer_1){
+  Configuration conf = DPORDriver_test::get_power_conf();
+  DPORDriver *driver =
+    DPORDriver::parseIR(StrModule::portasm(R"(
+@x = global i32 0, align 4
+
+define i8* @p(i8* %arg){
+  store i32 1, i32* @x, align 4
+  ret i8* null
+}
+
+define i32 @main(){
+  %ptp = alloca i8*
+  call i32 @pthread_create(i8** %ptp, %attr_t* null, i8*(i8*)* @p, i8* null)
+  %pt = load i8*, i8** %ptp
+  call i32 @pthread_join(i8* %pt, i8** null)
+  %xv = load i32, i32* @x, align 4
+  ret i32 %xv
+}
+
+%attr_t = type {i64, [48 x i8]}
+declare i32 @pthread_create(i8**,%attr_t*,i8*(i8*)*,i8*)
+declare i32 @pthread_join(i8*,i8**)
+declare void @__assert_fail()
+)"),conf);
+
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  BOOST_CHECK(res.trace_count == 1);
+  BOOST_CHECK(!res.has_errors());
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif

@@ -87,6 +87,28 @@ static void SetValue(Value *V, GenericValue Val, ExecutionContext &SF) {
   SF.Values[V] = Val;
 }
 
+static GenericValue tid_to_pthread_t(const Type *pthrtty, int tid) {
+  if (pthrtty->isIntegerTy()) {
+    GenericValue TIDVal;
+    TIDVal.IntVal = APInt(pthrtty->getIntegerBitWidth(),tid);
+    return TIDVal;
+  } else {
+    return PTOGV((void*)(intptr_t)tid);
+  }
+}
+
+static int pthread_t_to_tid(const Type *pthrtty, const GenericValue &TID) {
+  if (pthrtty->isIntegerTy()) {
+    return TID.IntVal.getLimitedValue(std::numeric_limits<int>::max());
+  } else {
+    intptr_t ptri = (intptr_t)GVTOP(TID);
+    if (ptri > std::numeric_limits<int>::max())
+      return std::numeric_limits<int>::max();
+    else
+      return (int)ptri;
+  }
+}
+
 //===----------------------------------------------------------------------===//
 //                    Binary Instruction Implementations
 //===----------------------------------------------------------------------===//
@@ -2637,9 +2659,8 @@ void Interpreter::callPthreadCreate(Function *F,
     int new_tid = Threads.size();
     GenericValue *Ptr = (GenericValue*)GVTOP(ArgVals[0]);
     if(Ptr){
-      GenericValue TIDVal;
       Type *ity = static_cast<PointerType*>(F->arg_begin()->getType())->getElementType();
-      TIDVal.IntVal = APInt(ity->getIntegerBitWidth(),new_tid);
+      GenericValue TIDVal = tid_to_pthread_t(ity, new_tid);
       CheckedStoreValueToMemory(TIDVal,Ptr,ity);
     }else{
       /* Allow null pointers in first argument. For convenience. */
@@ -2671,7 +2692,7 @@ void Interpreter::callPthreadCreate(Function *F,
 
 void Interpreter::callPthreadJoin(Function *F,
                                   const std::vector<GenericValue> &ArgVals) {
-  int tid = ArgVals[0].IntVal.getLimitedValue(std::numeric_limits<int>::max());
+  int tid = pthread_t_to_tid(F->arg_begin()->getType(), ArgVals[0]);
 
   if(tid < 0 || int(Threads.size()) <= tid || tid == CurrentThread){
     std::stringstream ss;
@@ -2702,9 +2723,9 @@ void Interpreter::callPthreadJoin(Function *F,
 
 void Interpreter::callPthreadSelf(Function *F,
                                   const std::vector<GenericValue> &ArgVals){
-  GenericValue Result;
-  Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),CurrentThread);
-  returnValueToCaller(F->getReturnType(),Result);
+  Type *pthread_t = F->getReturnType();
+  GenericValue Result = tid_to_pthread_t(pthread_t, CurrentThread);
+  returnValueToCaller(pthread_t,Result);
 }
 
 void Interpreter::callPthreadExit(Function *F,
@@ -3350,7 +3371,7 @@ bool Interpreter::isPthreadJoin(Instruction &I, int *tid){
   if(!F || F->getName() != "pthread_join") return false;
   llvm::GenericValue gv_tid =
     getOperandValue(*CS.arg_begin(), ECStack()->back());
-  *tid = gv_tid.IntVal.getLimitedValue(std::numeric_limits<int>::max());
+  *tid = pthread_t_to_tid(F->arg_begin()->getType(), gv_tid);
   return true;
 }
 
