@@ -3131,6 +3131,11 @@ void Interpreter::callFree(Function *F,
     abort();
     return;
   }
+  if(!AllocatedMemHeap.count(ptr)){
+    TB.memory_error("Attempt to free address not returned by malloc.");
+    abort();
+    return;
+  }
 
   auto pr = FreedMem.insert({ptr,TB.get_iid()});
 
