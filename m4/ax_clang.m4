@@ -49,11 +49,11 @@ AC_DEFUN([AX_CLANG],
   if test "x$CLANG" = "x"; then
     if test "x$LLVMVERSION" != "x"; then
       ax_clang_llvmversion=`echo "$LLVMVERSION" | sed 's/\([[0-9]]*\.[[0-9]]*\)\.[[0-9]]*/\1/g'`
-      AC_PATH_PROG([CLANG],[clang-$ax_clang_llvmversion])
+      AC_PATH_PROG([CLANG],[clang-$ax_clang_llvmversion],[],[$LLVMSEARCHPATH])
     fi
   fi
   if test "x$CLANG" = "x"; then
-    AC_PATH_PROG([CLANG],[clang])
+    AC_PATH_PROG([CLANG],[clang],[],[$LLVMSEARCHPATH])
   fi
 
   if test "x$CLANG" = "x"; then
@@ -82,11 +82,11 @@ AC_DEFUN([AX_CLANG],
   if test "x$CLANGXX" = "x"; then
     if test "x$LLVMVERSION" != "x"; then
       ax_clang_llvmversion=`echo "$LLVMVERSION" | sed 's/\([[0-9]]*\.[[0-9]]*\)\.[[0-9]]*/\1/g'`
-      AC_PATH_PROG([CLANGXX],[clang++-$ax_clang_llvmversion])
+      AC_PATH_PROG([CLANGXX],[clang++-$ax_clang_llvmversion],[],[$LLVMSEARCHPATH])
     fi
   fi
   if test "x$CLANGXX" = "x"; then
-    AC_PATH_PROG([CLANGXX],[clang++])
+    AC_PATH_PROG([CLANGXX],[clang++],[],[$LLVMSEARCHPATH])
   fi
 
   if test "x$CLANGXX" = "x"; then
