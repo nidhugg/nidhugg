@@ -36,7 +36,6 @@
 #include "RFSCUnfoldingTree.h"
 
 #include <fstream>
-#include <future>
 #include <stdexcept>
 #include <iomanip>
 #include <cfloat>
@@ -319,6 +318,8 @@ DPORDriver::Result DPORDriver::run_rfsc_parallel() {
     bool assume_blocked = false;
     if (TBs[id]->reset()) {
       Trace *t= this->run_once(*TBs[id], assume_blocked);
+      // Release shared_ptr when finished
+      TBs[id]->work_item = nullptr;
 
       queue.enqueue(std::make_tuple(std::move(t), assume_blocked, TBs[id]->tasks_created));
     }
@@ -391,7 +392,6 @@ DPORDriver::Result DPORDriver::run(){
     if(conf.dpor_algorithm != Configuration::READS_FROM){
       TB = new TSOTraceBuilder(conf);
     }else{
-      /* Why oh why cant I just return this function call without breaking ARM_test?! */
       if (conf.n_threads == 1){
         res = run_rfsc_sequential();
       } else {

@@ -35,8 +35,6 @@
 #include <boost/container/flat_map.hpp>
 
 
-
-
 class RFSCTraceBuilder final : public TSOPSOTraceBuilder{
 public:
   RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
@@ -84,8 +82,11 @@ public:
   virtual void register_alternatives(int alt_count);
   virtual long double estimate_trace_count() const;
 
-
+  /* Amount of siblings found during compute_prefixes. */
   int tasks_created;
+
+  /* Active work item, signifies the leaf of an exploration.*/
+  std::shared_ptr<DecisionNode> work_item;
 
 protected:
   /* An identifier for a thread. An index into this->threads.
@@ -119,7 +120,7 @@ protected:
     Access(Type t, const void *m) : type(t), ml(m) {};
   };
 
-    /* Various information about a thread in the current execution. */
+  /* Various information about a thread in the current execution. */
   class Thread{
   public:
     Thread(const CPid &cpid, int spawn_event)
@@ -265,7 +266,6 @@ protected:
      * conflict with another event?
      */
     bool may_conflict;
-
     
     /* The unfolding event corresponding to this executed event. */
     std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> event;
@@ -283,14 +283,11 @@ protected:
      */
     int sleep_branch_trace_count;
 
-    // int get_decision_depth() const {return true ? decision_depth : -1;};
-    // void set_decision_depth(int depth) {decision_depth = depth;};
-    // void set_decision_ptr(std::shared_ptr<DecisionNode> decision) {decision_ptr = decision;};
-
+    /* Pointer to the corresponing DecisionNode. */
     std::shared_ptr<DecisionNode> decision_ptr;
     
     int get_decision_depth() const {
-      return decision_ptr ? decision_depth : -1;
+      return decision_depth;
     };
     void set_decision(std::shared_ptr<DecisionNode> decision) {
       decision_ptr = std::move(decision);
@@ -306,8 +303,8 @@ protected:
       std::swap(decision_depth, e.decision_depth);
     };
 
-  protected:
-    /* Index into decisions. */
+  private:
+    /* The hierarchical order of events. */
     int decision_depth;
   };
 
@@ -319,11 +316,11 @@ protected:
   std::vector<Event> prefix;
   VClockVec below_clocks;
 
-  // TODO: Add documentation
+  /* Reference to a global tree of DecisionNode, mainly accessed
+   * to construct new witnesses during compute_prefix or
+   * retrieving new work items for execution.
+   */
   RFSCDecisionTree &decision_tree;
-  std::shared_ptr<DecisionNode> work_item;
-  static std::mutex cached_graph_mutex;
-
 
   /* The index into prefix corresponding to the last event that was
    * scheduled. Has the value -1 when no events have been scheduled.
@@ -423,21 +420,21 @@ protected:
   /* Assigns unfolding events to all executed steps. */
   void compute_unfolding();
 
-  // Extracted into RFSCUnfoldingTree
-  // TODO: Due to too many complicated interactions between modules
-  //  some methods need to be removed after we refactored the code.
+  // TODO: Refactor RFSCUnfoldingTree and and deprecate these methods.
+  // Workaround due to require access to parent while not having a root-node
   std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unfold_find_unfolding_node
   (IPid pid, int index, Option<int> read_from);
-  // std::shared_ptr<UnfoldingNode> find_unfolding_node
-  // (UnfoldingNodeChildren &parent_list,
-  //  const std::shared_ptr<UnfoldingNode> &parent,
-  //  const std::shared_ptr<UnfoldingNode> &read_from);
   std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unfold_alternative
   (unsigned i, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from);
   // END TODO
 
   void add_event_to_graph(SaturatedGraph &g, unsigned i) const;
-  const SaturatedGraph get_cached_graph(std::shared_ptr<DecisionNode> &decision);
+  /* Access a SaturatedGraph from a DecisionNode.
+   * This has the risk of mutating a graph which is accessed by
+   * multiple threads concurrently. therefore need to be under exclusive opreation.
+   */
+  const SaturatedGraph &get_cached_graph(std::shared_ptr<DecisionNode> &decision);
+  static std::mutex cached_graph_mutex;
   /* Perform planning of future executions. Requires the trace to be
    * maximal or sleepset blocked, and that the vector clocks have been
    * computed.

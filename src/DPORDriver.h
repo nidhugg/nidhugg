@@ -102,10 +102,8 @@ public:
 
   /* Explore the traces of the given module, and return the result.
    */
-  virtual Result run();
-  // Trace *run_once(TraceBuilder &TB, bool &assume_blocked) const;
-// private:
-protected:
+  Result run();
+private:
   /* Configuration */
   const Configuration &conf;
   /* The module to explore */
@@ -129,12 +127,21 @@ protected:
   std::unique_ptr<DPORInterpreter>
   create_execution_engine(TraceBuilder &TB, const Configuration &conf) const;
 
+  /* Prints the progress of exploration if argument --print-progress was given. */
   void print_progress(uint64_t computation_count, long double estimate, Result &res);
+  /* Updates the result based on the given tracecount and TraceBuilder. */
   bool handle_trace(TraceBuilder *TB, Trace *t, uint64_t *computation_count, Result &res, bool assume_blocked);
-  // Result rfsc_runner();
 
-  Result run_rfsc_sequential();
+  /* Separate run-function for RFSC since it breaks the default
+   * algorithm in DPORDriver::run(). This will spawn a threadpool
+   * where eash thread will explore the execution tree concurrently.
+   */
   Result run_rfsc_parallel();
+  /* As rfsc explores asyncronosly with a threadpool,
+   * an alternate function is given without overhead
+   * if it should be run strictly sequential.
+   */
+  Result run_rfsc_sequential();
 };
 
 #endif

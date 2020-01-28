@@ -229,61 +229,61 @@ bool RFSCTraceBuilder::reset(){
   }
 
   if (work_item == nullptr) {
+    /* DecisionNodes have been pruned and its trailing thread-task need to return. */
     return false;
   }
+  // This will always pass except for the first exploration.
+  if (work_item->depth != -1) {
 
-  if (work_item->depth != -1)
-  {
+    Leaf l = std::move(work_item->leaf);
+    auto unf = std::move(work_item->unfold_node);
 
-  Leaf l = std::move(work_item->leaf);
-  auto unf = std::move(work_item->unfold_node);
+    if (conf.debug_print_on_reset)
+        llvm::dbgs() << "Backtracking to decision node " << (work_item->depth)
+                    << ", replaying " << l.prefix.size() << " events to read from "
+                    << (unf ? std::to_string(unf->seqno) : "init") << "\n";
 
-  if (conf.debug_print_on_reset)
-      llvm::dbgs() << "Backtracking to decision node " << (work_item->depth)
-                   << ", replaying " << l.prefix.size() << " events to read from "
-                   << (unf ? std::to_string(unf->seqno) : "init") << "\n";
+    assert(!l.is_bottom());
 
-  assert(!l.is_bottom());
+    replay_point = l.prefix.size();
 
-  replay_point = l.prefix.size();
+    std::vector<Event> new_prefix;
+    new_prefix.reserve(l.prefix.size());
+    std::vector<int> iid_map;
+    for (Branch &b : l.prefix) {
+      int index = (iid_map.size() <= b.pid) ? 1 : iid_map[b.pid];
+      IID<IPid> iid(b.pid, index);
+      new_prefix.emplace_back(iid);
+      new_prefix.back().size = b.size;
+      new_prefix.back().sym = std::move(b.sym);
+      new_prefix.back().pinned = b.pinned;
+      new_prefix.back().set_branch_decision(b.decision_depth, work_item);
+      iid_map_step(iid_map, new_prefix.back());
+    }
 
-  std::vector<Event> new_prefix;
-  new_prefix.reserve(l.prefix.size());
-  std::vector<int> iid_map;
-  for (Branch &b : l.prefix) {
-    int index = (iid_map.size() <= b.pid) ? 1 : iid_map[b.pid];
-    IID<IPid> iid(b.pid, index);
-    new_prefix.emplace_back(iid);
-    new_prefix.back().size = b.size;
-    new_prefix.back().sym = std::move(b.sym);
-    new_prefix.back().pinned = b.pinned;
-    new_prefix.back().set_branch_decision(b.decision_depth, work_item);
-    iid_map_step(iid_map, new_prefix.back());
-  }
+  #ifndef NDEBUG
+    for (int d = 0; d < work_item->depth; ++d) {
+      assert(std::any_of(new_prefix.begin(), new_prefix.end(),
+                        [&](const Event &e) { return e.get_decision_depth() == d; }));
+    }
+  #endif
 
-#ifndef NDEBUG
-  for (int d = 0; d < work_item->depth; ++d) {
-    assert(std::any_of(new_prefix.begin(), new_prefix.end(),
-                       [&](const Event &e) { return e.get_decision_depth() == d; }));
-  }
-#endif
+    prefix = std::move(new_prefix);
 
-  prefix = std::move(new_prefix);
-
-  CPS = CPidSystem();
-  threads.clear();
-  threads.push_back(Thread(CPid(),-1));
-  mutexes.clear();
-  cond_vars.clear();
-  mem.clear();
-  mutex_deadlocks.clear();
-  last_full_memory_conflict = -1;
-  prefix_idx = -1;
-  replay = true;
-  cancelled = false;
-  last_md = 0;
-  tasks_created = 0;
-  reset_cond_branch_log();
+    CPS = CPidSystem();
+    threads.clear();
+    threads.push_back(Thread(CPid(),-1));
+    mutexes.clear();
+    cond_vars.clear();
+    mem.clear();
+    mutex_deadlocks.clear();
+    last_full_memory_conflict = -1;
+    prefix_idx = -1;
+    replay = true;
+    cancelled = false;
+    last_md = 0;
+    tasks_created = 0;
+    reset_cond_branch_log();
 
   }
   return true;
@@ -1247,7 +1247,6 @@ void RFSCTraceBuilder::compute_prefixes() {
         threads[jp].event_indices.push_back(j); // Not needed?
         compute_above_clock(j);
 
-
         if (can_swap_by_vclocks(i, j)) {
 
           if (conf.debug_print_on_reset)
@@ -1491,12 +1490,11 @@ void RFSCTraceBuilder::add_event_to_graph(SaturatedGraph &g, unsigned i) const {
 
 std::mutex RFSCTraceBuilder::cached_graph_mutex;
 
-const SaturatedGraph RFSCTraceBuilder::get_cached_graph(std::shared_ptr<DecisionNode> &decision) {
+const SaturatedGraph &RFSCTraceBuilder::get_cached_graph(std::shared_ptr<DecisionNode> &decision) {
   std::lock_guard<std::mutex> lock(cached_graph_mutex);
   bool complete = false;
   SaturatedGraph &g = decision->get_saturated_graph(complete);
   if (complete) {return g;}
-  // SaturatedGraph g;
   int i = decision->depth;
 
   std::vector<bool> keep = causal_past(i-1);

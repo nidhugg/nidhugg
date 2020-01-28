@@ -121,7 +121,8 @@ int main(int argc, char *argv[]){
       Transform::transform(cl_input_file,cl_transform,conf);
     }else{
       /* Use DPORDriver to explore the given module */
-      DPORDriver *driver = DPORDriver::parseIRFile(cl_input_file,conf);
+      DPORDriver *driver =
+        DPORDriver::parseIRFile(cl_input_file,conf);
 
       DPORDriver::Result res = driver->run();
       std::cout << "Trace count: " << res.trace_count << std::endl;

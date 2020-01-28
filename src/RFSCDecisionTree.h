@@ -97,7 +97,7 @@ public:
   /* True if node is part of a pruned subtree. */
   bool defined_pruned();
 
-protected:
+private:
 
   std::shared_ptr<DecisionNode> parent;
 
@@ -131,9 +131,8 @@ public:
 
 class RFSCDecisionTree final {
 public:
-  // RFSCDecisionTree() : root(std::make_shared<DecisionNode>()) {};
   RFSCDecisionTree() {
-    // Initiallize the work queue with a "root"-node
+    // Initiallize the work_queue with a "root"-node
     work_queue.push(std::make_shared<DecisionNode>());
   };
 
@@ -158,7 +157,7 @@ public:
   static const std::shared_ptr<DecisionNode> &find_ancestor(const std::shared_ptr<DecisionNode> &node, int wanted);
 
 
-protected:
+private:
 
   /* Exclusive access to the work_queue. */
   static std::mutex work_queue_mutex;

@@ -109,8 +109,6 @@ public:
    */
   void check_commandline();
 
-  int n_threads;
-
   /* Should analysis continue, even when an error was discovered,
    * until all traces have been explored?
    */
@@ -196,6 +194,13 @@ public:
    * traces.
    */
   bool print_progress_estimate;
+
+  /* When running RFSC, Set the amount of threads that does the exploration.
+   * The main thread will only consume results from the n-1 worker threads.
+   * If n=1 the algorithm operates purely sequential.
+   */
+  int n_threads;
+
   /* Sat solver to use. */
   enum SatSolverEnum {
         SMTLIB,

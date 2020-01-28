@@ -23,6 +23,7 @@
 
 #include <string>
 
+// Parallel RFSC cannot operated with Timing.
 #define NO_TIMING
 #ifdef NO_TIMING
 

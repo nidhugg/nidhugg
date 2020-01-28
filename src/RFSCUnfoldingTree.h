@@ -71,7 +71,7 @@ public:
     unsigned seqno;
   };
 
-protected:
+private:
 
   
 
