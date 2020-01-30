@@ -73,12 +73,16 @@ void CheckModule::check_functions(const llvm::Module *M){
   }
 }
 
+static bool check_pthread_t(const llvm::Type *ty) {
+  return ty->isIntegerTy() || ty->isPointerTy();
+}
+
 void CheckModule::check_pthread_create(const llvm::Module *M){
   std::string _err;
   llvm::raw_string_ostream err(_err);
   llvm::Function *pthread_create = M->getFunction("pthread_create");
   if(pthread_create){
-    if(!pthread_create->getReturnType()->isIntegerTy()){
+    if(!pthread_create->getReturnType()){
       err << "pthread_create returns non-integer type: "
           << *pthread_create->getReturnType();
       throw CheckModuleError(err.str());
@@ -94,8 +98,8 @@ void CheckModule::check_pthread_create(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
     llvm::Type *ty0e = static_cast<llvm::PointerType*>(pthread_create->arg_begin()->getType())->getElementType();
-    if(!ty0e->isIntegerTy()){
-      err << "First argument of pthread_create is pointer to non-integer type: "
+    if(!check_pthread_t(ty0e)){
+      err << "First argument of pthread_create is pointer to invalid pthread_t type: "
           << *ty0e;
       throw CheckModuleError(err.str());
     }
@@ -141,8 +145,8 @@ void CheckModule::check_pthread_join(const llvm::Module *M){
       arg0_ty = it->getType();
       arg1_ty = (++it)->getType();
     }
-    if(!arg0_ty->isIntegerTy()){
-      err << "First argument of pthread_join is non-integer type: " << *arg0_ty;
+    if(!check_pthread_t(arg0_ty)){
+      err << "First argument of pthread_join is invalid pthread_t type: " << *arg0_ty;
       throw CheckModuleError(err.str());
     }
     llvm::Type *arg1_ty_expected =
@@ -160,8 +164,8 @@ void CheckModule::check_pthread_self(const llvm::Module *M){
   llvm::raw_string_ostream err(_err);
   llvm::Function *pthread_self = M->getFunction("pthread_self");
   if(pthread_self){
-    if(!pthread_self->getReturnType()->isIntegerTy()){
-      err << "pthread_self returns non-integer type: "
+    if(!check_pthread_t(pthread_self->getReturnType())){
+      err << "pthread_self returns invalid pthread_t type: "
           << *pthread_self->getReturnType();
       throw CheckModuleError(err.str());
     }

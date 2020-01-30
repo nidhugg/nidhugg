@@ -87,6 +87,28 @@ void POWERInterpreter::setCurInstrValue(const llvm::GenericValue &Val) {
   CurInstr->Value = Val;
 }
 
+static llvm::GenericValue tid_to_pthread_t(const llvm::Type *pthrtty, int tid) {
+  if (pthrtty->isIntegerTy()) {
+    llvm::GenericValue TIDVal;
+    TIDVal.IntVal = llvm::APInt(pthrtty->getIntegerBitWidth(),tid);
+    return TIDVal;
+  } else {
+    return llvm::PTOGV((void*)(intptr_t)tid);
+  }
+}
+
+static int pthread_t_to_tid(const llvm::Type *pthrtty, const llvm::GenericValue &TID) {
+  if (pthrtty->isIntegerTy()) {
+    return TID.IntVal.getLimitedValue(std::numeric_limits<int>::max());
+  } else {
+    intptr_t ptri = (intptr_t)llvm::GVTOP(TID);
+    if (ptri > std::numeric_limits<int>::max())
+      return std::numeric_limits<int>::max();
+    else
+      return (int)ptri;
+  }
+}
+
 //===----------------------------------------------------------------------===//
 //                    Binary Instruction Implementations
 //===----------------------------------------------------------------------===//
@@ -2590,7 +2612,7 @@ void POWERInterpreter::registerOperand(int proc, FetchedInstruction &FI, int idx
     llvm::Function *F = getCallee(FI.I);
     if(F && F->getName() == "pthread_join"){
       assert(idx == 0);
-      int tid = FI.Operands[idx].Value.IntVal.getLimitedValue();
+      int tid = pthread_t_to_tid(F->arg_begin()->getType(), FI.Operands[idx].Value);
       TB.register_addr({proc,FI.EventIndex},0,MRef(Threads[tid].status,1));
       static POWERARMTraceBuilder::ldreqfun_t istwo =
         [](const MBlock &B){
@@ -2730,9 +2752,8 @@ std::shared_ptr<POWERInterpreter::FetchedInstruction> POWERInterpreter::fetch(ll
             store_count = 2;
             FI->Operands[0].IsAddrOf = 0;
             assert(I.getOperand(0)->getType()->isPointerTy());
-            assert(llvm::cast<llvm::PointerType>(I.getOperand(0)->getType())->getElementType()->isIntegerTy());
-            llvm::IntegerType *ty =
-              llvm::cast<llvm::IntegerType>(llvm::cast<llvm::PointerType>(I.getOperand(0)->getType())->getElementType());
+            llvm::Type *ty =
+              llvm::cast<llvm::PointerType>(I.getOperand(0)->getType())->getElementType();
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
             int pthread_t_sz = int(getDataLayout()->getTypeStoreSize(ty));
 #else
@@ -2742,8 +2763,7 @@ std::shared_ptr<POWERInterpreter::FetchedInstruction> POWERInterpreter::fetch(ll
             MBlock data(addr,pthread_t_sz);
             MBlock data1({0,1},1);
             *((uint8_t*)data1.get_block()) = 1;
-            llvm::GenericValue Val;
-            Val.IntVal = llvm::APInt(ty->getBitWidth(),Threads.size());
+            llvm::GenericValue Val = tid_to_pthread_t(ty, Threads.size());
             StoreValueToMemory(Val,(llvm::GenericValue*)data.get_block(),ty);
             extra_accesses.push_back(ExtraAccess(0,data));
             extra_accesses.push_back(ExtraAccess(1,data1));
