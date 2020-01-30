@@ -17,6 +17,8 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+// Parallel RFSC cannot operated with Timing.
+#define NO_TIMING
 #ifndef NO_TIMING
 
 #include "Timing.h"

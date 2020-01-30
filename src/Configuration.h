@@ -53,6 +53,7 @@ public:
   };
   /* Assign default values to all configuration parameters. */
   Configuration(){
+    n_threads = 1;
     explore_all_traces = false;
     malloc_may_fail = false;
     mutex_require_init = true;
@@ -193,6 +194,13 @@ public:
    * traces.
    */
   bool print_progress_estimate;
+
+  /* When running RFSC, Set the amount of threads that does the exploration.
+   * The main thread will only consume results from the n-1 worker threads.
+   * If n=1 the algorithm operates purely sequential.
+   */
+  int n_threads;
+
   /* Sat solver to use. */
   enum SatSolverEnum {
         SMTLIB,

@@ -27,16 +27,19 @@
 #include "WakeupTrees.h"
 #include "Option.h"
 #include "SaturatedGraph.h"
+#include "RFSCUnfoldingTree.h"
+#include "RFSCDecisionTree.h"
 
 #include <unordered_map>
 #include <unordered_set>
 #include <boost/container/flat_map.hpp>
 
-static unsigned unf_ctr = 0;
 
 class RFSCTraceBuilder final : public TSOPSOTraceBuilder{
 public:
-  RFSCTraceBuilder(const Configuration &conf = Configuration::default_conf);
+  RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
+                   RFSCUnfoldingTree &unfolding_tree_,
+                   const Configuration &conf = Configuration::default_conf);
   virtual ~RFSCTraceBuilder();
   virtual bool schedule(int *proc, int *aux, int *alt, bool *dryrun);
   virtual void refuse_schedule();
@@ -78,6 +81,13 @@ public:
   virtual int cond_destroy(const SymAddrSize &ml);
   virtual void register_alternatives(int alt_count);
   virtual long double estimate_trace_count() const;
+
+  /* Amount of siblings found during compute_prefixes. */
+  int tasks_created;
+
+  /* Active work item, signifies the leaf of an exploration.*/
+  std::shared_ptr<DecisionNode> work_item;
+
 protected:
   /* An identifier for a thread. An index into this->threads.
    *
@@ -110,58 +120,6 @@ protected:
     Access(Type t, const void *m) : type(t), ml(m) {};
   };
 
-  struct UnfoldingNode;
-  typedef llvm::SmallVector<std::weak_ptr<UnfoldingNode>,1> UnfoldingNodeChildren;
-  struct UnfoldingNode {
-    UnfoldingNode(std::shared_ptr<UnfoldingNode> parent,
-                  std::shared_ptr<UnfoldingNode> read_from)
-      : parent(std::move(parent)), read_from(std::move(read_from)),
-        seqno(++unf_ctr) {};
-    UnfoldingNode(const UnfoldingNode &) = default;
-    UnfoldingNode(UnfoldingNode &&) = default;
-    UnfoldingNode &operator=(const UnfoldingNode&) = default;
-    UnfoldingNode &operator=(UnfoldingNode&&) = default;
-
-    std::shared_ptr<UnfoldingNode> parent, read_from;
-    UnfoldingNodeChildren children;
-    unsigned seqno;
-  };
-
-  struct Branch {
-    Branch(int pid, int size, int decision, bool pinned, SymEv sym)
-      : pid(pid), size(size), decision(decision), pinned(pinned),
-        sym(std::move(sym)) {}
-    Branch() : Branch(-1, 0, -1, false, {}) {}
-    Branch(const Branch &) = default;
-    Branch(Branch &&) = default;
-    Branch &operator=(const Branch&) = default;
-    Branch &operator=(Branch&&) = default;
-
-    int pid, size, decision;
-    bool pinned;
-    SymEv sym;
-  };
-
-  struct Leaf {
-    /* Construct a bottom-leaf. */
-    Leaf() {}
-    /* Construct a prefix leaf. */
-    Leaf(std::vector<Branch> prefix) : prefix(prefix) {}
-    Leaf(const Leaf &) = default;
-    Leaf(Leaf &&) = default;
-    Leaf &operator=(const Leaf&) = default;
-    Leaf &operator=(Leaf&&) = default;
-    std::vector<Branch> prefix;
-
-    bool is_bottom() const { return prefix.empty(); }
-  };
-
-  struct DecisionNode {
-    std::unordered_map<std::shared_ptr<UnfoldingNode>, Leaf> siblings;
-    std::unordered_set<std::shared_ptr<UnfoldingNode>> sleep;
-    SaturatedGraph graph_cache;
-  };
-
   /* Various information about a thread in the current execution. */
   class Thread{
   public:
@@ -184,7 +142,7 @@ protected:
     int last_event_index() const { return event_indices.size(); }
   };
 
-  std::map<CPid,UnfoldingNodeChildren> first_events;
+  RFSCUnfoldingTree &unfolding_tree;
 
   /* The threads in the current execution, in the order they were
    * created. Threads on even indexes are real, threads on odd indexes
@@ -273,7 +231,7 @@ protected:
     Event(const IID<IPid> &iid, int alt = 0, SymEv sym = {})
       : alt(0), size(1), pinned(false),
       iid(iid), origin_iid(iid), md(0), clock(), may_conflict(false),
-        decision(-1), sym(std::move(sym)), sleep_branch_trace_count(0) {};
+        decision_depth(-1), sym(std::move(sym)), sleep_branch_trace_count(0) {};
     /* Some instructions may execute in several alternative ways
      * nondeterministically. (E.g. malloc may succeed or fail
      * nondeterministically if Configuration::malloy_may_fail is set.)
@@ -309,10 +267,8 @@ protected:
      */
     bool may_conflict;
 
-    /* Index into decisions. */
-    int decision;
     /* The unfolding event corresponding to this executed event. */
-    std::shared_ptr<UnfoldingNode> event;
+    std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> event;
 
     Option<int> read_from;
     /* Symbolic representation of the globally visible operation of this event.
@@ -326,6 +282,30 @@ protected:
      * explored traces.
      */
     int sleep_branch_trace_count;
+
+    /* Pointer to the corresponing DecisionNode. */
+    std::shared_ptr<DecisionNode> decision_ptr;
+
+    int get_decision_depth() const {
+      return decision_depth;
+    };
+    void set_decision(std::shared_ptr<DecisionNode> decision) {
+      decision_ptr = std::move(decision);
+      decision_depth = decision_ptr ? decision_ptr->depth : -1;
+    };
+    void set_branch_decision(int decision, const std::shared_ptr<DecisionNode> &work_item) {
+      decision_depth = decision;
+      decision_ptr = decision == -1 ? nullptr : RFSCDecisionTree::find_ancestor(work_item, decision_depth);
+    };
+
+    void decision_swap(Event &e) {
+      std::swap(decision_ptr, e.decision_ptr);
+      std::swap(decision_depth, e.decision_depth);
+    };
+
+  private:
+    /* The hierarchical order of events. */
+    int decision_depth;
   };
 
   /* The fixed prefix of events in the current execution. This may be
@@ -336,7 +316,11 @@ protected:
   std::vector<Event> prefix;
   VClockVec below_clocks;
 
-  std::vector<DecisionNode> decisions;
+  /* Reference to a global tree of DecisionNode, mainly accessed
+   * to construct new witnesses during compute_prefix or
+   * retrieving new work items for execution.
+   */
+  RFSCDecisionTree &decision_tree;
 
   /* The index into prefix corresponding to the last event that was
    * scheduled. Has the value -1 when no events have been scheduled.
@@ -435,16 +419,22 @@ protected:
   int compute_above_clock(unsigned event);
   /* Assigns unfolding events to all executed steps. */
   void compute_unfolding();
-  std::shared_ptr<UnfoldingNode> find_unfolding_node
+
+  // TODO: Refactor RFSCUnfoldingTree and and deprecate these methods.
+  // Workaround due to require access to parent while not having a root-node
+  std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unfold_find_unfolding_node
   (IPid pid, int index, Option<int> read_from);
-  std::shared_ptr<UnfoldingNode> find_unfolding_node
-  (UnfoldingNodeChildren &parent_list,
-   const std::shared_ptr<UnfoldingNode> &parent,
-   const std::shared_ptr<UnfoldingNode> &read_from);
-  std::shared_ptr<UnfoldingNode> alternative
-  (unsigned i, const std::shared_ptr<UnfoldingNode> &read_from);
+  std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unfold_alternative
+  (unsigned i, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from);
+  // END TODO
+
   void add_event_to_graph(SaturatedGraph &g, unsigned i) const;
-  const SaturatedGraph &get_cached_graph(unsigned i);
+  /* Access a SaturatedGraph from a DecisionNode.
+   * This has the risk of mutating a graph which is accessed by
+   * multiple threads concurrently. therefore need to be under exclusive opreation.
+   */
+  const SaturatedGraph &get_cached_graph(std::shared_ptr<DecisionNode> &decision);
+  static std::mutex cached_graph_mutex;
   /* Perform planning of future executions. Requires the trace to be
    * maximal or sleepset blocked, and that the vector clocks have been
    * computed.

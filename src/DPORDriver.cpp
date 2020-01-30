@@ -27,9 +27,11 @@
 #include "PSOInterpreter.h"
 #include "PSOTraceBuilder.h"
 #include "StrModule.h"
+#include "ctpl.h"
 #include "TSOInterpreter.h"
 #include "TSOTraceBuilder.h"
 #include "RFSCTraceBuilder.h"
+#include "RFSCUnfoldingTree.h"
 
 #include <fstream>
 #include <stdexcept>
@@ -46,6 +48,40 @@
 #include <llvm/Support/Host.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/SourceMgr.h>
+
+namespace {
+  const char ESC_char = 27;
+
+  struct RunResult {
+    Trace *trace;
+    bool assume_blocked;
+    int tasks_created;
+  };
+
+  template<typename T = RunResult>
+  class BlockingQueue {
+    std::mutex mtx;
+    std::condition_variable cv;
+    std::queue<T> queue;
+
+  public:
+    T dequeue() {
+      std::unique_lock<std::mutex> lock(mtx);
+      while (queue.empty()) {
+        cv.wait(lock);
+      }
+      T res = std::forward<T>(queue.front());
+      queue.pop();
+      return res;
+    }
+
+    void enqueue(T res) {
+      std::lock_guard<std::mutex> lock(mtx);
+      queue.emplace(std::forward<T>(res));
+      cv.notify_one();
+    }
+  };
+}
 
 DPORDriver::DPORDriver(const Configuration &C) :
   conf(C), mod(0) {
@@ -191,17 +227,181 @@ Trace *DPORDriver::run_once(TraceBuilder &TB, bool &assume_blocked) const{
   return t;
 }
 
+void DPORDriver::print_progress(uint64_t computation_count, long double estimate, Result &res) {
+  if(computation_count % 100 == 0){
+    llvm::dbgs() << ESC_char << "[K" // Erase the line
+                 << "Traces: " << res.trace_count;
+    if(res.sleepset_blocked_trace_count)
+      llvm::dbgs() << ", " << res.sleepset_blocked_trace_count << " ssb";
+    if(res.assume_blocked_trace_count)
+      llvm::dbgs() << ", " << res.assume_blocked_trace_count << " ab";
+    if(conf.print_progress_estimate){
+      std::stringstream ss;
+      ss << std::setprecision(LDBL_DIG) << estimate;
+      llvm::dbgs() << " ("
+                   << int(100.0*(long double)(computation_count+1)/estimate)
+                   << "% of total estimate: "
+                   << ss.str() << ")";
+    }
+    llvm::dbgs() << "\r"; // Move cursor to start of line
+  }
+}
+
+bool DPORDriver::handle_trace(TraceBuilder *TB, Trace *t, uint64_t *computation_count, Result &res, bool assume_blocked) {
+  bool t_used = false;
+  if(t && conf.debug_collect_all_traces){
+    res.all_traces.push_back(t);
+    t_used = true;
+  }
+  if(!TB->sleepset_is_empty()) {
+    ++res.sleepset_blocked_trace_count;
+  }else if(assume_blocked){
+    ++res.assume_blocked_trace_count;
+  }else{
+    ++res.trace_count;
+  }
+  ++*computation_count;
+  if(t && t->has_errors() && !res.has_errors()){
+    res.error_trace = t;
+    t_used = true;
+  }
+  bool has_errors = t && t->has_errors();
+  if(!t_used){
+    delete t;
+  }
+
+  return has_errors && !conf.explore_all_traces;
+}
+
+
+DPORDriver::Result DPORDriver::run_rfsc_sequential() {
+  Result res;
+  std::tuple<Trace *, bool, int> tup;
+  RFSCDecisionTree decision_tree;
+  RFSCUnfoldingTree unfolding_tree;
+  auto TB = std::make_unique<RFSCTraceBuilder>
+    (decision_tree, unfolding_tree, conf);
+
+  uint64_t computation_count = 0;
+  long double estimate = 1;
+  int tasks_left = 1;
+
+  do{
+    if(conf.print_progress){
+      print_progress(computation_count, estimate, res);
+    }
+
+    bool assume_blocked = false;
+    TB->reset();
+    Trace *t= this->run_once(*TB, assume_blocked);
+    tasks_left--;
+
+    int to_create = TB->tasks_created;
+
+
+    tasks_left += to_create;
+
+    if (handle_trace(TB.get(), t, &computation_count, res, assume_blocked)) {
+      break;
+    }
+    if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
+      estimate = std::round(TB->estimate_trace_count());
+    }
+
+  } while(tasks_left);
+
+  if(conf.print_progress){
+    llvm::dbgs() << ESC_char << "[K\n";
+  }
+
+  return res;
+}
+
+DPORDriver::Result DPORDriver::run_rfsc_parallel() {
+  Result res;
+  int n_threadrunners = conf.n_threads-1;
+  BlockingQueue<std::tuple<Trace *, bool, int>> queue;
+  RFSCDecisionTree decision_tree;
+  RFSCUnfoldingTree unfolding_tree;
+
+  std::vector<std::unique_ptr<RFSCTraceBuilder>> TBs;
+  for (int i = 0; i < n_threadrunners; i++) {
+    TBs.emplace_back(new RFSCTraceBuilder(decision_tree, unfolding_tree, conf));
+  }
+
+  ctpl::thread_pool threadpool(n_threadrunners);
+  auto thread_runner = [this, &TBs, &queue] (int id) {
+    bool assume_blocked = false;
+    if (TBs[id]->reset()) {
+      Trace *t= this->run_once(*TBs[id], assume_blocked);
+      // Release shared_ptr when finished
+      TBs[id]->work_item = nullptr;
+
+      queue.enqueue(std::make_tuple(std::move(t), assume_blocked, TBs[id]->tasks_created));
+    }
+  };
+
+  uint64_t computation_count = 0;
+  long double estimate = 1;
+
+  // Initialize the first run.
+  threadpool.push(thread_runner);
+  int tasks_left = 1;
+
+  do{
+    if(conf.print_progress){
+      print_progress(computation_count, estimate, res);
+    }
+
+    Trace *t;
+    bool assume_blocked;
+    int to_create;
+    std::tie(t, assume_blocked, to_create) = queue.dequeue();
+
+    tasks_left--;
+    tasks_left += to_create;
+
+    // handle_trace requires a TB but with RFSC this is a constant value, so it
+    // does not matter which TB it is.
+    if (handle_trace(TBs[0].get(), t, &computation_count, res, assume_blocked)) {
+      tasks_left = 0;
+      threadpool.stop(false);
+      break;
+    }
+    // TODO: Estimations are run on a TB prefix, for now we ignore this functionality.
+    // if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
+    //   estimate = std::round(TB->estimate_trace_count());
+    // }
+
+    for(int i = 0; i < to_create; i++) {
+      threadpool.push(thread_runner);
+    }
+
+  } while(tasks_left);
+
+  if(conf.print_progress){
+    llvm::dbgs() << ESC_char << "[K\n";
+  }
+
+  return res;
+}
+
 DPORDriver::Result DPORDriver::run(){
   Result res;
 
-  TraceBuilder *TB = 0;
+  TraceBuilder *TB = nullptr;
 
   switch(conf.memory_model){
   case Configuration::SC:
     if(conf.dpor_algorithm != Configuration::READS_FROM){
       TB = new TSOTraceBuilder(conf);
     }else{
-      TB = new RFSCTraceBuilder(conf);
+      if (conf.n_threads == 1){
+        res = run_rfsc_sequential();
+      } else {
+        res = run_rfsc_parallel();
+      }
+      return res;
     }
     break;
   case Configuration::TSO:
@@ -223,61 +423,27 @@ DPORDriver::Result DPORDriver::run(){
     throw std::logic_error("DPORDriver: Unsupported memory model.");
   }
 
-  char esc = 27;
   uint64_t computation_count = 0;
   long double estimate = 1;
   do{
-    if(conf.print_progress && computation_count % 100 == 0){
-      llvm::dbgs() << esc << "[K" // Erase the line
-                   << "Traces: " << res.trace_count;
-      if(res.sleepset_blocked_trace_count)
-        llvm::dbgs() << ", " << res.sleepset_blocked_trace_count << " ssb";
-      if(res.assume_blocked_trace_count)
-        llvm::dbgs() << ", " << res.assume_blocked_trace_count << " ab";
-      if(conf.print_progress_estimate){
-        std::stringstream ss;
-        ss << std::setprecision(LDBL_DIG) << estimate;
-        llvm::dbgs() << " ("
-                     << int(100.0*(long double)(computation_count+1)/estimate)
-                     << "% of total estimate: "
-                     << ss.str() << ")";
-      }
-      llvm::dbgs() << "\r"; // Move cursor to start of line
+    if(conf.print_progress){
+      print_progress(computation_count, estimate, res);
     }
     if((computation_count+1) % 1000 == 0){
       reparse();
     }
-    bool t_used = false;
+
     bool assume_blocked = false;
     Trace *t = run_once(*TB, assume_blocked);
-    if(t && conf.debug_collect_all_traces){
-      res.all_traces.push_back(t);
-      t_used = true;
-    }
-    if(!TB->sleepset_is_empty()) {
-      ++res.sleepset_blocked_trace_count;
-    }else if(assume_blocked){
-      ++res.assume_blocked_trace_count;
-    }else{
-      ++res.trace_count;
-    }
-    ++computation_count;
-    if(t && t->has_errors() && !res.has_errors()){
-      res.error_trace = t;
-      t_used = true;
-    }
-    bool has_errors = t && t->has_errors();
-    if(!t_used){
-      delete t;
-    }
-    if(has_errors && !conf.explore_all_traces) break;
+
+    if (handle_trace(TB, t, &computation_count, res, assume_blocked)) break;
     if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
       estimate = std::round(TB->estimate_trace_count());
     }
   }while(TB->reset());
 
   if(conf.print_progress){
-    llvm::dbgs() << esc << "[K\n";
+    llvm::dbgs() << ESC_char << "[K\n";
   }
 
   delete TB;
