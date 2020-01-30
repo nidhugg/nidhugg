@@ -134,12 +134,12 @@ Specifying Compiler
    When the configure script is invoked, it will by GNU autotools
    magic determine which C++ compiler will be used during
    compilation. In case e.g. your default compiler does not support
-   C++14, but you have the compiler g++-5 installed at a
+   C++14, but you have the compiler g++-6 installed at a
    non-standard location you may want to override this. In order to do
-   so, specify the path to g++-5 in CXX when invoking the
+   so, specify the path to g++-6 in CXX when invoking the
    './configure' command:
 
-   $ ./configure CXX='/path/to/g++-5'
+   $ ./configure CXX='/path/to/g++-6'
 
 Specifying LLVM Installation
 ----------------------------
