@@ -1,4 +1,4 @@
-AC_INIT([Nidhugg], [0.2], [carl.leonardsson@gmail.com])
+AC_INIT([Nidhugg], [0.2], [magnus.lang@it.uu.se])
 m4_include([m4/ax_cxx_compile_stdcxx.m4])
 m4_include([m4/ax_boost_base.m4])
 m4_include([m4/ax_boost_system.m4])
