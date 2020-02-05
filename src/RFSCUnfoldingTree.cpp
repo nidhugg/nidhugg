@@ -21,23 +21,18 @@
 #include "Debug.h"
 #include "RFSCUnfoldingTree.h"
 
-
 unsigned RFSCUnfoldingTree::unf_ctr = 0;
 
 std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> RFSCUnfoldingTree::
-find_unfolding_node(const CPid &cpid,
-                    const std::shared_ptr<UnfoldingNode> &parent,
-                    const std::shared_ptr<UnfoldingNode> &read_from) {
-  UnfoldingNodeChildren *parent_list;
-  std::unique_lock<std::mutex> lock;
-  std::tie(parent_list, lock) = lock_and_get_children(cpid, parent);
-
-  for (unsigned ci = 0; ci < parent_list->size();) {
-    std::shared_ptr<UnfoldingNode> c = (*parent_list)[ci].lock();
+get_or_create(UnfoldingNodeChildren &parent_list,
+              const std::shared_ptr<UnfoldingNode> &parent,
+              const std::shared_ptr<UnfoldingNode> &read_from) {
+  for (unsigned ci = 0; ci < parent_list.size();) {
+    std::shared_ptr<UnfoldingNode> c = parent_list[ci].lock();
     if (!c) {
       /* Delete the null element and continue */
-      std::swap((*parent_list)[ci], parent_list->back());
-      parent_list->pop_back();
+      std::swap(parent_list[ci], parent_list.back());
+      parent_list.pop_back();
       continue;
     }
 
@@ -51,20 +46,33 @@ find_unfolding_node(const CPid &cpid,
   /* Did not exist, create it. */
   std::shared_ptr<UnfoldingNode> c =
     std::make_shared<UnfoldingNode>(parent, read_from);
-  parent_list->push_back(c);
+  parent_list.push_back(c);
   return c;
 }
 
-std::pair<RFSCUnfoldingTree::UnfoldingNodeChildren *,
-          std::unique_lock<std::mutex>>
-RFSCUnfoldingTree::
-lock_and_get_children(const CPid &cpid,
-                      const std::shared_ptr<UnfoldingNode> &node) {
-  if (node) {
-    std::unique_lock<std::mutex> lock(node->mutex);
-    return {&node->children, std::move(lock)};
+std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> RFSCUnfoldingTree::
+find_unfolding_node(const CPid &cpid,
+                    const std::shared_ptr<UnfoldingNode> &parent,
+                    const std::shared_ptr<UnfoldingNode> &read_from) {
+  if (parent) {
+    std::unique_lock<std::mutex> lock(parent->mutex);
+    return get_or_create(parent->children, parent, read_from);
   } else {
-    std::unique_lock<std::mutex> lock(this->unfolding_tree_mutex);
-    return {&first_events[cpid], std::move(lock)};
+   {
+      std::shared_lock<std::shared_timed_mutex> lock(this->unfolding_tree_mutex);
+      auto it = first_events.find(cpid);
+      if (it != first_events.end()) {
+        const UnfoldingNodeChildren &parent_list = it->second;
+        for (unsigned ci = 0; ci < parent_list.size(); ++ci) {
+          std::shared_ptr<UnfoldingNode> c = parent_list[ci].lock();
+          if (c && c->read_from == read_from) {
+            assert(parent == c->parent);
+            return c;
+          }
+        }
+      }
+   }
+   std::lock_guard<std::shared_timed_mutex> lock(this->unfolding_tree_mutex);
+   return get_or_create(first_events[cpid], parent, read_from);
   }
 }

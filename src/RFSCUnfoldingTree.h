@@ -23,6 +23,7 @@
 
 #include <unordered_set>
 #include <mutex>
+#include <shared_mutex>
 
 #include "TSOPSOTraceBuilder.h"
 
@@ -61,13 +62,13 @@ public:
      const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from);
 
  private:
-  // Workaround to access firstevent before restructure
-  std::pair<UnfoldingNodeChildren*, std::unique_lock<std::mutex>>
-    lock_and_get_children(const CPid &cpid,
-			  const std::shared_ptr<UnfoldingNode> &parent);
+  std::shared_ptr<UnfoldingNode>
+    get_or_create(UnfoldingNodeChildren &parent_list,
+     const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &parent,
+     const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from);
 
   std::map<CPid,UnfoldingNodeChildren> first_events;
-  std::mutex unfolding_tree_mutex;
+  std::shared_timed_mutex unfolding_tree_mutex;
 
 };
 #endif
