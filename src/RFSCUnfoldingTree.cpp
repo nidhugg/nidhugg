@@ -55,24 +55,24 @@ find_unfolding_node(const CPid &cpid,
                     const std::shared_ptr<UnfoldingNode> &parent,
                     const std::shared_ptr<UnfoldingNode> &read_from) {
   if (parent) {
-    std::unique_lock<std::mutex> lock(parent->mutex);
+    std::lock_guard<std::mutex> lock(parent->mutex);
     return get_or_create(parent->children, parent, read_from);
   } else {
-   {
-      std::shared_lock<std::shared_timed_mutex> lock(this->unfolding_tree_mutex);
-      auto it = first_events.find(cpid);
-      if (it != first_events.end()) {
-        const UnfoldingNodeChildren &parent_list = it->second;
-        for (unsigned ci = 0; ci < parent_list.size(); ++ci) {
-          std::shared_ptr<UnfoldingNode> c = parent_list[ci].lock();
-          if (c && c->read_from == read_from) {
-            assert(parent == c->parent);
-            return c;
-          }
-        }
-      }
-   }
-   std::lock_guard<std::shared_timed_mutex> lock(this->unfolding_tree_mutex);
-   return get_or_create(first_events[cpid], parent, read_from);
+    UnfoldingRoot &root = get_unfolding_root(cpid);
+    std::lock_guard<std::mutex> lock(root.mutex);
+    return get_or_create(root.children, parent, read_from);
   }
+}
+
+
+auto RFSCUnfoldingTree::get_unfolding_root(const CPid &cpid) -> UnfoldingRoot& {
+  {
+    std::shared_lock<std::shared_timed_mutex> rlock(unfolding_tree_mutex);
+    auto it = first_events.find(cpid);
+    if (it != first_events.end()) {
+      return it->second;
+    }
+  }
+  std::lock_guard<std::shared_timed_mutex> wlock(unfolding_tree_mutex);
+  return first_events[cpid];
 }

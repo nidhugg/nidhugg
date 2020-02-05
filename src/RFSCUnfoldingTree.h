@@ -67,7 +67,14 @@ public:
      const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &parent,
      const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from);
 
-  std::map<CPid,UnfoldingNodeChildren> first_events;
+  struct UnfoldingRoot {
+    UnfoldingNodeChildren children;
+    std::mutex mutex;
+  };
+
+  UnfoldingRoot &get_unfolding_root(const CPid &cpid);
+
+  std::map<CPid,UnfoldingRoot> first_events;
   std::shared_timed_mutex unfolding_tree_mutex;
 
 };
