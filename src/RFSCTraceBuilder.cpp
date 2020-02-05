@@ -857,18 +857,15 @@ void RFSCTraceBuilder::compute_unfolding() {
       deepest_node = last_decision;
     }
 
-    RFSCUnfoldingTree::UnfoldingNodeChildren *parent_list;
     const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> null_ptr;
     const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> *parent;
     IID<IPid> iid = prefix[i].iid;
     IPid p = iid.get_pid();
     if (iid.get_index() == 1) {
       parent = &null_ptr;
-      parent_list = unfolding_tree.first_event_parentlist(threads[p].cpid);
     } else {
       int par_idx = find_process_event(p, iid.get_index()-1);
       parent = &prefix[par_idx].event;
-      parent_list = &(*parent)->children;
     }
     if (!prefix[i].may_conflict && (*parent != nullptr)) {
       prefix[i].event = *parent;
@@ -879,7 +876,8 @@ void RFSCTraceBuilder::compute_unfolding() {
       read_from = &prefix[*prefix[i].read_from].event;
     }
 
-    prefix[i].event = unfolding_tree.find_unfolding_node(*parent_list, *parent, *read_from);
+    prefix[i].event = unfolding_tree.find_unfolding_node
+      (threads[p].cpid, *parent, *read_from);
 
     if (int(i) >= replay_point) {
       if (is_load(i)) {
@@ -895,22 +893,20 @@ void RFSCTraceBuilder::compute_unfolding() {
 
 std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> RFSCTraceBuilder::
 unfold_find_unfolding_node(IPid p, int index, Option<int> prefix_rf) {
-  RFSCUnfoldingTree::UnfoldingNodeChildren *parent_list;
   const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> null_ptr;
   const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> *parent;
   if (index == 1) {
     parent = &null_ptr;
-    parent_list = unfolding_tree.first_event_parentlist(threads[p].cpid);
   } else {
     int par_idx = find_process_event(p, index-1);
     parent = &prefix[par_idx].event;
-    parent_list = &(*parent)->children;
   }
   const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> *read_from = &null_ptr;
   if (prefix_rf && *prefix_rf != -1) {
     read_from = &prefix[*prefix_rf].event;
   }
-  return unfolding_tree.find_unfolding_node(*parent_list, *parent, *read_from);
+  return unfolding_tree.find_unfolding_node(threads[p].cpid, *parent,
+                                            *read_from);
 }
 
 
@@ -919,15 +915,9 @@ RFSCTraceBuilder::unfold_alternative
 (unsigned i, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from) {
   std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &parent
     = prefix[i].event->parent;
-  RFSCUnfoldingTree::UnfoldingNodeChildren *parent_list;
-  if (parent) {
-    parent_list = &parent->children;
-  } else {
-    IPid p = prefix[i].iid.get_pid();
-    parent_list = unfolding_tree.first_event_parentlist(threads[p].cpid); // &first_events[threads[p].cpid];
-  }
+  IPid p = prefix[i].iid.get_pid();
 
-  return unfolding_tree.find_unfolding_node(*parent_list, parent, read_from);
+  return unfolding_tree.find_unfolding_node(threads[p].cpid, parent, read_from);
 }
 
 void RFSCTraceBuilder::record_symbolic(SymEv event){

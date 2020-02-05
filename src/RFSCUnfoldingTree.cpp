@@ -25,16 +25,19 @@
 unsigned RFSCUnfoldingTree::unf_ctr = 0;
 
 std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> RFSCUnfoldingTree::
-find_unfolding_node(UnfoldingNodeChildren &parent_list,
+find_unfolding_node(const CPid &cpid,
                     const std::shared_ptr<UnfoldingNode> &parent,
                     const std::shared_ptr<UnfoldingNode> &read_from) {
-  std::lock_guard<std::mutex> lock(this->unfolding_tree_mutex);
-  for (unsigned ci = 0; ci < parent_list.size();) {
-    std::shared_ptr<UnfoldingNode> c = parent_list[ci].lock();
+  UnfoldingNodeChildren *parent_list;
+  std::unique_lock<std::mutex> lock;
+  std::tie(parent_list, lock) = lock_and_get_children(cpid, parent);
+
+  for (unsigned ci = 0; ci < parent_list->size();) {
+    std::shared_ptr<UnfoldingNode> c = (*parent_list)[ci].lock();
     if (!c) {
       /* Delete the null element and continue */
-      std::swap(parent_list[ci], parent_list.back());
-      parent_list.pop_back();
+      std::swap((*parent_list)[ci], parent_list->back());
+      parent_list->pop_back();
       continue;
     }
 
@@ -48,12 +51,20 @@ find_unfolding_node(UnfoldingNodeChildren &parent_list,
   /* Did not exist, create it. */
   std::shared_ptr<UnfoldingNode> c =
     std::make_shared<UnfoldingNode>(parent, read_from);
-  parent_list.push_back(c);
+  parent_list->push_back(c);
   return c;
 }
 
-RFSCUnfoldingTree::UnfoldingNodeChildren *RFSCUnfoldingTree::
-first_event_parentlist(CPid cpid) {
-  std::lock_guard<std::mutex> lock(this->unfolding_tree_mutex);
-  return &first_events[cpid];
+std::pair<RFSCUnfoldingTree::UnfoldingNodeChildren *,
+          std::unique_lock<std::mutex>>
+RFSCUnfoldingTree::
+lock_and_get_children(const CPid &cpid,
+                      const std::shared_ptr<UnfoldingNode> &node) {
+  if (node) {
+    std::unique_lock<std::mutex> lock(node->mutex);
+    return {&node->children, std::move(lock)};
+  } else {
+    std::unique_lock<std::mutex> lock(this->unfolding_tree_mutex);
+    return {&first_events[cpid], std::move(lock)};
+  }
 }

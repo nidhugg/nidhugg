@@ -36,17 +36,12 @@ public:
   RFSCUnfoldingTree() {};
 
   struct UnfoldingNode;
+ private:
+  friend struct UnfoldingNode;
   typedef llvm::SmallVector<std::weak_ptr<UnfoldingNode>,1> UnfoldingNodeChildren;
+ public:
 
   static unsigned unf_ctr;
-
-  std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> find_unfolding_node
-  (RFSCUnfoldingTree::UnfoldingNodeChildren &parent_list,
-    const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &parent,
-    const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from);
-
-  // Workaround to access firstevent before restructure
-  UnfoldingNodeChildren * first_event_parentlist(CPid cpid);
 
   struct UnfoldingNode {
   public:
@@ -56,10 +51,21 @@ public:
         seqno(++RFSCUnfoldingTree::unf_ctr) {};
     std::shared_ptr<UnfoldingNode> parent, read_from;
     UnfoldingNodeChildren children;
+    std::mutex mutex;
     unsigned seqno;
   };
 
-private:
+  std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> find_unfolding_node
+    (const CPid &cpid,
+     const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &parent,
+     const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from);
+
+ private:
+  // Workaround to access firstevent before restructure
+  std::pair<UnfoldingNodeChildren*, std::unique_lock<std::mutex>>
+    lock_and_get_children(const CPid &cpid,
+			  const std::shared_ptr<UnfoldingNode> &parent);
+
   std::map<CPid,UnfoldingNodeChildren> first_events;
   std::mutex unfolding_tree_mutex;
 
