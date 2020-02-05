@@ -434,7 +434,6 @@ protected:
    * multiple threads concurrently. therefore need to be under exclusive opreation.
    */
   const SaturatedGraph &get_cached_graph(std::shared_ptr<DecisionNode> &decision);
-  static std::mutex cached_graph_mutex;
   /* Perform planning of future executions. Requires the trace to be
    * maximal or sleepset blocked, and that the vector clocks have been
    * computed.

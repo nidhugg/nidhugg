@@ -83,26 +83,36 @@ std::shared_ptr<DecisionNode> DecisionNode::make_sibling
 }
 
 
-SaturatedGraph &DecisionNode::get_saturated_graph(bool &complete) {
-  std::lock_guard<std::mutex> lock(parent->decision_node_mutex);
-  assert(depth != -1);
+const SaturatedGraph &DecisionNode::get_saturated_graph(std::function<void(SaturatedGraph&)> construct) {
   SaturatedGraph &g = parent->graph_cache;
-  if (g.size() || depth == 0) {
-    complete = true;
+  if (parent->cache_initialised.load(std::memory_order_acquire)) {
+    assert(g.size() || depth == 0);
     return g;
   }
+  std::lock_guard<std::mutex> lock(parent->decision_node_mutex);
+  // SaturatedGraph &g = parent->graph_cache;
+  if (parent->cache_initialised.load(std::memory_order_relaxed)) {
+    assert(g.size() || depth == 0);
+    return g;
+  }
+  assert(depth > 0 && !g.size());
   auto node = parent;
   do {
-    if (node->graph_cache.size()) {
+    /* TODO: This graph could be initialising; if so, we should block on
+     * the lock instead of proceeding upwards.
+     */
+    if (node->cache_initialised.load(std::memory_order_acquire)) {
       /* Reuse subgraph */
       g = node->graph_cache.clone();
       break;
     }
     node = node->parent;
-
+    assert(node);
   } while (node->depth != -1);
 
-  complete = false;
+  construct(g);
+
+  parent->cache_initialised.store(true, std::memory_order_release);
   return g;
 }
 

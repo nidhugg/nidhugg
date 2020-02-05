@@ -60,16 +60,21 @@ public:
 struct DecisionNode {
 public:
   /* Empty constructor for root. */
-  DecisionNode() : parent(nullptr), depth(-1), pruned_subtree(false) {}
+  DecisionNode() : parent(nullptr), depth(-1), pruned_subtree(false),
+                   cache_initialised(true) {}
   /* Constructor for new nodes during compute_unfolding. */
   DecisionNode(std::shared_ptr<DecisionNode> decision)
-        : parent(std::move(decision)), depth(decision->depth+1),
-          pruned_subtree(false) {}
+    : depth(decision->depth+1), pruned_subtree(false),
+      cache_initialised(false) {
+    parent = std::move(decision);
+  }
   /* Constructor for new siblings during compute_prefixes. */
   DecisionNode(std::shared_ptr<DecisionNode> decision,
                std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf, Leaf l)
-        : parent(std::move(decision)), depth(decision->depth+1),
-          unfold_node(std::move(unf)), leaf(l), pruned_subtree(false) {}
+    : depth(decision->depth+1), unfold_node(std::move(unf)), leaf(l),
+      pruned_subtree(false), cache_initialised(false) {
+    parent = std::move(decision);
+  }
 
   /* The depth in the tree. */
   int depth;
@@ -90,7 +95,7 @@ public:
   (const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
 
   /* Returns a given nodes SaturatedGraph, or reuses an ancestors graph if none exist. */
-  SaturatedGraph &get_saturated_graph(bool &complete);
+  const SaturatedGraph &get_saturated_graph(std::function<void(SaturatedGraph&)>);
 
   static const std::shared_ptr<DecisionNode> &get_ancestor
   (const DecisionNode * node, int wanted);
@@ -111,6 +116,8 @@ private:
    * ancestor should not be explored. */
   std::atomic_bool pruned_subtree;
 
+  /* Wether the graph cache has been initialised */
+  std::atomic_bool cache_initialised;
 
   // The following fields are held by a parent to be accessed by every child.
 
@@ -118,6 +125,7 @@ private:
   std::unordered_set<std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>>
   children_unf_set;
 
+  /* Cached SaturatedGraph containing all events up to this one */
   SaturatedGraph graph_cache;
 
   /* mutex to ensure exclusive access to a nodes' unfolding-set and saturated graph. */

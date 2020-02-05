@@ -1478,27 +1478,21 @@ void RFSCTraceBuilder::add_event_to_graph(SaturatedGraph &g, unsigned i) const {
                              [this](unsigned j){return prefix[j].iid;}));
 }
 
-std::mutex RFSCTraceBuilder::cached_graph_mutex;
-
 const SaturatedGraph &RFSCTraceBuilder::get_cached_graph
 (std::shared_ptr<DecisionNode> &decision) {
-  std::lock_guard<std::mutex> lock(cached_graph_mutex);
-  bool complete = false;
-  SaturatedGraph &g = decision->get_saturated_graph(complete);
-  if (complete) {return g;}
-  int i = decision->depth;
+  const int depth = decision->depth;
+  return decision->get_saturated_graph(
+    [depth, this](SaturatedGraph &g) {
+      std::vector<bool> keep = causal_past(depth-1);
+      for (unsigned i = 0; i < prefix.size(); ++i) {
+        if (keep[i] && !g.has_event(prefix[i].iid)) {
+          add_event_to_graph(g, i);
+        }
+      }
 
-  std::vector<bool> keep = causal_past(i-1);
-  for (unsigned i = 0; i < prefix.size(); ++i) {
-    if (keep[i] && !g.has_event(prefix[i].iid)) {
-      add_event_to_graph(g, i);
-    }
-  }
-
-  IFDEBUG(bool g_acyclic = ) g.saturate();
-  assert(g_acyclic);
-
-  return g;
+      IFDEBUG(bool g_acyclic = ) g.saturate();
+      assert(g_acyclic);
+    });
 }
 
 Leaf
