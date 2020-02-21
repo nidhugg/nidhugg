@@ -78,6 +78,9 @@ matrix:
         - DOWNLOAD_BOOST=1.64.0
         - CONFIGURE_FLAGS="--with-llvm=/usr/lib/llvm-3.8/ --with-boost=`pwd`/cache/boost"
       compiler: clang # Not working with GCC
+    - services: docker
+      before_script: docker build -t nidhugg .
+      script: docker run --rm -ti -v `pwd`:`pwd` -w `pwd` nidhugg nidhuggc -sc tests/smoke/C-tests/mutex_hard.c
 
 before_script:
   - ./travis/install_deps.sh
