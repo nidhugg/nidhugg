@@ -36,6 +36,10 @@ _bionic-clang-env-conf:
 matrix:
   include:
     - <<: *bionic
+      env:
+        - LLVM_VERSION=10.0.0-rc2
+        - CONFIGURE_FLAGS=--disable-llvm-clang-version-check
+    - <<: *bionic
       env: LLVM_VERSION=9.0.0
     - <<: *bionic
       env: LLVM_VERSION=8.0.0

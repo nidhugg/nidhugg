@@ -15,7 +15,15 @@ if [ -n "$LLVM_VERSION" ]; then
             LLVM_UBUNTU_VER=18.04
             ;;
     esac
-    LLVM_URL="http://releases.llvm.org/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-$LLVM_TRIPLE-$LLVM_OS-$LLVM_UBUNTU_VER.$LLVM_REL_EXT"
+    case $LLVM_VERSION in
+        *-rc*)
+            LLVM_URL_PREFIX="https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION"
+            ;;
+        *)
+            LLVM_URL_PREFIX="http://releases.llvm.org/$LLVM_VERSION"
+            ;;
+    esac
+    LLVM_URL="$LLVM_URL_PREFIX/clang+llvm-$LLVM_VERSION-$LLVM_TRIPLE-$LLVM_OS-$LLVM_UBUNTU_VER.$LLVM_REL_EXT"
     LLVM_DEP="cache/$LLVM_VERSION.$LLVM_REL_EXT"
     LLVM_DIR="cache/clang+llvm-$LLVM_VERSION"
 
