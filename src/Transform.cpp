@@ -36,6 +36,7 @@
 #if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H) && defined(LLVM_PASSMANAGER_TEMPLATE)
 #include <llvm/IR/LegacyPassManager.h>
 #endif
+#include <llvm/InitializePasses.h>
 
 #include <stdexcept>
 
