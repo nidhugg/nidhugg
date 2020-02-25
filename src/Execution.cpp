@@ -3285,6 +3285,11 @@ void Interpreter::callFunction(Function *F,
       TB.fence();
     }
     if(!conf.extfun_no_full_memory_conflict.count(F->getName().str())){
+      Debug::warn("unknown external:"+F->getName().str())
+        << "WARNING: Calling unknown external function "
+        << F->getName().str()
+        << " as blackbox.\n";
+
       TB.full_memory_conflict();
     }
 
@@ -3292,11 +3297,6 @@ void Interpreter::callFunction(Function *F,
       ECStack()->pop_back();
       return;
     }
-
-    Debug::warn("unknown external:"+F->getName().str())
-      << "WARNING: Calling unknown external function "
-      << F->getName().str()
-      << " as blackbox.\n";
 
     GenericValue Result = callExternalFunction (F, ArgVals);
     // Simulate a 'ret' instruction of the appropriate type.
