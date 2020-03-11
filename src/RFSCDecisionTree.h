@@ -145,12 +145,38 @@ public:
   }
 };
 
+struct RFSCScheduler {
+  virtual ~RFSCScheduler() = default;
+  virtual void enqueue(std::shared_ptr<DecisionNode> node) = 0;
+  virtual std::shared_ptr<DecisionNode> dequeue() = 0;
+  virtual void halt() = 0;
+};
+
+class PriorityQueueScheduler final : public RFSCScheduler {
+public:
+  ~PriorityQueueScheduler() override = default;
+  void enqueue(std::shared_ptr<DecisionNode> node) override;
+  std::shared_ptr<DecisionNode> dequeue() override;
+  void halt() override;
+private:
+  /* Exclusive access to the work_queue. */
+  std::mutex mutex;
+  std::condition_variable cv;
+
+  /* Set to indicate that no more jobs should be dispatched */
+  bool halting = false;
+
+  /* Work queue of leaf nodes to explore.
+   * The ordering is determined by DecisionCompare. */
+  std::priority_queue<std::shared_ptr<DecisionNode>, std::vector<std::shared_ptr<DecisionNode>>, DecisionCompare> work_queue;
+};
 
 class RFSCDecisionTree final {
 public:
-  RFSCDecisionTree() {
+  RFSCDecisionTree(std::unique_ptr<RFSCScheduler> scheduler)
+    : scheduler(std::move(scheduler)) {
     // Initiallize the work_queue with a "root"-node
-    work_queue.push(std::make_shared<DecisionNode>());
+    this->scheduler->enqueue(std::make_shared<DecisionNode>());
   };
 
 
@@ -158,8 +184,8 @@ public:
    * evaluated sibling. */
   void backtrack_decision_tree(std::shared_ptr<DecisionNode> *TB_work_item);
 
-  /* Replace the current work item with a new DecisionNode */
-  std::shared_ptr<DecisionNode> get_next_work_task();
+  /* Get a new prefix to execute from the scheduler */
+  std::shared_ptr<DecisionNode> get_next_work_task() { return scheduler->dequeue(); }
 
   /* Constructs an empty Decision node. */
   std::shared_ptr<DecisionNode> new_decision_node
@@ -171,24 +197,14 @@ public:
   (const std::shared_ptr<DecisionNode> &decision,
    const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
 
-
-  /* True if no unevaluated siblings have been found. */
-  bool work_queue_empty();
-
   /* Given a DecisionNode whose depth >= to wanted, returns a parent with the wanted depth. */
   static const std::shared_ptr<DecisionNode> &find_ancestor
   (const std::shared_ptr<DecisionNode> &node, int wanted);
 
+  RFSCScheduler &get_scheduler() { return *scheduler; }
+
 private:
-
-  /* Exclusive access to the work_queue. */
-  static std::mutex work_queue_mutex;
-
-  /* Work queue of leaf nodes to explore.
-   * The ordering is determined by DecisionCompare. */
-  std::priority_queue<std::shared_ptr<DecisionNode>,
-                      std::vector<std::shared_ptr<DecisionNode>>,
-                      DecisionCompare> work_queue;
+  std::unique_ptr<RFSCScheduler> scheduler;
 };
 
 

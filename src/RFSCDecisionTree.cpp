@@ -20,21 +20,6 @@
 #include "Debug.h"
 #include "RFSCDecisionTree.h"
 
-
-std::mutex RFSCDecisionTree::work_queue_mutex;
-
-std::shared_ptr<DecisionNode> RFSCDecisionTree::get_next_work_task() {
-  std::lock_guard<std::mutex> lock(work_queue_mutex);
-  if (work_queue.empty()) {
-    return nullptr;
-  }
-  std::shared_ptr<DecisionNode> node = work_queue.top();
-  work_queue.pop();
-
-  return std::move(node);
-}
-
-
 std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node
 (const std::shared_ptr<DecisionNode> &parent,
  const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
@@ -47,14 +32,7 @@ std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node
 void RFSCDecisionTree::construct_sibling
 (const std::shared_ptr<DecisionNode> &decision,
  const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
-  std::lock_guard<std::mutex> lock(work_queue_mutex);
-  work_queue.push(std::move(decision->make_sibling(unf, l)));
-}
-
-
-bool RFSCDecisionTree::work_queue_empty() {
-  std::lock_guard<std::mutex> lock(work_queue_mutex);
-  return work_queue.empty();
+  scheduler->enqueue(decision->make_sibling(unf, l));
 }
 
 
@@ -70,6 +48,26 @@ const std::shared_ptr<DecisionNode> &RFSCDecisionTree::find_ancestor
   return DecisionNode::get_ancestor(node.get(), wanted);
 }
 
+void PriorityQueueScheduler::enqueue(std::shared_ptr<DecisionNode> node) {
+  std::lock_guard<std::mutex> lock(mutex);
+  work_queue.emplace(std::move(node));
+}
+
+std::shared_ptr<DecisionNode> PriorityQueueScheduler::dequeue() {
+  std::unique_lock<std::mutex> lock(mutex);
+  while (!halting && work_queue.empty()) {
+    cv.wait(lock);
+  }
+  if (halting) return nullptr;
+  std::shared_ptr<DecisionNode> node = work_queue.top();
+  work_queue.pop();
+  return node;
+}
+
+void PriorityQueueScheduler::halt() {
+  std::lock_guard<std::mutex> lock(mutex);
+  halting = true;
+}
 
 /******************************************************************************
  *
