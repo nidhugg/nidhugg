@@ -146,14 +146,16 @@ public:
 };
 
 struct RFSCScheduler {
-  virtual ~RFSCScheduler() = default;
+  virtual ~RFSCScheduler();
   virtual void enqueue(std::shared_ptr<DecisionNode> node) = 0;
   virtual std::shared_ptr<DecisionNode> dequeue() = 0;
   virtual void halt() = 0;
+  std::atomic<uint64_t> outstanding_jobs;
 };
 
 class PriorityQueueScheduler final : public RFSCScheduler {
 public:
+  PriorityQueueScheduler();
   ~PriorityQueueScheduler() override = default;
   void enqueue(std::shared_ptr<DecisionNode> node) override;
   std::shared_ptr<DecisionNode> dequeue() override;

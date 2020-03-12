@@ -48,9 +48,15 @@ const std::shared_ptr<DecisionNode> &RFSCDecisionTree::find_ancestor
   return DecisionNode::get_ancestor(node.get(), wanted);
 }
 
+RFSCScheduler::~RFSCScheduler() = default;
+
+PriorityQueueScheduler::PriorityQueueScheduler() : RFSCScheduler() {};
+
 void PriorityQueueScheduler::enqueue(std::shared_ptr<DecisionNode> node) {
+  outstanding_jobs.fetch_add(1, std::memory_order_relaxed);
   std::lock_guard<std::mutex> lock(mutex);
   work_queue.emplace(std::move(node));
+  cv.notify_one();
 }
 
 std::shared_ptr<DecisionNode> PriorityQueueScheduler::dequeue() {
@@ -67,6 +73,7 @@ std::shared_ptr<DecisionNode> PriorityQueueScheduler::dequeue() {
 void PriorityQueueScheduler::halt() {
   std::lock_guard<std::mutex> lock(mutex);
   halting = true;
+  cv.notify_all();
 }
 
 /******************************************************************************
