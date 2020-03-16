@@ -17,6 +17,7 @@ CLANGXX='%%CLANGXX%%'
 
 nidhuggcparams = [
     {'name':'--help','help':'Prints this text.','param':False},
+    {'name':'--verbose','help':'Show commands being run.','param':False},
     {'name':'--version','help':'Prints the nidhugg version.','param':False},
     {'name':'--c','help':'Interpret input FILE as C code. (Compile with clang.)','param':False},
     {'name':'--cxx','help':'Interpret input FILE as C++ code. (Compile with clang++.)','param':False},
@@ -34,6 +35,8 @@ nidhuggcparamaliases = {
     '-?':'--help',
     '-version':'--version',
     '-V':'--version',
+    '-verbose':'--verbose',
+    '-v':'--verbose',
     '-c':'--c',
     '-cxx':'--cxx',
     '-ll':'--ll',
@@ -47,6 +50,9 @@ nidhuggcparamaliases = {
 # The name (absolute path) of the temporary directory where all
 # temporary files will be created.
 tmpdir=None
+
+# If we should print verbosely
+verbose=False
 
 def init_tmpdir():
     global tmpdir
@@ -67,7 +73,7 @@ def run(cmd,ignoreret=False):
     cmdstr=''
     for s in cmd:
         cmdstr = cmdstr+('' if cmdstr=='' else ' ')+s
-    print("* Nidhuggc: $ "+cmdstr)
+    if verbose: print("* Nidhuggc: $ "+cmdstr)
     retval = subprocess.call(cmd)
     if not(ignoreret) and retval not in return_codes:
         raise Exception('Command ({1}) returned an error exit code ({0}).'.format(retval,cmd[0]))
@@ -240,9 +246,8 @@ def run_nidhugg(nidhuggcargs,nidhuggargs,irfname):
 
 def main():
     try:
-        global CLANG
-        global CLANGXX
-        global NIDHUGG
+        global CLANG, CLANGXX, NIDHUGG
+        global verbose
         t0 = time.time()
         (nidhuggcargs,compilerargs,nidhuggargs) = get_args()
         transformargs=[]
@@ -251,6 +256,8 @@ def main():
             if argname == '--help':
                 print_help()
                 exit(0)
+            elif argname == '--verbose':
+                verbose = True
             elif argname == '--clang':
                 CLANG=argarg
             elif argname == '--clangxx':
