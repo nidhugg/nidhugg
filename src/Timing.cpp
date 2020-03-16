@@ -22,6 +22,7 @@
 #include "Timing.h"
 #include <vector>
 #include <iostream>
+#include <iomanip>
 #include <algorithm>
 
 namespace Timing {
@@ -98,13 +99,19 @@ namespace Timing {
                                         return a.inclusive > b.inclusive;
                                       });
 
-    std::cerr << "Name\tCount\tInclusive\tExclusive\n";
+#define OUT(N,C,I,E)                          \
+    std::cerr << std::setw(22) << (N)         \
+              << std::setw(10) << (C)         \
+              << std::setw(12) << (I)         \
+              << std::setw(12) << (E) << "\n"
+    OUT("Name", "Count", "Inclusive", "Exclusive");
     for (result &r : vec) {
       using namespace std::chrono;
-      std::cerr << r.c->name << "\t" << r.count
-                << "\t" << duration_cast<microseconds>(r.inclusive).count()
-                << "\t" << duration_cast<microseconds>(r.exclusive).count() << "\n";
+      OUT(r.c->name, r.count,
+          duration_cast<microseconds>(r.inclusive).count(),
+          duration_cast<microseconds>(r.exclusive).count());
     }
+#undef OUT
   }
 }
 
