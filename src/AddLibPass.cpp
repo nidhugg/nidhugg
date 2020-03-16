@@ -68,6 +68,8 @@ bool AddLibPass::optAddFunction(llvm::Module &M,
   for(auto it = srces.begin(); !added_def && it != srces.end(); ++it){
     std::string src = StrModule::portasm(*it);
     llvm::Module *M2 = StrModule::read_module_src(src);
+    /* Not really true, but silences linker warnings */
+    M2->setDataLayout(M.getDataLayout());
 
     if(!tgtTy || M2->getFunction(name)->getType() == tgtTy){
 #ifdef LLVM_LINKER_LINKINMODULE_PTR_BOOL
