@@ -113,41 +113,50 @@ protected:
   struct UnfoldingNode;
   typedef llvm::SmallVector<std::weak_ptr<UnfoldingNode>,1> UnfoldingNodeChildren;
   struct UnfoldingNode {
-  public:
     UnfoldingNode(std::shared_ptr<UnfoldingNode> parent,
                   std::shared_ptr<UnfoldingNode> read_from)
       : parent(std::move(parent)), read_from(std::move(read_from)),
         seqno(++unf_ctr) {};
+    UnfoldingNode(const UnfoldingNode &) = default;
+    UnfoldingNode(UnfoldingNode &&) = default;
+    UnfoldingNode &operator=(const UnfoldingNode&) = default;
+    UnfoldingNode &operator=(UnfoldingNode&&) = default;
+
     std::shared_ptr<UnfoldingNode> parent, read_from;
     UnfoldingNodeChildren children;
     unsigned seqno;
   };
 
   struct Branch {
-  public:
     Branch(int pid, int size, int decision, bool pinned, SymEv sym)
       : pid(pid), size(size), decision(decision), pinned(pinned),
         sym(std::move(sym)) {}
     Branch() : Branch(-1, 0, -1, false, {}) {}
+    Branch(const Branch &) = default;
+    Branch(Branch &&) = default;
+    Branch &operator=(const Branch&) = default;
+    Branch &operator=(Branch&&) = default;
+
     int pid, size, decision;
     bool pinned;
     SymEv sym;
   };
 
   struct Leaf {
-  public:
     /* Construct a bottom-leaf. */
-    Leaf() : prefix() {}
+    Leaf() {}
     /* Construct a prefix leaf. */
     Leaf(std::vector<Branch> prefix) : prefix(prefix) {}
+    Leaf(const Leaf &) = default;
+    Leaf(Leaf &&) = default;
+    Leaf &operator=(const Leaf&) = default;
+    Leaf &operator=(Leaf&&) = default;
     std::vector<Branch> prefix;
 
     bool is_bottom() const { return prefix.empty(); }
   };
 
   struct DecisionNode {
-  public:
-    DecisionNode() : siblings() {}
     std::unordered_map<std::shared_ptr<UnfoldingNode>, Leaf> siblings;
     std::unordered_set<std::shared_ptr<UnfoldingNode>> sleep;
     SaturatedGraph graph_cache;
@@ -462,7 +471,7 @@ protected:
   void record_symbolic(SymEv event);
   Leaf try_sat(std::initializer_list<unsigned>, std::map<SymAddr,std::vector<int>> &);
   Leaf order_to_leaf(int decision, std::initializer_list<unsigned> changed,
-                     const std::vector<unsigned> order, SaturatedGraph g) const;
+                     const std::vector<unsigned> order) const;
   void output_formula(SatSolver &sat,
                       std::map<SymAddr,std::vector<int>> &,
                       const std::vector<bool> &);

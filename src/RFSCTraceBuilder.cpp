@@ -1571,7 +1571,7 @@ RFSCTraceBuilder::try_sat
     = map(prefix, [](const Event &e) { return e.iid; });
   /* We need to preserve g */
   if (Option<std::vector<IID<int>>> res
-      = try_generate_prefix(g, std::move(current_exec))) {
+      = try_generate_prefix(std::move(g), std::move(current_exec))) {
     if (conf.debug_print_on_reset) {
       llvm::dbgs() << ": Heuristic found prefix\n";
       llvm::dbgs() << "[";
@@ -1583,8 +1583,7 @@ RFSCTraceBuilder::try_sat
     std::vector<unsigned> order = map(*res, [this](IID<int> iid) {
         return find_process_event(iid.get_pid(), iid.get_index());
       });
-    return order_to_leaf(decision, changed_events, std::move(order),
-                         std::move(g));
+    return order_to_leaf(decision, changed_events, std::move(order));
   }
 
   std::unique_ptr<SatSolver> sat = conf.get_sat_solver();
@@ -1623,13 +1622,12 @@ RFSCTraceBuilder::try_sat
     llvm::dbgs() << "]\n";
   }
 
-  return order_to_leaf(decision, changed_events, std::move(order),
-                       std::move(g));
+  return order_to_leaf(decision, changed_events, std::move(order));
 }
 
 RFSCTraceBuilder::Leaf RFSCTraceBuilder::order_to_leaf
 (int decision, std::initializer_list<unsigned> changed,
- const std::vector<unsigned> order, SaturatedGraph g) const{
+ const std::vector<unsigned> order) const{
   std::vector<Branch> new_prefix;
   new_prefix.reserve(order.size());
   for (unsigned i : order) {
