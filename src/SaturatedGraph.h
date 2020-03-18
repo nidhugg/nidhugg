@@ -40,7 +40,9 @@
 
 class SaturatedGraph final {
 public:
-  SaturatedGraph();
+  SaturatedGraph() = default;
+  SaturatedGraph(SaturatedGraph &&other) = default;
+  SaturatedGraph &operator=(SaturatedGraph &&other) = default;
 
   typedef IID<int> ExtID;
   typedef unsigned Pid;
@@ -77,7 +79,16 @@ public:
 
   void add_edge(ExtID from, ExtID to);
 
+  /* Clone this graph. This graph becomes read-only at this point, and must
+   * outlive the clone and any decendents of it.
+   */
+  SaturatedGraph clone() const {
+    return SaturatedGraph(*this);
+  };
+
 private:
+  explicit SaturatedGraph(const SaturatedGraph &other) = default;
+
   typedef unsigned ID;
   void add_edge_internal(ID from, ID to);
 
@@ -113,7 +124,7 @@ private:
   immer::vector<immer::box<VClock<int>>> vclocks;
   immer::vector<immer::map<SymAddr,immer::vector<ID>>>
     writes_by_process_and_address;
-  unsigned saturated_until;
+  unsigned saturated_until = 0;
 
   void add_edges(const std::vector<std::pair<ID,ID>> &);
   ID get_process_event(Pid pid, unsigned index) const;

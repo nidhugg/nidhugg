@@ -185,7 +185,8 @@ void RFSCTraceBuilder::cancel_replay(){
     blame = std::max(blame, prefix[i].decision);
   }
   assert(int(decisions.size()) > blame);
-  decisions.resize(blame+1, decisions[0]);
+  while (decisions.size() > blame+1)
+      decisions.pop_back();
 }
 
 void RFSCTraceBuilder::metadata(const llvm::MDNode *md){
@@ -1529,7 +1530,7 @@ const SaturatedGraph &RFSCTraceBuilder::get_cached_graph(unsigned i) {
   for (unsigned j = i-1; j != 0; --j) {
     if (decisions[j].graph_cache.size()) {
       /* Reuse subgraph */
-      g = decisions[j].graph_cache;
+      g = decisions[j].graph_cache.clone();
       break;
     }
   }
@@ -1555,7 +1556,7 @@ RFSCTraceBuilder::try_sat
   int decision = prefix[last_change].decision;
   std::vector<bool> keep = causal_past(decision);
 
-  SaturatedGraph g(get_cached_graph(decision));
+  SaturatedGraph g(get_cached_graph(decision).clone());
   for (unsigned i = 0; i < prefix.size(); ++i) {
     if (keep[i] && i != last_change && !g.has_event(prefix[i].iid)) {
       add_event_to_graph(g, i);

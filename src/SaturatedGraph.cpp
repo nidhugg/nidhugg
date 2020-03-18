@@ -39,8 +39,6 @@ static Timing::Context saturate_rev1_timing("saturate_reverse_one");
 static Timing::Context add_edge_timing("add_edge");
 static Timing::Context add_event_timing("add_event");
 
-SaturatedGraph::SaturatedGraph() : saturated_until(0) {}
-
 template <typename T> void
 enlarge(immer::vector<T> &vec, std::size_t size, T val = {}) {
   if (vec.size() >= size) return;
