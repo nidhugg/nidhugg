@@ -9,7 +9,7 @@ src/nidhugg
 src/nidhuggc
 src/unittest
 src/libnidhugg.a
-./Makefile
+Makefile
 Makefile.in
 aclocal.m4
 ar-lib
@@ -26,7 +26,9 @@ depcomp
 install-sh
 missing
 src/.deps
+doc/Makefile
 src/Makefile
 src/Makefile.in
 stamp-*
 test-driver
+tests/smoke/test.results.txt
