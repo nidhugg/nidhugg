@@ -26,9 +26,8 @@ depcomp
 install-sh
 missing
 src/.deps
-doc/Makefile
-src/Makefile
 src/Makefile.in
 stamp-*
 test-driver
 tests/smoke/test.results.txt
+tests/litmus/test.results.txt
