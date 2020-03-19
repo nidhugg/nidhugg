@@ -1,11 +1,11 @@
-language: C++
-sudo: false
+os: linux
+language: cpp
 addons:
   apt:
     packages: &baseline-packages
       - valgrind
 
-# Template some configurations for different distros, to be used in the matrix
+# Template some configurations for different distros, to be used in the jobs
 # below
 _xenial-conf: &xenial
   dist: xenial
@@ -33,7 +33,7 @@ _bionic-clang-env-conf:
     - CC=clang
     - CXX=clang++
 
-matrix:
+jobs:
   include:
     - <<: *bionic
       env:
