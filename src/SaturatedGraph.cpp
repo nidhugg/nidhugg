@@ -233,6 +233,7 @@ bool SaturatedGraph::saturate() {
     if (new_in) wq_add_first(id);
     add_edges(new_edges);
   }
+  wq_set.clear();
   check_graph_consistency();
   return true;
 }
@@ -307,15 +308,17 @@ void SaturatedGraph::add_successors_to_wq(ID id, const Event &e) {
 }
 
 void SaturatedGraph::wq_add(unsigned id) {
-  if (wq_set.count(id)) return;
-  wq_queue = wq_queue.push_back(id);
-  wq_set = wq_set.insert(id);
+  if (wq_set.size() > id && wq_set[id]) return;
+  if (wq_set.size() <= id) wq_set.resize(id+1);
+  wq_set[id] = true;
+  wq_queue.push_back(id);
 }
 
 void SaturatedGraph::wq_add_first(unsigned id) {
-  if (wq_set.count(id)) return;
-  wq_queue = wq_queue.push_front(id);
-  wq_set = wq_set.insert(id);
+  if (wq_set.size() > id && wq_set[id]) return;
+  if (wq_set.size() <= id) wq_set.resize(id+1);
+  wq_set[id] = true;
+  wq_queue.push_front(id);
 }
 
 bool SaturatedGraph::wq_empty() const {
@@ -324,9 +327,9 @@ bool SaturatedGraph::wq_empty() const {
 
 unsigned SaturatedGraph::wq_pop() {
   assert(!wq_empty());
-  unsigned ret = wq_queue[0];
-  wq_queue = wq_queue.drop(1);
-  wq_set = wq_set.erase(ret);
+  unsigned ret = wq_queue.front();
+  wq_queue.pop_front();
+  wq_set[ret] = false;
   return ret;
 }
 

@@ -27,6 +27,7 @@
 #include "GenVector.h"
 
 #include <vector>
+#include <deque>
 
 /* We are never sharing immer datastructures between threads; omit
  * expensive atomic reference counting operations.
@@ -34,9 +35,7 @@
 #define IMMER_NO_THREAD_SAFETY 1
 
 #include <immer/vector.hpp>
-#include <immer/flex_vector.hpp>
 #include <immer/map.hpp>
-#include <immer/set.hpp>
 
 class SaturatedGraph final {
 public:
@@ -83,6 +82,9 @@ public:
    * outlive the clone and any decendents of it.
    */
   SaturatedGraph clone() const {
+    /* Not strictly necessary, but an assumption that informed the choice of
+     * queue data structures */
+    assert(wq_empty());
     return SaturatedGraph(*this);
   };
 
@@ -155,8 +157,8 @@ private:
   void check_graph_consistency() const {};
 #endif
 
-  immer::flex_vector<ID> wq_queue;
-  immer::set<ID> wq_set;
+  std::deque<ID> wq_queue;
+  std::vector<bool> wq_set;
   void wq_add(ID id);
   void wq_add_first(ID id);
   bool wq_empty() const;
