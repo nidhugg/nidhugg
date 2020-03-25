@@ -36,7 +36,6 @@
 #include <immer/vector.hpp>
 #include <immer/flex_vector.hpp>
 #include <immer/map.hpp>
-#include <immer/box.hpp>
 #include <immer/set.hpp>
 
 class SaturatedGraph final {
@@ -92,11 +91,13 @@ private:
 
   typedef unsigned ID;
   void add_edge_internal(ID from, ID to);
+  /* We tune the limb size of edge vectors since we expect them to be small. */
+  typedef gen::vector<ID,8> edge_vector;
 
   struct Event {
     Event() { abort(); }
     Event(IID<Pid> iid, ExtID ext_id, bool is_load, bool is_store, SymAddr addr,
-          Option<ID> read_from, gen::vector<ID> readers,
+          Option<ID> read_from, edge_vector readers,
           Option<ID> po_predecessor)
       : iid(iid), ext_id(ext_id), is_load(is_load), is_store(is_store), addr(addr),
         read_from(read_from), readers(std::move(readers)),
@@ -111,14 +112,14 @@ private:
      */
     Option<ID> read_from;
     /* The events that read from us. */
-    gen::vector<ID> readers;
+    edge_vector readers;
     Option<ID> po_predecessor;
   };
 
   immer::map<ExtID,ID> extid_to_id;
   gen::vector<Event> events;
-  gen::vector<gen::vector<ID>> ins;
-  gen::vector<gen::vector<ID>> outs;
+  gen::vector<edge_vector> ins;
+  gen::vector<edge_vector> outs;
   immer::map<SymAddr,immer::map<Pid,ID>> writes_by_address;
   immer::map<SymAddr,immer::vector<ID>> reads_from_init;
   gen::vector<gen::vector<ID>> events_by_pid;
@@ -132,9 +133,9 @@ private:
   Option<ID> maybe_get_process_event(Pid pid, unsigned index) const;
   VC initial_vc_for_event(IID<Pid> iid) const;
   VC initial_vc_for_event(const Event &e) const;
-  VC recompute_vc_for_event(const Event &e, const gen::vector<ID> &in) const;
+  VC recompute_vc_for_event(const Event &e, const edge_vector &in) const;
   void add_successors_to_wq(ID id, const Event &e);
-  bool is_in_cycle(const Event &e, const gen::vector<ID> &in, const VC &vc) const;
+  bool is_in_cycle(const Event &e, const edge_vector &in, const VC &vc) const;
   Option<ID> po_successor(ID id, const Event &e) const;
   VC top() const;
   struct care {

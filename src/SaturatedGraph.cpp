@@ -70,8 +70,8 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
   auto extid_to_id = [this](ExtID i) { return this->extid_to_id.at(i); };
   Option<ID> read_from = ext_read_from.map(extid_to_id);
 
-  gen::vector<ID> out;
-  gen::vector<ID> in;
+  edge_vector out;
+  edge_vector in;
   for (const ExtID &ei : orig_in) {
     ID i = extid_to_id(ei);
     IFTRACE(std::cerr << "Adding edge between " << i << " and " << id << "\n");
@@ -157,7 +157,7 @@ bool SaturatedGraph::saturate() {
     new_edges.clear();
     {
       Event e = events[id];
-      const gen::vector<ID> &old_in = ins[id];
+      const edge_vector &old_in = ins[id];
       VC vc = recompute_vc_for_event(e, old_in);
       const VC &old_vc = vclocks[id];
       if (is_in_cycle(e, old_in, vc)) {
@@ -196,7 +196,7 @@ bool SaturatedGraph::saturate() {
 
           /* Add edges */
           if (e.is_store) {
-            gen::vector<ID> &in = ins.mut(id);
+            edge_vector &in = ins.mut(id);
             for (unsigned r : pe.readers) {
               if (r == id) continue; /* RMW we're reading from */
               /* from-read */
@@ -238,7 +238,7 @@ bool SaturatedGraph::saturate() {
 }
 
 bool SaturatedGraph::is_in_cycle
-(const Event &e, const gen::vector<ID> &in, const VC &vc) const {
+(const Event &e, const edge_vector &in, const VC &vc) const {
   const auto vc_different = [&vc,this](unsigned other) {
                               return vclocks[other] != vc;
                             };
@@ -285,7 +285,7 @@ SaturatedGraph::VC SaturatedGraph::initial_vc_for_event(const Event &e) const {
 }
 
 SaturatedGraph::VC SaturatedGraph::
-recompute_vc_for_event(const Event &e, const gen::vector<ID> &in) const {
+recompute_vc_for_event(const Event &e, const edge_vector &in) const {
   Timing::Guard timing_guard(saturate_vc_timing);
   VC vc = initial_vc_for_event(e);;
   const auto add_to_vc = [&vc,this](ID id) {
@@ -415,7 +415,7 @@ std::vector<SaturatedGraph::ExtID> SaturatedGraph::event_in(ExtID eid) const {
   std::vector<ExtID> ret;
   ID id = extid_to_id.at(eid);
   const Event &e = events[id];
-  const gen::vector<ID> &in = ins[id];
+  const edge_vector &in = ins[id];
   ret.reserve(in.size() + 2);
   gen::for_each
     (in, [&ret,this](ID e) { ret.push_back(events[e].ext_id); });
