@@ -82,7 +82,7 @@ namespace gen {
 
     void push_back(const T& val);
     void push_back(T&& val);
-    template <typename... Args> void emplace_back(Args&&... args);
+    template <typename... Args> T &emplace_back(Args&&... args);
 
   private:
 #ifndef NDEBUG
@@ -368,8 +368,8 @@ namespace gen {
     new (push_back_internal()) T(std::move(val));
   }
   template<typename T, std::size_t limb_size> template<typename... Args>
-  void vector<T, limb_size>::emplace_back(Args&&... args) {
-    new (push_back_internal()) T(std::forward<Args>(args)...);
+  T &vector<T, limb_size>::emplace_back(Args&&... args) {
+    return *new (push_back_internal()) T(std::forward<Args>(args)...);
   }
   template<typename T, std::size_t limb_size>
   const T *vector<T,limb_size>::deref(const limb_type *const *start, size_type ix) {

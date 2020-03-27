@@ -58,20 +58,25 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
   int index = 1;
   enlarge(events_by_pid, pid+1);
   enlarge(writes_by_process_and_address, pid+1);
-  if (events_by_pid[pid].size()) {
-    assert(events_by_pid[pid].size() != 0);
-    po_predecessor = events_by_pid[pid].back();
-    IFTRACE(std::cerr << "Adding PO(" << pid << ") between " << *po_predecessor << " and " << id << "\n");
-    index = events.at(*po_predecessor).iid.get_index() + 1;
-    outs.mut(*po_predecessor).push_back(id);
+  {
+      auto &events_by_p = events_by_pid.mut(pid);
+      if (events_by_p.size()) {
+          assert(events_by_p.size() != 0);
+          po_predecessor = events_by_p.back();
+          IFTRACE(std::cerr << "Adding PO(" << pid << ") between " << *po_predecessor << " and " << id << "\n");
+          index = events.at(*po_predecessor).iid.get_index() + 1;
+          outs.mut(*po_predecessor).push_back(id);
+      }
+      events_by_p.push_back(id);
   }
-  events_by_pid.mut(pid).push_back(id);
 
   auto extid_to_id = [this](ExtID i) { return this->extid_to_id.at(i); };
   Option<ID> read_from = ext_read_from.map(extid_to_id);
 
-  edge_vector out;
-  edge_vector in;
+  assert(ins.size() == id);
+  assert(outs.size() == id);
+  edge_vector &out = outs.emplace_back();
+  edge_vector &in = ins.emplace_back();
   for (const ExtID &ei : orig_in) {
     ID i = extid_to_id(ei);
     IFTRACE(std::cerr << "Adding edge between " << i << " and " << id << "\n");
@@ -125,11 +130,6 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
   IID<Pid> iid(pid, index);
   /* XXX: Why can't we emplace_back here? */
   events.push_back(Event(iid, extid, is_load, is_store, addr, read_from, {}, po_predecessor));
-
-  assert(ins.size() == id);
-  ins.push_back(std::move(in));
-  assert(outs.size() == id);
-  outs.push_back(std::move(out));
 
   if (!read_from && is_load) {
     /* Read from init */
