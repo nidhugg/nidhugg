@@ -20,8 +20,6 @@
 #include "SaturatedGraph.h"
 
 #include "Timing.h"
-#include <immer/algorithm.hpp>
-#include <immer/vector_transient.hpp>
 #include <iostream>
 
 #ifdef TRACE
@@ -51,7 +49,7 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
                                const std::vector<ExtID> &orig_in) {
   Timing::Guard timing_guard(add_event_timing);
   ID id = events.size();
-  extid_to_id = std::move(extid_to_id).set(extid, id);
+  extid_to_id.mut(extid) = id; // insert
   bool is_load = kind == LOAD || kind == RMW;
   bool is_store = kind == STORE || kind == RMW;
   Option<ID> po_predecessor;
@@ -70,7 +68,7 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
       events_by_p.push_back(id);
   }
 
-  auto extid_to_id = [this](ExtID i) { return this->extid_to_id.at(i); };
+  auto extid_to_id = [this](ExtID i) -> ID { return this->extid_to_id.at(i); };
   Option<ID> read_from = ext_read_from.map(extid_to_id);
 
   assert(ins.size() == id);
@@ -89,19 +87,23 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
     /* We do loads first so that in the case of RMW we do not find
      * ourselves in writes_by_address.
      */
-    for (std::pair<Pid,ID> p: writes_by_address[addr]) {
-      ID w = p.second;
-      /* TODO: Optimise; only add the first write of each process */
-      IFTRACE(std::cerr << "Adding from-read between " << id << " and " << w << "\n");
-      out.push_back(w);
-      ins.mut(w).push_back(id);
-      wq_add(w);
-    }
+    gen::for_each
+      (writes_by_address[addr],
+       [this,id,&out](std::pair<const Pid,ID> p) {
+         ID w = p.second;
+         /* TODO: Optimise; only add the first write of each process */
+         IFTRACE(std::cerr << "Adding from-read between " << id << " and " << w << "\n");
+         out.push_back(w);
+         ins.mut(w).push_back(id);
+         wq_add(w);
+       });
   }
   if (is_store) {
     /* TODO: Optimise: Only add from-read from last read per
      * process&addr (might be easier without incremental). */
-    if (!writes_by_address[addr].count(pid)) {
+    /* Is it better to call mut() here? */
+    const gen::map<Pid,ID> *writes_by_a = writes_by_address.find(addr);
+    if (!writes_by_a || !writes_by_a->count(pid)) {
       /* We are the first write by pid to addr; add from-read from all
        * readers of init.
        */
@@ -110,16 +112,10 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
         in.push_back(r);
         outs.mut(r).push_back(id);
       }
-      writes_by_address = std::move(writes_by_address).update
-        (addr, [pid,id] (immer::map<Pid,ID> m) {
-                 return std::move(m).set(pid, id);
-               });
+      writes_by_address.mut(addr).mut(pid) = id;
     }
 
-    immer::map<SymAddr,immer::vector<ID>> &m = writes_by_process_and_address.mut(pid);
-    m = std::move(m).update(addr, [id](immer::vector<ID> v){
-            return std::move(v).push_back(id);
-          });
+    writes_by_process_and_address.mut(pid).mut(addr).push_back(id);
   }
 
   for (ID after : in) {
@@ -133,10 +129,7 @@ void SaturatedGraph::add_event(Pid pid, ExtID extid, EventKind kind,
 
   if (!read_from && is_load) {
     /* Read from init */
-    reads_from_init = std::move(reads_from_init).update
-      (addr, [id](immer::vector<ID> v) {
-               return std::move(v).push_back(id);
-             });
+    reads_from_init.mut(addr).push_back(id);
   }
 
   assert(vclocks.size() == id);
@@ -175,7 +168,7 @@ bool SaturatedGraph::saturate() {
           if (old_vc[pid] == vc[pid]) continue;
           assert(old_vc[pid] < vc[pid]);
           Timing::Guard saturate_loop_guard(saturate_loop_timing);
-          const immer::vector<ID> &writes
+          const gen::vector<ID> &writes
             = writes_by_process_and_address[pid][e.addr];
           unsigned last_visible_id = vc[pid];
           ID last_visible = get_process_event(pid, last_visible_id);
@@ -474,7 +467,7 @@ void SaturatedGraph::reverse_saturate() {
         }
         if (new_out.empty()) continue;
         for (unsigned pid = 0; pid < unsigned(vc.size()); ++pid) {
-          const immer::vector<ID> &writes
+          const gen::vector<ID> &writes
             = writes_by_process_and_address[pid][e.addr];
           unsigned first_visible_index = vc[pid];
           Option<ID> first_visible = maybe_get_process_event(pid, first_visible_index);
@@ -494,6 +487,7 @@ void SaturatedGraph::reverse_saturate() {
           for (unsigned r : new_out) {
             if (r == pe_id) continue; /* RMW */
             IFTRACE(std::cerr << "Adding missed from-read from " << r << " to " << pe_id << "\n");
+            /* Optimisation opportunity */
             add_edge_internal(r, pe_id);
           }
         }

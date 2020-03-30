@@ -25,17 +25,10 @@
 #include "VClock.h"
 #include "Option.h"
 #include "GenVector.h"
+#include "GenMap.h"
 
 #include <vector>
 #include <deque>
-
-/* We are never sharing immer datastructures between threads; omit
- * expensive atomic reference counting operations.
- */
-#define IMMER_NO_THREAD_SAFETY 1
-
-#include <immer/vector.hpp>
-#include <immer/map.hpp>
 
 class SaturatedGraph final {
 public:
@@ -118,15 +111,15 @@ private:
     Option<ID> po_predecessor;
   };
 
-  immer::map<ExtID,ID> extid_to_id;
+  gen::map<ExtID,ID> extid_to_id;
   gen::vector<Event> events;
   gen::vector<edge_vector> ins;
   gen::vector<edge_vector> outs;
-  immer::map<SymAddr,immer::map<Pid,ID>> writes_by_address;
-  immer::map<SymAddr,immer::vector<ID>> reads_from_init;
+  gen::map<SymAddr,gen::map<Pid,ID>> writes_by_address;
+  gen::map<SymAddr,gen::vector<ID>> reads_from_init;
   gen::vector<gen::vector<ID>> events_by_pid;
   gen::vector<VClock<int>> vclocks;
-  gen::vector<immer::map<SymAddr,immer::vector<ID>>>
+  gen::vector<gen::map<SymAddr,gen::vector<ID>>>
     writes_by_process_and_address;
   unsigned saturated_until = 0;
 
