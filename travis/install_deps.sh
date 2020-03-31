@@ -16,7 +16,7 @@ if [ -n "$LLVM_VERSION" ]; then
             ;;
     esac
     case $LLVM_VERSION in
-        *-rc*)
+        *-rc*|1?.*)
             LLVM_URL_PREFIX="https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION"
             ;;
         *)

@@ -35,10 +35,12 @@ _bionic-clang-env-conf:
 
 jobs:
   include:
+    # - <<: *bionic
+    #   env:
+    #     - LLVM_VERSION=11.0.0-rc1
+    #     - CONFIGURE_FLAGS=--disable-llvm-clang-version-check
     - <<: *bionic
-      env:
-        - LLVM_VERSION=10.0.0-rc2
-        - CONFIGURE_FLAGS=--disable-llvm-clang-version-check
+      env: LLVM_VERSION=10.0.0
     - <<: *bionic
       env: LLVM_VERSION=9.0.0
     - <<: *bionic
