@@ -24,23 +24,17 @@
 #include "SymAddr.h"
 #include "VClock.h"
 #include "Option.h"
+#include "GenVector.h"
+#include "GenMap.h"
 
 #include <vector>
-
-/* We are never sharing immer datastructures between threads; omit
- * expensive atomic reference counting operations.
- */
-#define IMMER_NO_THREAD_SAFETY 1
-
-#include <immer/vector.hpp>
-#include <immer/flex_vector.hpp>
-#include <immer/map.hpp>
-#include <immer/box.hpp>
-#include <immer/set.hpp>
+#include <deque>
 
 class SaturatedGraph final {
 public:
-  SaturatedGraph();
+  SaturatedGraph() = default;
+  SaturatedGraph(SaturatedGraph &&other) = default;
+  SaturatedGraph &operator=(SaturatedGraph &&other) = default;
 
   typedef IID<int> ExtID;
   typedef unsigned Pid;
@@ -77,14 +71,28 @@ public:
 
   void add_edge(ExtID from, ExtID to);
 
+  /* Clone this graph. This graph becomes read-only at this point, and must
+   * outlive the clone and any decendents of it.
+   */
+  SaturatedGraph clone() const {
+    /* Not strictly necessary, but an assumption that informed the choice of
+     * queue data structures */
+    assert(wq_empty());
+    return SaturatedGraph(*this);
+  };
+
 private:
+  explicit SaturatedGraph(const SaturatedGraph &other) = default;
+
   typedef unsigned ID;
   void add_edge_internal(ID from, ID to);
+  /* We tune the limb size of edge vectors since we expect them to be small. */
+  typedef gen::vector<ID,8> edge_vector;
 
   struct Event {
     Event() { abort(); }
     Event(IID<Pid> iid, ExtID ext_id, bool is_load, bool is_store, SymAddr addr,
-          Option<ID> read_from, immer::vector<ID> readers,
+          Option<ID> read_from, edge_vector readers,
           Option<ID> po_predecessor)
       : iid(iid), ext_id(ext_id), is_load(is_load), is_store(is_store), addr(addr),
         read_from(read_from), readers(std::move(readers)),
@@ -99,30 +107,30 @@ private:
      */
     Option<ID> read_from;
     /* The events that read from us. */
-    immer::vector<ID> readers;
+    edge_vector readers;
     Option<ID> po_predecessor;
   };
 
-  immer::map<ExtID,ID> extid_to_id;
-  immer::vector<Event> events;
-  immer::vector<immer::vector<ID>> ins;
-  immer::vector<immer::vector<ID>> outs;
-  immer::map<SymAddr,immer::map<Pid,ID>> writes_by_address;
-  immer::map<SymAddr,immer::vector<ID>> reads_from_init;
-  immer::vector<immer::vector<ID>> events_by_pid;
-  immer::vector<immer::box<VClock<int>>> vclocks;
-  immer::vector<immer::map<SymAddr,immer::vector<ID>>>
+  gen::map<ExtID,ID> extid_to_id;
+  gen::vector<Event> events;
+  gen::vector<edge_vector> ins;
+  gen::vector<edge_vector> outs;
+  gen::map<SymAddr,gen::map<Pid,ID>> writes_by_address;
+  gen::map<SymAddr,gen::vector<ID>> reads_from_init;
+  gen::vector<gen::vector<ID>> events_by_pid;
+  gen::vector<VClock<int>> vclocks;
+  gen::vector<gen::map<SymAddr,gen::vector<ID>>>
     writes_by_process_and_address;
-  unsigned saturated_until;
+  unsigned saturated_until = 0;
 
   void add_edges(const std::vector<std::pair<ID,ID>> &);
   ID get_process_event(Pid pid, unsigned index) const;
   Option<ID> maybe_get_process_event(Pid pid, unsigned index) const;
   VC initial_vc_for_event(IID<Pid> iid) const;
   VC initial_vc_for_event(const Event &e) const;
-  VC recompute_vc_for_event(const Event &e, const immer::vector<ID> &in) const;
+  VC recompute_vc_for_event(const Event &e, const edge_vector &in) const;
   void add_successors_to_wq(ID id, const Event &e);
-  bool is_in_cycle(const Event &e, const immer::vector<ID> &in, const VC &vc) const;
+  bool is_in_cycle(const Event &e, const edge_vector &in, const VC &vc) const;
   Option<ID> po_successor(ID id, const Event &e) const;
   VC top() const;
   struct care {
@@ -142,8 +150,8 @@ private:
   void check_graph_consistency() const {};
 #endif
 
-  immer::flex_vector<ID> wq_queue;
-  immer::set<ID> wq_set;
+  std::deque<ID> wq_queue;
+  std::vector<bool> wq_set;
   void wq_add(ID id);
   void wq_add_first(ID id);
   bool wq_empty() const;

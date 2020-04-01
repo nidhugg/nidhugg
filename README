@@ -85,25 +85,21 @@ Basic Installation
    The following assumes that you are in a shell in the main directory
    of Nidhugg.
 
-   1. Pull all dependency submodules
-
-      $ git submodule update --init
-
-   2. Use GNU Autotools to build the configure script:
+   1. Use GNU Autotools to generate the configure script:
 
       $ autoreconf --install
 
-   3. Build as usual. See Installation Options below for options about e.g.
+   2. Build as usual. See Installation Options below for options about e.g.
       installation location.
 
       $ ./configure
       $ make
 
-   4. Install:
+   3. Install:
 
       $ make install
 
-   5. Optionally run test suite (Boost Unit Test Framework required):
+   4. Optionally run test suite (Boost Unit Test Framework required):
 
       $ make test
 

@@ -65,6 +65,8 @@ unittest_SOURCES = \
   DPORDriver_test.cpp DPORDriver_test.h \
   DryRun_test.cpp \
   FBVClock_test.cpp \
+  GenMap_test.cpp \
+  GenVector_test.cpp \
   nregex_test.cpp \
   Observers_test.cpp \
   POWER_test.cpp \

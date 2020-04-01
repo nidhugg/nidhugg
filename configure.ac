@@ -45,25 +45,6 @@ ifdef([PKG_CHECK_MODULES],[
 ])
   AC_CHECK_LIB([ffi], [ffi_call],[],[AC_MSG_FAILURE([Could not find library libffi.])])
 ])
-AC_CHECK_HEADER([immer/vector.hpp],[],[
-    AC_MSG_NOTICE([Using immer library from submodule.])
-    old_CPPFLAGS="$CPPFLAGS"
-    CPPFLAGS="$CPPFLAGS -I$srcdir/deps/immer"
-    # Hack: Undo caching of test
-    unset ac_cv_header_immer_vector_hpp
-    AC_CHECK_HEADER([immer/vector.hpp],[
-        case "$srcdir" in
-            (/*) immer_dir=$srcdir/deps/immer;;
-            (*)  immer_dir=../$srcdir/deps/immer;;
-        esac
-        CPPFLAGS="$old_CPPFLAGS -I$immer_dir"
-    ],[
-        AC_MSG_WARN([Nidhugg requires the "immer" library.])
-        AC_MSG_WARN([It is included as a submodule, but it seems like it has not been updated.])
-        AC_MSG_WARN([Run "git submodule update --init" and then try configuring again.])
-        AC_MSG_FAILURE([Could not find immer headers.])
-    ])
-])
 
 BUILDNIDHUGGC='yes'
 AC_ARG_ENABLE([nidhuggc],[AS_HELP_STRING([--disable-nidhuggc],[Don't build the script nidhuggc.])],
@@ -116,6 +97,46 @@ AC_ARG_ENABLE([build-documentation],
   [AC_MSG_NOTICE([Disabling building pdf documentation (default).])
    BUILDPDFDOCUMENTATION='no']
   )
+
+# Check if we can enable the x86 popcnt instruction
+AC_CANONICAL_HOST
+case "$host_cpu" in
+  (i?86|x86_64) popcnt_flag="-mpopcnt";;
+  (*)           popcnt_flag="no";;
+esac
+AC_ARG_ENABLE([popcnt], [AS_HELP_STRING([--disable-popcnt],[Do not try to use the popcnt instruction])] ,
+  [if test "x$enableval" != "xno"; then
+      if test "x$enableval" != "xyes"; then
+         popcnt_flag="$enableval"
+      fi
+      AC_MSG_NOTICE([Forcing popcnt usage on with flag $enableval.])
+      old_CXXFLAGS="$CXXFLAGS"
+      old_CFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS $popcnt_flag"
+      CXXFLAGS="$CXXFLAGS $popcnt_flag"
+   else
+      AC_MSG_NOTICE([Forcing popcnt usage unchanged.])
+   fi
+  ],[
+   if test "$popcnt_flag" != "no"; then
+     AC_MSG_CHECKING([If cpu supports $popcnt_flag])
+     CFLAGS="$CFLAGS $popcnt_flag"
+     CXXFLAGS="$CXXFLAGS $popcnt_flag"
+     AC_RUN_IFELSE([AC_LANG_SOURCE([[int main(int argc, char *argv[]) {
+                      return __builtin_popcount(argc-1);
+                    }]])],[AC_MSG_RESULT([yes])],[
+         AC_MSG_RESULT([no])
+         CXXFLAGS="$old_CXXFLAGS"
+         CFLAGS="$old_CFLAGS"
+       ],[
+         AC_MSG_RESULT([cross-compiling, assuming no])
+         CXXFLAGS="$old_CXXFLAGS"
+         CFLAGS="$old_CFLAGS"
+       ])
+   else
+      AC_MSG_WARN([Don't know how to enable popcount instruction for $host_cpu.])
+   fi
+  ])
 
 # Checks for header files
 AC_DEFUN([AC_CHECK_HEADERS_ALT],
