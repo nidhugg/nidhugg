@@ -38,6 +38,8 @@ namespace Timing {
     Guard(Guard &) = delete;
     Guard & operator =(Guard &other) = delete;
   };
+
+  constexpr bool timing_enabled() { return false; }
 }
 
 #else /* defined(NO_TIMING) */
@@ -60,6 +62,8 @@ namespace Timing {
       T* get() const { return (T*)pthread_getspecific(key); }
       void set(T* val) { if (pthread_setspecific(key, val)) abort(); }
     };
+
+    extern bool is_enabled;
   }
 
   class Context {
@@ -83,11 +87,17 @@ namespace Timing {
 
   class Guard {
   public:
-    Guard(Context &);
+    Guard(Context &context) : subcontext_time(0) {
+      if (impl::is_enabled) begin(&context);
+    }
     Guard(Guard &) = delete;
     Guard & operator =(Guard &other) = delete;
-    ~Guard();
+    ~Guard() {
+      if (impl::is_enabled) end();
+    }
   private:
+    void begin(Context *c);
+    void end();
     friend class Context;
     Context *context;
     Guard *outer_scope;
@@ -96,6 +106,7 @@ namespace Timing {
   };
 
   void print_report();
+  inline bool timing_enabled() { return impl::is_enabled; }
 }
 
 #endif /* !defined(NO_TIMING) */

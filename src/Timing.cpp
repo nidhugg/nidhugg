@@ -25,11 +25,20 @@
 #include <iomanip>
 #include <algorithm>
 
+#include <llvm/Support/CommandLine.h>
+
 namespace Timing {
+  namespace impl {
+    bool is_enabled;
+  }
   namespace {
     Context *all_contexts = nullptr;
     clock global_clock;
     thread_local Guard *current_guard = nullptr;
+
+    llvm::cl::opt<bool, true>
+    cl_time("time", llvm::cl::desc("Print timing information."),
+            llvm::cl::NotHidden, llvm::cl::location(impl::is_enabled));
   }
 
   Context::Context(std::string name)
@@ -57,13 +66,14 @@ namespace Timing {
 
   Context::Thread::Thread() : inclusive(0), exclusive(0), count(0) {}
 
-  Guard::Guard(Context &context)
-    : context(&context), outer_scope(current_guard), subcontext_time(0),
-      start(global_clock.now()) {
+  void Guard::begin(Context *c) {
+    context = c;
+    start = global_clock.now();
+    outer_scope = current_guard;
     current_guard = this;
   }
 
-  Guard::~Guard() {
+  void Guard::end() {
     clock::time_point end = global_clock.now();
     clock::duration inclusive = end - start;
     clock::duration exclusive = inclusive - subcontext_time;
@@ -78,6 +88,7 @@ namespace Timing {
   }
 
   void print_report() {
+    assert(impl::is_enabled);
     struct result {
       result(Context *ctxt) : c(ctxt), inclusive(0), exclusive(0) {}
       Context *c;
@@ -113,6 +124,7 @@ namespace Timing {
     }
 #undef OUT
   }
+
 }
 
 #endif /* !defined(NO_TIMING) */
