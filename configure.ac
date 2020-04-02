@@ -162,8 +162,6 @@ AC_CHECK_HEADERS([ \
   cassert \
   cctype \
   cmath \
-  csetjmp \
-  csignal \
   cstdio \
   cstring \
   fstream \
@@ -234,10 +232,8 @@ AC_CHECK_HEADERS([ffi.h],[],[
 ],[AC_INCLUDES_DEFAULT])
 
 AC_CHECK_HEADERS([ \
-  valgrind/valgrind.h \
-  malloc.h
+  valgrind/valgrind.h
 ])
-AC_CHECK_FUNCS([mallopt])
 
 # Check various functions in LLVM
 

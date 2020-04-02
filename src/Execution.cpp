@@ -34,7 +34,6 @@
 
 #include "Interpreter.h"
 #include "Debug.h"
-#include "SigSegvHandler.h"
 
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/SmallString.h>
@@ -1164,238 +1163,13 @@ void Interpreter::DryRunLoadValueFromMemory(GenericValue &Val,
   delete[] buf;
 }
 
-bool Interpreter::CheckedMemCpy(uint8_t *dst, const uint8_t *src, unsigned n){
-  if(SigSegvHandler::setenv()){
-    TB.segmentation_fault_error();
-    abort();
-    return false;
-  }else{
-    while(n){
-      --n;
-      dst[n] = src[n];
-    }
-  }
-  SigSegvHandler::unsetenv();
-  return true;
-}
-
-bool Interpreter::CheckedMemSet(uint8_t *s, int c, size_t n){
-  if(SigSegvHandler::setenv()){
-    TB.segmentation_fault_error();
-    abort();
-    return false;
-  }else{
-    while(n){
-      --n;
-      s[n] = (uint8_t)c;
-    }
-  }
-  SigSegvHandler::unsetenv();
-  return true;
-}
-
-template<typename T> bool Interpreter::CheckedAssign(T &tgt, const T *src){
-  if(SigSegvHandler::setenv()){
-    TB.segmentation_fault_error();
-    abort();
-    return false;
-  }else{
-    tgt = *src;
-  }
-  SigSegvHandler::unsetenv();
-  return true;
-}
-
-template<typename T> bool Interpreter::CheckedStore(T *tgt, const T &src){
-  if(SigSegvHandler::setenv()){
-    TB.segmentation_fault_error();
-    abort();
-    return false;
-  }else{
-    *tgt = src;
-  }
-  SigSegvHandler::unsetenv();
-  return true;
-}
-
-bool Interpreter::CheckedStoreIntToMemory(const APInt &IntVal, uint8_t *Dst,
-                                          unsigned StoreBytes) {
-  assert((IntVal.getBitWidth()+7)/8 >= StoreBytes && "Integer too small!");
-  const uint8_t *Src = (const uint8_t *)IntVal.getRawData();
-
-  if (sys::IsLittleEndianHost) {
-    // Little-endian host - the source is ordered from LSB to MSB.  Order the
-    // destination from LSB to MSB: Do a straight copy.
-    return CheckedMemCpy(Dst, Src, StoreBytes);
-  }else{
-    // Big-endian host - the source is an array of 64 bit words ordered from
-    // LSW to MSW.  Each word is ordered from MSB to LSB.  Order the destination
-    // from MSB to LSB: Reverse the word order, but not the bytes in a word.
-    while (StoreBytes > sizeof(uint64_t)) {
-      StoreBytes -= sizeof(uint64_t);
-      // May not be aligned so use memcpy.
-      if(!CheckedMemCpy(Dst + StoreBytes, Src, sizeof(uint64_t))) return false;
-      Src += sizeof(uint64_t);
-    }
-
-    return CheckedMemCpy(Dst, Src + sizeof(uint64_t) - StoreBytes, StoreBytes);
-  }
-}
-
-bool Interpreter::CheckedLoadIntFromMemory(APInt &IntVal, uint8_t *Src, unsigned LoadBytes) {
-  assert((IntVal.getBitWidth()+7)/8 >= LoadBytes && "Integer too small!");
-  uint8_t *Dst = reinterpret_cast<uint8_t *>(const_cast<uint64_t *>(IntVal.getRawData()));
-
-  if (sys::IsLittleEndianHost){
-    // Little-endian host - the destination must be ordered from LSB to MSB.
-    // The source is ordered from LSB to MSB: Do a straight copy.
-    return CheckedMemCpy(Dst, Src, LoadBytes);
-  }else{
-    // Big-endian - the destination is an array of 64 bit words ordered from
-    // LSW to MSW.  Each word must be ordered from MSB to LSB.  The source is
-    // ordered from MSB to LSB: Reverse the word order, but not the bytes in
-    // a word.
-    while (LoadBytes > sizeof(uint64_t)) {
-      LoadBytes -= sizeof(uint64_t);
-      // May not be aligned so use memcpy.
-      if(!CheckedMemCpy(Dst, Src + LoadBytes, sizeof(uint64_t))) return false;
-      Dst += sizeof(uint64_t);
-    }
-
-    return CheckedMemCpy(Dst + sizeof(uint64_t) - LoadBytes, Src, LoadBytes);
-  }
-}
-
-bool Interpreter::CheckedLoadValueFromMemory(GenericValue &Result,
-                                             GenericValue *Ptr, Type *Ty){
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-  const unsigned LoadBytes = getDataLayout()->getTypeStoreSize(Ty);
-#else
-  const unsigned LoadBytes = getDataLayout().getTypeStoreSize(Ty);
-#endif
-
-  switch (Ty->getTypeID()) {
-  case Type::IntegerTyID:
-    // An APInt with all words initially zero.
-    Result.IntVal = APInt(cast<IntegerType>(Ty)->getBitWidth(), 0);
-    return CheckedLoadIntFromMemory(Result.IntVal, (uint8_t*)Ptr, LoadBytes);
-  case Type::FloatTyID:
-    return CheckedAssign(Result.FloatVal,(float*)Ptr);
-  case Type::DoubleTyID:
-    return CheckedAssign(Result.DoubleVal,(double*)Ptr);
-  case Type::PointerTyID:
-    return CheckedAssign(Result.PointerVal,(PointerTy*)Ptr);
-  case Type::X86_FP80TyID: {
-    // This is endian dependent, but it will only work on x86 anyway.
-    // FIXME: Will not trap if loading a signaling NaN.
-    uint64_t y[2];
-    if(!CheckedMemCpy((uint8_t*)y, (uint8_t*)Ptr, 10)) return false;
-    Result.IntVal = APInt(80, y);
-    break;
-  }
-  case Type::VectorTyID: {
-    const VectorType *VT = cast<VectorType>(Ty);
-    const Type *ElemT = VT->getElementType();
-    const unsigned numElems = VT->getNumElements();
-    bool b = true;
-    if (ElemT->isFloatTy()) {
-      Result.AggregateVal.resize(numElems);
-      for (unsigned i = 0; b && i < numElems; ++i)
-        b = CheckedAssign(Result.AggregateVal[i].FloatVal,(float*)Ptr+i);
-    }
-    if (ElemT->isDoubleTy()) {
-      Result.AggregateVal.resize(numElems);
-      for (unsigned i = 0; b && i < numElems; ++i)
-        b = CheckedAssign(Result.AggregateVal[i].DoubleVal,(double*)Ptr+i);
-    }
-    if (ElemT->isIntegerTy()) {
-      GenericValue intZero;
-      const unsigned elemBitWidth = cast<IntegerType>(ElemT)->getBitWidth();
-      intZero.IntVal = APInt(elemBitWidth, 0);
-      Result.AggregateVal.resize(numElems, intZero);
-      for (unsigned i = 0; b && i < numElems; ++i)
-        b = CheckedLoadIntFromMemory(Result.AggregateVal[i].IntVal,
-                                     (uint8_t*)Ptr+((elemBitWidth+7)/8)*i, (elemBitWidth+7)/8);
-    }
-    return b;
-  }
-  default:
-    SmallString<256> Msg;
-    raw_svector_ostream OS(Msg);
-    OS << "Cannot load value of type " << *Ty << "!";
-    report_fatal_error(OS.str());
-  }
-  return true;
-}
-
-bool Interpreter::CheckedStoreValueToMemory(const GenericValue &Val,
-                                            GenericValue *Ptr, Type *Ty){
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-  const unsigned StoreBytes = getDataLayout()->getTypeStoreSize(Ty);
-#else
-  const unsigned StoreBytes = getDataLayout().getTypeStoreSize(Ty);
-#endif
-
-  switch (Ty->getTypeID()) {
-  default:
-    dbgs() << "Cannot store value of type " << *Ty << "!\n";
-    break;
-  case Type::IntegerTyID:
-    if(!CheckedStoreIntToMemory(Val.IntVal, (uint8_t*)Ptr, StoreBytes)) return false;
-    break;
-  case Type::FloatTyID:
-    if(!CheckedStore((float*)Ptr,Val.FloatVal)) return false;
-    break;
-  case Type::DoubleTyID:
-    if(!CheckedStore((double*)Ptr,Val.DoubleVal)) return false;
-    break;
-  case Type::X86_FP80TyID:
-    if(!CheckedMemCpy((uint8_t*)Ptr, (uint8_t const *)Val.IntVal.getRawData(), 10)) return false;
-    break;
-  case Type::PointerTyID:
-    // Ensure 64 bit target pointers are fully initialized on 32 bit hosts.
-    if (StoreBytes != sizeof(PointerTy)){
-      if(!CheckedMemSet((uint8_t*)&(Ptr->PointerVal), 0, StoreBytes)) return false;
-    }
-
-    if(!CheckedStore((PointerTy*)Ptr,Val.PointerVal)) return false;
-    break;
-  case Type::VectorTyID:
-    for (unsigned i = 0; i < Val.AggregateVal.size(); ++i) {
-      if (cast<VectorType>(Ty)->getElementType()->isDoubleTy()){
-        if(!CheckedStore(((double*)Ptr)+i,Val.AggregateVal[i].DoubleVal)) return false;
-      }
-      if (cast<VectorType>(Ty)->getElementType()->isFloatTy()){
-        if(!CheckedStore(((float*)Ptr)+i,Val.AggregateVal[i].FloatVal)) return false;
-      }
-      if (cast<VectorType>(Ty)->getElementType()->isIntegerTy()) {
-        unsigned numOfBytes =(Val.AggregateVal[i].IntVal.getBitWidth()+7)/8;
-        if(!CheckedStoreIntToMemory(Val.AggregateVal[i].IntVal,
-                                    (uint8_t*)Ptr + numOfBytes*i, numOfBytes)) return false;
-      }
-    }
-    break;
-  }
-
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-  bool dl_little_endian = getDataLayout()->isLittleEndian();
-#else
-  bool dl_little_endian = getDataLayout().isLittleEndian();
-#endif
-  if (sys::IsLittleEndianHost != dl_little_endian){
-    // Host and target are different endian - reverse the stored bytes.
-    std::reverse((uint8_t*)Ptr, StoreBytes + (uint8_t*)Ptr);
-  }
-
-  return true;
-}
-
 void Interpreter::visitLoadInst(LoadInst &I) {
   ExecutionContext &SF = ECStack()->back();
   GenericValue SRC = getOperandValue(I.getPointerOperand(), SF);
   GenericValue *Ptr = (GenericValue*)GVTOP(SRC);
   GenericValue Result;
 
+  /* XXX: Can't this one fail? */
   SymAddrSize Ptr_sas = GetSymAddrSize(Ptr,I.getType());
   if (!conf.c11 || I.isVolatile() || I.getOrdering() != llvm::AtomicOrdering::NotAtomic)
     TB.load(Ptr_sas);
@@ -1406,7 +1180,7 @@ void Interpreter::visitLoadInst(LoadInst &I) {
     return;
   }
 
-  if(!CheckedLoadValueFromMemory(Result, Ptr, I.getType())) return;
+  LoadValueFromMemory(Result, Ptr, I.getType());
   SetValue(&I, Result, SF);
 }
 
@@ -1414,13 +1188,9 @@ void Interpreter::visitStoreInst(StoreInst &I) {
   ExecutionContext &SF = ECStack()->back();
   GenericValue Val = getOperandValue(I.getOperand(0), SF);
   GenericValue *Ptr = (GenericValue *)GVTOP(getOperandValue(I.getPointerOperand(), SF));
-  Option<SymAddrSize> Ptr_sas = TryGetSymAddrSize(Ptr,I.getOperand(0)->getType());
+  Option<SymAddrSize> Ptr_sas = TryGetSymAddrSizeOrSegv(Ptr,I.getOperand(0)->getType());
+  if (!Ptr_sas) return;
 
-  if (!Ptr_sas) {
-    TB.segmentation_fault_error();
-    abort();
-    return;
-  }
   SymData sd = GetSymData(*Ptr_sas, I.getOperand(0)->getType(), Val);
   if (!conf.c11 || I.isVolatile() || I.getOrdering() != llvm::AtomicOrdering::NotAtomic)
     TB.atomic_store(sd);
@@ -1430,8 +1200,7 @@ void Interpreter::visitStoreInst(StoreInst &I) {
     return;
   }
 
-  // FIXME: Cannot fail anymore
-  CheckedStoreValueToMemory(Val, Ptr, I.getOperand(0)->getType());
+  StoreValueToMemory(Val, Ptr, I.getOperand(0)->getType());
 }
 
 void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
@@ -1443,6 +1212,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
   Type *Ty = I.getCompareOperand()->getType();
   GenericValue Result;
 
+  /* XXX: Can't this one fail? */
   SymAddrSize Ptr_sas = GetSymAddrSize(Ptr,Ty);
   SymData::block_type expected = SymData::alloc_block(Ptr_sas.size);
   StoreValueToMemory(CmpVal,static_cast<GenericValue*>((void*)expected.get()),Ty);
@@ -1453,7 +1223,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
   if(DryRun && DryRunMem.size()){
     DryRunLoadValueFromMemory(Result.AggregateVal[0], Ptr, Ptr_sas, Ty);
   }else{
-    if(!CheckedLoadValueFromMemory(Result.AggregateVal[0], Ptr, Ty)) return;
+    LoadValueFromMemory(Result.AggregateVal[0], Ptr, Ty);
   }
   GenericValue CmpRes = executeICMP_EQ(Result.AggregateVal[0],CmpVal,Ty);
 #else
@@ -1461,7 +1231,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
   if(DryRun && DryRunMem.size()){
     DryRunLoadValueFromMemory(Result, Ptr, Ptr_sas, Ty);
   }else{
-    if(!CheckedLoadValueFromMemory(Result, Ptr, Ty)) return;
+    LoadValueFromMemory(Result, Ptr, Ty);
   }
   GenericValue CmpRes = executeICMP_EQ(Result,CmpVal,Ty);
 #endif
@@ -1476,7 +1246,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
       DryRunMem.emplace_back(std::move(sd));
       return;
     }
-    CheckedStoreValueToMemory(NewVal,Ptr,Ty);
+    StoreValueToMemory(NewVal,Ptr,Ty);
   }else{
 #if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
     Result.AggregateVal[1].IntVal = 0;
@@ -1494,13 +1264,14 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
   assert(I.getType()->isIntegerTy());
   assert(I.getOrdering() != llvm::AtomicOrdering::NotAtomic);
 
+  /* Can't this one fail? */
   SymAddrSize Ptr_sas = GetSymAddrSize(Ptr,I.getType());
 
   /* Load old value at *Ptr */
   if(DryRun && DryRunMem.size()){
     DryRunLoadValueFromMemory(OldVal, Ptr, Ptr_sas, I.getType());
   }else{
-    if(!CheckedLoadValueFromMemory(OldVal, Ptr, I.getType())) return;
+    LoadValueFromMemory(OldVal, Ptr, I.getType());
   }
 
   SetValue(&I, OldVal, SF);
@@ -1541,7 +1312,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
     DryRunMem.emplace_back(std::move(sd));
     return;
   }
-  CheckedStoreValueToMemory(NewVal,Ptr,I.getType());
+  StoreValueToMemory(NewVal,Ptr,I.getType());
 }
 
 void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmstr){
@@ -2660,8 +2431,10 @@ void Interpreter::callPthreadCreate(Function *F,
     GenericValue *Ptr = (GenericValue*)GVTOP(ArgVals[0]);
     if(Ptr){
       Type *ity = static_cast<PointerType*>(F->arg_begin()->getType())->getElementType();
+      if (!TryGetSymAddrSizeOrSegv(Ptr,ity)) return;
       GenericValue TIDVal = tid_to_pthread_t(ity, new_tid);
-      CheckedStoreValueToMemory(TIDVal,Ptr,ity);
+      /* XXX: No race detection on this access! */
+      StoreValueToMemory(TIDVal,Ptr,ity);
     }else{
       /* Allow null pointers in first argument. For convenience. */
     }
@@ -2712,7 +2485,9 @@ void Interpreter::callPthreadJoin(Function *F,
   GenericValue *rvPtr = (GenericValue*)GVTOP(ArgVals[1]);
   if(rvPtr){
     Type *ty = Type::getInt8PtrTy(F->getContext())->getPointerTo();
-    if(!CheckedStoreValueToMemory(Threads[tid].RetVal,rvPtr,ty)) return;
+    if (!TryGetSymAddrSizeOrSegv(rvPtr,ty)) return;
+    /* XXX: No race detection on this access*/
+    StoreValueToMemory(Threads[tid].RetVal,rvPtr,ty);
   }
 
   // Return 0 (success)

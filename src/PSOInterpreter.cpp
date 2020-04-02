@@ -117,9 +117,7 @@ void PSOInterpreter::runAux(int proc, int aux){
   TB.atomic_store(sd);
   if (DryRun) return;
 
-  if(!CheckedMemCpy(pso_threads[proc].aux_to_addr[aux],blk,ml.size)){
-    return;
-  }
+  std::memcpy(pso_threads[proc].aux_to_addr[aux],blk,ml.size);
 
   /* Should we reenable the thread after awaiting buffer flush? */
   switch(pso_threads[proc].awaiting_buffer_flush){
@@ -260,6 +258,7 @@ void PSOInterpreter::visitLoadInst(llvm::LoadInst &I){
   llvm::GenericValue *Ptr = (llvm::GenericValue*)GVTOP(SRC);
   llvm::GenericValue Result;
 
+  /* XXX: Check for segfault */
   SymAddrSize ml = GetSymAddrSize(Ptr,I.getType());
   TB.load(ml);
 
@@ -277,14 +276,14 @@ void PSOInterpreter::visitLoadInst(llvm::LoadInst &I){
       assert(pso_threads[CurrentThread].store_buffers[b].back().ml == ml);
       blk[b - ml.addr] = pso_threads[CurrentThread].store_buffers[b].back().val;
     }
-    CheckedLoadValueFromMemory(Result,(llvm::GenericValue*)blk,I.getType());
+    LoadValueFromMemory(Result,(llvm::GenericValue*)blk,I.getType());
     SetValue(&I, Result, SF);
     delete[] blk;
     return;
   }
 
   /* Load from memory */
-  if(!CheckedLoadValueFromMemory(Result, Ptr, I.getType())) return;
+  LoadValueFromMemory(Result, Ptr, I.getType());
   SetValue(&I, Result, SF);
 }
 
@@ -294,6 +293,7 @@ void PSOInterpreter::visitStoreInst(llvm::StoreInst &I){
   llvm::GenericValue *Ptr = (llvm::GenericValue *)GVTOP
     (getOperandValue(I.getPointerOperand(), SF));
 
+  /* XXX: Check for segfault */
   SymData mb = GetSymData(Ptr, I.getOperand(0)->getType(), Val);
 
   PSOThread &thr = pso_threads[CurrentThread];
@@ -307,7 +307,7 @@ void PSOInterpreter::visitStoreInst(llvm::StoreInst &I){
       DryRunMem.push_back(mb);
       return;
     }
-    CheckedStoreValueToMemory(Val, Ptr, I.getOperand(0)->getType());
+    StoreValueToMemory(Val, Ptr, I.getOperand(0)->getType());
   }else{
     /* Store to buffer */
     const SymAddrSize &ml = mb.get_ref();

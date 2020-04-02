@@ -28,7 +28,6 @@ libnidhugg_a_SOURCES = \
   PSOInterpreter.cpp PSOInterpreter.h \
   PSOTraceBuilder.cpp PSOTraceBuilder.h \
   SaturatedGraph.h SaturatedGraph.cpp \
-  SigSegvHandler.cpp SigSegvHandler.h \
   SatSolver.h \
   SExpr.h SExpr.cpp \
   SmtlibSatSolver.h SmtlibSatSolver.cpp \

@@ -88,9 +88,7 @@ void TSOInterpreter::runAux(int proc, int aux){
 
   if(DryRun) return;
 
-  if(!CheckedMemCpy((uint8_t*)ref,(uint8_t*)blk.get_block(),blk.get_ref().size)){
-    return;
-  };
+  std::memcpy((uint8_t*)ref,(uint8_t*)blk.get_block(),blk.get_ref().size);
 
   for(unsigned i = 0; i < tso_threads[proc].store_buffer.size()-1; ++i){
     tso_threads[proc].store_buffer[i] = tso_threads[proc].store_buffer[i+1];
@@ -245,14 +243,14 @@ void TSOInterpreter::visitLoadInst(llvm::LoadInst &I){
     if(Ptr_sas.addr == tso_threads[CurrentThread].store_buffer[i].second.get_ref().addr){
       /* Read-Own-Write-Early */
       assert(GetSymAddrSize(Ptr,I.getType()).size == tso_threads[CurrentThread].store_buffer[i].second.get_ref().size);
-      CheckedLoadValueFromMemory(Result,(llvm::GenericValue*)tso_threads[CurrentThread].store_buffer[i].second.get_block(),I.getType());
+      LoadValueFromMemory(Result,(llvm::GenericValue*)tso_threads[CurrentThread].store_buffer[i].second.get_block(),I.getType());
       SetValue(&I, Result, SF);
       return;
     }
   }
 
   /* Load from memory */
-  if(!CheckedLoadValueFromMemory(Result, Ptr, I.getType())) return;
+  LoadValueFromMemory(Result, Ptr, I.getType());
   SetValue(&I, Result, SF);
 }
 
@@ -271,7 +269,7 @@ void TSOInterpreter::visitStoreInst(llvm::StoreInst &I){
       DryRunMem.push_back(std::move(sd));
       return;
     }
-    CheckedStoreValueToMemory(Val, Ptr, I.getOperand(0)->getType());
+    StoreValueToMemory(Val, Ptr, I.getOperand(0)->getType());
   }else{
     /* Store to buffer */
     TB.store(sd);

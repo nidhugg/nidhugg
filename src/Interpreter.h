@@ -488,7 +488,15 @@ protected:  // Helper functions
     } else {
       return nullptr;
     }
-  };
+  }
+  Option<SymAddrSize> TryGetSymAddrSizeOrSegv(void *Ptr, Type *Ty) {
+    Option<SymAddrSize> sas = TryGetSymAddrSize(Ptr, Ty);
+    if (!sas) {
+      TB.segmentation_fault_error();
+      abort();
+    }
+    return sas;
+  }
   /* Get a SymData associated with the location Ptr, and holding the
    * value Val of type Ty. The size of the memory location will be
    * that of Ty.
@@ -520,26 +528,6 @@ protected:  // Helper functions
                                          GenericValue *Src,
                                          SymAddrSize Src_sas, Type *Ty);
 
-  /* Same as ExecutionEngine::StoreValueToMemory, but check for
-   * segmentation faults, and generate errors as appropriate.
-   *
-   * Returns true on success, false on failure (segmentation fault).
-   */
-  virtual bool CheckedStoreValueToMemory(const GenericValue &Val,
-                                         GenericValue *Ptr, Type *Ty);
-  /* Same as ExecutionEngine::LoadValueFromMemory, but check for
-   * segmentation faults, and generate errors as appropriate.
-   *
-   * Returns true on success, false on failure (segmentation fault).
-   */
-  virtual bool CheckedLoadValueFromMemory(GenericValue &Val,
-                                          GenericValue *Src, Type *Ty);
-  virtual bool CheckedLoadIntFromMemory(APInt &IntVal, uint8_t *Src, unsigned LoadBytes);
-  virtual bool CheckedStoreIntToMemory(const APInt &IntVal, uint8_t *Dst, unsigned StoreBytes);
-  template<typename T> bool CheckedAssign(T &tgt, const T *src);
-  template<typename T> bool CheckedStore(T *tgt, const T &src);
-  virtual bool CheckedMemCpy(uint8_t *dst, const uint8_t *src, unsigned n);
-  virtual bool CheckedMemSet(uint8_t *s, int c, size_t n);
   /* Returns true if I is a call to an unknown intrinsic function, as
    * defined by Interpreter::visitCallSite. Such function calls are
    * replaced by some other sequence of instructions upon execution.
