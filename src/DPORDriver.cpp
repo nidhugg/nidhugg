@@ -276,7 +276,14 @@ bool DPORDriver::handle_trace(TraceBuilder *TB, Trace *t, uint64_t *computation_
 
 namespace{
   std::unique_ptr<RFSCScheduler> make_scheduler(const Configuration &conf) {
-    return std::unique_ptr<RFSCScheduler>(new PriorityQueueScheduler());
+    switch (conf.exploration_scheduler) {
+    case Configuration::PRIOQUEUE:
+      return std::unique_ptr<RFSCScheduler>(new PriorityQueueScheduler());
+    case Configuration::WORKSTEALING:
+      return std::unique_ptr<RFSCScheduler>(new WorkstealingPQScheduler(conf.n_threads));
+    default:
+      abort();
+    }
   }
 }
 
@@ -337,6 +344,7 @@ DPORDriver::Result DPORDriver::run_rfsc_parallel() {
 
   auto thread = [this, &res, &state] (unsigned id) {
     RFSCScheduler &sched = state.decision_tree.get_scheduler();
+    sched.register_thread(id);
     RFSCTraceBuilder TB(state.decision_tree, state.unfolding_tree, conf);
     while (TB.reset()) {
       bool assume_blocked = false;

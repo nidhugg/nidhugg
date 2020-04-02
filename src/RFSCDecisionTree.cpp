@@ -19,6 +19,7 @@
 
 #include "Debug.h"
 #include "RFSCDecisionTree.h"
+#include <numeric>
 
 std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node
 (const std::shared_ptr<DecisionNode> &parent,
@@ -74,6 +75,91 @@ void PriorityQueueScheduler::halt() {
   std::lock_guard<std::mutex> lock(mutex);
   halting = true;
   cv.notify_all();
+}
+
+thread_local int WorkstealingPQScheduler::thread_id = 0;
+WorkstealingPQScheduler::WorkstealingPQScheduler(unsigned num_threads)
+  : work_queue(num_threads), halting(false) {}
+
+void WorkstealingPQScheduler::enqueue(std::shared_ptr<DecisionNode> node) {
+  outstanding_jobs.fetch_add(1, std::memory_order_relaxed);
+  std::lock_guard<std::mutex> lock(work_queue[thread_id].mutex);
+  work_queue[thread_id].push(std::move(node));
+  /* Ouch, after going through the effort of fine-grained locking? */
+  cv.notify_one();
+}
+
+std::shared_ptr<DecisionNode> WorkstealingPQScheduler::dequeue() {
+  assert(thread_id >= 0 && std::size_t(thread_id) < work_queue.size());
+  {
+    std::lock_guard<std::mutex> lock(work_queue[thread_id].mutex);
+    if (halting.load(std::memory_order_relaxed)) return nullptr;
+    if (!work_queue[thread_id].empty())
+      return work_queue[thread_id].pop();
+  }
+
+  /* We don't need to hold our own lock, because as long as we hold the
+   * big lock, nobody else will access our queue. */
+  std::unique_lock<std::mutex> lock(mutex);
+  while (1) {
+    if (halting.load(std::memory_order_relaxed)) return nullptr;
+    if (!work_queue[thread_id].empty()) {
+      return work_queue[thread_id].pop();
+    }
+
+    /* Simulate work-stealing algorithm */
+    /* Generate array of other threads in random order */
+    std::vector<int> others(work_queue.size()-1);
+    std::iota(others.begin(), others.end(), 0);
+    if (thread_id != others.size()) others[thread_id] = others.size();
+    std::random_shuffle(others.begin(), others.end());
+    for(int other : others) {
+      std::lock_guard<std::mutex> other_lock(work_queue[other].mutex);
+      assert(other != thread_id);
+      if (work_queue[thread_id].steal(work_queue[other])) {
+        assert(!work_queue[thread_id].empty());
+        return work_queue[thread_id].pop();
+      }
+    }
+    cv.wait(lock);
+  }
+}
+
+void WorkstealingPQScheduler::halt() {
+  std::lock_guard<std::mutex> lock(mutex);
+  halting.store(true, std::memory_order_relaxed);
+  cv.notify_all();
+}
+
+std::shared_ptr<DecisionNode> WorkstealingPQScheduler::ThreadWorkQueue::pop() {
+  assert(!empty());
+  auto it = queue.end();
+  --it;
+  auto &depth_queue = it->second;
+  assert(!depth_queue.empty());
+  std::shared_ptr<DecisionNode> res = std::move(depth_queue.front());
+  depth_queue.pop_front();
+  if (depth_queue.empty()) queue.erase(it);
+  return res;
+}
+
+bool WorkstealingPQScheduler::ThreadWorkQueue::steal(ThreadWorkQueue &other) {
+  assert(empty());
+  if (other.empty()) return false;
+  auto oqit = other.queue.begin();
+  /* Take half of the elements */
+  auto &other_depth_queue = oqit->second;
+  std::size_t count = (other_depth_queue.size()+1)/2;
+  assert(count > 0);
+  assert(count <= other_depth_queue.size());
+  auto &my_depth_queue = queue[oqit->first];
+  while (count--) {
+    my_depth_queue.emplace_front(std::move(other_depth_queue.back()));
+    other_depth_queue.pop_back();
+  }
+  if (other_depth_queue.empty())
+    other.queue.erase(oqit);
+  return true;
 }
 
 /******************************************************************************

@@ -150,6 +150,7 @@ struct RFSCScheduler {
   virtual void enqueue(std::shared_ptr<DecisionNode> node) = 0;
   virtual std::shared_ptr<DecisionNode> dequeue() = 0;
   virtual void halt() = 0;
+  virtual void register_thread(unsigned tid){}
   std::atomic<uint64_t> outstanding_jobs;
 };
 
@@ -171,6 +172,39 @@ private:
   /* Work queue of leaf nodes to explore.
    * The ordering is determined by DecisionCompare. */
   std::priority_queue<std::shared_ptr<DecisionNode>, std::vector<std::shared_ptr<DecisionNode>>, DecisionCompare> work_queue;
+};
+
+class WorkstealingPQScheduler final : public RFSCScheduler {
+public:
+  WorkstealingPQScheduler(unsigned num_threads);
+  ~WorkstealingPQScheduler() override = default;
+  void enqueue(std::shared_ptr<DecisionNode> node) override;
+  std::shared_ptr<DecisionNode> dequeue() override;
+  void halt() override;
+  void register_thread(unsigned id) override {
+    assert(id >= 0 && id < work_queue.size());
+    thread_id = id;
+  }
+
+private:
+  class alignas(64) ThreadWorkQueue {
+    std::map<int,std::deque<std::shared_ptr<DecisionNode>>> queue;
+  public:
+    void push(std::shared_ptr<DecisionNode> ptr) {
+      assert(ptr);
+      queue[ptr->depth].emplace_back(std::move(ptr));
+    }
+    std::shared_ptr<DecisionNode> pop();
+    bool empty() const { return queue.empty(); }
+    bool steal(ThreadWorkQueue &other);
+    std::mutex mutex;
+  };
+
+  std::mutex mutex;
+  std::condition_variable cv;
+  std::vector<ThreadWorkQueue> work_queue;
+  static thread_local int thread_id;
+  std::atomic<bool> halting;
 };
 
 class RFSCDecisionTree final {

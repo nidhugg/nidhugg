@@ -150,10 +150,24 @@ static llvm::cl::opt<int> cl_n_threads("n-threads",
                                        llvm::cl::desc("Number of threads to run")
                                       );
 
+static llvm::cl::opt<Configuration::ExplorationScheduler> cl_exploration_scheduler
+("exploration-scheduler",llvm::cl::NotHidden,llvm::cl::init(Configuration::WORKSTEALING),
+ llvm::cl::desc("Scheduler to use when exploring concurrently\n"
+                "(see --n-threads)"),
+ llvm::cl::values(clEnumValN(Configuration::PRIOQUEUE,"prioqueue",
+                             "A single priority queue"),
+                  clEnumValN(Configuration::WORKSTEALING,"workstealing",
+                             "A workstealing scheduler (default)")
+#ifdef LLVM_CL_VALUES_USES_SENTINEL
+                  ,clEnumValEnd
+#endif
+                  ));
+
 const std::set<std::string> &Configuration::commandline_opts(){
   static std::set<std::string> opts = {
     "keep-going",
     "extfun-no-race",
+    "exploration-scheduler",
     "malloc-may-fail",
     "no-check-mutex-init",
     "max-search-depth",
@@ -178,6 +192,7 @@ void Configuration::assign_by_commandline(){
     extfun_no_full_memory_conflict.insert(f);
   }
   n_threads = cl_n_threads;
+  exploration_scheduler = cl_exploration_scheduler;
   malloc_may_fail = cl_malloc_may_fail;
   mutex_require_init = !cl_no_check_mutex_init;
   max_search_depth = cl_max_search_depth;
