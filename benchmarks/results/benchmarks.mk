@@ -48,33 +48,13 @@ cdsc_%.elf: $(SRCDIR)/$(FILE)
 		../../cdsc_lib/mutex.cpp -lstdc++ \
 		-DCDSC=1 -Dmain=user_main -pthread -DN=$* -o $@ $<
 
-source_%.txt: code_%.bc
+define tool_template =
+ $(1)_%.txt: code_%.bc
 	@date
-	$(RUN) $(SOURCE) $< 2>&1 | tee $@
+	$$(RUN) $$($(shell echo $(1) | tr a-z A-Z)) $< 2>&1 | tee $@
+endef
 
-optimal_%.txt: code_%.bc
-	@date
-	$(RUN) $(OPTIMAL) $< 2>&1 | tee $@
-
-observers_%.txt: code_%.bc
-	@date
-	$(RUN) $(OBSERVERS) $< 2>&1 | tee $@
-
-rfsc_%.txt: code_%.bc
-	@date
-	$(RUN) $(RFSC) $< 2>&1 | tee $@
-
-dcdpor_%.txt: code_%.bc
-	@date
-	$(RUN) $(DCDPOR) $< 2>&1 | tee $@
-
-rcmc_%.txt: code_%.bc
-	@date
-	$(RUN) $(RCMC) $< 2>&1 | tee $@
-
-wrcmc_%.txt: code_%.bc
-	@date
-	$(RUN) $(WRCMC) $< 2>&1 | tee $@
+$(foreach tool,$(filter-out cdsc,$(TOOLS)),$(eval $(call tool_template,$(tool))))
 
 cdsc_%.txt: cdsc_%.elf
 	@date
