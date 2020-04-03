@@ -32,23 +32,12 @@ else
 endif
 
 TABLES = $(TOOLS:%=%.txt) wide.txt
-ALL_RESULTS = $(TOOLS:%=%_results)
+ALL_RESULTS = $(foreach tool,$(TOOLS),$(foreach X,$(N),$(tool)_$(X).txt))
 BITCODE_FILES = $(N:%=code_%.bc)
 # Add the bitcode files as explicit targets, otherwise Make deletes them after
 # benchmark, and thus reruns *all* benchmarks of a particular size if any of
 # them need to be remade
 all: $(TABLES) $(BITCODE_FILES)
-
-# Hack to not duplicate tabulation rule; causes the table to be rebuilt on each
-# invocation
-rcmc_results:: $(N:%=rcmc_%.txt)
-wrcmc_results:: $(N:%=wrcmc_%.txt)
-source_results:: $(N:%=source_%.txt)
-optimal_results:: $(N:%=optimal_%.txt)
-observers_results:: $(N:%=observers_%.txt)
-rfsc_results:: $(N:%=rfsc_%.txt)
-dcdpor_results:: $(N:%=dcdpor_%.txt)
-cdsc_results:: $(N:%=cdsc_%.txt)
 
 code_%.bc: $(SRCDIR)/$(FILE)
 	$(CLANG) -DN=$* $(CLANGFLAGS) -o $@ $<
@@ -91,7 +80,7 @@ cdsc_%.txt: cdsc_%.elf
 	@date
 	$(RUN) ./$< 2>&1 | tee $@
 
-%.txt: %_results $(TABULATE)
+%.txt: $(foreach X,$(N),%_$(X).txt) $(TABULATE)
 	$(TABULATE) tool "$(NAME)" $* "$(N)" \
 	  | column -t > $@
 
@@ -104,5 +93,5 @@ clean:
 mrproper: clean
 	rm -f *.txt
 
-.PHONY: clean all benchmark mrproper # $(TOOLS:%=%_results)
+.PHONY: clean all benchmark mrproper
 .DELETE_ON_ERROR:
