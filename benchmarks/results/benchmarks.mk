@@ -13,7 +13,7 @@ NIDHUGG ?= nidhugg
 SOURCE    = $(NIDHUGG) -c11 -sc -source
 OPTIMAL   = $(NIDHUGG) -c11 -sc -optimal
 OBSERVERS = $(NIDHUGG) -c11 -sc -observers
-RFSC      = $(NIDHUGG) -c11 -sc -rf
+RFSC      = $(NIDHUGG) -c11 -sc -rf --n-threads=$(1)
 DCDPOR ?= dcdpor -dc
 RCMC ?= rcmc
 WRCMC ?= $(RCMC) --wrc11
@@ -30,9 +30,13 @@ ifneq ($(wildcard $(CDSC_DIR)/.),)
 else
 	NATOOLS += cdsc
 endif
+THREADS = 1
+rfsc_THREADS = 1 2 4 8 16 24 32 48 64 96
 
 TABLES = $(TOOLS:%=%.txt) wide.txt
-ALL_RESULTS = $(foreach tool,$(TOOLS),$(foreach X,$(N),$(tool)_$(X).txt))
+# Only for wide.txt (not including $(tool)_THREADS
+ALL_RESULTS = $(foreach tool,$(TOOLS),$(foreach n,$(N),\
+	$(foreach t,$(THREADS),$(tool)_$(n)_$(t).txt)))
 BITCODE_FILES = $(N:%=code_%.bc)
 # Add the bitcode files as explicit targets, otherwise Make deletes them after
 # benchmark, and thus reruns *all* benchmarks of a particular size if any of
@@ -49,23 +53,26 @@ cdsc_%.elf: $(SRCDIR)/$(FILE)
 		-DCDSC=1 -Dmain=user_main -pthread -DN=$* -o $@ $<
 
 define tool_template =
- $(1)_%.txt: code_%.bc
+ $(1)_%_$(2).txt: code_%.bc
 	@date
-	$$(RUN) $$($(shell echo $(1) | tr a-z A-Z)) $< 2>&1 | tee $@
+	$$(RUN) $$(call $(shell echo $(1) | tr a-z A-Z),$(2)) $$< 2>&1 | tee $$@
+ $(1).txt: $$(foreach X,$$(N),$(1)_$$(X)_$(2).txt)
 endef
 
-$(foreach tool,$(filter-out cdsc,$(TOOLS)),$(eval $(call tool_template,$(tool))))
+$(foreach tool,$(filter-out cdsc,$(TOOLS)),\
+	$(foreach t,$(or $($(tool)_THREADS), $(THREADS)),\
+		$(eval $(call tool_template,$(tool),$(t)))))
 
-cdsc_%.txt: cdsc_%.elf
+cdsc_%_1.txt: cdsc_%.elf
 	@date
 	$(RUN) ./$< 2>&1 | tee $@
 
-%.txt: $(foreach X,$(N),%_$(X).txt) $(TABULATE)
-	$(TABULATE) tool "$(NAME)" $* "$(N)" \
+%.txt: $(TABULATE)
+	$(TABULATE) tool "$(NAME)" $* "$(N)" "$(or $($*_THREADS), $(THREADS))" \
 	  | column -t > $@
 
 wide.txt: $(ALL_RESULTS) $(TABULATE)
-	$(TABULATE) wide "$(NAME)" "$(TOOLS)" "$(N)" "$(NATOOLS)" \
+	$(TABULATE) wide "$(NAME)" "$(TOOLS)" "$(N)" "$(THREADS)" "$(NATOOLS)" \
 	  | column -t > $@
 
 clean:
