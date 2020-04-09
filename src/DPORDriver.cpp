@@ -227,7 +227,7 @@ Trace *DPORDriver::run_once(TraceBuilder &TB, bool &assume_blocked) const{
   return t;
 }
 
-void DPORDriver::print_progress(uint64_t computation_count, long double estimate, Result &res) {
+void DPORDriver::print_progress(uint64_t computation_count, long double estimate, Result &res, int tasks_left) {
   if(computation_count % 100 == 0){
     llvm::dbgs() << ESC_char << "[K" // Erase the line
                  << "Traces: " << res.trace_count;
@@ -235,6 +235,8 @@ void DPORDriver::print_progress(uint64_t computation_count, long double estimate
       llvm::dbgs() << ", " << res.sleepset_blocked_trace_count << " ssb";
     if(res.assume_blocked_trace_count)
       llvm::dbgs() << ", " << res.assume_blocked_trace_count << " ab";
+    if(tasks_left != -1)
+      llvm::dbgs() << " (" << tasks_left << " jobs)";
     if(conf.print_progress_estimate){
       std::stringstream ss;
       ss << std::setprecision(LDBL_DIG) << estimate;
@@ -361,7 +363,7 @@ DPORDriver::Result DPORDriver::run_rfsc_parallel() {
       }
       if(conf.print_progress){
         const long double estimate = 1;
-        print_progress(state.computation_count, estimate, res);
+        print_progress(state.computation_count, estimate, res, remain);
       }
     }
   };
