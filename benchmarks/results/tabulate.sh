@@ -48,7 +48,15 @@ get_time() {
 get_speedup() {
     t=$(get_time $1)
     t1=$(get_time $2)
-    printf "scale=3;%s/%s\n" "$t1" "$t" | bc
+    if echo "$t" | grep -qe err -e timeout; then
+        echo "$t"
+    elif echo "$t1" | grep -qe err -e timeout; then
+        echo "$t1"
+    elif echo "$t" | grep -Eq '^0*(\.0+)?$'; then
+        echo nan
+    else
+        printf "scale=3;%s/%s\n" "$t1" "$t" | bc
+    fi
 }
 
 get_mem() {
