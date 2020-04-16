@@ -1178,9 +1178,9 @@ void RFSCTraceBuilder::compute_prefixes() {
         int original_read_from = *prefix[i].read_from;
         std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> alt
           = unfold_alternative(j, prefix[i].event->read_from);
-        std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
+        DecisionNode &decision = *prefix[i].decision_ptr;
         // Returns false if unfolding node is already known and therefore does not have to be further evaluated
-        if (!decision->try_alloc_unf(alt)) return;
+        if (!decision.try_alloc_unf(alt)) return;
         if (!can_swap_by_vclocks(i, j)) return;
         if (conf.debug_print_on_reset) {
           llvm::dbgs() << "Trying to swap " << pretty_index(i)
@@ -1192,7 +1192,8 @@ void RFSCTraceBuilder::compute_prefixes() {
 
         Leaf solution = try_sat({unsigned(j)}, writes_by_address);
         if (!solution.is_bottom()) {
-          decision_tree.construct_sibling(decision, alt, std::move(solution));
+          decision_tree.construct_sibling(decision, std::move(alt),
+                                          std::move(solution));
           tasks_created++;
         }
         /* Reset read-from and decision */
@@ -1204,8 +1205,8 @@ void RFSCTraceBuilder::compute_prefixes() {
                && *prefix[j].read_from == int(unlock));
         std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> alt
           = unfold_alternative(j, prefix[i].event->read_from);
-        std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
-        if (!decision->try_alloc_unf(alt)) return;
+        DecisionNode &decision = *prefix[i].decision_ptr;
+        if (!decision.try_alloc_unf(alt)) return;
         if (!can_swap_lock_by_vclocks(i, unlock, j)) return;
         int original_read_from = *prefix[i].read_from;
         if (conf.debug_print_on_reset)
@@ -1217,7 +1218,8 @@ void RFSCTraceBuilder::compute_prefixes() {
 
         Leaf solution = try_sat({unsigned(j)}, writes_by_address);
         if (!solution.is_bottom()) {
-          decision_tree.construct_sibling(decision, alt, std::move(solution));
+          decision_tree.construct_sibling(decision, std::move(alt),
+                                          std::move(solution));
           tasks_created++;
         }
         /* Reset read-from and decision */
@@ -1229,8 +1231,8 @@ void RFSCTraceBuilder::compute_prefixes() {
         auto jidx = threads[jp].last_event_index()+1;
         std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> alt
           = unfold_find_unfolding_node(jp, jidx, original_read_from);
-        std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
-        if (!decision->try_alloc_unf(alt)) return;
+        DecisionNode &decision = *prefix[i].decision_ptr;
+        if (!decision.try_alloc_unf(alt)) return;
         int j = prefix_idx;
         assert(prefix_idx == int(prefix.size()));
         prefix.emplace_back(IID<IPid>(jp, jidx), 0, std::move(sym));
@@ -1251,7 +1253,8 @@ void RFSCTraceBuilder::compute_prefixes() {
 
           Leaf solution = try_sat({unsigned(j)}, writes_by_address);
           if (!solution.is_bottom()) {
-            decision_tree.construct_sibling(decision, alt, std::move(solution));
+            decision_tree.construct_sibling(decision, std::move(alt),
+                                            std::move(solution));
             tasks_created++;
           }
 
@@ -1300,7 +1303,7 @@ void RFSCTraceBuilder::compute_prefixes() {
              [=](int i) { return i == original_read_from; })
            || original_read_from == -1);
 
-      std::shared_ptr<DecisionNode> decision = prefix[i].decision_ptr;
+      DecisionNode &decision = *prefix[i].decision_ptr;
 
       auto try_read_from_rmw = [&](int j) {
         Timing::Guard analysis_timing_guard(try_read_from_context);
@@ -1310,7 +1313,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         if (*prefix[j].read_from != int(i)) return;
         std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> read_from
           = unfold_alternative(j, prefix[i].event->read_from);
-        if (!decision->try_alloc_unf(read_from)) return;
+        if (!decision.try_alloc_unf(read_from)) return;
         if (!can_swap_by_vclocks(i, j)) return;
         if (conf.debug_print_on_reset)
           llvm::dbgs() << "Trying to swap " << pretty_index(i)
@@ -1323,7 +1326,8 @@ void RFSCTraceBuilder::compute_prefixes() {
 
         Leaf solution = try_sat({unsigned(j), i}, writes_by_address);
         if (!solution.is_bottom()) {
-          decision_tree.construct_sibling(decision, read_from, std::move(solution));
+          decision_tree.construct_sibling(decision, std::move(read_from),
+                                          std::move(solution));
           tasks_created++;
         }
 
@@ -1342,7 +1346,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         } else {
           const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from =
             j == -1 ? nullptr : prefix[j].event;
-          if (!decision->try_alloc_unf(read_from)) return;
+          if (!decision.try_alloc_unf(read_from)) return;
           if (!can_rf_by_vclocks(i, original_read_from, j)) return;
           if (conf.debug_print_on_reset)
             llvm::dbgs() << "Trying to make " << pretty_index(i)
@@ -1479,9 +1483,9 @@ void RFSCTraceBuilder::add_event_to_graph(SaturatedGraph &g, unsigned i) const {
 }
 
 const SaturatedGraph &RFSCTraceBuilder::get_cached_graph
-(std::shared_ptr<DecisionNode> &decision) {
-  const int depth = decision->depth;
-  return decision->get_saturated_graph(
+(DecisionNode &decision) {
+  const int depth = decision.depth;
+  return decision.get_saturated_graph(
     [depth, this](SaturatedGraph &g) {
       std::vector<bool> keep = causal_past(depth-1);
       for (unsigned i = 0; i < prefix.size(); ++i) {
@@ -1501,8 +1505,8 @@ RFSCTraceBuilder::try_sat
  std::map<SymAddr,std::vector<int>> &writes_by_address){
   Timing::Guard timing_guard(graph_context);
   unsigned last_change = changed_events.end()[-1];
-  auto decision = prefix[last_change].decision_ptr;
-  int decision_depth = decision->depth;
+  DecisionNode &decision = *prefix[last_change].decision_ptr;
+  int decision_depth = decision.depth;
   std::vector<bool> keep = causal_past(decision_depth);
 
   SaturatedGraph g(get_cached_graph(decision).clone());

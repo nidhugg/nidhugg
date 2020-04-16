@@ -89,10 +89,12 @@ public:
    * Returns false if it previously been allocated by this node or any previous
    * sibling. */
   bool try_alloc_unf(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
+  /* Allocates the given UnfoldingNode, assuming it has not been allocated before */
+  void alloc_unf(std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf);
 
   /* Constructs a sibling and inserts in in the sibling-set. */
   std::shared_ptr<DecisionNode> make_sibling
-  (const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
+  (std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf, Leaf l) const;
 
   /* Returns a given nodes SaturatedGraph, or reuses an ancestors graph if none exist. */
   const SaturatedGraph &get_saturated_graph(std::function<void(SaturatedGraph&)>);
@@ -225,13 +227,13 @@ public:
 
   /* Constructs an empty Decision node. */
   std::shared_ptr<DecisionNode> new_decision_node
-  (const std::shared_ptr<DecisionNode> &parent,
-   const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf);
+  (std::shared_ptr<DecisionNode> parent,
+   std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf);
 
   /* Constructs a sibling Decision node and add it to work queue. */
   void construct_sibling
-  (const std::shared_ptr<DecisionNode> &decision,
-   const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l);
+  (const DecisionNode &decision,
+   std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf, Leaf l);
 
   /* Given a DecisionNode whose depth >= to wanted, returns a parent with the wanted depth. */
   static const std::shared_ptr<DecisionNode> &find_ancestor

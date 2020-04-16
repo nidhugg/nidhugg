@@ -22,18 +22,18 @@
 #include <numeric>
 
 std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node
-(const std::shared_ptr<DecisionNode> &parent,
- const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
-  auto decision = std::make_shared<DecisionNode>(parent);
-  decision->try_alloc_unf(unf);
-  return std::move(decision);
+(std::shared_ptr<DecisionNode> parent,
+ std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf) {
+  auto decision = std::make_shared<DecisionNode>(std::move(parent));
+  decision->alloc_unf(std::move(unf));
+  return decision;
 }
 
 
 void RFSCDecisionTree::construct_sibling
-(const std::shared_ptr<DecisionNode> &decision,
- const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
-  scheduler->enqueue(decision->make_sibling(unf, l));
+(const DecisionNode &decision,
+ std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf, Leaf l) {
+  scheduler->enqueue(decision.make_sibling(std::move(unf), l));
 }
 
 
@@ -169,8 +169,8 @@ bool WorkstealingPQScheduler::ThreadWorkQueue::steal(ThreadWorkQueue &other) {
  ******************************************************************************/
 
 std::shared_ptr<DecisionNode> DecisionNode::make_sibling
-(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf, Leaf l) {
-  return std::make_shared<DecisionNode>(parent, unf, l);
+(std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf, Leaf l) const {
+  return std::make_shared<DecisionNode>(parent, std::move(unf), l);
 }
 
 
@@ -212,6 +212,16 @@ bool DecisionNode::try_alloc_unf
 (const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
   std::lock_guard<std::mutex> lock(parent->decision_node_mutex);
   return parent->children_unf_set.insert(unf).second;
+}
+
+
+void DecisionNode::alloc_unf(std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf) {
+  std::lock_guard<std::mutex> lock(parent->decision_node_mutex);
+#ifndef NDEBUG
+  auto res =
+#endif
+      parent->children_unf_set.insert(std::move(unf));
+  assert(res.second);
 }
 
 

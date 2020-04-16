@@ -433,7 +433,7 @@ protected:
    * This has the risk of mutating a graph which is accessed by
    * multiple threads concurrently. therefore need to be under exclusive opreation.
    */
-  const SaturatedGraph &get_cached_graph(std::shared_ptr<DecisionNode> &decision);
+  const SaturatedGraph &get_cached_graph(DecisionNode &decision);
   /* Perform planning of future executions. Requires the trace to be
    * maximal or sleepset blocked, and that the vector clocks have been
    * computed.
