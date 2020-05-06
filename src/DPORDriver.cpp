@@ -84,7 +84,7 @@ namespace {
 }
 
 DPORDriver::DPORDriver(const Configuration &C) :
-  conf(C), mod(0) {
+  conf(C) {
   std::string ErrorMsg;
   llvm::sys::DynamicLibrary::LoadLibraryPermanently(0,&ErrorMsg);
 }
@@ -94,8 +94,6 @@ DPORDriver *DPORDriver::parseIRFile(const std::string &filename,
   DPORDriver *driver =
     new DPORDriver(C);
   read_file(filename,driver->src);
-  driver->reparse();
-  CheckModule::check_functions(driver->mod);
   return driver;
 }
 
@@ -104,13 +102,7 @@ DPORDriver *DPORDriver::parseIR(const std::string &llvm_asm,
   DPORDriver *driver =
     new DPORDriver(C);
   driver->src = llvm_asm;
-  driver->reparse();
-  CheckModule::check_functions(driver->mod);
   return driver;
-}
-
-DPORDriver::~DPORDriver(){
-  delete mod;
 }
 
 void DPORDriver::read_file(const std::string &filename, std::string &tgt){
@@ -125,9 +117,12 @@ void DPORDriver::read_file(const std::string &filename, std::string &tgt){
   is.close();
 }
 
-void DPORDriver::reparse(){
-  delete mod;
-  mod = StrModule::read_module_src(src);
+std::unique_ptr<llvm::Module> DPORDriver::
+parse(ParseOptions opts, llvm::LLVMContext &context){
+  std::unique_ptr<llvm::Module> mod(StrModule::read_module_src(src,context));
+  if (opts == PARSE_AND_CHECK) {
+    CheckModule::check_functions(mod.get());
+  }
   if(mod->LLVM_MODULE_GET_DATA_LAYOUT_STRING().empty()){
     if(llvm::sys::IsLittleEndianHost){
       mod->setDataLayout("e");
@@ -135,10 +130,12 @@ void DPORDriver::reparse(){
       mod->setDataLayout("E");
     }
   }
+  return mod;
 }
 
 std::unique_ptr<DPORInterpreter> DPORDriver::
-create_execution_engine(TraceBuilder &TB, const Configuration &conf) const {
+create_execution_engine(TraceBuilder &TB, llvm::Module *mod,
+                        const Configuration &conf) const {
   std::string ErrorMsg;
   std::unique_ptr<DPORInterpreter> EE = 0;
   switch(conf.memory_model){
@@ -187,8 +184,9 @@ create_execution_engine(TraceBuilder &TB, const Configuration &conf) const {
   return EE;
 }
 
-Trace *DPORDriver::run_once(TraceBuilder &TB, bool &assume_blocked) const{
-  std::unique_ptr<DPORInterpreter> EE(create_execution_engine(TB,conf));
+Trace *DPORDriver::run_once(TraceBuilder &TB, llvm::Module *mod,
+                            bool &assume_blocked) const{
+  std::unique_ptr<DPORInterpreter> EE(create_execution_engine(TB,mod,conf));
 
   // Run main.
   EE->runFunctionAsMain(mod->getFunction("main"), conf.argv, 0);
@@ -212,7 +210,7 @@ Trace *DPORDriver::run_once(TraceBuilder &TB, bool &assume_blocked) const{
       static_cast<POWERARMTraceBuilder&>(TB).replay();
       Configuration conf2(conf);
       conf2.ee_store_trace = true;
-      std::unique_ptr<DPORInterpreter> E = create_execution_engine(TB,conf2);
+      std::unique_ptr<DPORInterpreter> E = create_execution_engine(TB,mod,conf2);
       E->runFunctionAsMain(mod->getFunction("main"), conf.argv, 0);
       E->runStaticConstructorsDestructors(true);
       if(conf.check_robustness){
@@ -291,6 +289,7 @@ namespace{
 
 DPORDriver::Result DPORDriver::run_rfsc_sequential() {
   Result res;
+  std::unique_ptr<llvm::Module> mod = parse(PARSE_AND_CHECK);
   RFSCDecisionTree decision_tree(make_scheduler(conf));
   RFSCUnfoldingTree unfolding_tree;
   RFSCTraceBuilder TB(decision_tree, unfolding_tree, conf);
@@ -306,7 +305,7 @@ DPORDriver::Result DPORDriver::run_rfsc_sequential() {
 
     bool assume_blocked = false;
     TB.reset();
-    Trace *t= this->run_once(TB, assume_blocked);
+    Trace *t= this->run_once(TB, mod.get(), assume_blocked);
     tasks_left--;
 
     int to_create = TB.tasks_created;
@@ -319,6 +318,11 @@ DPORDriver::Result DPORDriver::run_rfsc_sequential() {
     }
     if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
       estimate = std::round(TB.estimate_trace_count());
+    }
+    if((computation_count+1) % 1000 == 0){
+      /* llvm::ExecutionEngine leaks global variables until the Module is
+       * destructed */
+      mod = parse();
     }
 
   } while(tasks_left);
@@ -345,12 +349,16 @@ DPORDriver::Result DPORDriver::run_rfsc_parallel() {
   } state(conf);
 
   auto thread = [this, &res, &state] (unsigned id) {
+    auto context = std::make_unique<llvm::LLVMContext>();
+    std::unique_ptr<llvm::Module> mod = parse(id ? PARSE_ONLY : PARSE_AND_CHECK,
+                                              *context);
     RFSCScheduler &sched = state.decision_tree.get_scheduler();
     sched.register_thread(id);
     RFSCTraceBuilder TB(state.decision_tree, state.unfolding_tree, conf);
+    unsigned int my_computation_count = 0;
     while (TB.reset()) {
       bool assume_blocked = false;
-      Trace *t = this->run_once(TB, assume_blocked);
+      Trace *t = this->run_once(TB, mod.get(), assume_blocked);
       TB.work_item.reset();
 
       std::lock_guard<std::mutex> lock(state.mutex);
@@ -364,6 +372,11 @@ DPORDriver::Result DPORDriver::run_rfsc_parallel() {
       if(conf.print_progress){
         const long double estimate = 1;
         print_progress(state.computation_count, estimate, res, remain);
+      }
+      if (++my_computation_count % 1024 == 0) {
+        /* llvm::ExecutionEngine leaks global variables until the Module is
+         * destructed */
+        mod = parse(PARSE_ONLY, *context);
       }
     }
   };
@@ -385,6 +398,7 @@ DPORDriver::Result DPORDriver::run_rfsc_parallel() {
 
 DPORDriver::Result DPORDriver::run(){
   Result res;
+  std::unique_ptr<llvm::Module> mod = parse(PARSE_AND_CHECK);
 
   TraceBuilder *TB = nullptr;
 
@@ -427,11 +441,13 @@ DPORDriver::Result DPORDriver::run(){
       print_progress(computation_count, estimate, res);
     }
     if((computation_count+1) % 1000 == 0){
-      reparse();
+      /* llvm::ExecutionEngine leaks global variables until the Module is
+       * destructed */
+      mod = parse();
     }
 
     bool assume_blocked = false;
-    Trace *t = run_once(*TB, assume_blocked);
+    Trace *t = run_once(*TB, mod.get(), assume_blocked);
 
     if (handle_trace(TB, t, &computation_count, res, assume_blocked)) break;
     if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
@@ -447,3 +463,4 @@ DPORDriver::Result DPORDriver::run(){
 
   return res;
 }
+

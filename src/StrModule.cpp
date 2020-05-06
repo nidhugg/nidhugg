@@ -50,7 +50,7 @@
 
 namespace StrModule {
 
-  llvm::Module *read_module(std::string infile){
+  llvm::Module *read_module(std::string infile, llvm::LLVMContext &context){
     llvm::Module *mod;
     llvm::SMDiagnostic err;
 #ifdef LLVM_MEMORY_BUFFER_GET_FILE_OWNINGPTR_ARG
@@ -68,9 +68,9 @@ namespace StrModule {
     llvm::MemoryBuffer *mbp = buf.get().release();
 #endif
 #ifdef LLVM_PARSE_IR_MEMBUF_PTR
-    mod = llvm::ParseIR(mbp,err,GlobalContext::get());
+    mod = llvm::ParseIR(mbp,err,context);
 #else
-    mod = llvm::parseIR(mbp->getMemBufferRef(),err,GlobalContext::get()).release();
+    mod = llvm::parseIR(mbp->getMemBufferRef(),err,context).release();
 #endif
 #ifndef LLVM_PARSE_IR_TAKES_OWNERSHIP
     delete mbp;
@@ -82,7 +82,7 @@ namespace StrModule {
     return mod;
   }
 
-  llvm::Module *read_module_src(const std::string &src){
+  llvm::Module *read_module_src(const std::string &src, llvm::LLVMContext &context){
     llvm::Module *mod;
     llvm::SMDiagnostic err;
     llvm::MemoryBuffer *buf =
@@ -92,9 +92,9 @@ namespace StrModule {
       llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
 #endif
 #ifdef LLVM_PARSE_IR_MEMBUF_PTR
-    mod = llvm::ParseIR(buf,err,GlobalContext::get());
+    mod = llvm::ParseIR(buf,err,context);
 #else
-    mod = llvm::parseIR(buf->getMemBufferRef(),err,GlobalContext::get()).release();
+    mod = llvm::parseIR(buf->getMemBufferRef(),err,context).release();
 #endif
 #ifndef LLVM_PARSE_IR_TAKES_OWNERSHIP
     delete buf;

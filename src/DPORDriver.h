@@ -26,6 +26,7 @@
 #include "Trace.h"
 #include "TraceBuilder.h"
 #include "DPORInterpreter.h"
+#include "GlobalContext.h"
 
 #if defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
@@ -54,7 +55,7 @@ public:
    */
   static DPORDriver *parseIR(const std::string &llvm_asm,
                              const Configuration &conf);
-  virtual ~DPORDriver();
+  virtual ~DPORDriver() {}
   DPORDriver(const DPORDriver&) = delete;
   DPORDriver &operator=(const DPORDriver&) = delete;
 
@@ -126,16 +127,19 @@ public:
 private:
   /* Configuration */
   const Configuration &conf;
-  /* The module to explore */
-  llvm::Module *mod;
   /* The source code of the module to explore. Expressed as LLVM
    * assembly or as LLVM bitcode.
    */
   std::string src;
 
   DPORDriver(const Configuration &conf);
-  Trace *run_once(TraceBuilder &TB, bool &assume_blocked) const;
-  void reparse();
+  Trace *run_once(TraceBuilder &TB, llvm::Module *mod, bool &assume_blocked) const;
+  /* Parse the module in a given LLVMContext,
+   * optionally checking validity (should be done the first time) */
+  enum ParseOptions { PARSE_ONLY, PARSE_AND_CHECK };
+  std::unique_ptr<llvm::Module> parse
+  (ParseOptions opts = PARSE_ONLY,
+   llvm::LLVMContext &context = GlobalContext::get());
   /* Opens and reads the file filename. Stores the entire content in
    * tgt. Throws an exception on failure.
    */
@@ -145,7 +149,8 @@ private:
    * by conf.memory_model.
    */
   std::unique_ptr<DPORInterpreter>
-  create_execution_engine(TraceBuilder &TB, const Configuration &conf) const;
+  create_execution_engine(TraceBuilder &TB, llvm::Module *mod,
+                          const Configuration &conf) const;
 
   /* Prints the progress of exploration if argument --print-progress was given. */
   void print_progress(uint64_t computation_count, long double estimate, Result &res, int tasks_left = -1);
