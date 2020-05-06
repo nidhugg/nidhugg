@@ -21,7 +21,8 @@
 #include "Debug.h"
 #include "RFSCUnfoldingTree.h"
 
-unsigned RFSCUnfoldingTree::unf_ctr = 0;
+SeqnoRoot RFSCUnfoldingTree::unf_ctr_root{};
+thread_local Seqno RFSCUnfoldingTree::unf_ctr{unf_ctr_root};
 
 std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> RFSCUnfoldingTree::
 get_or_create(UnfoldingNodeChildren &parent_list,

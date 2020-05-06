@@ -26,6 +26,7 @@
 #include <shared_mutex>
 
 #include "TSOPSOTraceBuilder.h"
+#include "Seqno.h"
 
 /* An identifier for a thread. An index into this->threads.
    *
@@ -42,7 +43,8 @@ public:
   typedef llvm::SmallVector<std::weak_ptr<UnfoldingNode>,1> UnfoldingNodeChildren;
  public:
 
-  static unsigned unf_ctr;
+  static SeqnoRoot unf_ctr_root;
+  static thread_local Seqno unf_ctr;
 
   struct UnfoldingNode {
   public:
