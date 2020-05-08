@@ -153,7 +153,7 @@ struct RFSCScheduler {
   virtual std::shared_ptr<DecisionNode> dequeue() = 0;
   virtual void halt() = 0;
   virtual void register_thread(unsigned tid){}
-  std::atomic<uint64_t> outstanding_jobs;
+  std::atomic<uint64_t> outstanding_jobs{0};
 };
 
 class PriorityQueueScheduler final : public RFSCScheduler {
