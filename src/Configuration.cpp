@@ -165,6 +165,7 @@ static llvm::cl::opt<Configuration::ExplorationScheduler> cl_exploration_schedul
 
 const std::set<std::string> &Configuration::commandline_opts(){
   static std::set<std::string> opts = {
+    "cpubind-pack",
     "keep-going",
     "extfun-no-race",
     "exploration-scheduler",
@@ -172,6 +173,7 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "no-check-mutex-init",
     "max-search-depth",
     "n-threads",
+    "no-cpubind","no-cpubind-singlify",
     "sc","tso","pso","power","arm",
     "smtlib",
     "source","optimal","observers","rf",

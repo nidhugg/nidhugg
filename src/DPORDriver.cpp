@@ -31,6 +31,7 @@
 #include "TSOTraceBuilder.h"
 #include "RFSCTraceBuilder.h"
 #include "RFSCUnfoldingTree.h"
+#include "Cpubind.h"
 
 #include <fstream>
 #include <stdexcept>
@@ -339,6 +340,7 @@ DPORDriver::Result DPORDriver::run_rfsc_parallel() {
   unsigned n_threads = conf.n_threads-1;
   std::vector<std::thread> threads;
   threads.reserve(n_threads);
+  Cpubind cpubind(conf.n_threads);
 
   struct state {
     state(const Configuration &conf) : decision_tree(make_scheduler(conf)) {}
@@ -383,7 +385,9 @@ DPORDriver::Result DPORDriver::run_rfsc_parallel() {
 
   for (unsigned i = 0; i < n_threads; ++i) {
     threads.emplace_back(thread, i+1);
+    cpubind.bind(threads.back(), i+1);
   }
+  cpubind.bind(0);
   thread(0);
   for (unsigned i = 0; i < n_threads; ++i) {
     threads[i].join();

@@ -40,10 +40,19 @@ ifdef([PKG_CHECK_MODULES],[
   ],[
     AC_CHECK_LIB([ffi], [ffi_call],[],[AC_MSG_FAILURE([Could not find library libffi.])])
   ])
+  PKG_CHECK_MODULES([HWLOC], [hwloc], [
+    AC_DEFINE([HAVE_HWLOC], [1], [Define to 1 if we have hwloc])
+    CFLAGS="$CFLAGS $HWLOC_CFLAGS"
+    CXXFLAGS="$CXXFLAGS $HWLOC_CFLAGS"
+    LIBS="$LIBS $HWLOC_LIBS"
+  ],[
+    # Do nothing if not found
+  ])
 ],[
   errprint([WARNING: pkg-config not found, generating configure script without pkg-config support.
 ])
-  AC_CHECK_LIB([ffi], [ffi_call],[],[AC_MSG_FAILURE([Could not find library libffi.])])
+  AC_CHECK_LIB([ffi], [ffi_call],[],[AC_MSG_FAILURE([Could not find library libffi (did not try pkg-config).])])
+  AC_MSG_WARN([Configuring without hwloc because of no pkg-config.])
 ])
 
 BUILDNIDHUGGC='yes'

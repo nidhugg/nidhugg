@@ -7,6 +7,7 @@ libnidhugg_a_SOURCES = \
   CheckModule.cpp CheckModule.h \
   Configuration.cpp Configuration.h \
   CPid.cpp CPid.h \
+  Cpubind.cpp Cpubind.h \
   Debug.cpp Debug.h \
   DetCheckTraceBuilder.cpp DetCheckTraceBuilder.h \
   DPORDriver.cpp DPORDriver.h \
