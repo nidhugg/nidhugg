@@ -17,6 +17,7 @@ RFSC      = $(NIDHUGG) -c11 -sc -rf --n-threads=$(1)
 DCDPOR ?= dcdpor -dc
 RCMC ?= rcmc
 WRCMC ?= $(RCMC) --wrc11
+GENMC ?= genmc
 CDSC_DIR ?= /opt/cdschecker
 TIME = env time -f 'real %e\nres %M'
 TIMEOUT = timeout $(TIME_LIMIT)
@@ -24,14 +25,16 @@ ULIMIT = ulimit -Ss $(STACK_LIMIT) && ulimit -Sv $(MEM_LIMIT) &&
 RUN = -$(ULIMIT) $(TIMEOUT) $(TIME)
 TABULATE = ../../tabulate.sh
 
-TOOLS = optimal observers rfsc dcdpor rcmc wrcmc
-ifneq ($(wildcard $(CDSC_DIR)/.),)
-        TOOLS += cdsc
-else
-	NATOOLS += cdsc
-endif
+TOOLS = genmc rfsc
+# ifneq ($(wildcard $(CDSC_DIR)/.),)
+#         TOOLS += cdsc
+# else
+# 	NATOOLS += cdsc
+# endif
 THREADS = 1
-rfsc_THREADS = 1 2 4 8 16 24 32 48 64 96
+rfsc_THREADS = 1 2 4 8 16 24 32 64 # 48 96
+# TOOLS=rfsc
+# THREADS = 1 2 4 8 16 24 32 48 64
 
 TABLES = $(TOOLS:%=%.txt) wide.txt
 # Only for wide.txt (not including $(tool)_THREADS
