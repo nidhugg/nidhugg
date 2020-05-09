@@ -1,19 +1,19 @@
 SUBDIRS =				\
-	from_SCTBench/circular_buffer   \
         from_CONCUERROR/lastzero        \
-        from_RCMC/readers               \
         from_RCMC/casrot                \
         from_OBSERVERS/fib_bench        \
-	from_OBSERVERS/lastwrite 	\
 	SV-COMP/sigma			\
-	from_OBSERVERS/floating_read 	\
 	from_TRACER/control_flow 	\
 	from_DCDPOR/opt_lock		\
         synthetic/race_parametric       \
-        from_TRACER/exponential_bug     \
-        from_DCDPOR/parker              \
-        from_OBSERVERS/lamport          \
         other/approxds_append
+#	from_OBSERVERS/lamport          \
+#	from_DCDPOR/parker              \
+#	from_TRACER/exponential_bug     \
+#	from_OBSERVERS/floating_read 	\
+#	from_OBSERVERS/lastwrite 	\
+#	from_SCTBench/circular_buffer   \
+#	from_RCMC/readers               \
 
 # T ?= all
 
