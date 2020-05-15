@@ -1,6 +1,5 @@
 NAME=lastzero
 FILE=from_CONCUERROR/lastzero.c
-N = 9 11 13
-TIME_LIMIT = 720
+N = 11 13 15
 
 include ../../benchmarks.mk
