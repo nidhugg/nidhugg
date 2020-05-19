@@ -26,7 +26,6 @@
 #include "POWERARMTraceBuilder.h"
 #include "PSOInterpreter.h"
 #include "PSOTraceBuilder.h"
-#include "SigSegvHandler.h"
 #include "StrModule.h"
 #include "TSOInterpreter.h"
 #include "TSOTraceBuilder.h"
@@ -224,8 +223,6 @@ DPORDriver::Result DPORDriver::run(){
     throw std::logic_error("DPORDriver: Unsupported memory model.");
   }
 
-  SigSegvHandler::setup_signal_handler();
-
   char esc = 27;
   uint64_t computation_count = 0;
   long double estimate = 1;
@@ -282,8 +279,6 @@ DPORDriver::Result DPORDriver::run(){
   if(conf.print_progress){
     llvm::dbgs() << esc << "[K\n";
   }
-
-  SigSegvHandler::reset_signal_handler();
 
   delete TB;
 
