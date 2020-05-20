@@ -185,7 +185,7 @@ void RFSCTraceBuilder::cancel_replay(){
     blame = std::max(blame, prefix[i].decision);
   }
   assert(int(decisions.size()) > blame);
-  while (decisions.size() > blame+1)
+  while (int(decisions.size()) > blame+1)
       decisions.pop_back();
 }
 
