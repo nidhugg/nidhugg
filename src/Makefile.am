@@ -37,6 +37,7 @@ libnidhugg_a_SOURCES = \
   SymAddr.cpp SymAddr.h \
   Timing.cpp Timing.h \
   Trace.cpp Trace.h \
+  TraceUtil.cpp TraceUtil.h \
   TraceBuilder.cpp TraceBuilder.h \
   Transform.cpp Transform.h \
   TSOInterpreter.cpp TSOInterpreter.h \

@@ -29,6 +29,12 @@
 #include "TraceBuilder.h"
 #include "MRef.h"
 
+#if defined(HAVE_LLVM_IR_METADATA_H)
+#include <llvm/IR/Metadata.h>
+#elif defined(HAVE_LLVM_METADATA_H)
+#include <llvm/Metadata.h>
+#endif
+
 /* A POWERARMTraceBuilder is a TraceBuilder for the POWER or ARM
  * memory models. POWERARMTraceBuilder is an abstract class, inherited
  * by the concrete classes POWERTraceBuilder and ARMTraceBuilder.
