@@ -58,15 +58,14 @@ public:
   DPORDriver(const DPORDriver&) = delete;
   DPORDriver &operator=(const DPORDriver&) = delete;
 
-  /* A Result object describes the result of exploring the traces of
-   * some module.
+private:
+  /* Since we have some manual ownership management in Result, we extract it to
+   * a private base class so that we don't have to implement custom move
+   * constructors and operators for all fields.
    */
-  class Result{
-  public:
-    /* Empty result */
-    Result() : trace_count(0), sleepset_blocked_trace_count(0),
-               assume_blocked_trace_count(0), error_trace(0) {};
-    ~Result(){
+  struct ResultBase {
+    ResultBase() : error_trace(nullptr) {};
+    ~ResultBase(){
       if(all_traces.empty()){ // Otherwise error_trace also appears in all_traces.
         delete error_trace;
       }
@@ -74,17 +73,22 @@ public:
         delete t;
       }
     };
-    /* The number of explored (non-sleepset-blocked) traces */
-    uint64_t trace_count;
-    /* The number of explored sleepset-blocked traces */
-    uint64_t sleepset_blocked_trace_count;
-    /* The number of explored assume-blocked traces */
-    uint64_t assume_blocked_trace_count;
+    ResultBase(const ResultBase&) = delete;
+    ResultBase(ResultBase &&other)
+      : error_trace(std::exchange(other.error_trace, nullptr)),
+        all_traces(std::move(other.all_traces)) {
+      other.all_traces.clear();
+    }
+    ResultBase &operator=(ResultBase &&other) {
+      std::swap(error_trace, other.error_trace);
+      std::swap(all_traces, other.all_traces);
+      return *this;
+    }
+
     /* An empty trace if no error has been encountered. Otherwise some
      * error trace.
      */
     Trace *error_trace;
-    bool has_errors() const { return error_trace && error_trace->has_errors(); };
     /* Contains all traces that were explored, sleepset blocked and
      * otherwise.
      *
@@ -96,6 +100,24 @@ public:
      * intended usage.
      */
     std::vector<Trace*> all_traces;
+  };
+public:
+  /* A Result object describes the result of exploring the traces of
+   * some module.
+   */
+  class Result : public ResultBase{
+  public:
+    /* Empty result */
+    Result() : trace_count(0), sleepset_blocked_trace_count(0),
+               assume_blocked_trace_count(0) {};
+    /* The number of explored (non-sleepset-blocked) traces */
+    uint64_t trace_count;
+    /* The number of explored sleepset-blocked traces */
+    uint64_t sleepset_blocked_trace_count;
+    /* The number of explored assume-blocked traces */
+    uint64_t assume_blocked_trace_count;
+
+    bool has_errors() const { return error_trace && error_trace->has_errors(); };
   };
 
   /* Explore the traces of the given module, and return the result.
