@@ -1,6 +1,5 @@
 NAME=circular-buffer
 FILE=from_SCTBench/circular_buffer.c
-N = 7 8 9
-TIME_LIMIT = 600
+N = 8 9 10
 
 include ../../benchmarks.mk

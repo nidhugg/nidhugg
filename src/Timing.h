@@ -38,13 +38,33 @@ namespace Timing {
     Guard(Guard &) = delete;
     Guard & operator =(Guard &other) = delete;
   };
+
+  constexpr bool timing_enabled() { return false; }
 }
 
 #else /* defined(NO_TIMING) */
 #include <chrono>
+#include <atomic>
+#include <memory>
+#include <pthread.h>
 
 namespace Timing {
   typedef std::chrono::steady_clock clock;
+
+  namespace impl {
+    template<class T>
+    class tls_ptr {
+      pthread_key_t key;
+      static void destructor(void *ptr) noexcept {};
+    public:
+      tls_ptr() { if (pthread_key_create(&key, destructor)) abort(); }
+      ~tls_ptr() { pthread_key_delete(key); }
+      T* get() const { return (T*)pthread_getspecific(key); }
+      void set(T* val) { if (pthread_setspecific(key, val)) abort(); }
+    };
+
+    extern bool is_enabled;
+  }
 
   class Context {
     Context(Context &) = delete;
@@ -53,18 +73,31 @@ namespace Timing {
     Context(std::string name);
     ~Context();
     std::string name;
-    clock::duration inclusive, exclusive;
-    unsigned long count;
     Context *next;
+    struct Thread {
+      Thread();
+      clock::duration inclusive, exclusive;
+      unsigned long count;
+      Thread *next;
+    };
+    std::atomic<Thread*> first_thread;
+    impl::tls_ptr<Thread> my_thread;
+    Thread *get_thread();
   };
 
   class Guard {
   public:
-    Guard(Context &);
+    Guard(Context &context) : subcontext_time(0) {
+      if (impl::is_enabled) begin(&context);
+    }
     Guard(Guard &) = delete;
     Guard & operator =(Guard &other) = delete;
-    ~Guard();
+    ~Guard() {
+      if (impl::is_enabled) end();
+    }
   private:
+    void begin(Context *c);
+    void end();
     friend class Context;
     Context *context;
     Guard *outer_scope;
@@ -73,6 +106,7 @@ namespace Timing {
   };
 
   void print_report();
+  inline bool timing_enabled() { return impl::is_enabled; }
 }
 
 #endif /* !defined(NO_TIMING) */

@@ -33,12 +33,6 @@
 #include <string>
 #include <vector>
 
-#if defined(HAVE_LLVM_IR_METADATA_H)
-#include <llvm/IR/Metadata.h>
-#elif defined(HAVE_LLVM_METADATA_H)
-#include <llvm/Metadata.h>
-#endif
-
 /* This abstract class describes an error that was detected in a
  * trace. Particular types of errors should be represented by classes
  * that inherit from Error.
@@ -134,6 +128,31 @@ private:
   std::string msg;
 };
 
+class SrcLocVector {
+public:
+  struct LocRef {
+    LocRef(unsigned line, const std::string &file, const std::string &dir)
+      : line(line), file(file), dir(dir) {}
+    operator bool() const { return line; }
+
+    const unsigned line;
+    const std::string &file, &dir;
+  };
+  LocRef operator[](std::size_t index) const;
+private:
+  std::vector<std::string> string_table;
+  struct SrcLoc {
+    SrcLoc() : line(0), file(0), dir(0) {}
+    SrcLoc(unsigned line, unsigned file, unsigned dir)
+      : line(line), file(file), dir(dir) {}
+    unsigned line;
+    unsigned file, dir;
+  };
+  std::vector<SrcLoc> locations;
+  /* Declared in TraceUtil.h */
+  friend class SrcLocVectorBuilder;
+};
+
 /* A Trace describes one execution of the program. Mainly it is a
  * sequence of events (IIDs).
  */
@@ -160,28 +179,6 @@ public:
 protected:
   std::vector<Error*> errors;
   bool blocked;
-
-  /* Attempt to find the directory, file name and line number
-   * corresponding to the metadata m.
-   *
-   * On success, return true and set *lineno, *file_name, *dir_name to
-   * line number, file name and directory correspondingly. On failure
-   * return false.
-   */
-  static bool get_location(const llvm::MDNode *m,
-                           int *lineno,
-                           std::string *file_name,
-                           std::string *dir_name);
-  /* Attempt to find the location (directory, file name, line number)
-   * described by m, read and return the corresponding line of source
-   * code.
-   *
-   * On success, returns the code line, whitespace stripped. On
-   * failure return "".
-   */
-  static std::string get_src_line_verbatim(const llvm::MDNode *m);
-  static std::string basename(const std::string &fname);
-  static bool is_absolute_path(const std::string &fname);
 };
 
 /* This class represents traces that are expressed as sequences of
@@ -200,7 +197,7 @@ public:
    * trace. This object takes ownership of errors.
    */
   IIDSeqTrace(const std::vector<IID<CPid> > &computation,
-              const std::vector<const llvm::MDNode*> &computation_md,
+              SrcLocVector computation_md,
               const std::vector<Error*> &errors,
               bool blocked = false);
   virtual ~IIDSeqTrace();
@@ -209,13 +206,13 @@ public:
   /* The sequence of events. */
   virtual const std::vector<IID<CPid> > &get_computation() const { return computation; };
   /* The sequence of metadata (see above). */
-  virtual const std::vector<const llvm::MDNode*> &get_computation_metadata() const{
+  virtual const SrcLocVector &get_computation_metadata() const{
     return computation_md;
   };
   virtual std::string to_string(int ind = 0) const;
 protected:
   std::vector<IID<CPid> > computation;
-  std::vector<const llvm::MDNode*> computation_md;
+  SrcLocVector computation_md;
 };
 
 

@@ -1,6 +1,5 @@
 NAME=readers
 FILE=from_RCMC/readers.c
-N = 9 11 13
-TIME_LIMIT = 36000
+N = 13 15 17
 
 include ../../benchmarks.mk

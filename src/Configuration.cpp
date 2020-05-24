@@ -145,13 +145,35 @@ static llvm::cl::opt<bool> cl_debug_print_on_reset
 ("debug-print-on-reset",llvm::cl::Hidden,
  llvm::cl::desc("Print debug info after exploring each trace."));
 
+static llvm::cl::opt<int> cl_n_threads("n-threads",
+                                       llvm::cl::NotHidden,llvm::cl::init(1),
+                                       llvm::cl::desc("Number of threads to run")
+                                      );
+
+static llvm::cl::opt<Configuration::ExplorationScheduler> cl_exploration_scheduler
+("exploration-scheduler",llvm::cl::NotHidden,llvm::cl::init(Configuration::WORKSTEALING),
+ llvm::cl::desc("Scheduler to use when exploring concurrently\n"
+                "(see --n-threads)"),
+ llvm::cl::values(clEnumValN(Configuration::PRIOQUEUE,"prioqueue",
+                             "A single priority queue"),
+                  clEnumValN(Configuration::WORKSTEALING,"workstealing",
+                             "A workstealing scheduler (default)")
+#ifdef LLVM_CL_VALUES_USES_SENTINEL
+                  ,clEnumValEnd
+#endif
+                  ));
+
 const std::set<std::string> &Configuration::commandline_opts(){
   static std::set<std::string> opts = {
+    "cpubind-pack",
     "keep-going",
     "extfun-no-race",
+    "exploration-scheduler",
     "malloc-may-fail",
     "no-check-mutex-init",
     "max-search-depth",
+    "n-threads",
+    "no-cpubind","no-cpubind-singlify",
     "sc","tso","pso","power","arm",
     "smtlib",
     "source","optimal","observers","rf",
@@ -171,6 +193,8 @@ void Configuration::assign_by_commandline(){
   for(std::string f : cl_extfun_no_race){
     extfun_no_full_memory_conflict.insert(f);
   }
+  n_threads = cl_n_threads;
+  exploration_scheduler = cl_exploration_scheduler;
   malloc_may_fail = cl_malloc_may_fail;
   mutex_require_init = !cl_no_check_mutex_init;
   max_search_depth = cl_max_search_depth;

@@ -26,6 +26,7 @@
 #include "Trace.h"
 #include "TraceBuilder.h"
 #include "DPORInterpreter.h"
+#include "GlobalContext.h"
 
 #if defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
@@ -54,19 +55,18 @@ public:
    */
   static DPORDriver *parseIR(const std::string &llvm_asm,
                              const Configuration &conf);
-  virtual ~DPORDriver();
+  virtual ~DPORDriver() {}
   DPORDriver(const DPORDriver&) = delete;
   DPORDriver &operator=(const DPORDriver&) = delete;
 
-  /* A Result object describes the result of exploring the traces of
-   * some module.
+private:
+  /* Since we have some manual ownership management in Result, we extract it to
+   * a private base class so that we don't have to implement custom move
+   * constructors and operators for all fields.
    */
-  class Result{
-  public:
-    /* Empty result */
-    Result() : trace_count(0), sleepset_blocked_trace_count(0),
-               assume_blocked_trace_count(0), error_trace(0) {};
-    ~Result(){
+  struct ResultBase {
+    ResultBase() : error_trace(nullptr) {};
+    ~ResultBase(){
       if(all_traces.empty()){ // Otherwise error_trace also appears in all_traces.
         delete error_trace;
       }
@@ -74,17 +74,22 @@ public:
         delete t;
       }
     };
-    /* The number of explored (non-sleepset-blocked) traces */
-    uint64_t trace_count;
-    /* The number of explored sleepset-blocked traces */
-    uint64_t sleepset_blocked_trace_count;
-    /* The number of explored assume-blocked traces */
-    uint64_t assume_blocked_trace_count;
+    ResultBase(const ResultBase&) = delete;
+    ResultBase(ResultBase &&other)
+      : error_trace(std::exchange(other.error_trace, nullptr)),
+        all_traces(std::move(other.all_traces)) {
+      other.all_traces.clear();
+    }
+    ResultBase &operator=(ResultBase &&other) {
+      std::swap(error_trace, other.error_trace);
+      std::swap(all_traces, other.all_traces);
+      return *this;
+    }
+
     /* An empty trace if no error has been encountered. Otherwise some
      * error trace.
      */
     Trace *error_trace;
-    bool has_errors() const { return error_trace && error_trace->has_errors(); };
     /* Contains all traces that were explored, sleepset blocked and
      * otherwise.
      *
@@ -97,6 +102,24 @@ public:
      */
     std::vector<Trace*> all_traces;
   };
+public:
+  /* A Result object describes the result of exploring the traces of
+   * some module.
+   */
+  class Result : public ResultBase{
+  public:
+    /* Empty result */
+    Result() : trace_count(0), sleepset_blocked_trace_count(0),
+               assume_blocked_trace_count(0) {};
+    /* The number of explored (non-sleepset-blocked) traces */
+    uint64_t trace_count;
+    /* The number of explored sleepset-blocked traces */
+    uint64_t sleepset_blocked_trace_count;
+    /* The number of explored assume-blocked traces */
+    uint64_t assume_blocked_trace_count;
+
+    bool has_errors() const { return error_trace && error_trace->has_errors(); };
+  };
 
   /* Explore the traces of the given module, and return the result.
    */
@@ -104,16 +127,19 @@ public:
 private:
   /* Configuration */
   const Configuration &conf;
-  /* The module to explore */
-  llvm::Module *mod;
   /* The source code of the module to explore. Expressed as LLVM
    * assembly or as LLVM bitcode.
    */
   std::string src;
 
   DPORDriver(const Configuration &conf);
-  Trace *run_once(TraceBuilder &TB, bool &assume_blocked) const;
-  void reparse();
+  Trace *run_once(TraceBuilder &TB, llvm::Module *mod, bool &assume_blocked) const;
+  /* Parse the module in a given LLVMContext,
+   * optionally checking validity (should be done the first time) */
+  enum ParseOptions { PARSE_ONLY, PARSE_AND_CHECK };
+  std::unique_ptr<llvm::Module> parse
+  (ParseOptions opts = PARSE_ONLY,
+   llvm::LLVMContext &context = GlobalContext::get());
   /* Opens and reads the file filename. Stores the entire content in
    * tgt. Throws an exception on failure.
    */
@@ -123,7 +149,24 @@ private:
    * by conf.memory_model.
    */
   std::unique_ptr<DPORInterpreter>
-  create_execution_engine(TraceBuilder &TB, const Configuration &conf) const;
+  create_execution_engine(TraceBuilder &TB, llvm::Module *mod,
+                          const Configuration &conf) const;
+
+  /* Prints the progress of exploration if argument --print-progress was given. */
+  void print_progress(uint64_t computation_count, long double estimate, Result &res, int tasks_left = -1);
+  /* Updates the result based on the given tracecount and TraceBuilder. */
+  bool handle_trace(TraceBuilder *TB, Trace *t, uint64_t *computation_count, Result &res, bool assume_blocked);
+
+  /* Separate run-function for RFSC since it breaks the default
+   * algorithm in DPORDriver::run(). This will spawn a threadpool
+   * where eash thread will explore the execution tree concurrently.
+   */
+  Result run_rfsc_parallel();
+  /* As rfsc explores asyncronosly with a threadpool,
+   * an alternate function is given without overhead
+   * if it should be run strictly sequential.
+   */
+  Result run_rfsc_sequential();
 };
 
 #endif

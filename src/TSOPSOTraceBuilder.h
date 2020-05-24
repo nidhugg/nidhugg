@@ -30,6 +30,12 @@
 #include <string>
 #include <vector>
 
+#if defined(HAVE_LLVM_IR_METADATA_H)
+#include <llvm/IR/Metadata.h>
+#elif defined(HAVE_LLVM_METADATA_H)
+#include <llvm/Metadata.h>
+#endif
+
 /*  === Thread Identification ===
  *
  * Througout this class, we will use the following convention for

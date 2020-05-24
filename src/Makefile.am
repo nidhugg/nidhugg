@@ -7,6 +7,7 @@ libnidhugg_a_SOURCES = \
   CheckModule.cpp CheckModule.h \
   Configuration.cpp Configuration.h \
   CPid.cpp CPid.h \
+  Cpubind.cpp Cpubind.h \
   Debug.cpp Debug.h \
   DetCheckTraceBuilder.cpp DetCheckTraceBuilder.h \
   DPORDriver.cpp DPORDriver.h \
@@ -29,6 +30,7 @@ libnidhugg_a_SOURCES = \
   PSOTraceBuilder.cpp PSOTraceBuilder.h \
   SaturatedGraph.h SaturatedGraph.cpp \
   SatSolver.h \
+  Seqno.h \
   SExpr.h SExpr.cpp \
   SmtlibSatSolver.h SmtlibSatSolver.cpp \
   SpinAssumePass.cpp SpinAssumePass.h \
@@ -37,11 +39,14 @@ libnidhugg_a_SOURCES = \
   SymAddr.cpp SymAddr.h \
   Timing.cpp Timing.h \
   Trace.cpp Trace.h \
+  TraceUtil.cpp TraceUtil.h \
   TraceBuilder.cpp TraceBuilder.h \
   Transform.cpp Transform.h \
   TSOInterpreter.cpp TSOInterpreter.h \
   TSOPSOTraceBuilder.h \
   TSOTraceBuilder.cpp TSOTraceBuilder.h \
+  RFSCUnfoldingTree.cpp RFSCUnfoldingTree.h \
+  RFSCDecisionTree.cpp RFSCDecisionTree.h \
   RFSCTraceBuilder.cpp RFSCTraceBuilder.h \
   VClock.cpp VClock.h VClock.tcc \
   vecset.h vecset.tcc

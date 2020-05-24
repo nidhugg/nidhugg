@@ -19,6 +19,7 @@
 
 #include "POWERARMTraceBuilder.h"
 #include "POWERARMTraceBuilder.tcc"
+#include "TraceUtil.h"
 
 #include <iomanip>
 #include <sstream>
@@ -94,11 +95,11 @@ bool PATB_impl::TraceRecorder::source_line(int proc, const llvm::MDNode *md, std
   if(md){
     int lineno;
     std::string fname, dname;
-    if(get_location(md,&lineno,&fname,&dname)){
+    if(TraceUtil::get_location(md,&lineno,&fname,&dname)){
       success = true;
       std::stringstream ss;
-      ss << basename(fname) << ":" << lineno
-         << " " << get_src_line_verbatim(md);
+      ss << TraceUtil::basename(fname) << ":" << lineno
+         << " " << TraceUtil::get_src_line_verbatim(md);
       ln += ss.str();
     }
   }

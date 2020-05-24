@@ -22,17 +22,27 @@
 #include "Timing.h"
 #include <vector>
 #include <iostream>
+#include <iomanip>
 #include <algorithm>
 
+#include <llvm/Support/CommandLine.h>
+
 namespace Timing {
+  namespace impl {
+    bool is_enabled;
+  }
   namespace {
     Context *all_contexts = nullptr;
     clock global_clock;
-    Guard *current_guard = nullptr;
+    thread_local Guard *current_guard = nullptr;
+
+    llvm::cl::opt<bool, true>
+    cl_time("time", llvm::cl::desc("Print timing information."),
+            llvm::cl::NotHidden, llvm::cl::location(impl::is_enabled));
   }
 
   Context::Context(std::string name)
-    : name(name), inclusive(0), exclusive(0), count(0), next(all_contexts) {
+    : name(name), next(all_contexts) {
     all_contexts = this;
   }
 
@@ -43,19 +53,34 @@ namespace Timing {
     *c = next;
   }
 
-  Guard::Guard(Context &context)
-    : context(&context), outer_scope(current_guard), subcontext_time(0),
-      start(global_clock.now()) {
+  Context::Thread *Context::get_thread() {
+    Thread *t = my_thread.get();
+    if (!t) {
+      t = new Thread();
+      t->next = first_thread.load(std::memory_order_relaxed);
+      while (!first_thread.compare_exchange_weak
+             (t->next, t, std::memory_order_relaxed)) {}
+    }
+    return t;
+  }
+
+  Context::Thread::Thread() : inclusive(0), exclusive(0), count(0) {}
+
+  void Guard::begin(Context *c) {
+    context = c;
+    start = global_clock.now();
+    outer_scope = current_guard;
     current_guard = this;
   }
 
-  Guard::~Guard() {
+  void Guard::end() {
     clock::time_point end = global_clock.now();
     clock::duration inclusive = end - start;
     clock::duration exclusive = inclusive - subcontext_time;
-    context->inclusive += inclusive;
-    context->exclusive += exclusive;
-    context->count++;
+    Context::Thread *t = context->get_thread();
+    t->inclusive += inclusive;
+    t->exclusive += exclusive;
+    t->count++;
     if (outer_scope) {
       outer_scope->subcontext_time += inclusive;
     }
@@ -63,20 +88,43 @@ namespace Timing {
   }
 
   void print_report() {
-    std::vector<Context*> vec;
-    for (Context *c = all_contexts; c; c = c->next) vec.push_back(c);
-    std::sort(vec.begin(), vec.end(), [](const Context *a, const Context *b) {
-                                        return a->inclusive > b->inclusive;
+    assert(impl::is_enabled);
+    struct result {
+      result(Context *ctxt) : c(ctxt), inclusive(0), exclusive(0) {}
+      Context *c;
+      clock::duration inclusive, exclusive;
+      unsigned long count = 0;
+    };
+    std::vector<result> vec;
+    for (Context *c = all_contexts; c; c = c->next) {
+      vec.emplace_back(c);
+      result &res = vec.back();
+      for (Context::Thread *t = c->first_thread.load(std::memory_order_relaxed);
+           t; t = t->next) {
+        res.count += t->count;
+        res.inclusive += t->inclusive;
+        res.exclusive += t->exclusive;
+      }
+    }
+    std::sort(vec.begin(), vec.end(), [](const result &a, const result &b) {
+                                        return a.inclusive > b.inclusive;
                                       });
 
-    std::cerr << "Name\tCount\tInclusive\tExclusive\n";
-    for (Context *c : vec) {
+#define OUT(N,C,I,E)                          \
+    std::cerr << std::setw(22) << (N)         \
+              << std::setw(10) << (C)         \
+              << std::setw(12) << (I)         \
+              << std::setw(12) << (E) << "\n"
+    OUT("Name", "Count", "Inclusive", "Exclusive");
+    for (result &r : vec) {
       using namespace std::chrono;
-      std::cerr << c->name << "\t" << c->count
-                << "\t" << duration_cast<microseconds>(c->inclusive).count()
-                << "\t" << duration_cast<microseconds>(c->exclusive).count() << "\n";
+      OUT(r.c->name, r.count,
+          duration_cast<microseconds>(r.inclusive).count(),
+          duration_cast<microseconds>(r.exclusive).count());
     }
+#undef OUT
   }
+
 }
 
 #endif /* !defined(NO_TIMING) */

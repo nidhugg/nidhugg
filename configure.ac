@@ -40,10 +40,19 @@ ifdef([PKG_CHECK_MODULES],[
   ],[
     AC_CHECK_LIB([ffi], [ffi_call],[],[AC_MSG_FAILURE([Could not find library libffi.])])
   ])
+  PKG_CHECK_MODULES([HWLOC], [hwloc], [
+    AC_DEFINE([HAVE_HWLOC], [1], [Define to 1 if we have hwloc])
+    CFLAGS="$CFLAGS $HWLOC_CFLAGS"
+    CXXFLAGS="$CXXFLAGS $HWLOC_CFLAGS"
+    LIBS="$LIBS $HWLOC_LIBS"
+  ],[
+    # Do nothing if not found
+  ])
 ],[
   errprint([WARNING: pkg-config not found, generating configure script without pkg-config support.
 ])
-  AC_CHECK_LIB([ffi], [ffi_call],[],[AC_MSG_FAILURE([Could not find library libffi.])])
+  AC_CHECK_LIB([ffi], [ffi_call],[],[AC_MSG_FAILURE([Could not find library libffi (did not try pkg-config).])])
+  AC_MSG_WARN([Configuring without hwloc because of no pkg-config.])
 ])
 
 BUILDNIDHUGGC='yes'
@@ -151,6 +160,20 @@ AC_DEFUN([AC_CHECK_HEADERS_ALT],
     :
   fi
 ])
+
+AC_ARG_ENABLE([timing], [Add instrumentation for measuring performance])
+if test "x$enable_timing" != "xno"; then
+  AC_CHECK_HEADER([pthread.h],[],[
+    if test "x$enable_timing" != "xyes"; then
+      AC_MSG_FAILURE([Timing instrumentation requires pthread.h.])
+    fi
+    AC_MSG_WARN([No pthread.h, so timing instrumentation will be disabled.])
+    AC_DEFINE([NO_TIMING], [1], [Define to 1 if timing should be disabled])
+  ])
+else
+  AC_MSG_NOTICE([Disabling timing instrumentation.])
+  AC_DEFINE([NO_TIMING], [1], [Define to 1 if timing should be disabled])
+fi
 
 AC_CHECK_HEADERS([ \
   stdlib.h \

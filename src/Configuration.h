@@ -53,6 +53,7 @@ public:
   };
   /* Assign default values to all configuration parameters. */
   Configuration(){
+    n_threads = 1;
     explore_all_traces = false;
     malloc_may_fail = false;
     mutex_require_init = true;
@@ -96,6 +97,7 @@ public:
     svcomp_nondet_int = nullptr;
     print_progress = false;
     print_progress_estimate = false;
+    exploration_scheduler = WORKSTEALING;
     sat_solver = SMTLIB;
     argv.push_back(get_default_program_name());
   };
@@ -193,6 +195,19 @@ public:
    * traces.
    */
   bool print_progress_estimate;
+
+  /* When running RFSC, Set the amount of threads that does the exploration.
+   * The main thread will only consume results from the n-1 worker threads.
+   * If n=1 the algorithm operates purely sequential.
+   */
+  int n_threads;
+
+  /* Scheduler to use when exploring in parallel with --n-threads */
+  enum ExplorationScheduler {
+    PRIOQUEUE,
+    WORKSTEALING,
+  } exploration_scheduler;
+
   /* Sat solver to use. */
   enum SatSolverEnum {
         SMTLIB,
