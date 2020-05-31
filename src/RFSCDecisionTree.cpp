@@ -51,7 +51,7 @@ const std::shared_ptr<DecisionNode> &RFSCDecisionTree::find_ancestor
 
 RFSCScheduler::~RFSCScheduler() = default;
 
-PriorityQueueScheduler::PriorityQueueScheduler() : RFSCScheduler() {};
+PriorityQueueScheduler::PriorityQueueScheduler() : RFSCScheduler() {}
 
 void PriorityQueueScheduler::enqueue(std::shared_ptr<DecisionNode> node) {
   outstanding_jobs.fetch_add(1, std::memory_order_relaxed);
@@ -111,7 +111,7 @@ std::shared_ptr<DecisionNode> WorkstealingPQScheduler::dequeue() {
     /* Generate array of other threads in random order */
     std::vector<int> others(work_queue.size()-1);
     std::iota(others.begin(), others.end(), 0);
-    if (thread_id != others.size()) others[thread_id] = others.size();
+    if (std::size_t(thread_id) != others.size()) others[thread_id] = others.size();
     std::random_shuffle(others.begin(), others.end());
     for(int other : others) {
       std::lock_guard<std::mutex> other_lock(work_queue[other].mutex);
