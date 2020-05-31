@@ -60,7 +60,7 @@ public:
 struct DecisionNode {
 public:
   /* Empty constructor for root. */
-  DecisionNode() : parent(nullptr), depth(-1), pruned_subtree(false),
+  DecisionNode() : depth(-1), parent(nullptr), pruned_subtree(false),
                    cache_initialised(true) {}
   /* Constructor for new nodes during compute_unfolding. */
   DecisionNode(std::shared_ptr<DecisionNode> decision)
