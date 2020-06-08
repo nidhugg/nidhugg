@@ -147,7 +147,7 @@ std::string TraceUtil::get_src_line_verbatim(const SrcLocVector::LocRef &loc) {
     fullname += loc.file;
   }
   std::ifstream ifs(fullname);
-  int cur_line = 0;
+  unsigned int cur_line = 0;
   std::string ln;
   while(ifs.good() && cur_line < loc.line){
     std::getline(ifs,ln);

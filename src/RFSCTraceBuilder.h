@@ -230,8 +230,8 @@ protected:
   public:
     Event(const IID<IPid> &iid, int alt = 0, SymEv sym = {})
       : alt(0), size(1), pinned(false),
-      iid(iid), origin_iid(iid), md(0), clock(), may_conflict(false),
-        decision_depth(-1), sym(std::move(sym)), sleep_branch_trace_count(0) {};
+        iid(iid), origin_iid(iid), md(0), clock(), may_conflict(false),
+        sym(std::move(sym)), sleep_branch_trace_count(0), decision_depth(-1) {};
     /* Some instructions may execute in several alternative ways
      * nondeterministically. (E.g. malloc may succeed or fail
      * nondeterministically if Configuration::malloy_may_fail is set.)

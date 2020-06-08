@@ -47,8 +47,9 @@ static Timing::Context sat_context("sat");
 RFSCTraceBuilder::RFSCTraceBuilder(RFSCDecisionTree &desicion_tree_,
                                    RFSCUnfoldingTree &unfolding_tree_,
                                    const Configuration &conf)
-    : decision_tree(desicion_tree_), unfolding_tree(unfolding_tree_),
-      TSOPSOTraceBuilder(conf) {
+    : TSOPSOTraceBuilder(conf),
+      unfolding_tree(unfolding_tree_),
+      decision_tree(desicion_tree_) {
     threads.push_back(Thread(CPid(), -1));
     prefix_idx = -1;
     replay = false;
@@ -252,7 +253,7 @@ bool RFSCTraceBuilder::reset(){
     new_prefix.reserve(l.prefix.size());
     std::vector<int> iid_map;
     for (Branch &b : l.prefix) {
-      int index = (iid_map.size() <= b.pid) ? 1 : iid_map[b.pid];
+      int index = (int(iid_map.size()) <= b.pid) ? 1 : iid_map[b.pid];
       IID<IPid> iid(b.pid, index);
       new_prefix.emplace_back(iid);
       new_prefix.back().size = b.size;
