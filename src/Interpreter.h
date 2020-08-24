@@ -470,14 +470,29 @@ protected:  // Helper functions
   virtual void clearAllStacks();
 
   /* Get a SymAddr for the pointer Ptr, returning false if the address
-   * is unknown. */
-  Option<SymAddr> TryGetSymAddr(void *Ptr);
-  /* Get a SymAddr for the pointer Ptr that is assumed to be known */
-  SymAddr GetSymAddr(void *Ptr);
-  /* Get a SymAddrSize for the pointer Ptr, with the size given by Ty for
-   * the current data layout.
+   * is unknown.
+   * GetSymAddr() additionally reports the error and calls abort()
+   * before returning nullptr.
    */
-  SymAddrSize GetSymAddrSize(void *Ptr, Type *Ty);
+  Option<SymAddr> TryGetSymAddr(void *Ptr);
+  Option<SymAddr> GetSymAddr(void *Ptr);
+  /* Get a SymAddrSize for the pointer Ptr, with the size given by Ty
+   * for the current data layout.
+   * GetSymAddrSize() reports the error and calls abort() before returning
+   * nullptr.
+   */
+  Option<SymAddrSize> GetSymAddrSize(void *Ptr, Type *Ty) {
+    if (Option<SymAddr> addr = GetSymAddr(Ptr)) {
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
+      return {{*addr,getDataLayout()->getTypeStoreSize(Ty)}};
+#else
+      return {{*addr,getDataLayout().getTypeStoreSize(Ty)}};
+#endif
+    } else {
+      return nullptr;
+    }
+  }
+
   Option<SymAddrSize> TryGetSymAddrSize(void *Ptr, Type *Ty){
     if (Option<SymAddr> addr = TryGetSymAddr(Ptr)) {
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
@@ -489,20 +504,14 @@ protected:  // Helper functions
       return nullptr;
     }
   }
-  Option<SymAddrSize> TryGetSymAddrSizeOrSegv(void *Ptr, Type *Ty) {
-    Option<SymAddrSize> sas = TryGetSymAddrSize(Ptr, Ty);
-    if (!sas) {
-      TB.segmentation_fault_error();
-      abort();
-    }
-    return sas;
-  }
   /* Get a SymData associated with the location Ptr, and holding the
    * value Val of type Ty. The size of the memory location will be
    * that of Ty.
    */
-  SymData GetSymData(void *Ptr, Type *Ty, const GenericValue &Val){
-    return GetSymData(GetSymAddrSize(Ptr,Ty), Ty, Val);
+  Option<SymData> GetSymData(void *Ptr, Type *Ty, const GenericValue &Val){
+    Option<SymAddrSize> Ptr_sas = GetSymAddrSize(Ptr,Ty);
+    if (!Ptr_sas) return nullptr;
+    return GetSymData(*Ptr_sas, Ty, Val);
   }
   /* Get a SymData associated with the location Ptr, and holding the
    * value Val of type Ty. The size of the memory location will be
