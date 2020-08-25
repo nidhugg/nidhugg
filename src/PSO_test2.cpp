@@ -1294,6 +1294,54 @@ declare i8* @memcpy(i8*, i8*, i64)
   delete driver;
 }
 
+BOOST_AUTO_TEST_CASE(Nondeterminism_without_branch){
+  /* Mechanism is the same as in Nonteterminsim_detection (cf for
+   * detailed description of the test)
+   * Here, instead having a branch that changes direction, we have a
+   * load that changes address
+   */
+  Configuration conf = DPORDriver_test::get_sc_conf();
+  char changing = 0;
+  std::stringstream ss;
+  ss << "inttoptr(i64 " << (unsigned long)(&changing) << " to i8*)";
+  std::string changingAddr = ss.str();
+  std::string module = StrModule::portasm(R"(
+@x = global i32 0, align 4
+@arr = constant [2 x i32] [i32 42, i32 999]
+
+define i8* @p1(i8* %arg){
+  store i32 1, i32* @x
+  ret i8* null
+}
+
+define i32 @main(){
+  %tp = alloca i8
+  call i8* @memcpy(i8* %tp, i8* )"+changingAddr+R"(, i64 1)
+  %v = load i8, i8* %tp
+  %v64 = zext i8 %v to i64
+  %p = getelementptr [2 x i32], [2 x i32]* @arr, i64 0, i64 %v64
+  %xxx = load i32, i32* %p
+  store i8 1, i8* %tp
+  call i8* @memcpy(i8* )"+changingAddr+R"(, i8* %tp, i64 1)
+  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
+  load i32, i32* @x
+  ret i32 0
+}
+
+%attr_t = type { i64, [48 x i8] }
+declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
+declare void @__assert_fail()
+declare i8* @memcpy(i8*, i8*, i64)
+)");
+
+  DPORDriver *driver = DPORDriver::parseIR(module, conf);
+  DPORDriver::Result res = driver->run();
+
+  BOOST_CHECK(changing == 1);
+  BOOST_CHECK(res.has_errors());
+  delete driver;
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif

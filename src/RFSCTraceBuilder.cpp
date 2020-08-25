@@ -377,22 +377,24 @@ void RFSCTraceBuilder::debug_print() const {
   }
 }
 
-void RFSCTraceBuilder::spawn(){
+bool RFSCTraceBuilder::spawn(){
   IPid parent_ipid = curev().iid.get_pid();
   CPid child_cpid = CPS.spawn(threads[parent_ipid].cpid);
   threads.push_back(Thread(child_cpid,prefix_idx));
   curev().may_conflict = true;
-  record_symbolic(SymEv::Spawn(threads.size() - 1));
+  return record_symbolic(SymEv::Spawn(threads.size() - 1));
 }
 
-void RFSCTraceBuilder::store(const SymData &sd){
+bool RFSCTraceBuilder::store(const SymData &sd){
   assert(false && "Cannot happen");
   abort();
+  return true;
 }
 
-void RFSCTraceBuilder::atomic_store(const SymData &sd){
-  record_symbolic(SymEv::Store(sd));
+bool RFSCTraceBuilder::atomic_store(const SymData &sd){
+  if (!record_symbolic(SymEv::Store(sd))) return false;
   do_atomic_store(sd);
+  return true;
 }
 
 void RFSCTraceBuilder::do_atomic_store(const SymData &sd){
@@ -408,15 +410,17 @@ void RFSCTraceBuilder::do_atomic_store(const SymData &sd){
   }
 }
 
-void RFSCTraceBuilder::atomic_rmw(const SymData &sd){
-  record_symbolic(SymEv::Rmw(sd));
+bool RFSCTraceBuilder::atomic_rmw(const SymData &sd){
+  if (!record_symbolic(SymEv::Rmw(sd))) return false;
   do_load(sd.get_ref());
   do_atomic_store(sd);
+  return true;
 }
 
-void RFSCTraceBuilder::load(const SymAddrSize &ml){
-  record_symbolic(SymEv::Load(ml));
+bool RFSCTraceBuilder::load(const SymAddrSize &ml){
+  if (!record_symbolic(SymEv::Load(ml))) return false;
   do_load(ml);
+  return true;
 }
 
 void RFSCTraceBuilder::do_load(const SymAddrSize &ml){
@@ -430,22 +434,23 @@ void RFSCTraceBuilder::do_load(const SymAddrSize &ml){
            }));
 }
 
-void RFSCTraceBuilder::compare_exchange
+bool RFSCTraceBuilder::compare_exchange
 (const SymData &sd, const SymData::block_type expected, bool success){
   if(success){
-    record_symbolic(SymEv::CmpXhg(sd, expected));
+    if (!record_symbolic(SymEv::CmpXhg(sd, expected))) return false;
     do_load(sd.get_ref());
     do_atomic_store(sd);
   }else{
-    record_symbolic(SymEv::CmpXhgFail(sd, expected));
+    if (!record_symbolic(SymEv::CmpXhgFail(sd, expected))) return false;
     do_load(sd.get_ref());
   }
+  return true;
 }
 
-void RFSCTraceBuilder::full_memory_conflict(){
+bool RFSCTraceBuilder::full_memory_conflict(){
   llvm::dbgs() << "FULLMEM not supported\n";
   abort();
-  record_symbolic(SymEv::Fullmem());
+  if (!record_symbolic(SymEv::Fullmem())) return false;
   curev().may_conflict = true;
 
   // /* See all pervious memory accesses */
@@ -456,20 +461,22 @@ void RFSCTraceBuilder::full_memory_conflict(){
 
   // /* No later access can have a conflict with any earlier access */
   // mem.clear();
+  return true;
 }
 
-void RFSCTraceBuilder::fence(){
+bool RFSCTraceBuilder::fence(){
+  return true;
 }
 
-void RFSCTraceBuilder::join(int tgt_proc){
-  record_symbolic(SymEv::Join(tgt_proc));
+bool RFSCTraceBuilder::join(int tgt_proc){
+  if (!record_symbolic(SymEv::Join(tgt_proc))) return false;
   curev().may_conflict = true;
   add_happens_after_thread(prefix_idx, tgt_proc);
+  return true;
 }
 
-void RFSCTraceBuilder::mutex_lock(const SymAddrSize &ml){
-  record_symbolic(SymEv::MLock(ml));
-  fence();
+bool RFSCTraceBuilder::mutex_lock(const SymAddrSize &ml){
+  if (!record_symbolic(SymEv::MLock(ml))) return false;
 
   Mutex &mutex = mutexes[ml.addr];
   curev().may_conflict = true;
@@ -477,9 +484,10 @@ void RFSCTraceBuilder::mutex_lock(const SymAddrSize &ml){
 
   mutex.last_lock = mutex.last_access = prefix_idx;
   mutex.locked = true;
+  return true;
 }
 
-void RFSCTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
+bool RFSCTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
   assert(!conf.mutex_require_init || mutexes.count(ml.addr));
   IFDEBUG(Mutex &mutex = mutexes[ml.addr];)
   assert(0 <= mutex.last_lock && mutex.locked);
@@ -491,12 +499,13 @@ void RFSCTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
                         return blocked == current;
                       }));
   deadlocks.push_back(current);
+  return true;
 }
 
-void RFSCTraceBuilder::mutex_trylock(const SymAddrSize &ml){
+bool RFSCTraceBuilder::mutex_trylock(const SymAddrSize &ml){
   Mutex &mutex = mutexes[ml.addr];
-  record_symbolic(mutex.locked ? SymEv::MTryLockFail(ml) : SymEv::MTryLock(ml));
-  fence();
+  if (!record_symbolic(mutex.locked ? SymEv::MTryLockFail(ml) : SymEv::MTryLock(ml)))
+    return false;
   curev().read_from = mutex.last_access;
   curev().may_conflict = true;
 
@@ -505,11 +514,11 @@ void RFSCTraceBuilder::mutex_trylock(const SymAddrSize &ml){
     mutex.last_lock = prefix_idx;
     mutex.locked = true;
   }
+  return true;
 }
 
-void RFSCTraceBuilder::mutex_unlock(const SymAddrSize &ml){
-  record_symbolic(SymEv::MUnlock(ml));
-  fence();
+bool RFSCTraceBuilder::mutex_unlock(const SymAddrSize &ml){
+  if (!record_symbolic(SymEv::MUnlock(ml))) return false;
   Mutex &mutex = mutexes[ml.addr];
   curev().read_from = mutex.last_access;
   curev().may_conflict = true;
@@ -520,33 +529,33 @@ void RFSCTraceBuilder::mutex_unlock(const SymAddrSize &ml){
 
   /* No one is blocking anymore! Yay! */
   mutex_deadlocks.erase(ml.addr);
+  return true;
 }
 
-void RFSCTraceBuilder::mutex_init(const SymAddrSize &ml){
-  record_symbolic(SymEv::MInit(ml));
-  fence();
+bool RFSCTraceBuilder::mutex_init(const SymAddrSize &ml){
+  if (!record_symbolic(SymEv::MInit(ml))) return false;
   assert(mutexes.count(ml.addr) == 0);
   curev().read_from = -1;
   curev().may_conflict = true;
   mutexes[ml.addr] = Mutex(prefix_idx);
+  return true;
 }
 
-void RFSCTraceBuilder::mutex_destroy(const SymAddrSize &ml){
-  record_symbolic(SymEv::MDelete(ml));
-  fence();
+bool RFSCTraceBuilder::mutex_destroy(const SymAddrSize &ml){
+  if (!record_symbolic(SymEv::MDelete(ml))) return false;
   Mutex &mutex = mutexes[ml.addr];
   curev().read_from = mutex.last_access;
   curev().may_conflict = true;
 
   mutex.last_access = prefix_idx;
   mutex.locked = false;
+  return true;
 }
 
 bool RFSCTraceBuilder::cond_init(const SymAddrSize &ml){
   llvm::dbgs() << "condvars not supported\n";
   abort();
-  record_symbolic(SymEv::CInit(ml));
-  fence();
+  if (!record_symbolic(SymEv::CInit(ml))) return false;
   if(cond_vars.count(ml.addr)){
     pthreads_error("Condition variable initiated twice.");
     return false;
@@ -559,8 +568,7 @@ bool RFSCTraceBuilder::cond_init(const SymAddrSize &ml){
 bool RFSCTraceBuilder::cond_signal(const SymAddrSize &ml){
   llvm::dbgs() << "condvars not supported\n";
   abort();
-  record_symbolic(SymEv::CSignal(ml));
-  fence();
+  if (!record_symbolic(SymEv::CSignal(ml))) return false;
   curev().may_conflict = true;
 
   auto it = cond_vars.find(ml.addr);
@@ -571,7 +579,7 @@ bool RFSCTraceBuilder::cond_signal(const SymAddrSize &ml){
   CondVar &cond_var = it->second;
   VecSet<int> seen_events = {last_full_memory_conflict};
   if(cond_var.waiters.size() > 1){
-    register_alternatives(cond_var.waiters.size());
+    if (!register_alternatives(cond_var.waiters.size())) return false;
   }
   assert(0 <= curev().alt);
   assert(cond_var.waiters.empty() || curev().alt < int(cond_var.waiters.size()));
@@ -598,8 +606,7 @@ bool RFSCTraceBuilder::cond_signal(const SymAddrSize &ml){
 bool RFSCTraceBuilder::cond_broadcast(const SymAddrSize &ml){
   llvm::dbgs() << "condvars not supported\n";
   abort();
-  record_symbolic(SymEv::CBrdcst(ml));
-  fence();
+  if (!record_symbolic(SymEv::CBrdcst(ml))) return false;
   curev().may_conflict = true;
 
   auto it = cond_vars.find(ml.addr);
@@ -641,9 +648,8 @@ bool RFSCTraceBuilder::cond_wait(const SymAddrSize &cond_ml, const SymAddrSize &
     }
   }
 
-  mutex_unlock(mutex_ml);
-  record_symbolic(SymEv::CWait(cond_ml));
-  fence();
+  if (!mutex_unlock(mutex_ml)) return false;
+  if (!record_symbolic(SymEv::CWait(cond_ml))) return false;
   curev().may_conflict = true;
 
   IPid pid = curev().iid.get_pid();
@@ -666,8 +672,8 @@ bool RFSCTraceBuilder::cond_awake(const SymAddrSize &cond_ml, const SymAddrSize 
   CondVar &cond_var = cond_vars[cond_ml.addr];
   add_happens_after(prefix_idx, cond_var.last_signal);
 
-  mutex_lock(mutex_ml);
-  record_symbolic(SymEv::CAwake(cond_ml));
+  if (!mutex_lock(mutex_ml)) return false;
+  if (!record_symbolic(SymEv::CAwake(cond_ml))) return false;
   curev().may_conflict = true;
 
   return true;
@@ -676,10 +682,8 @@ bool RFSCTraceBuilder::cond_awake(const SymAddrSize &cond_ml, const SymAddrSize 
 int RFSCTraceBuilder::cond_destroy(const SymAddrSize &ml){
   llvm::dbgs() << "condvars not supported\n";
   abort();
-  record_symbolic(SymEv::CDelete(ml));
-  fence();
-
-  int err = (EBUSY == 1) ? 2 : 1; // Chose an error value different from EBUSY
+  const int err = (EBUSY == 1) ? 2 : 1; // Chose an error value different from EBUSY
+  if (!record_symbolic(SymEv::CDelete(ml))) return err;
 
   curev().may_conflict = true;
 
@@ -695,16 +699,17 @@ int RFSCTraceBuilder::cond_destroy(const SymAddrSize &ml){
   return rv;
 }
 
-void RFSCTraceBuilder::register_alternatives(int alt_count){
+bool RFSCTraceBuilder::register_alternatives(int alt_count){
   llvm::dbgs() << "alternatives not supported\n";
   abort();
   curev().may_conflict = true;
-  record_symbolic(SymEv::Nondet(alt_count));
+  if (!record_symbolic(SymEv::Nondet(alt_count))) return false;
   // if(curev().alt == 0) {
   //   for(int i = curev().alt+1; i < alt_count; ++i){
   //     curev().races.push_back(Race::Nondet(prefix_idx, i));
   //   }
   // }
+  return true;
 }
 
 template <class Iter>
@@ -922,7 +927,7 @@ RFSCTraceBuilder::unfold_alternative
   return unfolding_tree.find_unfolding_node(threads[p].cpid, parent, read_from);
 }
 
-void RFSCTraceBuilder::record_symbolic(SymEv event){
+bool RFSCTraceBuilder::record_symbolic(SymEv event){
   if (!replay) {
     assert(!seen_effect);
     /* New event */
@@ -930,10 +935,19 @@ void RFSCTraceBuilder::record_symbolic(SymEv event){
     seen_effect = true;
   } else {
     /* Replay. SymEv::set() asserts that this is the same event as last time. */
+    SymEv &last = curev().sym;
     assert(!seen_effect);
-    curev().sym.set(event);
+    if (!last.is_compatible_with(event)) {
+      auto pid_str = [this](IPid p) { return threads[p].cpid.to_string(); };
+      nondeterminism_error("Event with effect " + last.to_string(pid_str)
+                           + " became " + event.to_string(pid_str)
+                           + " when replayed");
+      return false;
+    }
+    last = event;
     seen_effect = true;
   }
+  return true;
 }
 
 static bool symev_is_lock_type(const SymEv &e) {

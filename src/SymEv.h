@@ -110,7 +110,7 @@ struct SymEv {
     return {UNOBS_STORE, std::move(addr)};
   }
 
-  void set(SymEv other);
+  bool is_compatible_with(SymEv other) const;
   std::string to_string(std::function<std::string(int)> pid_str
                         = (std::string(&)(int))std::to_string) const;
 

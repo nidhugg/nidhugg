@@ -84,7 +84,7 @@ void TSOInterpreter::runAux(int proc, int aux){
   void *ref = tso_threads[proc].store_buffer.front().first;
   const SymData &blk = tso_threads[proc].store_buffer.front().second;
 
-  TB.atomic_store(blk);
+  if(!TB.atomic_store(blk)) { abort(); return; }
 
   if(DryRun) return;
 
@@ -230,7 +230,7 @@ void TSOInterpreter::visitLoadInst(llvm::LoadInst &I){
 
   Option<SymAddrSize> Ptr_sas = GetSymAddrSize(Ptr,I.getType());
   if (!Ptr_sas) return;
-  TB.load(*Ptr_sas);
+  if(!TB.load(*Ptr_sas)) { abort(); return; }
 
   if(DryRun && DryRunMem.size()){
     assert(tso_threads[CurrentThread].store_buffer.empty());
@@ -266,7 +266,7 @@ void TSOInterpreter::visitStoreInst(llvm::StoreInst &I){
      0 <= AtomicFunctionCall){
     /* Atomic store */
     assert(tso_threads[CurrentThread].store_buffer.empty());
-    TB.atomic_store(*sd);
+    if(!TB.atomic_store(*sd)) { abort(); return; }
     if(DryRun){
       DryRunMem.push_back(std::move(*sd));
       return;
@@ -274,7 +274,7 @@ void TSOInterpreter::visitStoreInst(llvm::StoreInst &I){
     StoreValueToMemory(Val, Ptr, I.getOperand(0)->getType());
   }else{
     /* Store to buffer */
-    TB.store(*sd);
+    if(!TB.store(*sd)) { abort(); return; }
     if(DryRun){
       DryRunMem.push_back(std::move(*sd));
       return;
@@ -285,7 +285,7 @@ void TSOInterpreter::visitStoreInst(llvm::StoreInst &I){
 
 void TSOInterpreter::visitFenceInst(llvm::FenceInst &I){
   if(I.getOrdering() == LLVM_ATOMIC_ORDERING_SCOPE::SequentiallyConsistent){
-    TB.fence();
+    if(!TB.fence()) { abort(); return; }
   }
 }
 
@@ -301,7 +301,7 @@ void TSOInterpreter::visitAtomicRMWInst(llvm::AtomicRMWInst &I){
 
 void TSOInterpreter::visitInlineAsm(llvm::CallInst &CS, const std::string &asmstr){
   if(asmstr == "mfence"){
-    TB.fence();
+    if(!TB.fence()) { abort(); return; }
   }else if(asmstr == ""){ // Do nothing
   }else{
     throw std::logic_error("Unsupported inline assembly: "+asmstr);
