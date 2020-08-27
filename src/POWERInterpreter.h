@@ -42,14 +42,10 @@
 #include "POWERARMTraceBuilder.h"
 #include "vecset.h"
 #include "DPORInterpreter.h"
+#include "AnyCallInst.h"
 
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
-#if defined(HAVE_LLVM_SUPPORT_CALLSITE_H)
-#include <llvm/Support/CallSite.h>
-#elif defined(HAVE_LLVM_IR_CALLSITE_H)
-#include <llvm/IR/CallSite.h>
-#endif
 #if defined(HAVE_LLVM_IR_DATALAYOUT_H)
 #include <llvm/IR/DataLayout.h>
 #elif defined(HAVE_LLVM_DATALAYOUT_H)
@@ -328,9 +324,12 @@ public:
   void visitSelectInst(llvm::SelectInst &I);
 
 
-  void visitCallSite(llvm::CallSite CS);
-  void visitCallInst(llvm::CallInst &I) { visitCallSite (llvm::CallSite (&I)); }
-  void visitInvokeInst(llvm::InvokeInst &I) { visitCallSite (llvm::CallSite (&I)); }
+  virtual void visitAnyCallInst(AnyCallInst CI);
+#ifdef LLVM_HAS_CALLBASE
+  virtual void visitCallBase(llvm::CallBase &CB) { visitAnyCallInst(CB); }
+#else
+  virtual void visitCallSite(llvm::CallSite CS) { visitAnyCallInst(CS); }
+#endif
   void visitUnreachableInst(llvm::UnreachableInst &I);
 
   void visitShl(llvm::BinaryOperator &I);
@@ -344,7 +343,7 @@ public:
 
   void visitExtractValueInst(llvm::ExtractValueInst &I);
   void visitInsertValueInst(llvm::InsertValueInst &I);
-  void visitInlineAsm(llvm::CallSite &CS, const std::string &asmstr);
+  void visitInlineAsm(llvm::CallInst &CI, const std::string &asmstr);
 
   void visitInstruction(llvm::Instruction &I) {
     llvm::errs() << I << "\n";
@@ -492,7 +491,7 @@ private:  // Helper functions
    * If CS is a call to inline assembly, then *asmstr is assigned the
    * assembly string.
    */
-  bool isInlineAsm(llvm::CallSite &CS, std::string *asmstr);
+  bool isInlineAsm(AnyCallInst CI, std::string *asmstr);
   bool isInlineAsm(llvm::Instruction &CS, std::string *asmstr);
 
   /* Force termination from all running threads, thereby terminating

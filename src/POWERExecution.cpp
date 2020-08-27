@@ -1145,12 +1145,11 @@ static void stripws(std::string &s){
   s = s.substr(first,len);
 }
 
-bool POWERInterpreter::isInlineAsm(llvm::CallSite &CS, std::string *asmstr){
-  if(CS.isCall()){
-    llvm::CallInst *CI = llvm::cast<llvm::CallInst>(CS.getInstruction());
+bool POWERInterpreter::isInlineAsm(AnyCallInst CS, std::string *asmstr){
+  if(llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(&CS)){
     if(CI){
       if(CI->isInlineAsm()){
-        llvm::InlineAsm *IA = llvm::dyn_cast<llvm::InlineAsm>(CI->getCalledValue());
+        llvm::InlineAsm *IA = llvm::dyn_cast<llvm::InlineAsm>(CS.getCalledOperand());
         assert(IA);
         *asmstr = IA->getAsmString();
         stripws(*asmstr);
@@ -1164,11 +1163,10 @@ bool POWERInterpreter::isInlineAsm(llvm::CallSite &CS, std::string *asmstr){
 bool POWERInterpreter::isInlineAsm(llvm::Instruction &I, std::string *asmstr){
   llvm::CallInst *C = llvm::dyn_cast<llvm::CallInst>(&I);
   if(!C) return false;
-  llvm::CallSite CS(C);
-  return isInlineAsm(CS,asmstr);
+  return isInlineAsm(AnyCallInst(C),asmstr);
 }
 
-void POWERInterpreter::visitInlineAsm(llvm::CallSite &CS, const std::string &asmstr){
+void POWERInterpreter::visitInlineAsm(llvm::CallInst &CI, const std::string &asmstr){
   if(asmstr == "DMB" || asmstr == "dmb" ||
      asmstr == "DSB" || asmstr == "dsb" ||
      asmstr == "ISB" || asmstr == "isb" ||
@@ -1182,11 +1180,11 @@ void POWERInterpreter::visitInlineAsm(llvm::CallSite &CS, const std::string &asm
   }
 }
 
-void POWERInterpreter::visitCallSite(llvm::CallSite CS) {
+void POWERInterpreter::visitAnyCallInst(AnyCallInst CI) {
   {
     std::string asmstr;
-    if(isInlineAsm(CS,&asmstr)){
-      visitInlineAsm(CS,asmstr);
+    if(isInlineAsm(CI,&asmstr)){
+      visitInlineAsm(llvm::cast<llvm::CallInst>(CI),asmstr);
       return;
     }
   }
@@ -1194,7 +1192,7 @@ void POWERInterpreter::visitCallSite(llvm::CallSite CS) {
   ExecutionContext &SF = Threads[CurrentThread].ECStack.back();
 
   // Check to see if this is an intrinsic function call...
-  llvm::Function *F = CS.getCalledFunction();
+  llvm::Function *F = CI.getCalledFunction();
   if (F && F->isDeclaration()){
     switch (F->getIntrinsicID()) {
     case llvm::Intrinsic::not_intrinsic:
@@ -1205,7 +1203,7 @@ void POWERInterpreter::visitCallSite(llvm::CallSite CS) {
         llvm::GenericValue ArgIndex;
         ArgIndex.UIntPairVal.first = ECStack.size() - 1;
         ArgIndex.UIntPairVal.second = 0;
-        SetValue(CS.getInstruction(), ArgIndex, SF);
+        SetValue(CI.getInstruction(), ArgIndex, SF);
       */
       return;
     }
@@ -1217,7 +1215,7 @@ void POWERInterpreter::visitCallSite(llvm::CallSite CS) {
     case llvm::Intrinsic::vacopy:   // va_copy: dest = src
       throw std::logic_error("POWERInterpreter: Varargs are not supported.");
       /*
-        SetValue(CS.getInstruction(), getOperandValue(*CS.arg_begin(), SF), SF);
+        SetValue(CI.getInstruction(), getOperandValue(*CI.arg_begin(), SF), SF);
       */
       return;
     default:
@@ -1258,12 +1256,12 @@ void POWERInterpreter::visitCallSite(llvm::CallSite CS) {
         // If it is an unknown intrinsic function, use the intrinsic lowering
         // class to transform it into hopefully tasty LLVM code.
         //
-        llvm::BasicBlock::iterator me(CS.getInstruction());
-        llvm::BasicBlock *Parent = CS.getInstruction()->getParent();
+        llvm::BasicBlock::iterator me(&CI);
+        llvm::BasicBlock *Parent = (&CI)->getParent();
         bool atBegin(Parent->begin() == me);
         if (!atBegin)
           --me;
-        IL->LowerIntrinsicCall(llvm::cast<llvm::CallInst>(CS.getInstruction()));
+        IL->LowerIntrinsicCall(llvm::cast<llvm::CallInst>(&CI));
 
         // Restore the CurInst pointer to the first instruction newly inserted, if
         // any.
@@ -1288,15 +1286,15 @@ void POWERInterpreter::visitCallSite(llvm::CallSite CS) {
     }
   }
 
-  assert(CS.getInstruction());
-  assert(CS.getInstruction() == &CurInstr->I);
+  assert(!(CI == nullptr));
+  assert(&CI == &CurInstr->I);
 
   std::vector<llvm::Value*> ArgVals;
-  const unsigned NumArgs = CS.arg_size();
+  const unsigned NumArgs = CI.arg_size();
   ArgVals.reserve(NumArgs);
   for(unsigned i = 0; i < NumArgs; ++i){
-    assert(CS.getArgument(i) == CS.getInstruction()->getOperand(i));
-    ArgVals.push_back(CS.getInstruction()->getOperand(i));
+    assert(CI.arg_begin()[i] == (&CI)->getOperand(i));
+    ArgVals.push_back((&CI)->getOperand(i));
   }
 
   // To handle indirect calls, we must get the pointer value from the argument
@@ -1323,11 +1321,11 @@ int POWERInterpreter::getCalleeOpIdx(const llvm::Instruction &I){
 llvm::Function *POWERInterpreter::getCallee(){
 #ifndef NDEBUG
   if(llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(&CurInstr->I)){
-    assert(CI->getCalledValue() == CI->getOperand(CI->getNumOperands()-1));
+    assert(AnyCallInst(CI).getCalledOperand() == CI->getOperand(CI->getNumOperands()-1));
   }else{
     assert(llvm::dyn_cast<llvm::InvokeInst>(&CurInstr->I));
     llvm::InvokeInst &II = llvm::cast<llvm::InvokeInst>(CurInstr->I);
-    assert(II.getCalledValue() == II.getOperand(II.getNumOperands()-3));
+    assert(AnyCallInst(&II).getCalledOperand() == II.getOperand(II.getNumOperands()-3));
   }
 #endif
   return (llvm::Function*)GVTOP(getOperandValue(getCalleeOpIdx(CurInstr->I)));

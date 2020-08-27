@@ -64,11 +64,7 @@
 #elif defined(HAVE_LLVM_SUPPORT_INSTVISITOR_H)
 #include <llvm/Support/InstVisitor.h>
 #endif
-#if defined(HAVE_LLVM_SUPPORT_CALLSITE_H)
-#include <llvm/Support/CallSite.h>
-#elif defined(HAVE_LLVM_IR_CALLSITE_H)
-#include <llvm/IR/CallSite.h>
-#endif
+#include "AnyCallInst.h"
 #include <llvm/Support/DataTypes.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>
@@ -94,8 +90,8 @@ struct ExecutionContext {
   BasicBlock::iterator  CurInst;    // The next instruction to execute
   std::map<Value *, GenericValue> Values; // LLVM values used in this invocation
   std::vector<GenericValue>  VarArgs; // Values passed through an ellipsis
-  CallSite             Caller;     // Holds the call that called subframes.
-                                   // NULL if main func or debugger invoked fn
+  AnyCallInst           Caller;     // Holds the call that called subframes.
+                                    // NULL if main func or debugger invoked fn
 };
 
 // Interpreter - This class represents the entirety of the interpreter.
@@ -353,9 +349,12 @@ public:
   virtual void visitBitCastInst(BitCastInst &I);
   virtual void visitSelectInst(SelectInst &I);
 
-  virtual void visitCallSite(CallSite CS);
-  virtual void visitCallInst(CallInst &I) { visitCallSite (CallSite (&I)); }
-  virtual void visitInvokeInst(InvokeInst &I) { visitCallSite (CallSite (&I)); }
+  virtual void visitAnyCallInst(AnyCallInst CI);
+#ifdef LLVM_HAS_CALLBASE
+  virtual void visitCallBase(CallBase &CB) { visitAnyCallInst(&CB); }
+#else
+  virtual void visitCallSite(CallSite CS) { visitAnyCallInst(CS); }
+#endif
   virtual void visitUnreachableInst(UnreachableInst &I);
 
   virtual void visitShl(BinaryOperator &I);
@@ -373,7 +372,7 @@ public:
   virtual void visitFenceInst(FenceInst &I) { /* Do nothing */ };
   virtual void visitAtomicCmpXchgInst(AtomicCmpXchgInst &I);
   virtual void visitAtomicRMWInst(AtomicRMWInst &I);
-  virtual void visitInlineAsm(CallSite &CS, const std::string &asmstr);
+  virtual void visitInlineAsm(llvm::CallInst &CI, const std::string &asmstr);
 
   virtual void visitInstruction(Instruction &I) {
     errs() << I << "\n";
@@ -529,7 +528,7 @@ protected:  // Helper functions
                                          SymAddrSize Src_sas, Type *Ty);
 
   /* Returns true if I is a call to an unknown intrinsic function, as
-   * defined by Interpreter::visitCallSite. Such function calls are
+   * defined by Interpreter::visitAnyCallInst. Such function calls are
    * replaced by some other sequence of instructions upon execution.
    */
   virtual bool isUnknownIntrinsic(Instruction &I);
@@ -550,7 +549,7 @@ protected:  // Helper functions
    * If CS is a call to inline assembly, then *asmstr is assigned the
    * assembly string.
    */
-  virtual bool isInlineAsm(CallSite &CS, std::string *asmstr);
+  virtual bool isInlineAsm(AnyCallInst CI, std::string *asmstr);
   /* I should be the next instruction that has been
    * scheduled. CurrentProc and ECStack shoauld be properly setup to
    * execute I.

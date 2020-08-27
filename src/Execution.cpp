@@ -915,13 +915,13 @@ void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
     // If we have a previous stack frame, and we have a previous call,
     // fill in the return value...
     ExecutionContext &CallingSF = ECStack()->back();
-    if (Instruction *I = CallingSF.Caller.getInstruction()) {
+    if (Instruction *I = &CallingSF.Caller) {
       // Save result...
-      if (!CallingSF.Caller.getType()->isVoidTy())
+      if (!(&CallingSF.Caller)->getType()->isVoidTy())
         SetValue(I, Result, CallingSF);
       if (InvokeInst *II = dyn_cast<InvokeInst> (I))
         SwitchToNewBasicBlock (II->getNormalDest (), CallingSF);
-      CallingSF.Caller = CallSite();          // We returned from the call...
+      CallingSF.Caller = AnyCallInst();          // We returned from the call...
     }
   }
 }
@@ -931,13 +931,13 @@ void Interpreter::returnValueToCaller(Type *RetTy,
   assert(!ECStack()->empty());
   // fill in the return value...
   ExecutionContext &CallingSF = ECStack()->back();
-  if (Instruction *I = CallingSF.Caller.getInstruction()) {
+  if (Instruction *I = &CallingSF.Caller) {
     // Save result...
-    if (!CallingSF.Caller.getType()->isVoidTy())
+    if (!(&CallingSF.Caller)->getType()->isVoidTy())
       SetValue(I, Result, CallingSF);
     if (InvokeInst *II = dyn_cast<InvokeInst> (I))
       SwitchToNewBasicBlock (II->getNormalDest (), CallingSF);
-    CallingSF.Caller = CallSite();          // We returned from the call...
+    CallingSF.Caller = AnyCallInst();          // We returned from the call...
   }
 }
 
@@ -1315,7 +1315,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
   StoreValueToMemory(NewVal,Ptr,I.getType());
 }
 
-void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmstr){
+void Interpreter::visitInlineAsm(llvm::CallInst &CI, const std::string &asmstr){
   if(asmstr == "mfence"){ // Do nothing
   }else if(asmstr == ""){ // Do nothing
   }else{
@@ -1327,11 +1327,11 @@ void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmstr){
 //                 Miscellaneous Instruction Implementations
 //===----------------------------------------------------------------------===//
 
-void Interpreter::visitCallSite(CallSite CS) {
+void Interpreter::visitAnyCallInst(AnyCallInst CI) {
   {
     std::string asmstr;
-    if(isInlineAsm(CS,&asmstr)){
-      visitInlineAsm(CS,asmstr);
+    if(isInlineAsm(CI,&asmstr)){
+      visitInlineAsm(cast<CallInst>(CI),asmstr);
       return;
     }
   }
@@ -1339,7 +1339,7 @@ void Interpreter::visitCallSite(CallSite CS) {
   ExecutionContext &SF = ECStack()->back();
 
   // Check to see if this is an intrinsic function call...
-  Function *F = CS.getCalledFunction();
+  Function *F = CI.getCalledFunction();
   if (F && F->isDeclaration()){
     switch (F->getIntrinsicID()) {
     case Intrinsic::not_intrinsic:
@@ -1348,13 +1348,13 @@ void Interpreter::visitCallSite(CallSite CS) {
       GenericValue ArgIndex;
       ArgIndex.UIntPairVal.first = ECStack()->size() - 1;
       ArgIndex.UIntPairVal.second = 0;
-      SetValue(CS.getInstruction(), ArgIndex, SF);
+      SetValue(&CI, ArgIndex, SF);
       return;
     }
     case Intrinsic::vaend:    // va_end is a noop for the interpreter
       return;
     case Intrinsic::vacopy:   // va_copy: dest = src
-      SetValue(CS.getInstruction(), getOperandValue(*CS.arg_begin(), SF), SF);
+      SetValue(&CI, getOperandValue(*CI.arg_begin(), SF), SF);
       return;
     default:
       {
@@ -1394,12 +1394,12 @@ void Interpreter::visitCallSite(CallSite CS) {
         // If it is an unknown intrinsic function, use the intrinsic lowering
         // class to transform it into hopefully tasty LLVM code.
         //
-        BasicBlock::iterator me(CS.getInstruction());
-        BasicBlock *Parent = CS.getInstruction()->getParent();
+        BasicBlock::iterator me(&CI);
+        BasicBlock *Parent = (&CI)->getParent();
         bool atBegin(Parent->begin() == me);
         if (!atBegin)
           --me;
-        IL->LowerIntrinsicCall(cast<CallInst>(CS.getInstruction()));
+        IL->LowerIntrinsicCall(cast<CallInst>(&CI));
 
         // Restore the CurInst pointer to the first instruction newly inserted, if
         // any.
@@ -1425,12 +1425,12 @@ void Interpreter::visitCallSite(CallSite CS) {
   }
 
 
-  SF.Caller = CS;
+  SF.Caller = CI;
   std::vector<GenericValue> ArgVals;
   const unsigned NumArgs = SF.Caller.arg_size();
   ArgVals.reserve(NumArgs);
   uint16_t pNum = 1;
-  for (CallSite::arg_iterator i = SF.Caller.arg_begin(),
+  for (auto i = SF.Caller.arg_begin(),
          e = SF.Caller.arg_end(); i != e; ++i, ++pNum) {
     Value *V = *i;
     ArgVals.push_back(getOperandValue(V, SF));
@@ -1438,7 +1438,7 @@ void Interpreter::visitCallSite(CallSite CS) {
 
   // To handle indirect calls, we must get the pointer value from the argument
   // and treat it as a function pointer.
-  GenericValue SRC = getOperandValue(SF.Caller.getCalledValue(), SF);
+  GenericValue SRC = getOperandValue(SF.Caller.getCalledOperand(), SF);
   callFunction((Function*)GVTOP(SRC), ArgVals);
 }
 
@@ -3033,7 +3033,7 @@ void Interpreter::callFunction(Function *F,
     return;
   }
 
-  assert((ECStack()->empty() || ECStack()->back().Caller.getInstruction() == 0 ||
+  assert((ECStack()->empty() || ECStack()->back().Caller == nullptr ||
           ECStack()->back().Caller.arg_size() == ArgVals.size()) &&
          "Incorrect number of arguments passed into function call!");
 
@@ -3108,12 +3108,11 @@ static void stripws(std::string &s){
   s = s.substr(first,len);
 }
 
-bool Interpreter::isInlineAsm(CallSite &CS, std::string *asmstr){
-  if(CS.isCall()){
-    llvm::CallInst *CI = cast<llvm::CallInst>(CS.getInstruction());
+bool Interpreter::isInlineAsm(AnyCallInst ACI, std::string *asmstr){
+  if(llvm::CallInst *CI = dyn_cast<llvm::CallInst>(&ACI)){
     if(CI){
       if(CI->isInlineAsm()){
-        llvm::InlineAsm *IA = llvm::dyn_cast<llvm::InlineAsm>(CI->getCalledValue());
+        llvm::InlineAsm *IA = llvm::dyn_cast<llvm::InlineAsm>(ACI.getCalledOperand());
         assert(IA);
         *asmstr = IA->getAsmString();
         stripws(*asmstr);
@@ -3125,9 +3124,8 @@ bool Interpreter::isInlineAsm(CallSite &CS, std::string *asmstr){
 }
 
 bool Interpreter::isUnknownIntrinsic(Instruction &I){
-  if(isa<CallInst>(I)){
-    CallSite CS(static_cast<CallInst*>(&I));
-    Function *F = CS.getCalledFunction();
+  if(CallInst *CI = dyn_cast<CallInst>(&I)){
+    Function *F = CI->getCalledFunction();
     if(F && F->isDeclaration() &&
        F->getIntrinsicID() != Intrinsic::not_intrinsic &&
        F->getIntrinsicID() != Intrinsic::vastart &&
@@ -3141,11 +3139,11 @@ bool Interpreter::isUnknownIntrinsic(Instruction &I){
 
 bool Interpreter::isPthreadJoin(Instruction &I, int *tid){
   if(!isa<CallInst>(I)) return false;
-  CallSite CS(static_cast<CallInst*>(&I));
-  Function *F = CS.getCalledFunction();
+  AnyCallInst CI(static_cast<CallInst*>(&I));
+  Function *F = CI.getCalledFunction();
   if(!F || F->getName() != "pthread_join") return false;
   llvm::GenericValue gv_tid =
-    getOperandValue(*CS.arg_begin(), ECStack()->back());
+    getOperandValue(*CI.arg_begin(), ECStack()->back());
   *tid = pthread_t_to_tid(F->arg_begin()->getType(), gv_tid);
   return true;
 }
@@ -3156,10 +3154,10 @@ bool Interpreter::isPthreadMutexLock(Instruction &I, GenericValue **ptr){
     return true;
   }
   if(!isa<CallInst>(I)) return false;
-  CallSite CS(static_cast<CallInst*>(&I));
-  Function *F = CS.getCalledFunction();
+  AnyCallInst CI(static_cast<CallInst*>(&I));
+  Function *F = CI.getCalledFunction();
   if(!F || F->getName() != "pthread_mutex_lock") return false;
-  *ptr = (GenericValue*)GVTOP(getOperandValue(*CS.arg_begin(),ECStack()->back()));
+  *ptr = (GenericValue*)GVTOP(getOperandValue(*CI.arg_begin(),ECStack()->back()));
   return true;
 }
 

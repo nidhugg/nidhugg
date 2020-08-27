@@ -122,9 +122,8 @@ int TSOInterpreter::newThread(const CPid &cpid){
 }
 
 bool TSOInterpreter::isFence(llvm::Instruction &I){
-  if(llvm::isa<llvm::CallInst>(I)){
-    llvm::CallSite CS(static_cast<llvm::CallInst*>(&I));
-    llvm::Function *F = CS.getCalledFunction();
+  if(llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(&I)){
+    llvm::Function *F = CI->getCalledFunction();
     if(F && F->isDeclaration() &&
        F->getIntrinsicID() == llvm::Intrinsic::not_intrinsic &&
        conf.extfun_no_fence.count(F->getName().str()) == 0){
@@ -133,7 +132,7 @@ bool TSOInterpreter::isFence(llvm::Instruction &I){
     if(F && F->getName().str().find("__VERIFIER_atomic_") == 0) return true;
     {
       std::string asmstr;
-      if(isInlineAsm(CS,&asmstr) && asmstr == "mfence") return true;
+      if(isInlineAsm(AnyCallInst(CI),&asmstr) && asmstr == "mfence") return true;
     }
   }else if(llvm::isa<llvm::StoreInst>(I)){
     return static_cast<llvm::StoreInst&>(I).getOrdering() == LLVM_ATOMIC_ORDERING_SCOPE::SequentiallyConsistent;
@@ -297,7 +296,7 @@ void TSOInterpreter::visitAtomicRMWInst(llvm::AtomicRMWInst &I){
   Interpreter::visitAtomicRMWInst(I);
 }
 
-void TSOInterpreter::visitInlineAsm(llvm::CallSite &CS, const std::string &asmstr){
+void TSOInterpreter::visitInlineAsm(llvm::CallInst &CS, const std::string &asmstr){
   if(asmstr == "mfence"){
     TB.fence();
   }else if(asmstr == ""){ // Do nothing

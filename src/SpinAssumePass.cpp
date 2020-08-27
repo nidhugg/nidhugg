@@ -98,8 +98,7 @@ bool DeclareAssumePass::runOnModule(llvm::Module &M){
 bool SpinAssumePass::is_assume(llvm::Instruction &I) const {
   llvm::CallInst *C = llvm::dyn_cast<llvm::CallInst>(&I);
   if(!C) return false;
-  llvm::CallSite CS(C);
-  llvm::Function *F = CS.getCalledFunction();
+  llvm::Function *F = C->getCalledFunction();
   return F && F->getName().str() == "__VERIFIER_assume";
 }
 
