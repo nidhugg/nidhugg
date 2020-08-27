@@ -27,6 +27,7 @@
 #endif
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/ADT/StringSet.h>
 
 #include <set>
 
@@ -49,7 +50,7 @@ void CheckModule::check_functions(const llvm::Module *M){
   check_calloc(M);
   check_nondet_int(M);
   check_assume(M);
-  std::set<std::string> supported =
+  llvm::StringSet<> supported =
     {"pthread_create",
      "pthread_join",
      "pthread_self",

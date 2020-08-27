@@ -183,7 +183,7 @@ static void executeFRemInst(llvm::GenericValue &Dest, llvm::GenericValue Src1,
   break;
 
 #define IMPLEMENT_VECTOR_INTEGER_ICMP(OP, TY)                           \
-  case llvm::Type::VectorTyID: {                                        \
+  LLVM_VECTOR_TYPEID_CASES {                                            \
     assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());       \
     Dest.AggregateVal.resize( Src1.AggregateVal.size() );               \
     for( uint32_t _i=0;_i<Src1.AggregateVal.size();_i++)                \
@@ -380,7 +380,7 @@ void POWERInterpreter::visitICmpInst(llvm::ICmpInst &I) {
   break;
 
 #define IMPLEMENT_VECTOR_FCMP(OP)                                       \
-  case llvm::Type::VectorTyID:                                          \
+  LLVM_VECTOR_TYPEID_CASES                                              \
   if(llvm::dyn_cast<llvm::VectorType>(Ty)->getElementType()->isFloatTy()) { \
     IMPLEMENT_VECTOR_FCMP_T(OP, Float);                                 \
   } else {                                                              \
@@ -1488,7 +1488,7 @@ llvm::GenericValue POWERInterpreter::executeFPTruncInst(llvm::Value *SrcVal,
                                                         llvm::Type *DstTy) {
   llvm::GenericValue Dest;
 
-  if (SrcVal->getType()->getTypeID() == llvm::Type::VectorTyID) {
+  if (llvm::isa<llvm::VectorType>(SrcVal->getType())) {
     assert(SrcVal->getType()->getScalarType()->isDoubleTy() &&
            DstTy->getScalarType()->isFloatTy() &&
            "Invalid FPTrunc instruction");
@@ -1512,7 +1512,7 @@ llvm::GenericValue POWERInterpreter::executeFPExtInst(llvm::Value *SrcVal,
                                                       llvm::Type *DstTy) {
   llvm::GenericValue Dest;
 
-  if (SrcVal->getType()->getTypeID() == llvm::Type::VectorTyID) {
+  if (llvm::isa<llvm::VectorType>(SrcVal->getType())) {
     assert(SrcVal->getType()->getScalarType()->isFloatTy() &&
            DstTy->getScalarType()->isDoubleTy() && "Invalid FPExt instruction");
 
@@ -1536,7 +1536,7 @@ llvm::GenericValue POWERInterpreter::executeFPToUIInst(llvm::Value *SrcVal,
   llvm::Type *SrcTy = SrcVal->getType();
   llvm::GenericValue Dest;
 
-  if (SrcTy->getTypeID() == llvm::Type::VectorTyID) {
+  if (llvm::isa<llvm::VectorType>(SrcTy)) {
     const llvm::Type *DstVecTy = DstTy->getScalarType();
     const llvm::Type *SrcVecTy = SrcTy->getScalarType();
     uint32_t DBitWidth = llvm::cast<llvm::IntegerType>(DstVecTy)->getBitWidth();
@@ -1575,7 +1575,7 @@ llvm::GenericValue POWERInterpreter::executeFPToSIInst(llvm::Value *SrcVal,
   llvm::Type *SrcTy = SrcVal->getType();
   llvm::GenericValue Dest;
 
-  if (SrcTy->getTypeID() == llvm::Type::VectorTyID) {
+  if (llvm::isa<llvm::VectorType>(SrcTy)) {
     const llvm::Type *DstVecTy = DstTy->getScalarType();
     const llvm::Type *SrcVecTy = SrcTy->getScalarType();
     uint32_t DBitWidth = llvm::cast<llvm::IntegerType>(DstVecTy)->getBitWidth();
@@ -1612,7 +1612,7 @@ llvm::GenericValue POWERInterpreter::executeUIToFPInst(llvm::Value *SrcVal,
                                                        llvm::Type *DstTy) {
   llvm::GenericValue Dest;
 
-  if (SrcVal->getType()->getTypeID() == llvm::Type::VectorTyID) {
+  if (llvm::isa<llvm::VectorType>(SrcVal->getType())) {
     const llvm::Type *DstVecTy = DstTy->getScalarType();
     unsigned size = Src.AggregateVal.size();
     // the sizes of src and dst vectors must be equal
@@ -1645,7 +1645,7 @@ llvm::GenericValue POWERInterpreter::executeSIToFPInst(llvm::Value *SrcVal,
                                                        llvm::Type *DstTy) {
   llvm::GenericValue Dest;
 
-  if (SrcVal->getType()->getTypeID() == llvm::Type::VectorTyID) {
+  if (llvm::isa<llvm::VectorType>(SrcVal->getType())) {
     const llvm::Type *DstVecTy = DstTy->getScalarType();
     unsigned size = Src.AggregateVal.size();
     // the sizes of src and dst vectors must be equal
@@ -1709,8 +1709,7 @@ llvm::GenericValue POWERInterpreter::executeBitCastInst(llvm::Value *SrcVal,
   llvm::Type *SrcTy = SrcVal->getType();
   llvm::GenericValue Dest;
 
-  if ((SrcTy->getTypeID() == llvm::Type::VectorTyID) ||
-      (DstTy->getTypeID() == llvm::Type::VectorTyID)) {
+  if (llvm::isa<llvm::VectorType>(SrcTy) || llvm::isa<llvm::VectorType>(DstTy)) {
     // vector src bitcast to vector dst or vector src bitcast to scalar dst or
     // scalar src bitcast to vector dst
     bool isLittleEndian = TD.isLittleEndian();
@@ -1722,7 +1721,7 @@ llvm::GenericValue POWERInterpreter::executeBitCastInst(llvm::Value *SrcVal,
     unsigned SrcNum;
     unsigned DstNum;
 
-    if (SrcTy->getTypeID() == llvm::Type::VectorTyID) {
+    if (llvm::isa<llvm::VectorType>(SrcTy)) {
       SrcElemTy = SrcTy->getScalarType();
       SrcBitSize = SrcTy->getScalarSizeInBits();
       SrcNum = Src.AggregateVal.size();
@@ -1735,7 +1734,7 @@ llvm::GenericValue POWERInterpreter::executeBitCastInst(llvm::Value *SrcVal,
       SrcVec.AggregateVal.push_back(Src);
     }
 
-    if (DstTy->getTypeID() == llvm::Type::VectorTyID) {
+    if (llvm::isa<llvm::VectorType>(DstTy)) {
       DstElemTy = DstTy->getScalarType();
       DstBitSize = DstTy->getScalarSizeInBits();
       DstNum = (SrcNum * SrcBitSize) / DstBitSize;
@@ -1808,7 +1807,7 @@ llvm::GenericValue POWERInterpreter::executeBitCastInst(llvm::Value *SrcVal,
     }
 
     // convert result from integer to specified type
-    if (DstTy->getTypeID() == llvm::Type::VectorTyID) {
+    if (llvm::isa<llvm::VectorType>(DstTy)) {
       if (DstElemTy->isDoubleTy()) {
         Dest.AggregateVal.resize(DstNum);
         for (unsigned i = 0; i < DstNum; i++)
@@ -1831,8 +1830,7 @@ llvm::GenericValue POWERInterpreter::executeBitCastInst(llvm::Value *SrcVal,
         Dest.IntVal = TempDst.AggregateVal[0].IntVal;
       }
     }
-  } else { //  if ((SrcTy->getTypeID() == llvm::Type::VectorTyID) ||
-           //     (DstTy->getTypeID() == llvm::Type::VectorTyID))
+  } else { //   if (isa<VectorType>(SrcTy) || isa<VectorType>(DstTy))
 
     // scalar src bitcast to scalar dst
     if (DstTy->isPointerTy()) {
@@ -2110,7 +2108,7 @@ void POWERInterpreter::visitExtractValueInst(llvm::ExtractValueInst &I) {
     break;
   case llvm::Type::ArrayTyID:
   case llvm::Type::StructTyID:
-  case llvm::Type::VectorTyID:
+  LLVM_VECTOR_TYPEID_CASES
     Dest.AggregateVal = pSrc->AggregateVal;
     break;
   case llvm::Type::PointerTyID:
@@ -2156,7 +2154,7 @@ void POWERInterpreter::visitInsertValueInst(llvm::InsertValueInst &I) {
     break;
   case llvm::Type::ArrayTyID:
   case llvm::Type::StructTyID:
-  case llvm::Type::VectorTyID:
+  LLVM_VECTOR_TYPEID_CASES
     pDest->AggregateVal = Src2.AggregateVal;
     break;
   case llvm::Type::PointerTyID:
@@ -2551,7 +2549,7 @@ void POWERInterpreter::callFunction(llvm::Function *F,
   }
 
   if(conf.ee_store_trace){
-    TB.trace_register_function_entry(CurrentThread,F->getName(),0);
+    TB.trace_register_function_entry(CurrentThread,std::string(F->getName()),0);
   }
 
   // Get pointers to first LLVM BB & llvm::Instruction in function.
