@@ -75,7 +75,7 @@ int main(int argc, char *argv[]){
     /* Hide all options defined by the LLVM library, except the ones
      * approved by Configuration.
      */
-    std::set<std::string> visible_options =
+    std::set<std::string, std::less<void>> visible_options =
       {"version"};
     visible_options.insert(Configuration::commandline_opts().begin(),
                            Configuration::commandline_opts().end());

@@ -11,8 +11,11 @@ if [ -n "$LLVM_VERSION" ]; then
         3.[89]*|[4-6].*)
             LLVM_UBUNTU_VER=16.04
             ;;
-        ?*)
+        [7-9].*|10.*)
             LLVM_UBUNTU_VER=18.04
+            ;;
+        ?*)
+            LLVM_UBUNTU_VER=20.04
             ;;
     esac
     case $LLVM_VERSION in

@@ -158,7 +158,7 @@ int PSOInterpreter::newThread(const CPid &cpid){
 
 bool PSOInterpreter::isFence(llvm::Instruction &I){
   if(llvm::isa<llvm::CallInst>(I)){
-    llvm::CallSite CS(static_cast<llvm::CallInst*>(&I));
+    AnyCallInst CS(static_cast<llvm::CallInst*>(&I));
     llvm::Function *F = CS.getCalledFunction();
     if(F && F->isDeclaration() &&
        F->getIntrinsicID() == llvm::Intrinsic::not_intrinsic &&
@@ -345,7 +345,7 @@ void PSOInterpreter::visitAtomicRMWInst(llvm::AtomicRMWInst &I){
   Interpreter::visitAtomicRMWInst(I);
 }
 
-void PSOInterpreter::visitInlineAsm(llvm::CallSite &CS, const std::string &asmstr){
+void PSOInterpreter::visitInlineAsm(llvm::CallInst &CI, const std::string &asmstr){
   if(asmstr == "mfence"){
     TB.fence();
   }else if(asmstr == ""){ // Do nothing

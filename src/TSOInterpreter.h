@@ -44,7 +44,7 @@ public:
   virtual void visitFenceInst(llvm::FenceInst &I);
   virtual void visitAtomicCmpXchgInst(llvm::AtomicCmpXchgInst &I);
   virtual void visitAtomicRMWInst(llvm::AtomicRMWInst &I);
-  virtual void visitInlineAsm(llvm::CallSite &CS, const std::string &asmstr);
+  virtual void visitInlineAsm(llvm::CallInst &CI, const std::string &asmstr);
 protected:
   virtual void runAux(int proc, int aux);
   virtual int newThread(const CPid &cpid);
