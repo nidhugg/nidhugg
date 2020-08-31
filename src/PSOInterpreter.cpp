@@ -238,13 +238,14 @@ bool PSOInterpreter::checkRefuse(llvm::Instruction &I){
     llvm::ExecutionContext &SF = ECStack()->back();
     llvm::GenericValue SRC = getOperandValue(static_cast<llvm::LoadInst&>(I).getPointerOperand(), SF);
     llvm::GenericValue *Ptr = (llvm::GenericValue*)GVTOP(SRC);
-    SymAddrSize mr = GetSymAddrSize(Ptr,static_cast<llvm::LoadInst&>(I).getType());
-    if(!pso_threads[CurrentThread].readable(mr)){
+    Option<SymAddrSize> mr = TryGetSymAddrSize(Ptr,static_cast<llvm::LoadInst&>(I).getType());
+    if (!mr) return false; /* Let it execute and segfault */
+    if(!pso_threads[CurrentThread].readable(*mr)){
       /* Block until this store buffer entry has disappeared from
        * the buffer.
        */
       pso_threads[CurrentThread].awaiting_buffer_flush = PSOThread::BFL_PARTIAL;
-      pso_threads[CurrentThread].buffer_flush_ml = mr;
+      pso_threads[CurrentThread].buffer_flush_ml = *mr;
       TB.refuse_schedule();
       return true;
     }
@@ -258,23 +259,23 @@ void PSOInterpreter::visitLoadInst(llvm::LoadInst &I){
   llvm::GenericValue *Ptr = (llvm::GenericValue*)GVTOP(SRC);
   llvm::GenericValue Result;
 
-  /* XXX: Check for segfault */
-  SymAddrSize ml = GetSymAddrSize(Ptr,I.getType());
-  TB.load(ml);
+  Option<SymAddrSize> ml = GetSymAddrSize(Ptr,I.getType());
+  if (!ml) return;
+  TB.load(*ml);
 
   if(DryRun && DryRunMem.size()){
     assert(pso_threads[CurrentThread].all_buffers_empty());
-    DryRunLoadValueFromMemory(Result, Ptr, ml, I.getType());
+    DryRunLoadValueFromMemory(Result, Ptr, *ml, I.getType());
     SetValue(&I, Result, SF);
     return;
   }
 
   /* Check store buffer for ROWE opportunity. */
-  if(pso_threads[CurrentThread].store_buffers.count(ml.addr)){
-    uint8_t *blk = new uint8_t[ml.size];
-    for(SymAddr b : ml){
-      assert(pso_threads[CurrentThread].store_buffers[b].back().ml == ml);
-      blk[b - ml.addr] = pso_threads[CurrentThread].store_buffers[b].back().val;
+  if(pso_threads[CurrentThread].store_buffers.count(ml->addr)){
+    uint8_t *blk = new uint8_t[ml->size];
+    for(SymAddr b : *ml){
+      assert(pso_threads[CurrentThread].store_buffers[b].back().ml == *ml);
+      blk[b - ml->addr] = pso_threads[CurrentThread].store_buffers[b].back().val;
     }
     LoadValueFromMemory(Result,(llvm::GenericValue*)blk,I.getType());
     SetValue(&I, Result, SF);
@@ -293,8 +294,8 @@ void PSOInterpreter::visitStoreInst(llvm::StoreInst &I){
   llvm::GenericValue *Ptr = (llvm::GenericValue *)GVTOP
     (getOperandValue(I.getPointerOperand(), SF));
 
-  /* XXX: Check for segfault */
-  SymData mb = GetSymData(Ptr, I.getOperand(0)->getType(), Val);
+  Option<SymData> mb = GetSymData(Ptr, I.getOperand(0)->getType(), Val);
+  if (!mb) return;
 
   PSOThread &thr = pso_threads[CurrentThread];
 
@@ -302,29 +303,29 @@ void PSOInterpreter::visitStoreInst(llvm::StoreInst &I){
      0 <= AtomicFunctionCall){
     /* Atomic store */
     assert(thr.all_buffers_empty());
-    TB.atomic_store(mb);
+    TB.atomic_store(*mb);
     if(DryRun){
-      DryRunMem.push_back(mb);
+      DryRunMem.push_back(*mb);
       return;
     }
     StoreValueToMemory(Val, Ptr, I.getOperand(0)->getType());
   }else{
     /* Store to buffer */
-    const SymAddrSize &ml = mb.get_ref();
+    const SymAddrSize &ml = mb->get_ref();
     if(thr.byte_to_aux.count(ml.addr) == 0){
       thr.byte_to_aux[ml.addr] = int(thr.aux_to_byte.size());
       thr.aux_to_byte.push_back(ml.addr);
       thr.aux_to_addr.push_back((uint8_t*)Ptr);
     }
 
-    TB.store(mb);
+    TB.store(*mb);
     if(DryRun){
-      DryRunMem.push_back(mb);
+      DryRunMem.push_back(*mb);
       return;
     }
     for(SymAddr b : ml){
       unsigned i = b - ml.addr;
-      thr.store_buffers[b].push_back(PendingStoreByte(ml,((uint8_t*)mb.get_block())[i]));
+      thr.store_buffers[b].push_back(PendingStoreByte(ml,((uint8_t*)mb->get_block())[i]));
     }
   }
 }

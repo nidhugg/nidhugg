@@ -71,6 +71,7 @@ unittest_SOURCES = \
   FBVClock_test.cpp \
   GenMap_test.cpp \
   GenVector_test.cpp \
+  Interpreter_test.cpp \
   nregex_test.cpp \
   Observers_test.cpp \
   POWER_test.cpp \

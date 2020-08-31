@@ -202,10 +202,11 @@ bool TSOInterpreter::checkRefuse(llvm::Instruction &I){
     llvm::ExecutionContext &SF = ECStack()->back();
     llvm::GenericValue SRC = getOperandValue(static_cast<llvm::LoadInst&>(I).getPointerOperand(), SF);
     llvm::GenericValue *Ptr = (llvm::GenericValue*)GVTOP(SRC);
-    SymAddrSize mr = GetSymAddrSize(Ptr,static_cast<llvm::LoadInst&>(I).getType());
+    Option<SymAddrSize> mr = TryGetSymAddrSize(Ptr,static_cast<llvm::LoadInst&>(I).getType());
+    if (!mr) return false; /* Let it execute and segfault */
     for(int i = int(tso_threads[CurrentThread].store_buffer.size())-1; 0 <= i; --i){
-      if(mr.overlaps(tso_threads[CurrentThread].store_buffer[i].second.get_ref())){
-        if(mr != tso_threads[CurrentThread].store_buffer[i].second.get_ref()){
+      if(mr->overlaps(tso_threads[CurrentThread].store_buffer[i].second.get_ref())){
+        if(*mr != tso_threads[CurrentThread].store_buffer[i].second.get_ref()){
           /* Block until this store buffer entry has disappeared from
            * the buffer.
            */
@@ -227,21 +228,22 @@ void TSOInterpreter::visitLoadInst(llvm::LoadInst &I){
   llvm::GenericValue *Ptr = (llvm::GenericValue*)GVTOP(SRC);
   llvm::GenericValue Result;
 
-  SymAddrSize Ptr_sas = GetSymAddrSize(Ptr,I.getType());
-  TB.load(Ptr_sas);
+  Option<SymAddrSize> Ptr_sas = GetSymAddrSize(Ptr,I.getType());
+  if (!Ptr_sas) return;
+  TB.load(*Ptr_sas);
 
   if(DryRun && DryRunMem.size()){
     assert(tso_threads[CurrentThread].store_buffer.empty());
-    DryRunLoadValueFromMemory(Result, Ptr, Ptr_sas, I.getType());
+    DryRunLoadValueFromMemory(Result, Ptr, *Ptr_sas, I.getType());
     SetValue(&I, Result, SF);
     return;
   }
 
   /* Check store buffer for ROWE opportunity. */
   for(int i = int(tso_threads[CurrentThread].store_buffer.size())-1; 0 <= i; --i){
-    if(Ptr_sas.addr == tso_threads[CurrentThread].store_buffer[i].second.get_ref().addr){
+    if(Ptr_sas->addr == tso_threads[CurrentThread].store_buffer[i].second.get_ref().addr){
       /* Read-Own-Write-Early */
-      assert(GetSymAddrSize(Ptr,I.getType()).size == tso_threads[CurrentThread].store_buffer[i].second.get_ref().size);
+      assert(Ptr_sas->size == tso_threads[CurrentThread].store_buffer[i].second.get_ref().size);
       LoadValueFromMemory(Result,(llvm::GenericValue*)tso_threads[CurrentThread].store_buffer[i].second.get_block(),I.getType());
       SetValue(&I, Result, SF);
       return;
@@ -257,26 +259,27 @@ void TSOInterpreter::visitStoreInst(llvm::StoreInst &I){
   llvm::ExecutionContext &SF = ECStack()->back();
   llvm::GenericValue Val = getOperandValue(I.getOperand(0), SF);
   llvm::GenericValue *Ptr = (llvm::GenericValue *)GVTOP(getOperandValue(I.getPointerOperand(), SF));
-  SymData sd = GetSymData(Ptr, I.getOperand(0)->getType(), Val);
+  Option<SymData> sd = GetSymData(Ptr, I.getOperand(0)->getType(), Val);
+  if (!sd) return;
 
   if(I.getOrdering() == LLVM_ATOMIC_ORDERING_SCOPE::SequentiallyConsistent ||
      0 <= AtomicFunctionCall){
     /* Atomic store */
     assert(tso_threads[CurrentThread].store_buffer.empty());
-    TB.atomic_store(sd);
+    TB.atomic_store(*sd);
     if(DryRun){
-      DryRunMem.push_back(std::move(sd));
+      DryRunMem.push_back(std::move(*sd));
       return;
     }
     StoreValueToMemory(Val, Ptr, I.getOperand(0)->getType());
   }else{
     /* Store to buffer */
-    TB.store(sd);
+    TB.store(*sd);
     if(DryRun){
-      DryRunMem.push_back(std::move(sd));
+      DryRunMem.push_back(std::move(*sd));
       return;
     }
-    tso_threads[CurrentThread].store_buffer.emplace_back(Ptr, std::move(sd));
+    tso_threads[CurrentThread].store_buffer.emplace_back(Ptr, std::move(*sd));
   }
 }
 

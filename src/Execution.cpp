@@ -1169,13 +1169,13 @@ void Interpreter::visitLoadInst(LoadInst &I) {
   GenericValue *Ptr = (GenericValue*)GVTOP(SRC);
   GenericValue Result;
 
-  /* XXX: Can't this one fail? */
-  SymAddrSize Ptr_sas = GetSymAddrSize(Ptr,I.getType());
+  Option<SymAddrSize> Ptr_sas = GetSymAddrSize(Ptr,I.getType());
+  if (!Ptr_sas) return;
   if (!conf.c11 || I.isVolatile() || I.getOrdering() != llvm::AtomicOrdering::NotAtomic)
-    TB.load(Ptr_sas);
+    TB.load(*Ptr_sas);
 
   if(DryRun && DryRunMem.size()){
-    DryRunLoadValueFromMemory(Result, Ptr, Ptr_sas, I.getType());
+    DryRunLoadValueFromMemory(Result, Ptr, *Ptr_sas, I.getType());
     SetValue(&I, Result, SF);
     return;
   }
@@ -1188,7 +1188,7 @@ void Interpreter::visitStoreInst(StoreInst &I) {
   ExecutionContext &SF = ECStack()->back();
   GenericValue Val = getOperandValue(I.getOperand(0), SF);
   GenericValue *Ptr = (GenericValue *)GVTOP(getOperandValue(I.getPointerOperand(), SF));
-  Option<SymAddrSize> Ptr_sas = TryGetSymAddrSizeOrSegv(Ptr,I.getOperand(0)->getType());
+  Option<SymAddrSize> Ptr_sas = GetSymAddrSize(Ptr,I.getOperand(0)->getType());
   if (!Ptr_sas) return;
 
   SymData sd = GetSymData(*Ptr_sas, I.getOperand(0)->getType(), Val);
@@ -1212,16 +1212,16 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
   Type *Ty = I.getCompareOperand()->getType();
   GenericValue Result;
 
-  /* XXX: Can't this one fail? */
-  SymAddrSize Ptr_sas = GetSymAddrSize(Ptr,Ty);
-  SymData::block_type expected = SymData::alloc_block(Ptr_sas.size);
+  Option<SymAddrSize> Ptr_sas = GetSymAddrSize(Ptr,Ty);
+  if (!Ptr_sas) return;
+  SymData::block_type expected = SymData::alloc_block(Ptr_sas->size);
   StoreValueToMemory(CmpVal,static_cast<GenericValue*>((void*)expected.get()),Ty);
 
 #if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
   // Return a tuple (oldval,success)
   Result.AggregateVal.resize(2);
   if(DryRun && DryRunMem.size()){
-    DryRunLoadValueFromMemory(Result.AggregateVal[0], Ptr, Ptr_sas, Ty);
+    DryRunLoadValueFromMemory(Result.AggregateVal[0], Ptr, *Ptr_sas, Ty);
   }else{
     LoadValueFromMemory(Result.AggregateVal[0], Ptr, Ty);
   }
@@ -1229,13 +1229,13 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
 #else
   // Return only the old value oldval
   if(DryRun && DryRunMem.size()){
-    DryRunLoadValueFromMemory(Result, Ptr, Ptr_sas, Ty);
+    DryRunLoadValueFromMemory(Result, Ptr, *Ptr_sas, Ty);
   }else{
     LoadValueFromMemory(Result, Ptr, Ty);
   }
   GenericValue CmpRes = executeICMP_EQ(Result,CmpVal,Ty);
 #endif
-  SymData sd = GetSymData(Ptr_sas,Ty,NewVal);
+  SymData sd = GetSymData(*Ptr_sas,Ty,NewVal);
   TB.compare_exchange(sd, expected, CmpRes.IntVal.getBoolValue());
   if(CmpRes.IntVal.getBoolValue()){
 #if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
@@ -1264,12 +1264,12 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
   assert(I.getType()->isIntegerTy());
   assert(I.getOrdering() != llvm::AtomicOrdering::NotAtomic);
 
-  /* Can't this one fail? */
-  SymAddrSize Ptr_sas = GetSymAddrSize(Ptr,I.getType());
+  Option<SymAddrSize> Ptr_sas = GetSymAddrSize(Ptr,I.getType());
+  if (!Ptr_sas) return;
 
   /* Load old value at *Ptr */
   if(DryRun && DryRunMem.size()){
-    DryRunLoadValueFromMemory(OldVal, Ptr, Ptr_sas, I.getType());
+    DryRunLoadValueFromMemory(OldVal, Ptr, *Ptr_sas, I.getType());
   }else{
     LoadValueFromMemory(OldVal, Ptr, I.getType());
   }
@@ -1304,7 +1304,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
     throw std::logic_error("Unsupported operation in RMW instruction.");
   }
 
-  SymData sd = GetSymData(Ptr_sas,I.getType(),NewVal);
+  SymData sd = GetSymData(*Ptr_sas,I.getType(),NewVal);
   TB.atomic_rmw(sd);
 
   /* Store NewVal */
@@ -2413,11 +2413,6 @@ GenericValue Interpreter::getOperandValue(Value *V, ExecutionContext &SF) {
 
 void Interpreter::callPthreadCreate(Function *F,
                                     const std::vector<GenericValue> &ArgVals) {
-  // Memory fence
-  TB.fence();
-
-  TB.spawn();
-
   // Return 0 (success)
   GenericValue Result;
   Result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),0);
@@ -2429,7 +2424,7 @@ void Interpreter::callPthreadCreate(Function *F,
     GenericValue *Ptr = (GenericValue*)GVTOP(ArgVals[0]);
     if(Ptr){
       Type *ity = static_cast<PointerType*>(F->arg_begin()->getType())->getElementType();
-      if (!TryGetSymAddrSizeOrSegv(Ptr,ity)) return;
+      if (!GetSymAddrSize(Ptr,ity)) return;
       GenericValue TIDVal = tid_to_pthread_t(ity, new_tid);
       /* XXX: No race detection on this access! */
       StoreValueToMemory(TIDVal,Ptr,ity);
@@ -2438,11 +2433,17 @@ void Interpreter::callPthreadCreate(Function *F,
     }
   }
 
+  // Memory fence
+  TB.fence();
+
+  TB.spawn();
+
   // Add a new stack for the new thread
   int caller_thread = CurrentThread;
   CurrentThread = newThread(CPS.spawn(Threads[CurrentThread].cpid));
 
   // Build stack frame for the call
+  // XXX: No validation on argument value!
   Function *F_inner = (Function*)GVTOP(ArgVals[2]);
   std::vector<GenericValue> ArgVals_inner;
   if(F_inner->arg_size() == 1 &&
@@ -2483,7 +2484,7 @@ void Interpreter::callPthreadJoin(Function *F,
   GenericValue *rvPtr = (GenericValue*)GVTOP(ArgVals[1]);
   if(rvPtr){
     Type *ty = Type::getInt8PtrTy(F->getContext())->getPointerTo();
-    if (!TryGetSymAddrSizeOrSegv(rvPtr,ty)) return;
+    if (!GetSymAddrSize(rvPtr,ty)) return;
     /* XXX: No race detection on this access*/
     StoreValueToMemory(Threads[tid].RetVal,rvPtr,ty);
   }
@@ -2524,7 +2525,9 @@ void Interpreter::callPthreadMutexInit(Function *F,
     return;
   }
 
-  TB.mutex_init({GetSymAddr(lck),1}); // also acts as a fence
+  Option<SymAddr> addr = GetSymAddr(lck);
+  if (!addr) return;
+  TB.mutex_init({*addr,1}); // also acts as a fence
 
   if(PthreadMutexes.count(lck)){
     TB.pthreads_error("pthread_mutex_init called with already initialized mutex.");
@@ -2560,7 +2563,9 @@ void Interpreter::callPthreadMutexLock(void *lck){
     return;
   }
 
-  TB.mutex_lock({GetSymAddr(lck),1}); // also acts as a fence
+  Option<SymAddr> addr = GetSymAddr(lck);
+  if (!addr) return;
+  TB.mutex_lock({*addr,1}); // also acts as a fence
 
   if(PthreadMutexes.count(lck) == 0){
     if(conf.mutex_require_init){
@@ -2588,7 +2593,9 @@ void Interpreter::callPthreadMutexTryLock(Function *F,
     return;
   }
 
-  TB.mutex_trylock({GetSymAddr(lck),1}); // also acts as a fence
+  Option<SymAddr> addr = GetSymAddr(lck);
+  if (!addr) return;
+  TB.mutex_trylock({*addr,1}); // also acts as a fence
 
   if(PthreadMutexes.count(lck) == 0){
     if(conf.mutex_require_init){
@@ -2624,7 +2631,9 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
     return;
   }
 
-  TB.mutex_unlock({GetSymAddr(lck),1}); // also acts as a fence
+  Option<SymAddr> addr = GetSymAddr(lck);
+  if (!addr) return;
+  TB.mutex_unlock({*addr,1}); // also acts as a fence
 
   if(PthreadMutexes.count(lck) == 0){
     if(conf.mutex_require_init){
@@ -2665,7 +2674,9 @@ void Interpreter::callPthreadMutexDestroy(Function *F,
     return;
   }
 
-  TB.mutex_destroy({GetSymAddr(lck),1}); // also acts as a fence
+  Option<SymAddr> addr = GetSymAddr(lck);
+  if (!addr) return;
+  TB.mutex_destroy({*addr,1}); // also acts as a fence
 
   if(PthreadMutexes.count(lck) == 0){
     if(conf.mutex_require_init){
@@ -2707,7 +2718,9 @@ void Interpreter::callPthreadCondInit(Function *F,
     return;
   }
 
-  if(!TB.cond_init({GetSymAddr(cnd),1})){ // also acts as a fence
+  Option<SymAddr> addr = GetSymAddr(cnd);
+  if (!addr) return;
+  if(!TB.cond_init({*addr,1})){ // also acts as a fence
     abort();
     return;
   }
@@ -2728,7 +2741,9 @@ void Interpreter::callPthreadCondSignal(Function *F,
     return;
   }
 
-  if(!TB.cond_signal({GetSymAddr(cnd),1})){ // also acts as a fence
+  Option<SymAddr> addr = GetSymAddr(cnd);
+  if (!addr) return;
+  if(!TB.cond_signal({*addr,1})){ // also acts as a fence
     abort();
     return;
   }
@@ -2749,7 +2764,9 @@ void Interpreter::callPthreadCondBroadcast(Function *F,
     return;
   }
 
-  if(!TB.cond_broadcast({GetSymAddr(cnd),1})){ // also acts as a fence
+  Option<SymAddr> addr = GetSymAddr(cnd);
+  if (!addr) return;
+  if(!TB.cond_broadcast({*addr,1})){ // also acts as a fence
     abort();
     return;
   }
@@ -2777,7 +2794,10 @@ void Interpreter::callPthreadCondWait(Function *F,
     return;
   }
 
-  if(!TB.cond_wait({GetSymAddr(cnd),1},{GetSymAddr(lck),1})){ // also acts as a fence
+  Option<SymAddr> cnd_sa = GetSymAddr(cnd);
+  Option<SymAddr> lck_sa = GetSymAddr(lck);
+  if (!cnd_sa || !lck_sa) return;
+  if(!TB.cond_wait({*cnd_sa,1},{*lck_sa,1})){ // also acts as a fence
     abort();
     return;
   }
@@ -2804,7 +2824,10 @@ void Interpreter::callPthreadCondWait(Function *F,
 void Interpreter::doPthreadCondAwake(void *cnd, void *lck){
   assert(lck);
 
-  TB.cond_awake({GetSymAddr(cnd),1},{GetSymAddr(lck),1}); // also acts as a fence
+  Option<SymAddr> cnd_sa = GetSymAddr(cnd);
+  Option<SymAddr> lck_sa = GetSymAddr(lck);
+  if (!cnd_sa || !lck_sa) return;
+  TB.cond_awake({*cnd_sa,1},{*lck_sa,1}); // also acts as a fence
 
   if(PthreadMutexes.count(lck) == 0){
     /* We don't need to check conf.mutex_require_init as the mutex is always
@@ -2831,7 +2854,9 @@ void Interpreter::callPthreadCondDestroy(Function *F,
     return;
   }
 
-  int rv = TB.cond_destroy({GetSymAddr(cnd),1}); // also acts as a fence
+  Option<SymAddr> addr = GetSymAddr(cnd);
+  if (!addr) return;
+  int rv = TB.cond_destroy({*addr,1}); // also acts as a fence
 
   if(rv == 0 || rv == EBUSY){
     GenericValue Result;
@@ -3178,10 +3203,12 @@ bool Interpreter::checkRefuse(Instruction &I){
   }
   {
     GenericValue *ptr;
+    Option<SymAddr> addr;
     if(isPthreadMutexLock(I,&ptr)){
-      if(PthreadMutexes.count(ptr) &&
+      if((addr = TryGetSymAddr(ptr)) &&
+         PthreadMutexes.count(ptr) &&
          PthreadMutexes[ptr].isLocked()){
-        TB.mutex_lock_fail({GetSymAddr(ptr),1});
+        TB.mutex_lock_fail({*addr,1});
         TB.refuse_schedule();
         PthreadMutexes[ptr].waiting.insert(CurrentThread);
         return true;
@@ -3226,26 +3253,18 @@ Option<SymAddr> Interpreter::TryGetSymAddr(void *Ptr) {
   return SymAddr(ub->second.block, (char*)Ptr - (char*)ub->first);
 }
 
-SymAddr Interpreter::GetSymAddr(void *Ptr) {
-  if (Option<SymAddr> ret = TryGetSymAddr(Ptr)) {
-    return *ret;
-  } else {
-    std::stringstream out;
-    out << std::hex << Ptr << std::dec;
-    llvm::dbgs() << "Memory at address " << out.str() + " was not allocated!\n";
-    std::abort();
+Option<SymAddr> Interpreter::GetSymAddr(void *Ptr) {
+  Option<SymAddr> ret = TryGetSymAddr(Ptr);
+  if (!ret) {
+    if (DryRun) {
+      TB.nondeterminism_error("Address of memory access became undefined "
+                              "in replay");
+    } else {
+      TB.segmentation_fault_error();
+    }
+    abort();
   }
-}
-
-SymAddrSize Interpreter::GetSymAddrSize(void *Ptr, Type *Ty){
-  if (Option<SymAddrSize> ret = TryGetSymAddrSize(Ptr, Ty)) {
-    return *ret;
-  } else {
-    std::stringstream out;
-    out << std::hex << Ptr << std::dec;
-    llvm::dbgs() << "Memory at address " << out.str() + " was not allocated!\n";
-    std::abort();
-  }
+  return ret;
 }
 
 void Interpreter::run() {
