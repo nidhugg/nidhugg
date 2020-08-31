@@ -105,6 +105,12 @@ public:
    * rather than the current.
    */
   virtual void nondeterminism_error(std::string msg, const IID<CPid> &loc = IID<CPid>());
+  /* Notify the TraceBuilder that invalid behaviour has been detected.
+   *
+   * If loc is given, the error is associated with that location
+   * rather than the current.
+   */
+  virtual void invalid_input_error(std::string msg, const IID<CPid> &loc = IID<CPid>());
   /* Estimate the total number of traces for this program based on the
    * traces that have been seen.
    */

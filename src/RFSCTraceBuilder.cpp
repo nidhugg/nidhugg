@@ -191,7 +191,9 @@ void RFSCTraceBuilder::cancel_replay(){
   for (int i = 0; i <= prefix_idx; ++i) {
     blame = std::max(blame, prefix[i].get_decision_depth());
   }
-  prefix[blame].decision_ptr->prune_decisions();
+  if (blame != -1) {
+    prefix[blame].decision_ptr->prune_decisions();
+  }
 }
 
 void RFSCTraceBuilder::metadata(const llvm::MDNode *md){
@@ -448,8 +450,8 @@ bool RFSCTraceBuilder::compare_exchange
 }
 
 bool RFSCTraceBuilder::full_memory_conflict(){
-  llvm::dbgs() << "FULLMEM not supported\n";
-  abort();
+  invalid_input_error("RFSC does not support black-box functions with memory effects");
+  return false;
   if (!record_symbolic(SymEv::Fullmem())) return false;
   curev().may_conflict = true;
 
@@ -553,8 +555,8 @@ bool RFSCTraceBuilder::mutex_destroy(const SymAddrSize &ml){
 }
 
 bool RFSCTraceBuilder::cond_init(const SymAddrSize &ml){
-  llvm::dbgs() << "condvars not supported\n";
-  abort();
+  invalid_input_error("RFSC does not support condition variables");
+  return false;
   if (!record_symbolic(SymEv::CInit(ml))) return false;
   if(cond_vars.count(ml.addr)){
     pthreads_error("Condition variable initiated twice.");
@@ -566,8 +568,8 @@ bool RFSCTraceBuilder::cond_init(const SymAddrSize &ml){
 }
 
 bool RFSCTraceBuilder::cond_signal(const SymAddrSize &ml){
-  llvm::dbgs() << "condvars not supported\n";
-  abort();
+  invalid_input_error("RFSC does not support condition variables");
+  return false;
   if (!record_symbolic(SymEv::CSignal(ml))) return false;
   curev().may_conflict = true;
 
@@ -604,8 +606,8 @@ bool RFSCTraceBuilder::cond_signal(const SymAddrSize &ml){
 }
 
 bool RFSCTraceBuilder::cond_broadcast(const SymAddrSize &ml){
-  llvm::dbgs() << "condvars not supported\n";
-  abort();
+  invalid_input_error("RFSC does not support condition variables");
+  return false;
   if (!record_symbolic(SymEv::CBrdcst(ml))) return false;
   curev().may_conflict = true;
 
@@ -629,8 +631,8 @@ bool RFSCTraceBuilder::cond_broadcast(const SymAddrSize &ml){
 }
 
 bool RFSCTraceBuilder::cond_wait(const SymAddrSize &cond_ml, const SymAddrSize &mutex_ml){
-  llvm::dbgs() << "condvars not supported\n";
-  abort();
+  invalid_input_error("RFSC does not support condition variables");
+  return false;
   {
     auto it = mutexes.find(mutex_ml.addr);
     if(it == mutexes.end()){
@@ -666,8 +668,8 @@ bool RFSCTraceBuilder::cond_wait(const SymAddrSize &cond_ml, const SymAddrSize &
 }
 
 bool RFSCTraceBuilder::cond_awake(const SymAddrSize &cond_ml, const SymAddrSize &mutex_ml){
-  llvm::dbgs() << "condvars not supported\n";
-  abort();
+  invalid_input_error("RFSC does not support condition variables");
+  return false;
   assert(cond_vars.count(cond_ml.addr));
   CondVar &cond_var = cond_vars[cond_ml.addr];
   add_happens_after(prefix_idx, cond_var.last_signal);
@@ -680,8 +682,8 @@ bool RFSCTraceBuilder::cond_awake(const SymAddrSize &cond_ml, const SymAddrSize 
 }
 
 int RFSCTraceBuilder::cond_destroy(const SymAddrSize &ml){
-  llvm::dbgs() << "condvars not supported\n";
-  abort();
+  invalid_input_error("RFSC does not support condition variables");
+  return false;
   const int err = (EBUSY == 1) ? 2 : 1; // Chose an error value different from EBUSY
   if (!record_symbolic(SymEv::CDelete(ml))) return err;
 
@@ -700,8 +702,8 @@ int RFSCTraceBuilder::cond_destroy(const SymAddrSize &ml){
 }
 
 bool RFSCTraceBuilder::register_alternatives(int alt_count){
-  llvm::dbgs() << "alternatives not supported\n";
-  abort();
+  invalid_input_error("RFSC does not support nondeterministic events");
+  return false;
   curev().may_conflict = true;
   if (!record_symbolic(SymEv::Nondet(alt_count))) return false;
   // if(curev().alt == 0) {

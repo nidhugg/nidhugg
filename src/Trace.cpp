@@ -180,6 +180,14 @@ std::string NondeterminismError::to_string() const{
   return "Nondeterminism detected at "+loc.to_string()+": "+msg;
 }
 
+Error *InvalidInputError::clone() const{
+  return new InvalidInputError(loc,msg);
+}
+
+std::string InvalidInputError::to_string() const{
+  return "Operation at "+loc.to_string()+" not supported: "+msg;
+}
+
 auto SrcLocVector::operator[](std::size_t index) const -> LocRef {
   const SrcLoc &loc = locations[index];
   return {loc.line, string_table[loc.file], string_table[loc.dir]};
