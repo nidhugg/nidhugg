@@ -45,6 +45,8 @@ TSOTraceBuilder::~TSOTraceBuilder(){
 }
 
 bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
+  assert(!has_vclocks && "Can't add more events after analysing the trace");
+
   *dryrun = false;
   *alt = 0;
   this->dryrun = false;
@@ -171,8 +173,6 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
 
   /* Create a new Event */
   sym_idx = 0;
-  ++prefix_idx;
-  assert(prefix_idx == int(prefix.len()));
 
   /* Find an available thread (auxiliary or real).
    *
@@ -184,7 +184,8 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   for(p = 1; p < sz; p += 2){ // Loop through auxiliary threads
     if(threads[p].available && !threads[p].sleeping &&
        (conf.max_search_depth < 0 || threads[p].last_event_index() < conf.max_search_depth)){
-      threads[p].event_indices.push_back(prefix_idx);
+      threads[p].event_indices.push_back(++prefix_idx);
+      assert(prefix_idx == int(prefix.len()));
       prefix.push(Branch(IPid(p)),
                   Event(IID<IPid>(IPid(p),threads[p].last_event_index())));
       *proc = p/2;
@@ -196,7 +197,8 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   for(p = 0; p < sz; p += 2){ // Loop through real threads
     if(threads[p].available && !threads[p].sleeping &&
        (conf.max_search_depth < 0 || threads[p].last_event_index() < conf.max_search_depth)){
-      threads[p].event_indices.push_back(prefix_idx);
+      threads[p].event_indices.push_back(++prefix_idx);
+      assert(prefix_idx == int(prefix.len()));
       prefix.push(Branch(IPid(p)),
                   Event(IID<IPid>(IPid(p),threads[p].last_event_index())));
       *proc = p/2;
@@ -204,10 +206,6 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       return true;
     }
   }
-
-  compute_vclocks();
-
-  do_race_detect();
 
   return false; // No available threads
 }
@@ -264,6 +262,9 @@ bool TSOTraceBuilder::sleepset_is_empty() const{
 }
 
 bool TSOTraceBuilder::check_for_cycles(){
+  /* We need vector clocks for this check */
+  compute_vclocks();
+
   IID<IPid> i_iid;
   if(!has_cycle(&i_iid)) return false;
 
@@ -294,6 +295,10 @@ Trace *TSOTraceBuilder::get_trace() const{
 }
 
 bool TSOTraceBuilder::reset(){
+  compute_vclocks();
+
+  do_race_detect();
+
   if(conf.debug_print_on_reset){
     llvm::dbgs() << " === TSOTraceBuilder reset ===\n";
     debug_print();
@@ -366,6 +371,7 @@ bool TSOTraceBuilder::reset(){
   dry_sleepers = 0;
   last_md = 0;
   reset_cond_branch_log();
+  has_vclocks = false;
 
   return true;
 }
@@ -1644,6 +1650,9 @@ static It frontier_filter(It first, It last, LessFn less){
 }
 
 void TSOTraceBuilder::compute_vclocks(){
+  /* Be idempotent */
+  if (has_vclocks) return;
+
   /* The first event of a thread happens after the spawn event that
    * created it.
    */
@@ -1746,6 +1755,8 @@ void TSOTraceBuilder::compute_vclocks(){
      * iterator invalidation. */
     races.resize(fill - races.begin(), races[0]);
   }
+
+  has_vclocks = true;
 }
 
 bool TSOTraceBuilder::record_symbolic(SymEv event){
@@ -1879,6 +1890,7 @@ bool TSOTraceBuilder::is_observed_conflict
 }
 
 void TSOTraceBuilder::do_race_detect() {
+  assert(has_vclocks);
   /* Bucket sort races by first_event index */
   std::vector<std::vector<const Race*>> races(prefix.len());
   for (const Race &r : lock_fail_races) races[r.first_event].push_back(&r);

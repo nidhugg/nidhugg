@@ -35,6 +35,8 @@ enum MM {
   SC,
   TSO,
   PSO,
+  RFSC,
+  POWER,
 };
 
 Configuration get_conf(MM mm) {
@@ -42,6 +44,12 @@ Configuration get_conf(MM mm) {
   case SC:  return DPORDriver_test::get_sc_conf();
   case TSO: return DPORDriver_test::get_tso_conf();
   case PSO: return DPORDriver_test::get_pso_conf();
+  case RFSC: {
+    Configuration c = DPORDriver_test::get_sc_conf();
+    c.dpor_algorithm = Configuration::READS_FROM;
+    return c;
+  }
+  case POWER: return DPORDriver_test::get_power_conf();
   default: abort();
   }
 }
@@ -126,6 +134,63 @@ TEST_ERROR2(Pthread_cond_destroy_badaddr,
             "call i32 @pthread_cond_destroy(" BADADDR ")",
             "declare i32 @pthread_cond_destroy(i32*)")
 
+BOOST_AUTO_TEST_CASE(Global_ctor_test){
+  for (MM mm : { SC, TSO, PSO, RFSC, POWER }) {
+    BOOST_TEST_CHECKPOINT( "mm=" << mm );
+    Configuration conf = get_conf(mm);
+    std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(StrModule::portasm(R"(
+@x = global i32 0, align 4
+%0 = type { i32, void ()*, i8* }
+@llvm.global_ctors = appending global [1 x %0] [%0 { i32 65535, void ()* @ctor, i8* null }]
+
+define internal void @ctor() {
+  store i32 0, i32* @x, align 4
+  ret void
+}
+
+define i32 @main() {
+  call void @__assert_fail()
+  unreachable
+}
+
+declare void @__assert_fail()
+)"),conf));
+
+    DPORDriver::Result res = driver->run();
+
+    BOOST_CHECK(res.has_errors());
+    BOOST_CHECK(res.trace_count == 1);
+  }
+}
+
+BOOST_AUTO_TEST_CASE(Global_dtor_test){
+  for (MM mm : { SC, TSO, PSO, RFSC, POWER }) {
+    BOOST_TEST_CHECKPOINT( "mm=" << mm );
+    Configuration conf = get_conf(mm);
+    std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(StrModule::portasm(R"(
+@x = global i32 0, align 4
+%0 = type { i32, void ()*, i8* }
+@llvm.global_dtors = appending global [1 x %0] [%0 { i32 65535, void ()* @dtor, i8* null }]
+
+define i32 @main() {
+  store i32 0, i32* @x, align 4
+  ret i32 0
+}
+
+define internal void @dtor() {
+  call void @__assert_fail()
+  unreachable
+}
+
+declare void @__assert_fail()
+)"),conf));
+
+    DPORDriver::Result res = driver->run();
+
+    BOOST_CHECK(res.has_errors());
+    BOOST_CHECK(res.trace_count == 1);
+  }
+}
 
 BOOST_AUTO_TEST_SUITE_END()
 

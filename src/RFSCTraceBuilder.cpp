@@ -68,7 +68,7 @@ bool RFSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
     assert(!std::any_of(threads.begin(), threads.end(), [](const Thread &t) {
                                                           return t.available;
                                                         }));
-    goto no_available_threads;
+    return false;
   }
   *dryrun = false;
   *alt = 0;
@@ -134,24 +134,21 @@ bool RFSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
     threads[curev().iid.get_pid()].event_indices.back() = prefix_idx;
   }
 
-  /* Create a new Event */
-  seen_effect = false;
-  ++prefix_idx;
-  assert(prefix_idx == int(prefix.size()));
 
   /* Find an available thread. */
   for(unsigned p = 0; p < threads.size(); ++p){ // Loop through real threads
     if(threads[p].available &&
        (conf.max_search_depth < 0 || threads[p].last_event_index() < conf.max_search_depth)){
+      /* Create a new Event */
+      seen_effect = false;
+      ++prefix_idx;
+      assert(prefix_idx == int(prefix.size()));
       threads[p].event_indices.push_back(prefix_idx);
       prefix.emplace_back(IID<IPid>(IPid(p),threads[p].last_event_index()));
       *proc = p;
       return true;
     }
   }
-
- no_available_threads:
-  compute_prefixes();
 
   return false; // No available threads
 }
@@ -224,7 +221,6 @@ Trace *RFSCTraceBuilder::get_trace() const{
 }
 
 bool RFSCTraceBuilder::reset(){
-
   work_item = decision_tree.get_next_work_task();
 
   while (work_item != nullptr && work_item->is_pruned()) {
@@ -1251,8 +1247,7 @@ void RFSCTraceBuilder::compute_prefixes() {
           = unfold_find_unfolding_node(jp, jidx, original_read_from);
         DecisionNode &decision = *prefix[i].decision_ptr;
         if (!decision.try_alloc_unf(alt)) return;
-        int j = prefix_idx;
-        assert(prefix_idx == int(prefix.size()));
+        int j = prefix.size();
         prefix.emplace_back(IID<IPid>(jp, jidx), 0, std::move(sym));
         prefix[j].event = alt; // Only for debug print
         threads[jp].event_indices.push_back(j); // Not needed?

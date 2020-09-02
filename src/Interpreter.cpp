@@ -194,7 +194,12 @@ Interpreter::runFunction(Function *F,
   for (unsigned i = 0; i < ArgCount; ++i)
     ActualArgs.push_back(ArgValues[i]);
 
+  // Run on main thread
+  assert(CurrentThread == 0);
+  TB.mark_available(0);
+
   // Set up the function call.
+  assert(ECStack()->size() == 0);
   callFunction(F, ActualArgs);
 
   // Start executing the function.
