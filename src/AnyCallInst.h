@@ -43,6 +43,7 @@ class AnyCallInst {
   AnyCallInst(llvm::CallBase *CB) : CB(CB) {}
   AnyCallInst(llvm::CallBase &CB) : CB(&CB) {}
 
+  operator bool() const { return (bool)CB; }
   bool operator==(std::nullptr_t) { return !CB; }
   llvm::Instruction* operator &() { return CB; };
   const llvm::Instruction* operator &() const { return CB; };
@@ -62,6 +63,7 @@ class AnyCallInst {
   AnyCallInst() {}
   AnyCallInst(llvm::CallSite CS) : CS(CS) {}
 
+  operator bool() const { return (bool)CS; }
   bool operator==(std::nullptr_t) { return !CS.getInstruction(); }
   llvm::Instruction* operator &() { return CS.getInstruction(); };
   const llvm::Instruction* operator &() const { return CS.getInstruction(); };

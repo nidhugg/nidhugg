@@ -3160,9 +3160,17 @@ bool Interpreter::isUnknownIntrinsic(Instruction &I){
   return false;
 }
 
+static AnyCallInst isCallOrInvoke(Instruction &I) {
+  if (CallInst *CI = dyn_cast<CallInst>(&I)) {
+    return {CI};
+  } else {
+    return {dyn_cast<InvokeInst>(&I)};
+  }
+}
+
 bool Interpreter::isPthreadJoin(Instruction &I, int *tid){
-  if(!isa<CallInst>(I)) return false;
-  AnyCallInst CI(static_cast<CallInst*>(&I));
+  AnyCallInst CI = isCallOrInvoke(I);
+  if(!CI) return false;
   Function *F = CI.getCalledFunction();
   if(!F || F->getName() != "pthread_join") return false;
   llvm::GenericValue gv_tid =
@@ -3176,8 +3184,8 @@ bool Interpreter::isPthreadMutexLock(Instruction &I, GenericValue **ptr){
     *ptr = (llvm::GenericValue*)Threads[CurrentThread].pending_mutex_lock;
     return true;
   }
-  if(!isa<CallInst>(I)) return false;
-  AnyCallInst CI(static_cast<CallInst*>(&I));
+  AnyCallInst CI = isCallOrInvoke(I);
+  if(!CI) return false;
   Function *F = CI.getCalledFunction();
   if(!F || F->getName() != "pthread_mutex_lock") return false;
   *ptr = (GenericValue*)GVTOP(getOperandValue(*CI.arg_begin(),ECStack()->back()));

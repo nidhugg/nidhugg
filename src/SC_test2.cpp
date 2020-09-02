@@ -609,6 +609,54 @@ declare void @__assert_fail()
   BOOST_CHECK(!res.has_errors());
 }
 
+BOOST_AUTO_TEST_CASE(pthread_join_invoke){
+  Configuration conf = DPORDriver_test::get_sc_conf();
+  DPORDriver *driver =
+    DPORDriver::parseIR(StrModule::portasm(R"(
+@x = global i32 0, align 4
+@t = global i8* null, align 4
+
+define i8* @p(i8*){
+  store i32 1, i32* @x, align 4
+  ret i8* null
+}
+
+define i32 @main(){
+  call i32 @pthread_create(i8** @t, %attr_t* null, i8*(i8*)* @p, i8* null)
+  %tid = load i8*, i8** @t, align 4
+  invoke i32 @pthread_join(i8* %tid, i8** null) to label %cont unwind label %catch
+
+cont:
+  %xv = load i32, i32* @x, align 4
+  %comp = icmp eq i32 %xv, 1
+  br i1 %comp, label %ok, label %err
+
+ok:
+  ret i32 0
+
+err:
+  call void @__assert_fail()
+  unreachable
+
+catch:
+  landingpad i8 cleanup
+  call void @__assert_fail()
+  unreachable
+}
+
+%attr_t = type {i64, [48 x i8]}
+declare i32 @pthread_create(i8**,%attr_t*,i8*(i8*)*,i8*)
+declare i32 @pthread_join(i8*,i8**)
+declare void @__assert_fail()
+)"),conf);
+
+  DPORDriver::Result res = driver->run();
+  delete driver;
+
+  BOOST_CHECK(res.trace_count == 1);
+  BOOST_CHECK(!res.has_errors());
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif
