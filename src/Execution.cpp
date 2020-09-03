@@ -1171,8 +1171,12 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 
   Option<SymAddrSize> Ptr_sas = GetSymAddrSize(Ptr,I.getType());
   if (!Ptr_sas) return;
-  if (!conf.c11 || I.isVolatile() || I.getOrdering() != llvm::AtomicOrdering::NotAtomic)
-    TB.load(*Ptr_sas);
+  if (!conf.c11 || I.isVolatile() || I.getOrdering() != llvm::AtomicOrdering::NotAtomic) {
+    if (!TB.load(*Ptr_sas)) {
+      abort();
+      return;
+    }
+  }
 
   if(DryRun && DryRunMem.size()){
     DryRunLoadValueFromMemory(Result, Ptr, *Ptr_sas, I.getType());
@@ -1192,8 +1196,12 @@ void Interpreter::visitStoreInst(StoreInst &I) {
   if (!Ptr_sas) return;
 
   SymData sd = GetSymData(*Ptr_sas, I.getOperand(0)->getType(), Val);
-  if (!conf.c11 || I.isVolatile() || I.getOrdering() != llvm::AtomicOrdering::NotAtomic)
-    TB.atomic_store(sd);
+  if (!conf.c11 || I.isVolatile() || I.getOrdering() != llvm::AtomicOrdering::NotAtomic) {
+    if(!TB.atomic_store(sd)) {
+      abort();
+      return;
+    }
+  }
 
   if(DryRun){
     DryRunMem.emplace_back(std::move(sd));
@@ -1236,7 +1244,10 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
   GenericValue CmpRes = executeICMP_EQ(Result,CmpVal,Ty);
 #endif
   SymData sd = GetSymData(*Ptr_sas,Ty,NewVal);
-  TB.compare_exchange(sd, expected, CmpRes.IntVal.getBoolValue());
+  if(!TB.compare_exchange(sd, expected, CmpRes.IntVal.getBoolValue())){
+    abort();
+    return;
+  }
   if(CmpRes.IntVal.getBoolValue()){
 #if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
     Result.AggregateVal[1].IntVal = 1;
@@ -1305,7 +1316,10 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
   }
 
   SymData sd = GetSymData(*Ptr_sas,I.getType(),NewVal);
-  TB.atomic_rmw(sd);
+  if(!TB.atomic_rmw(sd)){
+    abort();
+    return;
+  }
 
   /* Store NewVal */
   if(DryRun){
@@ -2434,9 +2448,11 @@ void Interpreter::callPthreadCreate(Function *F,
   }
 
   // Memory fence
-  TB.fence();
-
-  TB.spawn();
+  if (!TB.fence()
+      || !TB.spawn()) {
+    abort();
+    return;
+  }
 
   // Add a new stack for the new thread
   int caller_thread = CurrentThread;
@@ -2477,8 +2493,11 @@ void Interpreter::callPthreadJoin(Function *F,
 
   assert(Threads[tid].ECStack.empty());
 
-  TB.fence();
-  TB.join(tid);
+  if (!TB.fence()
+      || !TB.join(tid)) {
+    abort();
+    return;
+  }
 
   // Forward return value
   GenericValue *rvPtr = (GenericValue*)GVTOP(ArgVals[1]);
@@ -2504,7 +2523,10 @@ void Interpreter::callPthreadSelf(Function *F,
 
 void Interpreter::callPthreadExit(Function *F,
                                   const std::vector<GenericValue> &ArgVals){
-  TB.fence();
+  if (!TB.fence()) {
+    abort();
+    return;
+  }
   while(ECStack()->size() > 1) ECStack()->pop_back();
   popStackAndReturnValueToCaller(Type::getInt8PtrTy(F->getContext()),ArgVals[0]);
 }
@@ -2527,7 +2549,10 @@ void Interpreter::callPthreadMutexInit(Function *F,
 
   Option<SymAddr> addr = GetSymAddr(lck);
   if (!addr) return;
-  TB.mutex_init({*addr,1}); // also acts as a fence
+  if (!TB.mutex_init({*addr,1})) { // also acts as a fence
+    abort();
+    return;
+  }
 
   if(PthreadMutexes.count(lck)){
     TB.pthreads_error("pthread_mutex_init called with already initialized mutex.");
@@ -2565,7 +2590,10 @@ void Interpreter::callPthreadMutexLock(void *lck){
 
   Option<SymAddr> addr = GetSymAddr(lck);
   if (!addr) return;
-  TB.mutex_lock({*addr,1}); // also acts as a fence
+  if(!TB.mutex_lock({*addr,1})){ // also acts as a fence
+    abort();
+    return;
+  }
 
   if(PthreadMutexes.count(lck) == 0){
     if(conf.mutex_require_init){
@@ -2595,7 +2623,10 @@ void Interpreter::callPthreadMutexTryLock(Function *F,
 
   Option<SymAddr> addr = GetSymAddr(lck);
   if (!addr) return;
-  TB.mutex_trylock({*addr,1}); // also acts as a fence
+  if(!TB.mutex_trylock({*addr,1})){ // also acts as a fence
+    abort();
+    return;
+  }
 
   if(PthreadMutexes.count(lck) == 0){
     if(conf.mutex_require_init){
@@ -2633,7 +2664,10 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 
   Option<SymAddr> addr = GetSymAddr(lck);
   if (!addr) return;
-  TB.mutex_unlock({*addr,1}); // also acts as a fence
+  if(!TB.mutex_unlock({*addr,1})){ // also acts as a fence
+    abort();
+    return;
+  }
 
   if(PthreadMutexes.count(lck) == 0){
     if(conf.mutex_require_init){
@@ -2676,7 +2710,10 @@ void Interpreter::callPthreadMutexDestroy(Function *F,
 
   Option<SymAddr> addr = GetSymAddr(lck);
   if (!addr) return;
-  TB.mutex_destroy({*addr,1}); // also acts as a fence
+  if(!TB.mutex_destroy({*addr,1})){ // also acts as a fence
+    abort();
+    return;
+  }
 
   if(PthreadMutexes.count(lck) == 0){
     if(conf.mutex_require_init){
@@ -2827,7 +2864,10 @@ void Interpreter::doPthreadCondAwake(void *cnd, void *lck){
   Option<SymAddr> cnd_sa = GetSymAddr(cnd);
   Option<SymAddr> lck_sa = GetSymAddr(lck);
   if (!cnd_sa || !lck_sa) return;
-  TB.cond_awake({*cnd_sa,1},{*lck_sa,1}); // also acts as a fence
+  if(!TB.cond_awake({*cnd_sa,1},{*lck_sa,1})){ // also acts as a fence
+    abort();
+    return;
+  }
 
   if(PthreadMutexes.count(lck) == 0){
     /* We don't need to check conf.mutex_require_init as the mutex is always
@@ -2909,7 +2949,12 @@ void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVa
 void Interpreter::callMCalloc(Function *F,
                               const std::vector<GenericValue> &ArgVals,
                               bool isCalloc){
-  if(conf.malloc_may_fail) TB.register_alternatives(2);
+  if(conf.malloc_may_fail) {
+    if(!TB.register_alternatives(2)){
+      abort();
+      return;
+    }
+  }
   if(conf.malloc_may_fail && CurrentAlt == 0){
     GenericValue Result;
     Result.PointerVal = 0; // Return null
@@ -3065,7 +3110,10 @@ void Interpreter::callFunction(Function *F,
       Debug::warn("optimal+atomic")
         << "WARNING: Support for atomic blocks is limited with --optimal.\n"
            "         Nidhugg might crash or miss bugs, see the manual.\n";
-    TB.fence();
+    if(!TB.fence()){
+      abort();
+      return;
+    }
     if(AtomicFunctionCall < 0){
       AtomicFunctionCall = ECStack()->size();
     } // else we are already inside an atomic function call
@@ -3080,7 +3128,10 @@ void Interpreter::callFunction(Function *F,
   if (F->isDeclaration()) {
     // Memory fence
     if(!conf.extfun_no_fence.count(F->getName().str())){
-      TB.fence();
+      if(!TB.fence()){
+        abort();
+        return;
+      }
     }
     if(!conf.extfun_no_full_memory_conflict.count(F->getName().str())){
       Debug::warn("unknown external:"+F->getName().str())
@@ -3088,7 +3139,10 @@ void Interpreter::callFunction(Function *F,
         << F->getName().str()
         << " as blackbox.\n";
 
-      TB.full_memory_conflict();
+      if(!TB.full_memory_conflict()){
+        abort();
+        return;
+      }
     }
 
     if(DryRun){
@@ -3216,7 +3270,10 @@ bool Interpreter::checkRefuse(Instruction &I){
       if((addr = TryGetSymAddr(ptr)) &&
          PthreadMutexes.count(ptr) &&
          PthreadMutexes[ptr].isLocked()){
-        TB.mutex_lock_fail({*addr,1});
+        if(!TB.mutex_lock_fail({*addr,1})){
+          abort();
+          return true;
+        }
         TB.refuse_schedule();
         PthreadMutexes[ptr].waiting.insert(CurrentThread);
         return true;
@@ -3300,8 +3357,10 @@ void Interpreter::run() {
        */
       rerun = true;
     }else if(checkRefuse(I)){
-      /* Revert without executing the next instruction. */
-      --SF.CurInst;
+      if (!ECStack()->empty()) {
+        /* Revert without executing the next instruction. */
+        --SF.CurInst;
+      }
       continue;
     }
 

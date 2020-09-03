@@ -114,7 +114,10 @@ void PSOInterpreter::runAux(int proc, int aux){
     }
   }
 
-  TB.atomic_store(sd);
+  if(!TB.atomic_store(sd)){
+    abort();
+    return;
+  }
   if (DryRun) return;
 
   std::memcpy(pso_threads[proc].aux_to_addr[aux],blk,ml.size);
@@ -261,7 +264,10 @@ void PSOInterpreter::visitLoadInst(llvm::LoadInst &I){
 
   Option<SymAddrSize> ml = GetSymAddrSize(Ptr,I.getType());
   if (!ml) return;
-  TB.load(*ml);
+  if(!TB.load(*ml)){
+    abort();
+    return;
+  }
 
   if(DryRun && DryRunMem.size()){
     assert(pso_threads[CurrentThread].all_buffers_empty());
@@ -303,7 +309,10 @@ void PSOInterpreter::visitStoreInst(llvm::StoreInst &I){
      0 <= AtomicFunctionCall){
     /* Atomic store */
     assert(thr.all_buffers_empty());
-    TB.atomic_store(*mb);
+    if(!TB.atomic_store(*mb)){
+      abort();
+      return;
+    }
     if(DryRun){
       DryRunMem.push_back(*mb);
       return;
@@ -318,7 +327,10 @@ void PSOInterpreter::visitStoreInst(llvm::StoreInst &I){
       thr.aux_to_addr.push_back((uint8_t*)Ptr);
     }
 
-    TB.store(*mb);
+    if(!TB.store(*mb)){
+      abort();
+      return;
+    }
     if(DryRun){
       DryRunMem.push_back(*mb);
       return;
@@ -332,7 +344,10 @@ void PSOInterpreter::visitStoreInst(llvm::StoreInst &I){
 
 void PSOInterpreter::visitFenceInst(llvm::FenceInst &I){
   if(I.getOrdering() == LLVM_ATOMIC_ORDERING_SCOPE::SequentiallyConsistent){
-    TB.fence();
+    if(!TB.fence()){
+      abort();
+      return;
+    }
   }
 }
 
@@ -348,7 +363,10 @@ void PSOInterpreter::visitAtomicRMWInst(llvm::AtomicRMWInst &I){
 
 void PSOInterpreter::visitInlineAsm(llvm::CallInst &CI, const std::string &asmstr){
   if(asmstr == "mfence"){
-    TB.fence();
+    if(!TB.fence()){
+      abort();
+      return;
+    }
   }else if(asmstr == ""){ // Do nothing
   }else{
     throw std::logic_error("Unsupported inline assembly: "+asmstr);

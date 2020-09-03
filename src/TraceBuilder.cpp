@@ -72,3 +72,12 @@ void TraceBuilder::nondeterminism_error(std::string cond, const IID<CPid> &loc){
   }
   if(conf.debug_print_on_error) debug_print();
 }
+
+void TraceBuilder::invalid_input_error(std::string cond, const IID<CPid> &loc){
+  if(loc.is_null()){
+    errors.push_back(new InvalidInputError(get_iid(),cond));
+  }else{
+    errors.push_back(new InvalidInputError(loc,cond));
+  }
+  if(conf.debug_print_on_error) debug_print();
+}

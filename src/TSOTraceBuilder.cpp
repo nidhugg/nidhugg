@@ -614,7 +614,7 @@ void TSOTraceBuilder::debug_print() const {
   }
 }
 
-void TSOTraceBuilder::spawn(){
+bool TSOTraceBuilder::spawn(){
   IPid parent_ipid = curev().iid.get_pid();
   CPid child_cpid = CPS.spawn(threads[parent_ipid].cpid);
   /* TODO: First event of thread happens before parents spawn */
@@ -622,23 +622,26 @@ void TSOTraceBuilder::spawn(){
   threads.push_back(Thread(CPS.new_aux(child_cpid),prefix_idx));
   threads.back().available = false; // Empty store buffer
   curev().may_conflict = true;
-  record_symbolic(SymEv::Spawn(threads.size() / 2 - 1));
+  return record_symbolic(SymEv::Spawn(threads.size() / 2 - 1));
 }
 
-void TSOTraceBuilder::store(const SymData &sd){
-  if(dryrun) return;
+bool TSOTraceBuilder::store(const SymData &sd){
+  if(dryrun) return true;
   curev().may_conflict = true; /* prefix_idx might become bad otherwise */
   IPid ipid = curev().iid.get_pid();
   threads[ipid].store_buffer.push_back(PendingStore(sd.get_ref(),prefix_idx,last_md));
   threads[ipid+1].available = true;
+  return true;
 }
 
-void TSOTraceBuilder::atomic_store(const SymData &sd){
-  if (conf.dpor_algorithm == Configuration::OBSERVERS)
-    record_symbolic(SymEv::UnobsStore(sd));
-  else
-    record_symbolic(SymEv::Store(sd));
+bool TSOTraceBuilder::atomic_store(const SymData &sd){
+  if (conf.dpor_algorithm == Configuration::OBSERVERS) {
+    if (!record_symbolic(SymEv::UnobsStore(sd))) return false;
+  } else {
+    if (!record_symbolic(SymEv::Store(sd))) return false;
+  }
   do_atomic_store(sd);
+  return true;
 }
 
 static bool symev_is_store(const SymEv &e) {
@@ -745,9 +748,10 @@ void TSOTraceBuilder::do_atomic_store(const SymData &sd){
   see_events(seen_accesses);
 }
 
-void TSOTraceBuilder::load(const SymAddrSize &ml){
-  record_symbolic(SymEv::Load(ml));
+bool TSOTraceBuilder::load(const SymAddrSize &ml){
+  if (!record_symbolic(SymEv::Load(ml))) return false;
   do_load(ml);
+  return true;
 }
 
 void TSOTraceBuilder::do_load(const SymAddrSize &ml){
@@ -798,26 +802,27 @@ void TSOTraceBuilder::do_load(const SymAddrSize &ml){
   see_events(seen_accesses);
 }
 
-void TSOTraceBuilder::compare_exchange
+bool TSOTraceBuilder::compare_exchange
 (const SymData &sd, const SymData::block_type expected, bool success){
   if(success){
-    record_symbolic(SymEv::CmpXhg(sd, expected));
+    if (!record_symbolic(SymEv::CmpXhg(sd, expected))) return false;
     do_load(sd.get_ref());
     do_atomic_store(sd);
   }else{
-    record_symbolic(SymEv::CmpXhgFail(sd, expected));
+    if (!record_symbolic(SymEv::CmpXhgFail(sd, expected))) return false;
     do_load(sd.get_ref());
   }
+  return true;
 }
 
-void TSOTraceBuilder::full_memory_conflict(){
-  record_symbolic(SymEv::Fullmem());
+bool TSOTraceBuilder::full_memory_conflict(){
+  if (!record_symbolic(SymEv::Fullmem())) return false;
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.len()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
     IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
     threads[pid].sleep_full_memory_conflict = true;
-    return;
+    return true;
   }
   curev().may_conflict = true;
 
@@ -841,6 +846,7 @@ void TSOTraceBuilder::full_memory_conflict(){
   mem.clear();
 
   see_events(seen_accesses);
+  return true;
 }
 
 void TSOTraceBuilder::do_load(ByteInfo &m){
@@ -881,33 +887,35 @@ void TSOTraceBuilder::do_load(ByteInfo &m){
   see_event_pairs(seen_pairs);
 }
 
-void TSOTraceBuilder::fence(){
-  if(dryrun) return;
+bool TSOTraceBuilder::fence(){
+  if(dryrun) return true;
   IPid ipid = curev().iid.get_pid();
   assert(ipid % 2 == 0);
   assert(threads[ipid].store_buffer.empty());
   add_happens_after_thread(prefix_idx, ipid+1);
+  return true;
 }
 
-void TSOTraceBuilder::join(int tgt_proc){
-  record_symbolic(SymEv::Join(tgt_proc));
-  if(dryrun) return;
+bool TSOTraceBuilder::join(int tgt_proc){
+  if (!record_symbolic(SymEv::Join(tgt_proc))) return false;
+  if(dryrun) return true;
   curev().may_conflict = true;
   assert(threads[tgt_proc*2].store_buffer.empty());
   add_happens_after_thread(prefix_idx, tgt_proc*2);
   add_happens_after_thread(prefix_idx, tgt_proc*2+1);
+  return true;
 }
 
-void TSOTraceBuilder::mutex_lock(const SymAddrSize &ml){
-  record_symbolic(SymEv::MLock(ml));
+bool TSOTraceBuilder::mutex_lock(const SymAddrSize &ml){
+  if (!record_symbolic(SymEv::MLock(ml))) return false;
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.len()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
     IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
     threads[pid].sleep_accesses_w.insert(ml.addr);
-    return;
+    return true;
   }
-  fence();
+  if (!fence()) return false;
   if(!conf.mutex_require_init && !mutexes.count(ml.addr)){
     // Assume static initialization
     mutexes[ml.addr] = Mutex();
@@ -927,9 +935,10 @@ void TSOTraceBuilder::mutex_lock(const SymAddrSize &ml){
 
   mutex.last_lock = mutex.last_access = prefix_idx;
   mutex.locked = true;
+  return true;
 }
 
-void TSOTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
+bool TSOTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
   assert(!dryrun);
   if(!conf.mutex_require_init && !mutexes.count(ml.addr)){
     // Assume static initialization
@@ -943,18 +952,19 @@ void TSOTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
   if(0 <= last_full_memory_conflict){
     add_lock_fail_race(mutex, last_full_memory_conflict);
   }
+  return true;
 }
 
-void TSOTraceBuilder::mutex_trylock(const SymAddrSize &ml){
-  record_symbolic(SymEv::MLock(ml));
+bool TSOTraceBuilder::mutex_trylock(const SymAddrSize &ml){
+  if (!record_symbolic(SymEv::MLock(ml))) return false;
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.len()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
     IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
     threads[pid].sleep_accesses_w.insert(ml.addr);
-    return;
+    return true;
   }
-  fence();
+  if (!fence()) return false;
   if(!conf.mutex_require_init && !mutexes.count(ml.addr)){
     // Assume static initialization
     mutexes[ml.addr] = Mutex();
@@ -970,18 +980,19 @@ void TSOTraceBuilder::mutex_trylock(const SymAddrSize &ml){
     mutex.last_lock = prefix_idx;
     mutex.locked = true;
   }
+  return true;
 }
 
-void TSOTraceBuilder::mutex_unlock(const SymAddrSize &ml){
-  record_symbolic(SymEv::MUnlock(ml));
+bool TSOTraceBuilder::mutex_unlock(const SymAddrSize &ml){
+  if (!record_symbolic(SymEv::MUnlock(ml))) return false;
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.len()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
     IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
     threads[pid].sleep_accesses_w.insert(ml.addr);
-    return;
+    return true;
   }
-  fence();
+  if (!fence()) return false;
   if(!conf.mutex_require_init && !mutexes.count(ml.addr)){
     // Assume static initialization
     mutexes[ml.addr] = Mutex();
@@ -996,35 +1007,37 @@ void TSOTraceBuilder::mutex_unlock(const SymAddrSize &ml){
 
   mutex.last_access = prefix_idx;
   mutex.locked = false;
+  return true;
 }
 
-void TSOTraceBuilder::mutex_init(const SymAddrSize &ml){
-  record_symbolic(SymEv::MInit(ml));
+bool TSOTraceBuilder::mutex_init(const SymAddrSize &ml){
+  if (!record_symbolic(SymEv::MInit(ml))) return false;
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.len()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
     IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
     threads[pid].sleep_accesses_w.insert(ml.addr);
-    return;
+    return true;
   }
-  fence();
+  if (!fence()) return false;
   curev().may_conflict = true;
   Mutex &mutex = mutexes[ml.addr];
   see_events({mutex.last_access, last_full_memory_conflict});
 
   mutex.last_access = prefix_idx;
+  return true;
 }
 
-void TSOTraceBuilder::mutex_destroy(const SymAddrSize &ml){
-  record_symbolic(SymEv::MDelete(ml));
+bool TSOTraceBuilder::mutex_destroy(const SymAddrSize &ml){
+  if (!record_symbolic(SymEv::MDelete(ml))) return false;
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.len()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
     IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
     threads[pid].sleep_accesses_w.insert(ml.addr);
-    return;
+    return true;
   }
-  fence();
+  if (!fence()) return false;
   if(!conf.mutex_require_init && !mutexes.count(ml.addr)){
     // Assume static initialization
     mutexes[ml.addr] = Mutex();
@@ -1037,10 +1050,11 @@ void TSOTraceBuilder::mutex_destroy(const SymAddrSize &ml){
   see_events({mutex.last_access,last_full_memory_conflict});
 
   mutexes.erase(ml.addr);
+  return true;
 }
 
 bool TSOTraceBuilder::cond_init(const SymAddrSize &ml){
-  record_symbolic(SymEv::CInit(ml));
+  if (!record_symbolic(SymEv::CInit(ml))) return false;
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.len()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
@@ -1048,7 +1062,7 @@ bool TSOTraceBuilder::cond_init(const SymAddrSize &ml){
     threads[pid].sleep_accesses_w.insert(ml.addr);
     return true;
   }
-  fence();
+  if (!fence()) return false;
   if(cond_vars.count(ml.addr)){
     pthreads_error("Condition variable initiated twice.");
     return false;
@@ -1060,7 +1074,7 @@ bool TSOTraceBuilder::cond_init(const SymAddrSize &ml){
 }
 
 bool TSOTraceBuilder::cond_signal(const SymAddrSize &ml){
-  record_symbolic(SymEv::CSignal(ml));
+  if (!record_symbolic(SymEv::CSignal(ml))) return false;
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.len()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
@@ -1068,7 +1082,7 @@ bool TSOTraceBuilder::cond_signal(const SymAddrSize &ml){
     threads[pid].sleep_accesses_w.insert(ml.addr);
     return true;
   }
-  fence();
+  if (!fence()) return false;
   curev().may_conflict = true;
   wakeup(Access::W,ml.addr);
 
@@ -1080,7 +1094,7 @@ bool TSOTraceBuilder::cond_signal(const SymAddrSize &ml){
   CondVar &cond_var = it->second;
   VecSet<int> seen_events = {last_full_memory_conflict};
   if(cond_var.waiters.size() > 1){
-    register_alternatives(cond_var.waiters.size());
+    if (!register_alternatives(cond_var.waiters.size())) return false;
   }
   assert(0 <= curbranch().alt);
   assert(cond_var.waiters.empty() || curbranch().alt < int(cond_var.waiters.size()));
@@ -1107,7 +1121,7 @@ bool TSOTraceBuilder::cond_signal(const SymAddrSize &ml){
 }
 
 bool TSOTraceBuilder::cond_broadcast(const SymAddrSize &ml){
-  record_symbolic(SymEv::CBrdcst(ml));
+  if (!record_symbolic(SymEv::CBrdcst(ml))) return false;
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.len()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
@@ -1115,7 +1129,7 @@ bool TSOTraceBuilder::cond_broadcast(const SymAddrSize &ml){
     threads[pid].sleep_accesses_w.insert(ml.addr);
     return true;
   }
-  fence();
+  if (!fence()) return false;
   curev().may_conflict = true;
   wakeup(Access::W,ml.addr);
 
@@ -1159,8 +1173,8 @@ bool TSOTraceBuilder::cond_wait(const SymAddrSize &cond_ml, const SymAddrSize &m
     }
   }
 
-  mutex_unlock(mutex_ml);
-  record_symbolic(SymEv::CWait(cond_ml));
+  if (!mutex_unlock(mutex_ml)) return false;
+  if (!record_symbolic(SymEv::CWait(cond_ml))) return false;
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.len()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
@@ -1168,7 +1182,7 @@ bool TSOTraceBuilder::cond_wait(const SymAddrSize &cond_ml, const SymAddrSize &m
     threads[pid].sleep_accesses_r.insert(cond_ml.addr);
     return true;
   }
-  fence();
+  if (!fence()) return false;
   curev().may_conflict = true;
   wakeup(Access::R,cond_ml.addr);
 
@@ -1194,8 +1208,8 @@ bool TSOTraceBuilder::cond_awake(const SymAddrSize &cond_ml, const SymAddrSize &
     add_happens_after(prefix_idx, cond_var.last_signal);
   }
 
-  mutex_lock(mutex_ml);
-  record_symbolic(SymEv::CAwake(cond_ml));
+  if (!mutex_lock(mutex_ml)) return false;
+  if (!record_symbolic(SymEv::CAwake(cond_ml))) return false;
   if(dryrun){
     return true;
   }
@@ -1205,7 +1219,9 @@ bool TSOTraceBuilder::cond_awake(const SymAddrSize &cond_ml, const SymAddrSize &
 }
 
 int TSOTraceBuilder::cond_destroy(const SymAddrSize &ml){
-  record_symbolic(SymEv::CDelete(ml));
+  const int err = (EBUSY == 1) ? 2 : 1; // Chose an error value different from EBUSY
+
+  if (!record_symbolic(SymEv::CDelete(ml))) return err;
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.len()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
@@ -1213,9 +1229,7 @@ int TSOTraceBuilder::cond_destroy(const SymAddrSize &ml){
     threads[pid].sleep_accesses_w.insert(ml.addr);
     return 0;
   }
-  fence();
-
-  int err = (EBUSY == 1) ? 2 : 1; // Chose an error value different from EBUSY
+  if (!fence()) return err;
 
   curev().may_conflict = true;
   wakeup(Access::W,ml.addr);
@@ -1235,14 +1249,15 @@ int TSOTraceBuilder::cond_destroy(const SymAddrSize &ml){
   return rv;
 }
 
-void TSOTraceBuilder::register_alternatives(int alt_count){
+bool TSOTraceBuilder::register_alternatives(int alt_count){
   curev().may_conflict = true;
-  record_symbolic(SymEv::Nondet(alt_count));
+  if (!record_symbolic(SymEv::Nondet(alt_count))) return false;
   if(curbranch().alt == 0) {
     for(int i = curbranch().alt+1; i < alt_count; ++i){
       curev().races.push_back(Race::Nondet(prefix_idx, i));
     }
   }
+  return true;
 }
 
 struct TSOTraceBuilder::obs_sleep
@@ -1733,14 +1748,14 @@ void TSOTraceBuilder::compute_vclocks(){
   }
 }
 
-void TSOTraceBuilder::record_symbolic(SymEv event){
+bool TSOTraceBuilder::record_symbolic(SymEv event){
   if(dryrun) {
     assert(prefix_idx+1 < int(prefix.len()));
     assert(dry_sleepers <= prefix[prefix_idx+1].sleep.size());
     IPid pid = prefix[prefix_idx+1].sleep[dry_sleepers-1];
     assert(threads[pid].sleep_sym);
     threads[pid].sleep_sym->push_back(event);
-    return;
+    return true;
   }
   if (!replay) {
     assert(sym_idx == curev().sym.size());
@@ -1750,8 +1765,17 @@ void TSOTraceBuilder::record_symbolic(SymEv event){
   } else {
     /* Replay. SymEv::set() asserts that this is the same event as last time. */
     assert(sym_idx < curev().sym.size());
-    curev().sym[sym_idx++].set(event);
+    SymEv &last = curev().sym[sym_idx++];
+    if (!last.is_compatible_with(event)) {
+      auto pid_str = [this](IPid p) { return threads[p].cpid.to_string(); };
+      nondeterminism_error("Event with effect " + last.to_string(pid_str)
+                           + " became " + event.to_string(pid_str)
+                           + " when replayed");
+      return false;
+    }
+    last = event;
   }
+  return true;
 }
 
 bool TSOTraceBuilder::do_events_conflict(int i, int j) const{

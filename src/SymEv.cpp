@@ -22,40 +22,33 @@
 
 #include <sstream>
 
-void SymEv::set(SymEv other) {
-  // if (kind != EMPTY) {
-    if(kind != other.kind
-       && !(kind == STORE && other.kind == UNOBS_STORE)
-       && !(kind == M_TRYLOCK && other.kind == M_TRYLOCK_FAIL)
-       && !(kind == M_TRYLOCK_FAIL && other.kind == M_TRYLOCK)) {
-      llvm::dbgs() << "Merging incompatible events " << *this << " and "
-                   << other << "\n";
-      abort();
-    }
-#ifndef NDEBUG
-    switch(kind) {
-    case LOAD:
-    case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
-    case M_TRYLOCK: case M_TRYLOCK_FAIL:
-    case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
-    case C_WAIT: case C_AWAKE:
-    case RMW: case CMPXHG: case CMPXHGFAIL:
-    case STORE: case UNOBS_STORE:
-      assert(arg.addr == other.arg.addr);
-      break;
-    case SPAWN: case JOIN:
-    case NONDET:
-      assert(arg.num == other.arg.num);
-      break;
-    case FULLMEM:
-    case NONE:
-      break;
-    default:
-      assert(false && "Unknown kind");
-    }
-#endif
-  // }
-  *this = other;
+bool SymEv::is_compatible_with(SymEv other) const {
+  if (kind != other.kind
+      && !(kind == STORE && other.kind == UNOBS_STORE)
+      && !(kind == M_TRYLOCK && other.kind == M_TRYLOCK_FAIL)
+      && !(kind == M_TRYLOCK_FAIL && other.kind == M_TRYLOCK))
+    return false;
+  switch(kind) {
+  case LOAD:
+  case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
+  case M_TRYLOCK: case M_TRYLOCK_FAIL:
+  case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
+  case C_WAIT: case C_AWAKE:
+  case RMW: case CMPXHG: case CMPXHGFAIL:
+  case STORE: case UNOBS_STORE:
+    if (arg.addr != other.arg.addr) return false;
+    break;
+  case SPAWN: case JOIN:
+  case NONDET:
+    if (arg.num != other.arg.num) return false;
+    break;
+  case FULLMEM:
+  case NONE:
+    break;
+  default:
+    abort();
+  }
+  return true;
 }
 
 static std::string block_to_string(const SymData::block_type &blk, unsigned size) {

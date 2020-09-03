@@ -128,6 +128,19 @@ private:
   std::string msg;
 };
 
+/* An error where the program has exhibited some behaviour that is not
+ * supported by the current algorithm or mode.
+ */
+class InvalidInputError : public Error{
+public:
+  InvalidInputError(const IID<CPid> &loc, std::string msg)
+    : Error(loc), msg(msg) {};
+  virtual Error *clone() const;
+  virtual std::string to_string() const;
+private:
+  std::string msg;
+};
+
 class SrcLocVector {
 public:
   struct LocRef {

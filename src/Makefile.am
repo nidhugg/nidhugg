@@ -79,6 +79,7 @@ unittest_SOURCES = \
   PSO_test.cpp \
   PSO_test2.cpp \
   Regression_test.cpp \
+  RFSC_test.cpp \
   RMW_test.cpp \
   Robustness_test.cpp \
   SC_test.cpp \
