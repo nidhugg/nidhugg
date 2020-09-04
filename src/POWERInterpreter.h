@@ -228,6 +228,8 @@ private:
   };
   std::vector<Thread> Threads;
   int CurrentThread;
+  /* Whether any thread has been blocked without terminating */
+  bool Blocked = false;
   CPidSystem CPS;
   std::vector<std::shared_ptr<FetchedInstruction> > CommittableLocal;
   std::shared_ptr<FetchedInstruction> CurInstr;

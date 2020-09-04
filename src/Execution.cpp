@@ -3297,7 +3297,9 @@ void Interpreter::terminate(Type *RetTy, GenericValue Result){
 }
 
 void Interpreter::clearAllStacks(){
+  if(assumeBlocked()) Blocked = true;
   for(unsigned i = 0; i < Threads.size(); ++i){
+    if(!Threads[i].ECStack.empty()) Blocked = true;
     Threads[i].ECStack.clear();
   }
 }

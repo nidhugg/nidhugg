@@ -119,6 +119,9 @@ protected:
      * current function record.
      */
     std::vector<ExecutionContext> ECStack;
+    /* Whether the thread execution has been blocked due to failing an
+     * assume-statement
+     */
     bool AssumeBlocked;
     /* Contains the IDs (index into Threads) of all other threads
      * which are awaiting the termination of this thread to perform a
@@ -170,6 +173,8 @@ protected:
    * DryRun is assigned by the scheduling by TB.
    */
   bool DryRun;
+  /* True if execution has stopped due to blocking */
+  bool Blocked = false;
   /* Keeps temporary changes to memory which are performed during dry
    * runs. Instead of changing the actual memory, during dry runs all
    * memory stores collected in DryRunMem. This allows memory loads

@@ -105,10 +105,6 @@ bool PSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
     --prefix_idx;
   }
 
-  /* Create a new Event */
-  ++prefix_idx;
-  assert(prefix_idx == int(prefix.size()));
-
   /* Find an available thread (auxiliary or real).
    *
    * Prioritize auxiliary before real, and older before younger
@@ -138,6 +134,10 @@ bool PSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   if(p < 0){ // No threads available
     return false;
   }
+
+ /* Create a new Event */
+  ++prefix_idx;
+  assert(prefix_idx == int(prefix.size()));
 
   ++threads[p].clock[p];
   prefix.push_back(Event(IID<IPid>(IPid(p),threads[p].clock[p]),

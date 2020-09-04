@@ -307,6 +307,7 @@ DPORDriver::Result DPORDriver::run_rfsc_sequential() {
     bool assume_blocked = false;
     TB.reset();
     Trace *t= this->run_once(TB, mod.get(), assume_blocked);
+    TB.compute_prefixes();
     tasks_left--;
 
     int to_create = TB.tasks_created;
@@ -361,6 +362,7 @@ DPORDriver::Result DPORDriver::run_rfsc_parallel() {
     while (TB.reset()) {
       bool assume_blocked = false;
       Trace *t = this->run_once(TB, mod.get(), assume_blocked);
+      TB.compute_prefixes();
       TB.work_item.reset();
 
       std::lock_guard<std::mutex> lock(state.mutex);

@@ -84,6 +84,11 @@ public:
   virtual NODISCARD bool register_alternatives(int alt_count) override;
   virtual long double estimate_trace_count() const override;
 
+  /* Perform planning of future executions. Requires the trace to be
+   * maximal or sleepset blocked.
+   */
+  void compute_prefixes();
+
   /* Amount of siblings found during compute_prefixes. */
   int tasks_created;
 
@@ -436,11 +441,6 @@ protected:
    * multiple threads concurrently. therefore need to be under exclusive opreation.
    */
   const SaturatedGraph &get_cached_graph(DecisionNode &decision);
-  /* Perform planning of future executions. Requires the trace to be
-   * maximal or sleepset blocked, and that the vector clocks have been
-   * computed.
-   */
-  void compute_prefixes();
   /* Checks whether an event is included in a vector clock. */
   bool happens_before(const Event &e, const VClock<IPid> &c) const;
   /* Check whether a read-from might be satisfiable according to the
