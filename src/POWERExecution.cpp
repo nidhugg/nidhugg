@@ -2313,6 +2313,7 @@ void POWERInterpreter::callAssume(llvm::Function *F){
   if(!cond){
     setAssumeBlocked(true);
     Threads[CurrentThread].ECStack.clear();
+    Blocked = true;
     AtExitHandlers.clear();
     /* Do not call terminate. We don't want to explicitly terminate
      * since that would allow other processes to join with this
@@ -2324,6 +2325,7 @@ void POWERInterpreter::callAssume(llvm::Function *F){
 void POWERInterpreter::callAssertFail(llvm::Function *F){
   TB.assertion_error("(unspecified)");
   Threads[CurrentThread].ECStack.clear();
+  Blocked = true;
   AtExitHandlers.clear();
 
   /* Record error in error trace */
@@ -2576,6 +2578,7 @@ void POWERInterpreter::callFunction(llvm::Function *F,
 
 void POWERInterpreter::abort(){
   for(unsigned p = 0; p < Threads.size(); ++p){
+    if(!Threads[p].ECStack.empty()) Blocked = true;
     Threads[p].ECStack.clear();
     Threads[p].CommittableEvents.clear();
   }

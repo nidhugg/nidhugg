@@ -182,6 +182,10 @@ Interpreter::runFunction(Function *F,
 #endif
   assert (F && "Function *F was null at entry to run()");
 
+  if (Blocked) {
+    return GenericValue();
+  }
+
   // Try extra hard not to pass extra args to a function that isn't
   // expecting them.  C programmers frequently bend the rules and
   // declare main() with fewer parameters than it actually gets

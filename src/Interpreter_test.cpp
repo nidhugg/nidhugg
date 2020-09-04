@@ -192,6 +192,74 @@ declare void @__assert_fail()
   }
 }
 
+BOOST_AUTO_TEST_CASE(Global_ctor_block_no_main_dtor){
+  for (MM mm : { SC, TSO, PSO, RFSC, POWER }) {
+    BOOST_TEST_CHECKPOINT( "mm=" << mm );
+    Configuration conf = get_conf(mm);
+    std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(StrModule::portasm(R"(
+@x = global i32 0, align 4
+%0 = type { i32, void ()*, i8* }
+@llvm.global_ctors = appending global [1 x %0] [%0 { i32 65535, void ()* @ctor, i8* null }]
+@llvm.global_dtors = appending global [1 x %0] [%0 { i32 65535, void ()* @dtor, i8* null }]
+
+define internal void @ctor() {
+  call void @__VERIFIER_assume(i1 false)
+  ret void
+}
+
+define i32 @main() {
+  call void @__assert_fail()
+  unreachable
+}
+
+define internal void @dtor() {
+  call void @__assert_fail()
+  unreachable
+}
+
+declare void @__VERIFIER_assume(i1)
+declare void @__assert_fail()
+)"),conf));
+
+    DPORDriver::Result res = driver->run();
+
+    BOOST_CHECK(!res.has_errors());
+    BOOST_CHECK(res.trace_count == 0);
+    BOOST_CHECK(res.assume_blocked_trace_count == 1);
+  }
+}
+
+BOOST_AUTO_TEST_CASE(Main_block_no_global_dtor){
+  for (MM mm : { SC, TSO, PSO, RFSC, POWER }) {
+    BOOST_TEST_CHECKPOINT( "mm=" << mm );
+    Configuration conf = get_conf(mm);
+    std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(StrModule::portasm(R"(
+@x = global i32 0, align 4
+%0 = type { i32, void ()*, i8* }
+@llvm.global_dtors = appending global [1 x %0] [%0 { i32 65535, void ()* @dtor, i8* null }]
+
+define i32 @main() {
+  call void @__VERIFIER_assume(i1 false)
+  ret i32 0
+}
+
+define internal void @dtor() {
+  call void @__assert_fail()
+  unreachable
+}
+
+declare void @__VERIFIER_assume(i1)
+declare void @__assert_fail()
+)"),conf));
+
+    DPORDriver::Result res = driver->run();
+
+    BOOST_CHECK(!res.has_errors());
+    BOOST_CHECK(res.trace_count == 0);
+    BOOST_CHECK(res.assume_blocked_trace_count == 1);
+  }
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 #endif
