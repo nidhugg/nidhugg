@@ -37,9 +37,8 @@
 #include <llvm/IR/LegacyPassManager.h>
 #endif
 #include <llvm/InitializePasses.h>
-#include <llvm/Transforms/Utils.h>
-#if LLVM_VERSION_MAJOR >= 7
-#  include <llvm/Transforms/InstCombine/InstCombine.h>
+#ifdef HAVE_LLVM_TRANSFORMS_UTILS_H
+#  include <llvm/Transforms/Utils.h>
 #else
 #  include <llvm/Transforms/Scalar.h>
 #endif
