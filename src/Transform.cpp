@@ -99,14 +99,13 @@ namespace Transform {
     using PassManager = llvm::PassManager;
 #endif
     PassManager PM;
-    /* Run some safe simplificataions that both improve applicabillity
+    /* Run some safe simplifications that both improve applicability
      * of our passes, and speed up model checking.
      * We need to clear the "optnone" attribute set by clang, or all the
      * optimizers will no-op.
      */
     PM.add(new ClearOptnonePass());
     PM.add(llvm::createPromoteMemoryToRegisterPass());
-    PM.add(llvm::createInstructionCombiningPass());
     if(conf.transform_spin_assume){
       PM.add(new SpinAssumePass());
     }
