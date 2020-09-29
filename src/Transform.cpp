@@ -37,6 +37,11 @@
 #include <llvm/IR/LegacyPassManager.h>
 #endif
 #include <llvm/InitializePasses.h>
+#ifdef HAVE_LLVM_TRANSFORMS_UTILS_H
+#  include <llvm/Transforms/Utils.h>
+#else
+#  include <llvm/Transforms/Scalar.h>
+#endif
 
 #include <stdexcept>
 
@@ -56,6 +61,21 @@ namespace Transform {
     StrModule::write_module(mod,outfile);
   }
 
+  namespace {
+    struct ClearOptnonePass : public llvm::FunctionPass {
+      static char ID;
+      ClearOptnonePass() : llvm::FunctionPass(ID) {}
+      bool runOnFunction(llvm::Function &F) override {
+        if (F.hasFnAttribute(llvm::Attribute::OptimizeNone)) {
+          F.removeFnAttr(llvm::Attribute::OptimizeNone);
+          return true;
+        }
+        return false;
+      }
+    };
+    char ClearOptnonePass::ID = 0;
+  }
+
   bool transform(llvm::Module &mod, const Configuration &conf){
     llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
     llvm::initializeCore(Registry);
@@ -73,10 +93,18 @@ namespace Transform {
     llvm::initializeTarget(Registry);
 
 #ifdef LLVM_PASSMANAGER_TEMPLATE
-    llvm::legacy::PassManager PM;
+    using PassManager = llvm::legacy::PassManager;
 #else
-    llvm::PassManager PM;
+    using PassManager = llvm::PassManager;
 #endif
+    PassManager PM;
+    /* Run some safe simplifications that both improve applicability
+     * of our passes, and speed up model checking.
+     * We need to clear the "optnone" attribute set by clang, or all the
+     * optimizers will no-op.
+     */
+    PM.add(new ClearOptnonePass());
+    PM.add(llvm::createPromoteMemoryToRegisterPass());
     if(conf.transform_spin_assume){
       PM.add(new SpinAssumePass());
     }
