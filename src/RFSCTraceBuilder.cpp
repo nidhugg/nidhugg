@@ -1247,7 +1247,8 @@ void RFSCTraceBuilder::compute_prefixes() {
           = unfold_find_unfolding_node(jp, jidx, original_read_from);
         DecisionNode &decision = *prefix[i].decision_ptr;
         if (!decision.try_alloc_unf(alt)) return;
-        int j = prefix.size();
+        int j = ++prefix_idx;
+        assert(prefix.size() == j);
         prefix.emplace_back(IID<IPid>(jp, jidx), 0, std::move(sym));
         prefix[j].event = alt; // Only for debug print
         threads[jp].event_indices.push_back(j); // Not needed?
@@ -1278,6 +1279,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         /* Delete j */
         threads[jp].event_indices.pop_back();
         prefix.pop_back();
+        --prefix_idx;
       };
     if (!prefix[i].pinned && is_lock_type(i)) {
       Timing::Guard ponder_mutex_guard(ponder_mutex_context);
