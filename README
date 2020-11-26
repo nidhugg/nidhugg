@@ -163,11 +163,31 @@ Specifying LLVM Installation
 Compiling LLVM
 ==============
 
-   LLVM is recommended to be compiled with optimized build and with
-   libffi.
+   If you are a user of Nidhugg, we recommend you use a release build of
+   LLVM. You can also speed up the build by disabling all the backends.
 
    $ cd llvm-*.src
-   $ ./configure --prefix /your/llvm/install/path --enable-optimized --enable-libffi
+   $ mkdir build && cd build
+   $ cmake -DCMAKE_INSTALL_PREFIX=/your/llvm/install/path \
+           -DCMAKE_BUILD_TYPE=Release \
+           -DLLVM_TARGETS_TO_BUILD="" -DLLVM_LINK_LLVM_DYLIB=ON ..
+   $ make
+   $ make install
+
+Compiling LLVM for Debugging or Developing Nidhugg
+**************************************************
+
+   If you are developing Nidhugg or are troubleshooting a bug in
+   Nidhugg, we recommend you use a debug build of LLVM, as this will
+   allow you to build an assertions-enabled build of Nidhugg.
+
+   $ cd llvm-*.src
+   $ mkdir build && cd build
+   $ cmake -DCMAKE_INSTALL_PREFIX=/your/llvm/install/path \
+           -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+           -DLLVM_ENABLE_ASSERTIONS=ON \
+           -DLLVM_TARGETS_TO_BUILD="" -DLLVM_LINK_LLVM_DYLIB=ON \
+           -DLLVM_OPTIMIZED_TABLEGEN=ON ..
    $ make
    $ make install
 

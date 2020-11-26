@@ -44,6 +44,13 @@ _bionic-clang-env-conf:
 
 jobs:
   include:
+    # Docker debug build needs to build llvm each time and is slow, start it
+    # first
+    - services: docker
+      before_script: docker build -t nidhugg-debug -f Dockerfile.debug .
+      script:
+        - docker run --rm -ti -v `pwd`:`pwd` -w `pwd` nidhugg-debug nidhuggc -sc tests/smoke/C-tests/mutex_hard.c
+        - docker run --rm -ti nidhugg-debug nidhugg-unittest
     - <<: *focal
       env:
         - LLVM_VERSION=11.0.0-rc2
