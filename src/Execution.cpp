@@ -3217,8 +3217,10 @@ bool Interpreter::isUnknownIntrinsic(Instruction &I){
 static AnyCallInst isCallOrInvoke(Instruction &I) {
   if (CallInst *CI = dyn_cast<CallInst>(&I)) {
     return {CI};
+  } else if(InvokeInst *II = dyn_cast<InvokeInst>(&I)) {
+    return {II};
   } else {
-    return {dyn_cast<InvokeInst>(&I)};
+    return AnyCallInst();
   }
 }
 

@@ -27,6 +27,8 @@
 #include <llvm/IR/CallSite.h>
 #endif
 
+#include <cassert>
+
 /* Because older llvms do not have the llvm::CallBase base class, but instead
  * have a helper type llvm::CallSite that wraps any instruction type that is a
  * call, we need a consistent way of handling them. We introduce our own wrapper
@@ -40,7 +42,7 @@ class AnyCallInst {
 
  public:
   AnyCallInst() : CB(nullptr) {}
-  AnyCallInst(llvm::CallBase *CB) : CB(CB) {}
+  AnyCallInst(llvm::CallBase *CB) : CB(CB) { assert(CB); }
   AnyCallInst(llvm::CallBase &CB) : CB(&CB) {}
 
   operator bool() const { return (bool)CB; }
