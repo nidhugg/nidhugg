@@ -48,20 +48,26 @@ public:
 struct Leaf {
 public:
   /* Construct a bottom-leaf. */
-  Leaf() : prefix() {}
+  Leaf() : prefix() { assert(is_bottom()); }
   /* Construct a prefix leaf. */
-  Leaf(std::vector<Branch> prefix) : prefix(prefix) {}
+  Leaf(std::vector<Branch> prefix) : prefix(std::move(prefix)) {
+    /* Ensure we encode a non-bottom leaf. */
+    if (is_bottom()) {
+      this->prefix.reserve(1);
+    }
+    assert(!is_bottom());
+  }
   std::vector<Branch> prefix;
 
-  bool is_bottom() const { return prefix.empty(); }
+  bool is_bottom() const { return prefix.capacity() == 0; }
 };
 
 
 struct DecisionNode {
 public:
-  /* Empty constructor for root. */
-  DecisionNode() : depth(-1), parent(nullptr), pruned_subtree(false),
-                   cache_initialised(true) {}
+  /* Constructor for root node. */
+  DecisionNode() : depth(-1), leaf(std::vector<Branch>()), parent(nullptr),
+                   pruned_subtree(false), cache_initialised(true) {}
   /* Constructor for new nodes during compute_unfolding. */
   DecisionNode(std::shared_ptr<DecisionNode> decision)
     : depth(decision->depth+1), pruned_subtree(false),
