@@ -1287,36 +1287,43 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
 
   SetValue(&I, OldVal, SF);
 
+  RmwAction::Kind kind;
+
   /* Compute NewVal */
   switch(I.getOperation()){
   case llvm::AtomicRMWInst::Xchg:
-    NewVal = Val; break;
+    NewVal = Val; kind = RmwAction::XCHG; break;
   case llvm::AtomicRMWInst::Add:
-    NewVal.IntVal = OldVal.IntVal + Val.IntVal; break;
+    NewVal.IntVal = OldVal.IntVal + Val.IntVal; kind = RmwAction::ADD; break;
   case llvm::AtomicRMWInst::Sub:
-    NewVal.IntVal = OldVal.IntVal - Val.IntVal; break;
+    NewVal.IntVal = OldVal.IntVal - Val.IntVal; kind = RmwAction::SUB; break;
   case llvm::AtomicRMWInst::And:
-    NewVal.IntVal = OldVal.IntVal & Val.IntVal; break;
+    NewVal.IntVal = OldVal.IntVal & Val.IntVal; kind = RmwAction::AND; break;
   case llvm::AtomicRMWInst::Nand:
-    NewVal.IntVal = ~(OldVal.IntVal & Val.IntVal); break;
+    NewVal.IntVal = ~(OldVal.IntVal & Val.IntVal); kind = RmwAction::NAND; break;
   case llvm::AtomicRMWInst::Or:
-    NewVal.IntVal = OldVal.IntVal | Val.IntVal; break;
+    NewVal.IntVal = OldVal.IntVal | Val.IntVal; kind = RmwAction::OR; break;
   case llvm::AtomicRMWInst::Xor:
-    NewVal.IntVal = OldVal.IntVal ^ Val.IntVal; break;
+    NewVal.IntVal = OldVal.IntVal ^ Val.IntVal; kind = RmwAction::XOR; break;
   case llvm::AtomicRMWInst::Max:
-    NewVal.IntVal = APIntOps::smax(OldVal.IntVal,Val.IntVal); break;
+    NewVal.IntVal = APIntOps::smax(OldVal.IntVal,Val.IntVal);
+    kind = RmwAction::MAX; break;
   case llvm::AtomicRMWInst::Min:
-    NewVal.IntVal = APIntOps::smin(OldVal.IntVal,Val.IntVal); break;
+    NewVal.IntVal = APIntOps::smin(OldVal.IntVal,Val.IntVal);
+    kind = RmwAction::MIN; break;
   case llvm::AtomicRMWInst::UMax:
-    NewVal.IntVal = APIntOps::umax(OldVal.IntVal,Val.IntVal); break;
+    NewVal.IntVal = APIntOps::umax(OldVal.IntVal,Val.IntVal);
+    kind = RmwAction::UMAX; break;
   case llvm::AtomicRMWInst::UMin:
-    NewVal.IntVal = APIntOps::umin(OldVal.IntVal,Val.IntVal); break;
+    NewVal.IntVal = APIntOps::umin(OldVal.IntVal,Val.IntVal);
+    kind = RmwAction::UMIN; break;
   default:
     throw std::logic_error("Unsupported operation in RMW instruction.");
   }
 
   SymData sd = GetSymData(*Ptr_sas,I.getType(),NewVal);
-  if(!TB.atomic_rmw(sd)){
+  SymData operand = GetSymData(*Ptr_sas,I.getType(),Val);
+  if(!TB.atomic_rmw(sd, RmwAction{kind, std::move(operand.get_shared_block())})){
     abort();
     return;
   }

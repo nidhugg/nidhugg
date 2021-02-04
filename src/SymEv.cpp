@@ -28,6 +28,11 @@ bool SymEv::is_compatible_with(SymEv other) const {
       && !(kind == M_TRYLOCK && other.kind == M_TRYLOCK_FAIL)
       && !(kind == M_TRYLOCK_FAIL && other.kind == M_TRYLOCK))
     return false;
+  if (kind == RMW && (arg2.rmw_kind != other.arg2.rmw_kind
+                      || memcmp(_expected.get(), other._expected.get(),
+                                arg.addr.size) != 0)) {
+    return false;
+  }
   switch(kind) {
   case LOAD:
   case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
@@ -100,7 +105,9 @@ std::string SymEv::to_string(std::function<std::string(int)> pid_str) const {
         + "," + block_to_string(_written, arg.addr.size) + ")";
 
     case RMW: return "Rmw(" + arg.addr.to_string(pid_str)
-        + "," + block_to_string(_written, arg.addr.size) + ")";
+        + "," + block_to_string(_written, arg.addr.size)
+        + "," + RmwAction::name(arg2.rmw_kind)
+        + " " + block_to_string(_expected, arg.addr.size) + ")";
     case CMPXHG: return "CmpXhg("
         + arg.addr.to_string(pid_str)
         + "," + block_to_string(_expected, arg.addr.size)
