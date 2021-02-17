@@ -657,7 +657,7 @@ static bool symev_is_store(const SymEv &e) {
 
 static bool symev_does_store(const SymEv &e) {
   return e.kind == SymEv::UNOBS_STORE || e.kind == SymEv::STORE
-    || e.kind == SymEv::CMPXHG;
+    || e.kind == SymEv::CMPXHG || e.kind == SymEv::RMW;
 }
 
 static SymAddrSize sym_get_last_write(const sym_ty &sym, SymAddr addr){
@@ -753,6 +753,13 @@ void TSOTraceBuilder::do_atomic_store(const SymData &sd){
   seen_accesses.insert(last_full_memory_conflict);
 
   see_events(seen_accesses);
+}
+
+bool TSOTraceBuilder::atomic_rmw(const SymData &ml, RmwAction action) {
+  if (!record_symbolic(SymEv::Rmw(ml, std::move(action)))) return false;
+  do_load(ml.get_ref());
+  do_atomic_store(ml);
+  return true;
 }
 
 bool TSOTraceBuilder::load(const SymAddrSize &ml){
@@ -873,12 +880,13 @@ void TSOTraceBuilder::do_load(ByteInfo &m){
       for (auto it = prefix[lu].sym.end();;){
         assert(it != prefix[lu].sym.begin());
         --it;
-        if((it->kind == SymEv::STORE || it->kind == SymEv::CMPXHG)
-           && it->addr() == lu_ml) break;
+        if((it->kind == SymEv::STORE || it->kind == SymEv::RMW
+            || it->kind == SymEv::CMPXHG) && it->addr() == lu_ml) break;
         if (it->kind == SymEv::UNOBS_STORE && it->addr() == lu_ml) {
           *it = SymEv::Store(it->data());
           break;
         }
+        assert(!symev_does_store(*it) || it->addr() != lu_ml);
       }
       /* Add races */
       for (int u : m.unordered_updates){
@@ -1331,8 +1339,9 @@ TSOTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep, const Event &e) const{
 }
 
 static bool symev_does_load(const SymEv &e) {
-  return e.kind == SymEv::LOAD || e.kind == SymEv::CMPXHG
-    || e.kind == SymEv::CMPXHGFAIL || e.kind == SymEv::FULLMEM;
+  return e.kind == SymEv::LOAD || e.kind == SymEv::RMW
+    || e.kind == SymEv::CMPXHG || e.kind == SymEv::CMPXHGFAIL
+    || e.kind == SymEv::FULLMEM;
 }
 
 TSOTraceBuilder::obs_wake_res
@@ -1436,7 +1445,9 @@ static void rev_recompute_data
     switch(p.kind){
     case SymEv::STORE:
     case SymEv::UNOBS_STORE:
+    case SymEv::RMW:
     case SymEv::CMPXHG:
+      assert(symev_does_store(p));
       if (data.get_ref().overlaps(p.addr())) {
         for (SymAddr a : p.addr()) {
           if (needed.erase(a)) {
@@ -1446,6 +1457,7 @@ static void rev_recompute_data
       }
       break;
     default:
+      assert(!symev_does_store(p));
       break;
     }
   }
@@ -1504,6 +1516,7 @@ void TSOTraceBuilder::recompute_observed(std::vector<Branch> &v) const {
       SymEv &e = *(--ei);
       switch(e.kind){
       case SymEv::LOAD:
+      case SymEv::RMW:
       case SymEv::CMPXHG: /* First a load, then a store */
       case SymEv::CMPXHGFAIL:
         if (read_all)

@@ -89,6 +89,7 @@ struct SymEv {
   static SymEv Load(SymAddrSize addr) { return {LOAD, addr}; }
   static SymEv Store(SymData addr) { return {STORE, std::move(addr)}; }
   static SymEv Rmw(SymData addr, RmwAction action) {
+    assert(addr.get_block());
     return {RMW, std::move(addr), std::move(action)};
   }
   static SymEv CmpXhg(SymData addr, SymData::block_type expected) {

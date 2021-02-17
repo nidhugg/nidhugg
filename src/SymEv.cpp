@@ -28,10 +28,14 @@ bool SymEv::is_compatible_with(SymEv other) const {
       && !(kind == M_TRYLOCK && other.kind == M_TRYLOCK_FAIL)
       && !(kind == M_TRYLOCK_FAIL && other.kind == M_TRYLOCK))
     return false;
-  if (kind == RMW && (arg2.rmw_kind != other.arg2.rmw_kind
-                      || memcmp(_expected.get(), other._expected.get(),
-                                arg.addr.size) != 0)) {
-    return false;
+  if (kind == RMW) {
+    if (arg2.rmw_kind != other.arg2.rmw_kind) return false;
+    if (_expected) { /* Optimal-DPOR erases data in the wakeup tree */
+      assert(other._expected);
+      // We need stable addresses
+      // if (memcmp(_expected.get(), other._expected.get(), arg.addr.size) != 0)
+      //   return false;
+    }
   }
   switch(kind) {
   case LOAD:
