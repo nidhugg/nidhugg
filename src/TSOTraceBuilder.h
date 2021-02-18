@@ -526,9 +526,11 @@ protected:
    */
   void do_load(const SymAddrSize &ml);
   /* Adds the happens-before edges that result from the current event
-   * reading m.
+   * reading ml. m must be mem[ml].
    */
-  void do_load(ByteInfo &m);
+  void observe_memory(SymAddr ml, ByteInfo &m,
+                      VecSet<int> &seen_accesses,
+                      VecSet<std::pair<int,int>> &seen_pairs);
 
   /* Finds the index in prefix of the event of process pid that has iid-index
    * index.
