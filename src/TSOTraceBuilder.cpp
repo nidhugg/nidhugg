@@ -730,7 +730,7 @@ void TSOTraceBuilder::do_atomic_store(const SymData &sd){
 
     /* Register in memory */
     if (conf.dpor_algorithm == Configuration::OBSERVERS) {
-      bi.unordered_updates.insert_geq(prefix_idx);
+      bi.unordered_updates[curev().iid.get_pid()] = prefix_idx;
     }
     bi.last_update = prefix_idx;
     bi.last_update_ml = ml;
@@ -889,9 +889,9 @@ void TSOTraceBuilder::do_load(ByteInfo &m){
         assert(!symev_does_store(*it) || it->addr() != lu_ml);
       }
       /* Add races */
-      for (int u : m.unordered_updates){
-        if (prefix[lu].iid != prefix[u].iid) {
-          seen_pairs.insert(std::pair<int,int>(u, lu));
+      for (const std::pair<IPid,unsigned> &u : m.unordered_updates) {
+        if (u.second != unsigned(lu)) {
+          seen_pairs.insert(std::pair<int,int>(u.second, lu));
         }
       }
       m.unordered_updates.clear();

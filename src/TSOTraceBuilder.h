@@ -27,6 +27,8 @@
 #include "WakeupTrees.h"
 #include "Option.h"
 
+#include <boost/container/flat_map.hpp>
+
 typedef llvm::SmallVector<SymEv,1> sym_ty;
 
 class TSOTraceBuilder : public TSOPSOTraceBuilder{
@@ -214,10 +216,12 @@ protected:
      */
     SymAddrSize last_update_ml;
     /* Set of events that updated this byte since it was last read.
+     * Represented as a map from pid to index since at most one event
+     * per process may be in the set.
      *
      * Either contains last_update or is empty.
      */
-    VecSet<int> unordered_updates;
+    boost::container::flat_map<IPid,unsigned> unordered_updates;
     /* last_read[tid] is the index in prefix of the latest (visible)
      * read of thread tid to this memory location, or -1 if thread tid
      * has not read this memory location.
