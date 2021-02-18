@@ -748,8 +748,22 @@ void TSOTraceBuilder::do_atomic_store(const SymData &sd){
   see_event_pairs(seen_pairs);
 }
 
+/* This predicate has to be transitive. */
+static bool rmwaction_commutes(RmwAction::Kind lhs, RmwAction::Kind rhs) {
+  using Kind = RmwAction::Kind;
+  switch(lhs) {
+  case Kind::ADD: case Kind::SUB:
+    return (rhs == Kind::ADD || rhs == Kind::SUB);
+  case Kind::XCHG:
+    return false;
+  default:
+    /* All kinds except for XCHG commutes with themselves */
+    return rhs == lhs;
+  }
+}
+
 bool TSOTraceBuilder::atomic_rmw(const SymData &sd, RmwAction action) {
-  if (!record_symbolic(SymEv::Rmw(sd, std::move(action)))) return false;
+  if (!record_symbolic(SymEv::Rmw(sd, action))) return false;
   const SymAddrSize &ml = sd.get_ref();
   if(dryrun){
     assert(prefix_idx+1 < int(prefix.len()));
@@ -780,6 +794,7 @@ bool TSOTraceBuilder::atomic_rmw(const SymData &sd, RmwAction action) {
     ByteInfo &bi = mem[b];
     int lu = bi.last_update;
     const SymAddrSize &lu_ml = bi.last_update_ml;
+    bool conflicts_with_lu = false;
     assert(lu < int(prefix.len()));
     if(0 <= lu){
       IPid lu_tipid = prefix[lu].iid.get_pid() & ~0x1;
@@ -787,8 +802,11 @@ bool TSOTraceBuilder::atomic_rmw(const SymData &sd, RmwAction action) {
         add_happens_after(prefix_idx, lu);
       }
 
-      // sym_ty &lu_sym = prefix[lu].sym;
-      if (/* lu_sym in conflict with us */ true) {
+      sym_ty &lu_sym = prefix[lu].sym;
+      if (lu_sym.size() != 1
+          || lu_sym[0].kind != SymEv::RMW
+          || !rmwaction_commutes(lu_sym[0].rmw_kind(), action.kind)) {
+        conflicts_with_lu = true;
         observe_memory(b, bi, seen_accesses, seen_pairs);
       }
     }
@@ -797,11 +815,8 @@ bool TSOTraceBuilder::atomic_rmw(const SymData &sd, RmwAction action) {
     }
 
     /* Register access in memory */
-    mem[b].last_read[ipid/2] = prefix_idx;
-    // if (XXX) {
-    //   bi.unordered_updates[ipid] = prefix_idx;
-    // }
-    assert(bi.unordered_updates.empty());
+    assert(!conflicts_with_lu || bi.unordered_updates.empty());
+    bi.unordered_updates[ipid] = prefix_idx;
     bi.last_update = prefix_idx;
     bi.last_update_ml = ml;
     wakeup(Access::W,b);
@@ -1908,6 +1923,9 @@ bool TSOTraceBuilder::do_symevs_conflict
   if (symev_is_load(fst) && symev_is_load(snd)) return false;
   if (symev_is_unobs_store(fst) && symev_is_unobs_store(snd)
       && fst.addr() == snd.addr()) return false;
+  if (fst.kind == SymEv::RMW && snd.kind == SymEv::RMW
+      && fst.addr() == snd.addr()
+      && rmwaction_commutes(fst.rmw_kind(), snd.rmw_kind())) return false;
 
   /* Really crude. Is it enough? */
   if (fst.has_addr()) {

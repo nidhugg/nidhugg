@@ -143,7 +143,12 @@ struct SymEv {
   }
   RmwAction rmwaction() const {
     assert(has_rmwaction());
+    assert(_expected);
     return {arg2.rmw_kind, _expected};
+  }
+  RmwAction::Kind rmw_kind() const {
+    assert(has_rmwaction());
+    return arg2.rmw_kind;
   }
 
   void purge_data();
