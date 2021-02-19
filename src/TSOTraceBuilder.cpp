@@ -1445,27 +1445,29 @@ void unordered_vector_delete(std::vector<T> &vec, std::size_t pos) {
 
 void
 TSOTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep, const Event &e) const{
-  if (conf.dpor_algorithm != Configuration::OBSERVERS) {
-    if (e.wakeup.size()) {
-      for (unsigned i = 0; i < sleep.sleep.size();) {
-        if (e.wakeup.count(sleep.sleep[i].pid)) {
-          unordered_vector_delete(sleep.sleep, i);
-        } else {
-          ++i;
-        }
-      }
-    }
-  } else {
+  // if (conf.dpor_algorithm != Configuration::OBSERVERS) {
+  //   if (e.wakeup.size()) {
+  //     for (unsigned i = 0; i < sleep.sleep.size();) {
+  //       if (e.wakeup.count(sleep.sleep[i].pid)) {
+  //         unordered_vector_delete(sleep.sleep, i);
+  //       } else {
+  //         ++i;
+  //       }
+  //     }
+  //   }
+  // } else {
     sym_ty sym = e.sym;
-    /* A tricky part to this is that we must clear observers from the events
-     * we use to wake */
-    clear_observed(sym);
+    if (conf.dpor_algorithm == Configuration::OBSERVERS) {
+      /* A tricky part to this is that we must clear observers from the events
+       * we use to wake */
+      clear_observed(sym);
+    }
 #ifndef NDEBUG
     obs_wake_res res =
 #endif
       obs_sleep_wake(sleep, e.iid.get_pid(), sym);
     assert(res != obs_wake_res::BLOCK);
-  }
+  // }
 }
 
 static bool symev_does_load(const SymEv &e) {
