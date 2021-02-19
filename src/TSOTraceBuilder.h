@@ -222,6 +222,9 @@ protected:
      * Either contains last_update or is empty.
      */
     boost::container::flat_map<IPid,unsigned> unordered_updates;
+    /* The set of events that is ordered before the current set of
+     * unordered updates. */
+    VecSet<int> before_unordered;
     /* last_read[tid] is the index in prefix of the latest (visible)
      * read of thread tid to this memory location, or -1 if thread tid
      * has not read this memory location.
@@ -527,10 +530,12 @@ protected:
   void do_load(const SymAddrSize &ml);
   /* Adds the happens-before edges that result from the current event
    * reading ml. m must be mem[ml].
+   * is_update indicates whether the current event is an update.
    */
   void observe_memory(SymAddr ml, ByteInfo &m,
                       VecSet<int> &seen_accesses,
-                      VecSet<std::pair<int,int>> &seen_pairs);
+                      VecSet<std::pair<int,int>> &seen_pairs,
+                      bool is_update);
 
   /* Finds the index in prefix of the event of process pid that has iid-index
    * index.
