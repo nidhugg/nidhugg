@@ -833,7 +833,8 @@ bool TSOTraceBuilder::atomic_rmw(const SymData &sd, RmwAction action) {
       sym_ty &lu_sym = prefix[lu].sym;
       if (lu_sym.size() != 1
           || lu_sym[0].kind != SymEv::RMW
-          || !rmwaction_commutes(lu_sym[0].rmw_kind(), action.kind)) {
+          || !rmwaction_commutes(lu_sym[0].rmw_kind(), action.kind)
+          || lu_sym[0].addr() != ml) {
         conflicts_with_lu = true;
         observe_memory(b, bi, seen_accesses, seen_pairs, true);
       } else {
