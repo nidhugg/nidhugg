@@ -137,8 +137,8 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
      prefix[prefix.len()-1].iid.get_pid()
      == prefix[prefix.len()-2].iid.get_pid() &&
      !prefix[prefix.len()-1].may_conflict &&
-     prefix[prefix.len()-1].sleep.empty()){
-    assert(prefix.children_after(prefix.len()-1) == 0);
+     prefix[prefix.len()-1].sleep.empty() &&
+     prefix.children_after(prefix.len()-1) == 0){
     assert(prefix[prefix.len()-1].wakeup.empty());
     assert(curev().sym.empty()); /* Would need to be copied */
     assert(curbranch().sym.empty()); /* Can't happen */
