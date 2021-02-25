@@ -768,7 +768,9 @@ void TSOTraceBuilder::do_atomic_store(const SymData &sd){
 }
 
 /* This predicate has to be transitive. */
-static bool rmwaction_commutes(RmwAction::Kind lhs, RmwAction::Kind rhs) {
+static bool rmwaction_commutes(const Configuration &conf,
+                               RmwAction::Kind lhs, RmwAction::Kind rhs) {
+  if (!conf.commute_rmws) return false;
   using Kind = RmwAction::Kind;
   switch(lhs) {
   case Kind::ADD: case Kind::SUB:
@@ -833,7 +835,7 @@ bool TSOTraceBuilder::atomic_rmw(const SymData &sd, RmwAction action) {
       sym_ty &lu_sym = prefix[lu].sym;
       if (lu_sym.size() != 1
           || lu_sym[0].kind != SymEv::RMW
-          || !rmwaction_commutes(lu_sym[0].rmw_kind(), action.kind)
+          || !rmwaction_commutes(conf, lu_sym[0].rmw_kind(), action.kind)
           || lu_sym[0].addr() != ml) {
         conflicts_with_lu = true;
         observe_memory(b, bi, seen_accesses, seen_pairs, true);
@@ -1445,29 +1447,17 @@ void unordered_vector_delete(std::vector<T> &vec, std::size_t pos) {
 
 void
 TSOTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep, const Event &e) const{
-  // if (conf.dpor_algorithm != Configuration::OBSERVERS) {
-  //   if (e.wakeup.size()) {
-  //     for (unsigned i = 0; i < sleep.sleep.size();) {
-  //       if (e.wakeup.count(sleep.sleep[i].pid)) {
-  //         unordered_vector_delete(sleep.sleep, i);
-  //       } else {
-  //         ++i;
-  //       }
-  //     }
-  //   }
-  // } else {
-    sym_ty sym = e.sym;
-    if (conf.dpor_algorithm == Configuration::OBSERVERS) {
-      /* A tricky part to this is that we must clear observers from the events
-       * we use to wake */
-      clear_observed(sym);
-    }
+  sym_ty sym = e.sym;
+  if (conf.dpor_algorithm == Configuration::OBSERVERS) {
+    /* A tricky part to this is that we must clear observers from the events
+     * we use to wake */
+    clear_observed(sym);
+  }
 #ifndef NDEBUG
-    obs_wake_res res =
+  obs_wake_res res =
 #endif
-      obs_sleep_wake(sleep, e.iid.get_pid(), sym);
-    assert(res != obs_wake_res::BLOCK);
-  // }
+    obs_sleep_wake(sleep, e.iid.get_pid(), sym);
+  assert(res != obs_wake_res::BLOCK);
 }
 
 static bool symev_does_load(const SymEv &e) {
@@ -1967,7 +1957,7 @@ bool TSOTraceBuilder::do_symevs_conflict
       && fst.addr() == snd.addr()) return false;
   if (fst.kind == SymEv::RMW && snd.kind == SymEv::RMW
       && fst.addr() == snd.addr()
-      && rmwaction_commutes(fst.rmw_kind(), snd.rmw_kind())) return false;
+      && rmwaction_commutes(conf, fst.rmw_kind(), snd.rmw_kind())) return false;
 
   /* Really crude. Is it enough? */
   if (fst.has_addr()) {

@@ -140,6 +140,9 @@ static llvm::cl::list<std::string> cl_extfun_no_race("extfun-no-race",llvm::cl::
                                                          llvm::cl::desc("Assume that the external function FUN, when called\n"
                                                                         "as blackbox, does not participate in any races.\n"
                                                                         "(See manual) May be given multiple times."));
+static llvm::cl::opt<bool> cl_commute_rmws("commute-rmws",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
+                                           llvm::cl::desc("Allow RMW operations to commute."));
+
 
 static llvm::cl::opt<bool> cl_debug_print_on_reset
 ("debug-print-on-reset",llvm::cl::Hidden,
@@ -181,7 +184,8 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "no-spin-assume",
     "unroll",
     "print-progress",
-    "print-progress-estimate"
+    "print-progress-estimate",
+    "commute-rmws",
   };
   return opts;
 }
@@ -209,6 +213,7 @@ void Configuration::assign_by_commandline(){
   print_progress = cl_print_progress || cl_print_progress_estimate;
   print_progress_estimate = cl_print_progress_estimate;
   debug_print_on_reset = cl_debug_print_on_reset;
+  commute_rmws = cl_commute_rmws;
   sat_solver = cl_sat;
   argv.resize(1);
   argv[0] = get_default_program_name();
@@ -312,6 +317,18 @@ void Configuration::check_commandline(){
     if (cl_c11 && cl_memory_model != Configuration::SC) {
       Debug::warn("Configuration::check_commandline:c11:mm")
         << "WARNING: --c11 is not yet implemented for memory model " << mm << ".\n";
+    }
+  }
+
+  if (cl_commute_rmws) {
+    if (cl_dpor_algorithm != Configuration::OPTIMAL
+        && cl_dpor_algorithm != Configuration::OBSERVERS) {
+      Debug::warn("Configuration::check_commandline:commute-rmws:incompat")
+        << "WARNING: --commute-rmws is only compatible with -optimal or -observers.\n";
+    } else {
+      Debug::warn("Configuration::check_commandline:commute-rmws:nocheck")
+        << "WARNING: RMWs are not analysed for use of their return value. If they"
+        << " do, using --commute-rmws might lead to nondeterminism or missed bugs.\n";
     }
   }
 
