@@ -25,6 +25,7 @@
 #include "SymAddr.h"
 
 struct RmwAction {
+  SymData::block_type operand;
   enum Kind : uint8_t {
     XCHG = 1,
     ADD,
@@ -38,7 +39,9 @@ struct RmwAction {
     UMAX,
     UMIN,
   } kind;
-  SymData::block_type operand;
+
+  RmwAction(Kind kind, SymData::block_type operand)
+    : operand(std::move(operand)), kind(kind) {}
 
   static const char *name(Kind op);
 
