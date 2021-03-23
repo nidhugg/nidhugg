@@ -147,6 +147,8 @@ static llvm::cl::list<std::string> cl_extfun_no_race("extfun-no-race",llvm::cl::
                                                                         "(See manual) May be given multiple times."));
 static llvm::cl::opt<bool> cl_commute_rmws("commute-rmws",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
                                            llvm::cl::desc("Allow RMW operations to commute."));
+static llvm::cl::opt<bool> cl_no_commute_rmws("no-commute-rmws",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
+                                              llvm::cl::desc("Do not allow RMW operations to commute."));
 
 
 static llvm::cl::opt<bool> cl_debug_print_on_reset
@@ -190,7 +192,7 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "unroll",
     "print-progress",
     "print-progress-estimate",
-    "commute-rmws",
+    "no-commute-rmws",
   };
   return opts;
 }
@@ -219,7 +221,7 @@ void Configuration::assign_by_commandline(){
   print_progress = cl_print_progress || cl_print_progress_estimate;
   print_progress_estimate = cl_print_progress_estimate;
   debug_print_on_reset = cl_debug_print_on_reset;
-  commute_rmws = cl_commute_rmws;
+  commute_rmws = !cl_no_commute_rmws;
   sat_solver = cl_sat;
   argv.resize(1);
   argv[0] = get_default_program_name();
@@ -327,14 +329,12 @@ void Configuration::check_commandline(){
   }
 
   if (cl_commute_rmws) {
-    if (cl_dpor_algorithm != Configuration::OPTIMAL
-        && cl_dpor_algorithm != Configuration::OBSERVERS) {
-      Debug::warn("Configuration::check_commandline:commute-rmws:incompat")
-        << "WARNING: --commute-rmws is only compatible with -optimal or -observers.\n";
-    } else {
-      Debug::warn("Configuration::check_commandline:commute-rmws:nocheck")
-        << "WARNING: RMWs are not analysed for use of their return value. If they"
-        << " do, using --commute-rmws might lead to nondeterminism or missed bugs.\n";
+    Debug::warn("Configuration::check_commandline:commute-rmws:implicit")
+      << "WARNING: --commute-rmws is now default, ignoring.\n";
+    if (cl_no_commute_rmws) {
+      Debug::warn("Configuration::check_commandline:commute-rmws:contradiction")
+        << "WARNING: Both --commute-rmws and --no-commute-rmws given, "
+        << "taking --no-commute-rmws.\n";
     }
   }
 

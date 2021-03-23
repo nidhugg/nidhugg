@@ -191,7 +191,7 @@ public:
   /* Number to return from __VERIFIER_nondet_u?int() */
   Option<int> svcomp_nondet_int;
   /* If set, rmws are allowed to commute. */
-  bool commute_rmws = false;
+  bool commute_rmws = true;
   /* If set, DPORDriver will continually print its progress to stdout. */
   bool print_progress;
   /* If set and print_progress is set, DPORDriver will together with

@@ -769,8 +769,10 @@ void TSOTraceBuilder::do_atomic_store(const SymData &sd){
 
 /* This predicate has to be transitive. */
 static bool rmwaction_commutes(const Configuration &conf,
-                               RmwAction::Kind lhs, RmwAction::Kind rhs) {
+                               RmwAction::Kind lhs, bool lhs_used,
+                               RmwAction::Kind rhs, bool rhs_used) {
   if (!conf.commute_rmws) return false;
+  if (lhs_used || rhs_used) return false;
   using Kind = RmwAction::Kind;
   switch(lhs) {
   case Kind::ADD: case Kind::SUB:
@@ -835,7 +837,9 @@ bool TSOTraceBuilder::atomic_rmw(const SymData &sd, RmwAction action) {
       sym_ty &lu_sym = prefix[lu].sym;
       if (lu_sym.size() != 1
           || lu_sym[0].kind != SymEv::RMW
-          || !rmwaction_commutes(conf, lu_sym[0].rmw_kind(), action.kind)
+          || !rmwaction_commutes(conf, lu_sym[0].rmw_kind(),
+                                 lu_sym[0].rmw_result_used(),
+                                 action.kind, action.result_used)
           || lu_sym[0].addr() != ml) {
         conflicts_with_lu = true;
         observe_memory(b, bi, seen_accesses, seen_pairs, true);
@@ -1957,7 +1961,10 @@ bool TSOTraceBuilder::do_symevs_conflict
       && fst.addr() == snd.addr()) return false;
   if (fst.kind == SymEv::RMW && snd.kind == SymEv::RMW
       && fst.addr() == snd.addr()
-      && rmwaction_commutes(conf, fst.rmw_kind(), snd.rmw_kind())) return false;
+      && rmwaction_commutes(conf, fst.rmw_kind(), fst.rmw_result_used(),
+                            snd.rmw_kind(), snd.rmw_result_used())) {
+    return false;
+  }
 
   /* Really crude. Is it enough? */
   if (fst.has_addr()) {
