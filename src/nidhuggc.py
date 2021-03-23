@@ -26,7 +26,8 @@ nidhuggcparams = [
     {'name':'--clangxx','help':'Specify the path to clang++.','param':'PATH'},
     {'name':'--nidhugg','help':'Specify the path to the nidhugg binary.','param':'PATH'},
     {'name':'--no-spin-assume','help':'Don\'t use the spin-assume transformation on module before calling nidhugg.','param':False},
-    {'name':'--unroll','help':'Use unroll transformation on module before calling nidhugg.','param':'N'}
+    {'name':'--no-dead-code-elim','help':'Don\'t use the dead code elimination pass on module before calling nidhugg.','param':False},
+    {'name':'--unroll','help':'Use unroll transformation on module before calling nidhugg.','param':'N'},
 ]
 
 nidhuggcparamaliases = {
@@ -44,7 +45,8 @@ nidhuggcparamaliases = {
     '-clangxx':'--clangxx',
     '-nidhugg':'--nidhugg',
     '-no-spin-assume':'--no-spin-assume',
-    '-unroll':'--unroll'
+    '-no-dead-code-elim':'--no-dead-code-elim',
+    '-unroll':'--unroll',
 }
 
 # The name (absolute path) of the temporary directory where all
@@ -265,6 +267,8 @@ def main():
             elif argname == '--nidhugg':
                 NIDHUGG=argarg
             elif argname == '--no-spin-assume':
+                transformargs.append(argname)
+            elif argname == '--no-dead-code-elim':
                 transformargs.append(argname)
             elif argname == '--unroll':
                 transformargs.append('--unroll={0}'.format(argarg))

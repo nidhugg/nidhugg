@@ -121,6 +121,11 @@ static llvm::cl::opt<bool> cl_transform_no_spin_assume("no-spin-assume",llvm::cl
                                                        llvm::cl::desc("Disable the spin assume pass in module\n"
                                                                       "transformation."));
 
+static llvm::cl::opt<bool> cl_transform_no_dead_code_elim
+("no-dead-code-elim",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
+ llvm::cl::desc("Disable the dead code elimination pass in module\n"
+                "transformation."));
+
 static llvm::cl::opt<int>
 cl_transform_loop_unroll("unroll",
                          llvm::cl::NotHidden,llvm::cl::init(-1),llvm::cl::value_desc("N"),
@@ -207,6 +212,7 @@ void Configuration::assign_by_commandline(){
   dpor_algorithm = cl_dpor_algorithm;
   check_robustness = cl_check_robustness;
   transform_spin_assume = !cl_transform_no_spin_assume;
+  transform_dead_code_elim = !cl_transform_no_dead_code_elim;
   transform_loop_unroll = cl_transform_loop_unroll;
   if (cl_verifier_nondet_int.getNumOccurrences())
     svcomp_nondet_int = (int)cl_verifier_nondet_int;
