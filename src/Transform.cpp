@@ -121,7 +121,7 @@ namespace Transform {
     }
     PM.add(new AddLibPass());
     bool modified = PM.run(mod);
-    assert(!llvm::verifyModule(mod));
+    assert(!llvm::verifyModule(mod, &llvm::dbgs()));
     return modified;
   }
 
