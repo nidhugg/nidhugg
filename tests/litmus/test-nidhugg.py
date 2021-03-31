@@ -135,8 +135,10 @@ def slave(q, p):
 def run_test(tst):
     res = dict()
     try:
-        out = subprocess.check_output([NIDHUGGCBIN, '--sc', '--rf',
-                                       LITMUSDIR + '/' + tst['tstname'] + '.c'],
+        srcfile = LITMUSDIR + '/' + tst['tstname'] + '.c'
+        extra_opts = look_for_extra_opts(srcfile) or ['--sc', '--rf']
+        out = subprocess.check_output([NIDHUGGCBIN]
+                                      + extra_opts + [srcfile],
                                       stderr = subprocess.STDOUT).decode()
         lines = out.split("\n")
         res['tracecount'] = grep_count(lines, "Trace count: ") \
@@ -149,6 +151,16 @@ def run_test(tst):
         res['failure'] = NIDHUGGCBIN
         res['tracecount'] = -1
     return res
+
+def look_for_extra_opts(srcfile):
+    with open(srcfile, 'r') as f:
+        while True:
+            line = f.readline()
+            if not line: break
+            if not line.startswith('//'): break
+            if line.startswith('// nidhuggc:'):
+                return list(filter(None, line[12:].strip().split(' ')))
+        return []
 
 def grep_count(lines, start):
     """

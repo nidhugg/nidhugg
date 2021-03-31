@@ -54,5 +54,9 @@ mutex_vs_trylock_1 Forbid : 3
 mutex_vs_trylock_2 Forbid : 16
 rmw_test2 Forbid : 300
 fib_bench_true_2 Forbid : 140
+
+# Unroller
+unroll_double_loop Forbid : 1
+
 # Total number of traces: 1116
 # Total running time: 9.51 s
