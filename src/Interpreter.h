@@ -389,6 +389,7 @@ public:
   virtual void exitCalled(GenericValue GV);
 
   virtual void addAtExitHandler(Function *F) {
+    assert(F && "Caller must validate F");
     AtExitHandlers.push_back(F);
   }
 
@@ -531,6 +532,12 @@ protected:  // Helper functions
     StoreValueToMemory(Val,static_cast<GenericValue*>(B.get_block()),Ty);
     return B;
   };
+
+  /* Checks whether F refers to a valid function, returns true if so, or
+   * false if not. If invalid also reports the error in TB and calls
+   * abort().
+   */
+  bool ValidateFunctionPointer(Function *F);
 
   /* Same as ExecutionEngine::LoadValueFromMemory, but if any of the
    * bytes that should be loaded occur in a memory block in DryRunMem,

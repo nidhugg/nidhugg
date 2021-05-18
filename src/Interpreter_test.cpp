@@ -73,7 +73,8 @@ void do_test_error(const char *module, const std::initializer_list<MM> mms) {
                   "\n ret i32 0\n }\n" IRAfter, { __VA_ARGS__  });  \
   }
 
-#define BADADDRT(T) T " inttoptr (i32 3735928559 to " T ")"
+#define BADADDRTNOT(T) " inttoptr (i32 3735928559 to " T ")"
+#define BADADDRT(T) T BADADDRTNOT(T)
 #define BADADDR BADADDRT("i32*")
 
 TEST_ERROR3(Load_segv_badaddr, "load i32, " BADADDR, "", SC, TSO, PSO)
@@ -133,6 +134,20 @@ TEST_ERROR2(Pthread_cond_broadcast_badaddr,
 TEST_ERROR2(Pthread_cond_destroy_badaddr,
             "call i32 @pthread_cond_destroy(" BADADDR ")",
             "declare i32 @pthread_cond_destroy(i32*)")
+TEST_ERROR(Indirect_call_segv_nullptr, "call void null()")
+// TEST_ERROR(Indirect_call_segv_badaddr, "call void " BADADDRTNOT("void()*") "()")
+TEST_ERROR2(Pthread_create_fptr_nullptr,
+            "call i32 @pthread_create(i32* null, i32* null, i8*(i8*)* null, i8* null)",
+            R"(declare i32 @pthread_create(i32*, i32*, i8*(i8*)*, i8*))")
+// TEST_ERROR2(Pthread_create_fptr_badaddr,
+//             "call i32 @pthread_create(i32* null, i32* null, " BADADDRT("i8*(i8*)*") ", i8* null)",
+//             R"(declare i32 @pthread_create(i32*, i32*, i8*(i8*)*, i8*))")
+TEST_ERROR2(Atexit_fptr_nullptr,
+            "call i32 @atexit(void()* null)",
+            R"(declare i32 @atexit(void()*))")
+// TEST_ERROR2(Atexit_fptr_badaddr,
+//             "call i32 @atexit(" BADADDRT("void()*") ")",
+//             R"(declare i32 @atexit(void()*))")
 
 BOOST_AUTO_TEST_CASE(Global_ctor_test){
   for (MM mm : { SC, TSO, PSO, RFSC, POWER }) {
