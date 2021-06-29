@@ -8,6 +8,7 @@ libnidhugg_a_SOURCES = \
   Configuration.cpp Configuration.h \
   CPid.cpp CPid.h \
   Cpubind.cpp Cpubind.h \
+  DeadCodeElimPass.cpp DeadCodeElimPass.h \
   Debug.cpp Debug.h \
   DetCheckTraceBuilder.cpp DetCheckTraceBuilder.h \
   DPORDriver.cpp DPORDriver.h \
@@ -48,6 +49,7 @@ libnidhugg_a_SOURCES = \
   RFSCUnfoldingTree.cpp RFSCUnfoldingTree.h \
   RFSCDecisionTree.cpp RFSCDecisionTree.h \
   RFSCTraceBuilder.cpp RFSCTraceBuilder.h \
+  RMWAction.cpp RMWAction.h \
   VClock.cpp VClock.h VClock.tcc \
   vecset.h vecset.tcc
 libnidhugg_a_CXXFLAGS = -fno-rtti

@@ -406,8 +406,8 @@ void RFSCTraceBuilder::do_atomic_store(const SymData &sd){
   }
 }
 
-bool RFSCTraceBuilder::atomic_rmw(const SymData &sd){
-  if (!record_symbolic(SymEv::Rmw(sd))) return false;
+bool RFSCTraceBuilder::atomic_rmw(const SymData &sd, RmwAction action){
+  if (!record_symbolic(SymEv::Rmw(sd, std::move(action)))) return false;
   do_load(sd.get_ref());
   do_atomic_store(sd);
   return true;

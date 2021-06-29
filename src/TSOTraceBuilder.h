@@ -27,6 +27,8 @@
 #include "WakeupTrees.h"
 #include "Option.h"
 
+#include <boost/container/flat_map.hpp>
+
 typedef llvm::SmallVector<SymEv,1> sym_ty;
 
 class TSOTraceBuilder : public TSOPSOTraceBuilder{
@@ -51,6 +53,7 @@ public:
   virtual NODISCARD bool spawn() override;
   virtual NODISCARD bool store(const SymData &ml) override;
   virtual NODISCARD bool atomic_store(const SymData &ml) override;
+  virtual NODISCARD bool atomic_rmw(const SymData &ml, RmwAction action) override;
   virtual NODISCARD bool compare_exchange
   (const SymData &sd, const SymData::block_type expected, bool success) override;
   virtual NODISCARD bool load(const SymAddrSize &ml) override;
@@ -213,10 +216,15 @@ protected:
      */
     SymAddrSize last_update_ml;
     /* Set of events that updated this byte since it was last read.
+     * Represented as a map from pid to index since at most one event
+     * per process may be in the set.
      *
      * Either contains last_update or is empty.
      */
-    VecSet<int> unordered_updates;
+    boost::container::flat_map<IPid,unsigned> unordered_updates;
+    /* The set of events that is ordered before the current set of
+     * unordered updates. */
+    VecSet<int> before_unordered;
     /* last_read[tid] is the index in prefix of the latest (visible)
      * read of thread tid to this memory location, or -1 if thread tid
      * has not read this memory location.
@@ -521,9 +529,13 @@ protected:
    */
   void do_load(const SymAddrSize &ml);
   /* Adds the happens-before edges that result from the current event
-   * reading m.
+   * reading ml. m must be mem[ml].
+   * is_update indicates whether the current event is an update.
    */
-  void do_load(ByteInfo &m);
+  void observe_memory(SymAddr ml, ByteInfo &m,
+                      VecSet<int> &seen_accesses,
+                      VecSet<std::pair<int,int>> &seen_pairs,
+                      bool is_update);
 
   /* Finds the index in prefix of the event of process pid that has iid-index
    * index.

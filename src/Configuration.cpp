@@ -121,6 +121,11 @@ static llvm::cl::opt<bool> cl_transform_no_spin_assume("no-spin-assume",llvm::cl
                                                        llvm::cl::desc("Disable the spin assume pass in module\n"
                                                                       "transformation."));
 
+static llvm::cl::opt<bool> cl_transform_no_dead_code_elim
+("no-dead-code-elim",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
+ llvm::cl::desc("Disable the dead code elimination pass in module\n"
+                "transformation."));
+
 static llvm::cl::opt<int>
 cl_transform_loop_unroll("unroll",
                          llvm::cl::NotHidden,llvm::cl::init(-1),llvm::cl::value_desc("N"),
@@ -140,6 +145,11 @@ static llvm::cl::list<std::string> cl_extfun_no_race("extfun-no-race",llvm::cl::
                                                          llvm::cl::desc("Assume that the external function FUN, when called\n"
                                                                         "as blackbox, does not participate in any races.\n"
                                                                         "(See manual) May be given multiple times."));
+static llvm::cl::opt<bool> cl_commute_rmws("commute-rmws",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
+                                           llvm::cl::desc("Allow RMW operations to commute."));
+static llvm::cl::opt<bool> cl_no_commute_rmws("no-commute-rmws",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
+                                              llvm::cl::desc("Do not allow RMW operations to commute."));
+
 
 static llvm::cl::opt<bool> cl_debug_print_on_reset
 ("debug-print-on-reset",llvm::cl::Hidden,
@@ -181,7 +191,8 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "no-spin-assume",
     "unroll",
     "print-progress",
-    "print-progress-estimate"
+    "print-progress-estimate",
+    "no-commute-rmws",
   };
   return opts;
 }
@@ -203,12 +214,14 @@ void Configuration::assign_by_commandline(){
   dpor_algorithm = cl_dpor_algorithm;
   check_robustness = cl_check_robustness;
   transform_spin_assume = !cl_transform_no_spin_assume;
+  transform_dead_code_elim = !cl_transform_no_dead_code_elim;
   transform_loop_unroll = cl_transform_loop_unroll;
   if (cl_verifier_nondet_int.getNumOccurrences())
     svcomp_nondet_int = (int)cl_verifier_nondet_int;
   print_progress = cl_print_progress || cl_print_progress_estimate;
   print_progress_estimate = cl_print_progress_estimate;
   debug_print_on_reset = cl_debug_print_on_reset;
+  commute_rmws = !cl_no_commute_rmws && memory_model == SC;
   sat_solver = cl_sat;
   argv.resize(1);
   argv[0] = get_default_program_name();
@@ -312,6 +325,16 @@ void Configuration::check_commandline(){
     if (cl_c11 && cl_memory_model != Configuration::SC) {
       Debug::warn("Configuration::check_commandline:c11:mm")
         << "WARNING: --c11 is not yet implemented for memory model " << mm << ".\n";
+    }
+  }
+
+  if (cl_commute_rmws) {
+    Debug::warn("Configuration::check_commandline:commute-rmws:implicit")
+      << "WARNING: --commute-rmws is now default, ignoring.\n";
+    if (cl_no_commute_rmws) {
+      Debug::warn("Configuration::check_commandline:commute-rmws:contradiction")
+        << "WARNING: Both --commute-rmws and --no-commute-rmws given, "
+        << "taking --no-commute-rmws.\n";
     }
   }
 

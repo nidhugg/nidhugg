@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 Magnus Lång
+/* Copyright (C) 2021 Magnus Lång
  *
  * This file is part of Nidhugg.
  *
@@ -26,6 +26,7 @@
 
 #include "MRef.h"
 #include "SymAddr.h"
+#include "RMWAction.h"
 
 /* Symbolic representation of an event */
 struct SymEv {
@@ -72,6 +73,14 @@ struct SymEv {
     arg(int num) : num(num) {}
     // ~arg_union() {}
   } arg;
+  union arg2 {
+  public:
+    RmwAction::Kind rmw_kind;
+
+    arg2() {}
+    arg2(RmwAction::Kind kind) : rmw_kind(kind) {}
+  } arg2;
+  bool _rmw_result_used;
   SymData::block_type _expected, _written;
 
   SymEv() : kind(NONE) {};
@@ -80,7 +89,10 @@ struct SymEv {
 
   static SymEv Load(SymAddrSize addr) { return {LOAD, addr}; }
   static SymEv Store(SymData addr) { return {STORE, std::move(addr)}; }
-  static SymEv Rmw(SymData addr) { return {RMW, std::move(addr)}; }
+  static SymEv Rmw(SymData addr, RmwAction action) {
+    assert(addr.get_block());
+    return {RMW, std::move(addr), std::move(action)};
+  }
   static SymEv CmpXhg(SymData addr, SymData::block_type expected) {
     return {CMPXHG, addr, expected};
   }
@@ -121,6 +133,7 @@ struct SymEv {
   bool has_num() const;
   bool has_data() const;
   bool has_expected() const;
+  bool has_rmwaction() const { return kind == RMW; }
   bool empty() const { return kind == NONE; }
   const SymAddrSize &addr()   const { assert(has_addr()); return arg.addr; }
         int          num()    const { assert(has_num()); return arg.num; }
@@ -128,6 +141,19 @@ struct SymEv {
   SymData expected() const {
     assert(has_expected());
     return {arg.addr, _expected};
+  }
+  RmwAction rmwaction() const {
+    assert(has_rmwaction());
+    assert(_expected);
+    return {arg2.rmw_kind, _expected, _rmw_result_used};
+  }
+  RmwAction::Kind rmw_kind() const {
+    assert(has_rmwaction());
+    return arg2.rmw_kind;
+  }
+  bool rmw_result_used() const {
+    assert(has_rmwaction());
+    return _rmw_result_used;
   }
 
   void purge_data();
@@ -142,6 +168,13 @@ private:
     : kind(kind), arg(std::move(addr_written.get_ref())),
       _expected(std::move(expected)),
       _written(std::move(addr_written.get_shared_block())) {};
+  SymEv(enum kind kind, SymData addr_written, RmwAction action)
+    : kind(kind), arg(addr_written.get_ref()), arg2(action.kind),
+      _rmw_result_used(action.result_used),
+      _expected(std::move(action.operand)),
+      _written(std::move(addr_written.get_shared_block())) {
+      assert(has_data());
+    };
 };
 
 inline std::ostream &operator<<(std::ostream &os, const SymEv &e){
