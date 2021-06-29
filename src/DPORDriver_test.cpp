@@ -45,6 +45,7 @@ namespace DPORDriver_test {
     conf.memory_model = Configuration::SC;
     conf.debug_collect_all_traces = true;
     conf.explore_all_traces = true;
+    conf.commute_rmws = true;
     return conf;
   }
 

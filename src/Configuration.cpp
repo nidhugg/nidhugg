@@ -221,7 +221,7 @@ void Configuration::assign_by_commandline(){
   print_progress = cl_print_progress || cl_print_progress_estimate;
   print_progress_estimate = cl_print_progress_estimate;
   debug_print_on_reset = cl_debug_print_on_reset;
-  commute_rmws = !cl_no_commute_rmws;
+  commute_rmws = !cl_no_commute_rmws && memory_model == SC;
   sat_solver = cl_sat;
   argv.resize(1);
   argv[0] = get_default_program_name();
