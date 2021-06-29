@@ -722,8 +722,11 @@ void TSOTraceBuilder::do_atomic_store(const SymData &sd){
     bool lu_before_read = false;
 
     for(int i : bi.last_read){
-      if(0 <= i && prefix[i].iid.get_pid() != tipid) seen_accesses.insert(i);
-      if (i > lu) lu_before_read = true;
+      if (i < 0) continue;
+      const IPid last_read_pid = prefix[i].iid.get_pid();
+      if(last_read_pid != tipid) seen_accesses.insert(i);
+      if (lu >= 0 && i > lu && prefix[lu].iid.get_pid() != last_read_pid+1)
+        lu_before_read = true;
     }
 
     if (lu_before_read) {
@@ -821,8 +824,11 @@ bool TSOTraceBuilder::atomic_rmw(const SymData &sd, RmwAction action) {
     assert(lu < int(prefix.len()));
 
     for(int i : bi.last_read){
-      if(0 <= i && prefix[i].iid.get_pid() != ipid) seen_accesses.insert(i);
-      if (i > lu) lu_before_read = true;
+      if (i < 0) continue;
+      const IPid last_read_pid = prefix[i].iid.get_pid();
+      if(last_read_pid != ipid) seen_accesses.insert(i);
+      if (lu >= 0 && i > lu && prefix[lu].iid.get_pid() != last_read_pid+1)
+        lu_before_read = true;
     }
 
     if (lu_before_read) {
