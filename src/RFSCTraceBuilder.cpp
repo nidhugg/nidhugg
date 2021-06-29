@@ -184,9 +184,12 @@ void RFSCTraceBuilder::cancel_replay(){
 
   /* Find last decision, the one that caused this failure, and then
    * prune all later decisions. */
-  int blame = -1; /* -1: All executions lead to this failure */
+  int blame = -1, max_depth = -1; /* -1: All executions lead to this failure */
   for (int i = 0; i <= prefix_idx; ++i) {
-    blame = std::max(blame, prefix[i].get_decision_depth());
+    if (prefix[i].get_decision_depth() > max_depth) {
+      blame = i;
+      max_depth = prefix[i].get_decision_depth();
+    }
   }
   if (blame != -1) {
     prefix[blame].decision_ptr->prune_decisions();
