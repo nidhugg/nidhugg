@@ -206,5 +206,68 @@ BOOST_AUTO_TEST_CASE(COW_mut_push) {
 CASE_move__push(assign, ASSIGN_INITER)
 CASE_move__push(construct, CONSTRUCT_INITER)
 
+namespace {
+  /* This checks for double free, and lets us check for leaks with valgrind */
+  struct heap_int {
+    heap_int() : heap_int(0) {}
+    heap_int(int v) : p(new int(v)) {}
+    heap_int(const heap_int &i) : heap_int(*i.p) {}
+    heap_int &operator=(const heap_int &i) { *p = *i.p; return *this; }
+    heap_int &operator=(int i) { *p = i; return *this; }
+    ~heap_int() {
+      if(!p) BOOST_TEST_ERROR("Double free!");
+      else delete(std::exchange(p, nullptr));
+    }
+    operator int() const { return *p; }
+  private:
+    int *p = nullptr;
+  };
+}
+
+BOOST_AUTO_TEST_CASE(Pop_one){
+    gen::vector<heap_int> v;
+    v.push_back(42);
+    v.push_back(43);
+    v.pop_back();
+    BOOST_CHECK_EQUAL(v.size(),1);
+    BOOST_CHECK_EQUAL(v[0],42);
+}
+
+BOOST_AUTO_TEST_CASE(Pop_push){
+    gen::vector<heap_int> v;
+    v.push_back(42);
+    v.pop_back();
+    BOOST_CHECK_EQUAL(v.size(),0);
+    v.push_back(43);
+    BOOST_CHECK_EQUAL(v.size(),1);
+    BOOST_CHECK_EQUAL(v[0],43);
+}
+
+BOOST_AUTO_TEST_CASE(Pop_one_cow){
+    gen::vector<heap_int> v1;
+    v1.push_back(42);
+    v1.push_back(43);
+    gen::vector<heap_int> v(v1);
+    v.pop_back();
+    BOOST_CHECK_EQUAL(v.size(),1);
+    BOOST_CHECK_EQUAL(v[0],42);
+    BOOST_CHECK_EQUAL(v1.size(),2);
+    BOOST_CHECK_EQUAL(v1[0],42);
+    BOOST_CHECK_EQUAL(v1[1],43);
+}
+
+BOOST_AUTO_TEST_CASE(Pop_push_cow){
+    gen::vector<heap_int> v1;
+    v1.push_back(42);
+    gen::vector<heap_int> v(v1);
+    v.pop_back();
+    BOOST_CHECK_EQUAL(v.size(),0);
+    v.push_back(43);
+    BOOST_CHECK_EQUAL(v.size(),1);
+    BOOST_CHECK_EQUAL(v[0],43);
+    BOOST_CHECK_EQUAL(v1.size(),1);
+    BOOST_CHECK_EQUAL(v1[0],42);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 #endif

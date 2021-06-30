@@ -305,11 +305,6 @@ protected:
       decision_ptr = decision == -1 ? nullptr : RFSCDecisionTree::find_ancestor(work_item, decision_depth);
     };
 
-    void decision_swap(Event &e) {
-      std::swap(decision_ptr, e.decision_ptr);
-      std::swap(decision_depth, e.decision_depth);
-    };
-
   private:
     /* The hierarchical order of events. */
     int decision_depth;
@@ -435,12 +430,6 @@ protected:
   (unsigned i, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from);
   // END TODO
 
-  void add_event_to_graph(SaturatedGraph &g, unsigned i) const;
-  /* Access a SaturatedGraph from a DecisionNode.
-   * This has the risk of mutating a graph which is accessed by
-   * multiple threads concurrently. therefore need to be under exclusive opreation.
-   */
-  const SaturatedGraph &get_cached_graph(DecisionNode &decision);
   /* Checks whether an event is included in a vector clock. */
   bool happens_before(const Event &e, const VClock<IPid> &c) const;
   /* Check whether a read-from might be satisfiable according to the
@@ -460,14 +449,105 @@ protected:
   /* Records a symbolic representation of the current event.
    */
   bool NODISCARD record_symbolic(SymEv event);
-  Leaf try_sat(std::initializer_list<unsigned>, std::map<SymAddr,std::vector<int>> &);
+
+public:
+  /* Represents a hypothetical trace prefix as a modification of an
+   * underlying RFSCTraceBuilder prefix.
+   *
+   * This is public to allow us to have help functions that consume it
+   * without being declared in this header.
+   */
+  struct TraceOverlay {
+    struct TraceEvent {
+      TraceEvent(const Event &event);
+      TraceEvent(TraceEvent &&) = default;
+      TraceEvent &operator=(TraceEvent&&) = default;
+      int size;
+      IID<IPid> iid;
+      bool pinned;
+      int decision_depth;
+      DecisionNode *decision_ptr;
+      SymEv sym;
+      Option<int> read_from;
+      const std::vector<unsigned> &happens_after() const;
+
+      void decision_swap(TraceEvent &e);
+
+    private:
+      /* Used to provide happens_after() */
+      const Event *underlying;
+    };
+    struct TraceEventConstRef {
+      TraceEventConstRef(const Event&);
+      TraceEventConstRef(const TraceEvent&);
+      int size() const;
+      const IID<IPid> &iid() const;
+      bool pinned() const;
+      int decision_depth() const;
+      /* Mutable because we need to use the graph cache. */
+      DecisionNode *decision_ptr() const;
+      const SymEv &sym() const;
+      Option<int> read_from() const;
+      const std::vector<unsigned> &happens_after() const;
+
+    private:
+      /* Not the most memory compact, but it can be optimised later. */
+      const TraceEvent *overlay;
+      const Event *event;
+    };
+
+    /* We allow TraceEvent to not be copy-constructible by forbidding it
+     * here too. */
+    TraceOverlay(const TraceOverlay&) = delete;
+    TraceOverlay(TraceOverlay&&) = default;
+    TraceOverlay &operator=(const TraceOverlay&) = delete;
+    TraceOverlay &operator=(TraceOverlay&&) = default;
+
+    typedef gen::map<SymAddr,gen::vector<int>> writes_by_addr_ty;
+
+    /* The user may preallocate some overlays. This is a hack to work
+     * around the fact that a lookup of a not-yet-shadowed index with
+     * prefix_mut invalidates previous references aquired from
+     * prefix_mut.
+     *
+     * It is unnecessary duplication to offer two constructors that take
+     * const& and && respectively, but this absolves users from having
+     * to manually invoke the explicit copy constructor of
+     * writes_by_addr_ty.
+     */
+    TraceOverlay(const RFSCTraceBuilder*, const writes_by_addr_ty&,
+                 std::initializer_list<unsigned> preallocate = {});
+    TraceOverlay(const RFSCTraceBuilder*, writes_by_addr_ty&&,
+                 std::initializer_list<unsigned> preallocate = {});
+
+    std::size_t prefix_size() const;
+    TraceEventConstRef prefix_at(unsigned index) const;
+    TraceEvent &prefix_mut(unsigned index);
+
+    Option<unsigned> po_predecessor(unsigned i) const;
+
+    writes_by_addr_ty writes_by_addr;
+
+  private:
+    boost::container::flat_map<unsigned,TraceEvent> prefix_overlay;
+    const RFSCTraceBuilder *tb;
+  };
+
+protected:
+  /* Access a SaturatedGraph from a DecisionNode.
+   * This has the risk of mutating a graph which is accessed by
+   * multiple threads concurrently. therefore need to be under exclusive opreation.
+   */
+  const SaturatedGraph &get_cached_graph(DecisionNode &decision,
+                                         const TraceOverlay &trace);
+
+  Leaf try_sat(std::initializer_list<unsigned> changed,
+               const TraceOverlay &trace);
   Leaf order_to_leaf(int decision, std::initializer_list<unsigned> changed,
+                     const TraceOverlay &trace,
                      const std::vector<unsigned> order) const;
-  void output_formula(SatSolver &sat,
-                      std::map<SymAddr,std::vector<int>> &,
-                      const std::vector<bool> &);
-  std::vector<bool> causal_past(int decision) const;
-  void causal_past_1(std::vector<bool> &acc, unsigned i) const;
+  static void output_formula(SatSolver &sat, const TraceOverlay &trace,
+                             const std::vector<bool> &);
   /* Estimate the total number of traces that have the same prefix as
    * the current one, up to the first idx events.
    */
@@ -486,19 +566,7 @@ protected:
   bool is_mdelete(unsigned idx) const;
   SymAddrSize get_addr(unsigned idx) const;
   SymData get_data(int idx, const SymAddrSize &addr) const;
-  struct CmpXhgUndoLog {
-    enum {
-          NONE,
-          SUCCEED,
-          FAIL,
-          M_SUCCEED,
-          M_FAIL,
-    } kind;
-    unsigned idx, pos;
-    SymEv *e;
-  };
-  CmpXhgUndoLog recompute_cmpxhg_success(unsigned idx, std::vector<int> &writes);
-  void undo_cmpxhg_recomputation(CmpXhgUndoLog log, std::vector<int> &writes);
+  void recompute_cmpxhg_success(unsigned idx, TraceOverlay &trace) const;
 };
 
 #endif
