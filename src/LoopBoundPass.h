@@ -1,4 +1,4 @@
-/* Copyright (C) 2014-2017 Carl Leonardsson
+/* Copyright (C) 2021 Magnus Lång
  *
  * This file is part of Nidhugg.
  *
@@ -19,35 +19,33 @@
 
 #include <config.h>
 
-#ifndef __LOOP_UNROLL_PASS_H__
-#define __LOOP_UNROLL_PASS_H__
+#ifndef __LOOP_BOUND_PASS_H__
+#define __LOOP_BOUND_PASS_H__
 
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
 
 #include "Debug.h"
 
-class LoopUnrollPass : public llvm::LoopPass{
+class LoopBoundPass : public llvm::LoopPass{
 public:
   static char ID;
-  LoopUnrollPass(int depth) : llvm::LoopPass(ID), unroll_depth(depth) {
+  LoopBoundPass(int depth) : llvm::LoopPass(ID), unroll_depth(depth) {
     if(unroll_depth < 0){
-      Debug::warn("loopunrollpass:negative depth")
-        << "WARNING: Negative depth given to loop unroll pass. Defaulting to depth zero.\n";
+      Debug::warn("loopboundpass:negative depth")
+        << "WARNING: Negative depth given to loop bounding pass. Defaulting to depth zero.\n";
       unroll_depth = 0;
     }
   };
   virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
   virtual bool runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM);
 #ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
-  virtual llvm::StringRef getPassName() const { return "LoopUnrollPass"; };
+  virtual llvm::StringRef getPassName() const { return "LoopBoundingPass"; };
 #else
-  virtual const char *getPassName() const { return "LoopUnrollPass"; };
+  virtual const char *getPassName() const { return "LoopBoundingPass"; };
 #endif
 protected:
-  llvm::BasicBlock *make_diverge_block(llvm::Loop *L);
   int unroll_depth;
 };
 
 #endif
-

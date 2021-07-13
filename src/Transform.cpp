@@ -18,7 +18,7 @@
  */
 
 #include "AddLibPass.h"
-#include "LoopUnrollPass.h"
+#include "LoopBoundPass.h"
 #include "SpinAssumePass.h"
 #include "DeadCodeElimPass.h"
 #include "StrModule.h"
@@ -99,17 +99,6 @@ namespace Transform {
     using PassManager = llvm::PassManager;
 #endif
     PassManager PM;
-    /* The unroller is currently not safe to run after SSA
-     * transformation, so we run it before everything else. spin-assume
-     * should come before the unroller, so we also run it here if loop
-     * unrolling is enabled.
-     */
-    if(conf.transform_loop_unroll >= 0){
-      if(conf.transform_spin_assume) {
-        PM.add(new SpinAssumePass());
-      }
-      PM.add(new LoopUnrollPass(conf.transform_loop_unroll));
-    }
     /* Run some safe simplifications that both improve applicability
      * of our passes, and speed up model checking.
      * We need to clear the "optnone" attribute set by clang, or all the
@@ -120,8 +109,11 @@ namespace Transform {
     if (conf.transform_dead_code_elim) {
       PM.add(new DeadCodeElimPass());
     }
-    if(conf.transform_spin_assume && conf.transform_loop_unroll < 0){
+    if (conf.transform_spin_assume){
       PM.add(new SpinAssumePass());
+    }
+    if (conf.transform_loop_unroll >= 0) {
+      PM.add(new LoopBoundPass(conf.transform_loop_unroll));
     }
     PM.add(new AddLibPass());
     bool modified = PM.run(mod);

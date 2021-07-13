@@ -19,7 +19,7 @@ libnidhugg_a_SOURCES = \
   GlobalContext.cpp GlobalContext.h \
   IID.h IID.tcc \
   Interpreter.cpp Interpreter.h \
-  LoopUnrollPass.cpp LoopUnrollPass.h \
+  LoopBoundPass.cpp LoopBoundPass.h \
   MRef.cpp MRef.h \
   nregex.cpp nregex.h \
   Option.h \
