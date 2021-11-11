@@ -1,4 +1,4 @@
-/* Copyright (C) 2012-2017 Carl Leonardsson
+/* Copyright (C) 2012-2017 Carl Leonardsson, 2021 Magnus Lång
  *
  * This file is part of Nidhugg.
  *
@@ -29,7 +29,7 @@
 #include <vector>
 
 /* A set, implemented as a sorted vector */
-template<class T> class VecSet{
+template<class T, class Compare = std::less<T>> class VecSet{
 public:
   /* An empty set */
   VecSet() {};
@@ -62,7 +62,7 @@ public:
   virtual ~VecSet() {};
   /* Returns a set which is the singleton {t}. */
   static VecSet singleton(const T &t){
-    VecSet<T> vs;
+    VecSet vs;
     vs.vec.push_back(t);
     return vs;
   };
@@ -87,17 +87,23 @@ public:
    * Return the number of elements that were inserted into this set
    * and was not already in this set.
    */
-  int insert(const VecSet<T> &s);
+  int insert(const VecSet &s);
   /* Erase the value t from the set.
    *
    * Return the number of elements that were erased (0 or 1).
    */
   int erase(const T &t);
+  /* Erase the value at position p from the set.
+   *
+   * Invalidates all iterators, returns a new iterator to the element
+   * after p, or the end iterator if there is no such element.
+   */
+  void erase_at(int p);
   /* Erase all elements of S from this set.
    *
    * Return the number of elements that were erased.
    */
-  int erase(const VecSet<T> &S);
+  int erase(const VecSet &S);
   /* Return 1 if t is in this set, 0 otherwise. */
   int count(const T &t) const;
   /* Return the index of t in the vector.
@@ -110,9 +116,9 @@ public:
   /* Empties this set */
   void clear() { vec.clear(); };
   /* Returns true iff all elements in this set are also members of s. */
-  bool subset_of(const VecSet<T> &s) const;
+  bool subset_of(const VecSet &s) const;
   /* Returns true iff there is some element that occurs both in this set and in s. */
-  bool intersects(const VecSet<T> &s) const;
+  bool intersects(const VecSet &s) const;
   /* Returns the i:th smallest element in the set. */
   const T &operator[](int i) const { return vec[i]; };
   /* Returns the largest element in the set. */
@@ -122,68 +128,17 @@ public:
    * Pre: the set is non-empty
    */
   void pop_back() { vec.pop_back(); };
-  class const_iterator{
-  public:
-    typedef std::bidirectional_iterator_tag iterator_category;
-    typedef T value_type;
-    typedef T& reference;
-    typedef T* pointer;
-    typedef unsigned difference_type;
-
-    /* An iterator into vec, pointing at position i if i < vec.size(),
-     * and representing the end iterator if i == vec.size().
-     *
-     * Pre: 0 <= i <= vec.size()
-     */
-    const_iterator(int i, const std::vector<T> *vec)
-      : i(i), vec(vec) {
-      assert(0 <= i && i <= int(vec->size()));
-    };
-    const_iterator(const const_iterator &) = default;
-    const_iterator &operator=(const const_iterator&) = default;
-    bool operator<(const const_iterator &it) const { return i < it.i; };
-    bool operator==(const const_iterator &it) const { return i == it.i; };
-    bool operator>(const const_iterator &it) const { return i > it.i; };
-    bool operator<=(const const_iterator &it) const { return i <= it.i; };
-    bool operator!=(const const_iterator &it) const { return i != it.i; };
-    bool operator>=(const const_iterator &it) const { return i >= it.i; };
-    const_iterator operator++(int) {
-      const_iterator it = *this;
-      if(i < int(vec->size())) i++;
-      return it;
-    };
-    const_iterator &operator++(){
-      if(i < int(vec->size())) i++;
-      return *this;
-    };
-    const_iterator operator--(int) {
-      const_iterator it = *this;
-      if(i > 0) i--;
-      return it;
-    };
-    const_iterator &operator--(){
-      if(i > 0) i--;
-      return *this;
-    };
-    const T &operator*() const{
-      return (*vec)[i];
-    };
-    const T *operator->() const{
-      return &(*vec)[i];
-    };
-  private:
-    int i;
-    const std::vector<T> *vec;
-  };
-  const_iterator begin() const { return const_iterator(0,&vec); };
-  const_iterator end() const { return const_iterator(vec.size(),&vec); };
+  typedef typename std::vector<T>::const_iterator const_iterator;
+  const_iterator begin() const { return vec.cbegin(); };
+  const_iterator end() const { return vec.cend(); };
   const std::vector<T> &get_vector() const { return vec; };
-  bool operator==(const VecSet<T> &s) const { return vec == s.vec; };
-  bool operator<(const VecSet<T> &s) const { return vec < s.vec; };
-  bool operator>(const VecSet<T> &s) const { return vec > s.vec; };
-  bool operator<=(const VecSet<T> &s) const { return vec <= s.vec; };
-  bool operator!=(const VecSet<T> &s) const { return vec != s.vec; };
-  bool operator>=(const VecSet<T> &s) const { return vec >= s.vec; };
+  // std::vector<T> &&get_vector() && { return vec; };
+  bool operator==(const VecSet &s) const { return vec == s.vec; };
+  bool operator<(const VecSet &s) const { return vec < s.vec; };
+  bool operator>(const VecSet &s) const { return vec > s.vec; };
+  bool operator<=(const VecSet &s) const { return vec <= s.vec; };
+  bool operator!=(const VecSet &s) const { return vec != s.vec; };
+  bool operator>=(const VecSet &s) const { return vec >= s.vec; };
   /* Produces a string representation of the set with each element t
    * represented as f(t) without any new lines between the elements.
    */
@@ -194,6 +149,8 @@ private:
    * Invariant: vec is sorted and distinct.
    */
   std::vector<T> vec;
+  /* Comparer */
+  Compare lt = {};
   /* Return the index of the least element in the set which is greater than or equal to t.
    * Return vec.size() if there is no such element in the set.
    */
