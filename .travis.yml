@@ -52,9 +52,11 @@ jobs:
         - docker run --rm -ti -v `pwd`:`pwd` -w `pwd` nidhugg-debug nidhuggc -sc tests/smoke/C-tests/mutex_hard.c
         - docker run --rm -ti nidhugg-debug nidhugg-unittest
     - <<: *focal
-      env:
-        - LLVM_VERSION=11.0.0-rc2
-        - CONFIGURE_FLAGS=--disable-llvm-clang-version-check
+      env: LLVM_VERSION=13.0.0
+    - <<: *focal
+      env: LLVM_VERSION=12.0.0
+    - <<: *focal
+      env: LLVM_VERSION=11.0.0
     - <<: *bionic
       env: LLVM_VERSION=10.0.0
     - <<: *bionic
