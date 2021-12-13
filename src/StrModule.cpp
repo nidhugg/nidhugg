@@ -119,7 +119,11 @@ namespace StrModule {
 #endif
 #ifdef HAVE_LLVM_SYS_FS_OPENFLAGS
     llvm::raw_ostream *os = new llvm::raw_fd_ostream(outfile.c_str(),errs,
+#  ifdef LLVM_SYS_FS_OPENFLAGS_PREFIX_OF
+                                                     llvm::sys::fs::OF_None);
+#  else
                                                      llvm::sys::fs::F_None);
+#  endif
 #else
     llvm::raw_ostream *os = new llvm::raw_fd_ostream(outfile.c_str(),errs,0);
 #endif
