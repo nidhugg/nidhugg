@@ -18,6 +18,9 @@
  */
 
 #include "SmtlibSatSolver.h"
+
+#ifndef NO_SMTLIB_SOLVER
+
 #include "SExpr.h"
 
 #include <llvm/Support/CommandLine.h>
@@ -164,3 +167,5 @@ std::vector<unsigned> SmtlibSatSolver::get_model() {
 
   return res;
 }
+
+#endif // !defined(NO_SMTLIB_SOLVER)

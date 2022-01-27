@@ -23,6 +23,8 @@
 
 #include "SatSolver.h"
 
+#ifndef NO_SMTLIB_SOLVER
+
 #ifndef HAVE_BOOST
 #  error "BOOST is required"
 #endif
@@ -48,4 +50,6 @@ private:
   boost::process::child z3;
 };
 
-#endif
+#endif // !defined(NO_SMTLIB_SOLVER)
+
+#endif // !defined(__SMTLIB_SAT_SOLVER_H__)
