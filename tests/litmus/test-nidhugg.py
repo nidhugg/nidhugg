@@ -153,7 +153,7 @@ def run_test(tst):
     return res
 
 def look_for_extra_opts(srcfile):
-    with open(srcfile, 'r') as f:
+    with open(srcfile, 'r', encoding='UTF-8') as f:
         while True:
             line = f.readline()
             if not line: break
