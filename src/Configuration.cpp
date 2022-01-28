@@ -86,14 +86,16 @@ cl_memory_model(llvm::cl::NotHidden, llvm::cl::init(Configuration::MM_UNDEF),
 static llvm::cl::opt<bool> cl_c11("c11",llvm::cl::Hidden,
                                   llvm::cl::desc("Only consider c11 atomic accesses."));
 
+#ifndef NO_SMTLIB_SOLVER
 static llvm::cl::opt<Configuration::SatSolverEnum>
 cl_sat(llvm::cl::NotHidden, llvm::cl::init(Configuration::SMTLIB),
        llvm::cl::desc("Select SAT solver"),
        llvm::cl::values(clEnumValN(Configuration::SMTLIB,"smtlib","External SMTLib process")
-#ifdef LLVM_CL_VALUES_USES_SENTINEL
-                                ,clEnumValEnd
-#endif
+#  ifdef LLVM_CL_VALUES_USES_SENTINEL
+                       ,clEnumValEnd
+#  endif
                                  ));
+#endif
 
 
 static llvm::cl::opt<Configuration::DPORAlgorithm>
@@ -222,7 +224,9 @@ void Configuration::assign_by_commandline(){
   print_progress_estimate = cl_print_progress_estimate;
   debug_print_on_reset = cl_debug_print_on_reset;
   commute_rmws = !cl_no_commute_rmws && memory_model == SC;
+#ifndef NO_SMTLIB_SOLVER
   sat_solver = cl_sat;
+#endif
   argv.resize(1);
   argv[0] = get_default_program_name();
   for(std::string a : cl_program_arguments){
@@ -348,8 +352,12 @@ void Configuration::check_commandline(){
 
 std::unique_ptr<SatSolver> Configuration::get_sat_solver() const {
   switch (sat_solver) {
+#ifndef NO_SMTLIB_SOLVER
   case SMTLIB:
     return std::make_unique<SmtlibSatSolver>();
+#endif
   }
+  llvm::errs() << "Error: SC Consistency Decision Procedure required but not"
+    " implemented\n";
   abort();
 }

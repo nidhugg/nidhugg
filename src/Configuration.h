@@ -98,7 +98,11 @@ public:
     print_progress = false;
     print_progress_estimate = false;
     exploration_scheduler = WORKSTEALING;
+#ifdef NO_SMTLIB_SOLVER
+    sat_solver = NONE;
+#else
     sat_solver = SMTLIB;
+#endif
     argv.push_back(get_default_program_name());
   };
   /* Read the switches given to the program by the user. Assign
@@ -214,7 +218,11 @@ public:
 
   /* Sat solver to use. */
   enum SatSolverEnum {
+#ifdef NO_SMTLIB_SOLVER
+        NONE,
+#else
         SMTLIB,
+#endif
   } sat_solver;
   std::unique_ptr<SatSolver> get_sat_solver() const;
   /* The arguments that will be passed to the program under test */
