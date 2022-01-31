@@ -38,7 +38,7 @@ if [ -n "$LLVM_VERSION" ]; then
     # download and install
     if [ ! -f $LLVM_DEP ] ; then
         echo "Downloading LLVM"
-        wget $LLVM_URL -O $LLVM_DEP
+        wget --progress=dot:giga $LLVM_URL -O $LLVM_DEP
         if [ ! $? -eq 0 ]; then
 	    echo "Error: Download failed"
 	    rm $LLVM_DEP || true
@@ -80,7 +80,7 @@ if [ -n "$DOWNLOAD_BOOST" ]; then
         mkdir -p /opt/boost
 
         echo "Downloading Boost"
-        wget $BOOST_URL
+        wget --progress=dot:giga $BOOST_URL
         tar xf $BOOST_FILE
         pushd $BOOST_DIR
 
