@@ -33,6 +33,6 @@ RUN \
      (CC=/opt/clang+llvm-$LLVM_VERSION/bin/clang \
       CXX=/opt/clang+llvm-$LLVM_VERSION/bin/clang++ \
       ./configure --prefix=/usr/local/ --with-llvm=/opt/clang+llvm-$LLVM_VERSION || (cat config.log; false)) && \
-     make -Csrc -j`nproc` nidhugg unittest"
+     make -Csrc -j`nproc` all unittest"
 
 CMD make -C /nidhugg -j3 test

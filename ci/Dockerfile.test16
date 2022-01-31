@@ -34,7 +34,7 @@ RUN \
      (CC=/opt/clang+llvm-$LLVM_VERSION/bin/clang \
       CXX=/opt/clang+llvm-$LLVM_VERSION/bin/clang++ \
       ./configure --prefix=/usr/local/ --with-llvm=/opt/clang+llvm-$LLVM_VERSION --with-boost=/opt/boost/ || (cat config.log; false)) && \
-     make -Csrc -j`nproc` nidhugg unittest"
+     make -Csrc -j`nproc` all unittest"
 
 ENV LD_LIBRARY_PATH=/opt/boost/lib/
 CMD make -C /nidhugg -j3 test
