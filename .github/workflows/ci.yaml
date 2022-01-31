@@ -1,0 +1,86 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  prebuilt_llvms:
+    name: Test with prebuilt LLVM ${{ matrix.llvm }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - llvm: "13.0.0"
+            ubuntu: 20
+          - llvm: "12.0.0"
+            ubuntu: 20
+          - llvm: "11.0.0"
+            ubuntu: 20
+          - llvm: "10.0.0"
+            ubuntu: 18
+          - llvm: "9.0.0"
+            ubuntu: 18
+          - llvm: "8.0.0"
+            ubuntu: 18
+          - llvm: "7.0.1"
+            ubuntu: 18
+          - llvm: "6.0.1"
+            ubuntu: 18
+          - llvm: "5.0.2"
+            ubuntu: 16
+          - llvm: "4.0.0"
+            ubuntu: 16
+          - llvm: "3.9.1"
+            ubuntu: 16
+          - llvm: "3.8.1"
+            ubuntu: 16
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build Nidhugg
+        id: build
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: false
+          file: ci/Dockerfile.test${{ matrix.ubuntu }}
+          build-args: LLVM_VERSION=${{ matrix.llvm }}
+      - name: Run tests
+        run: docker run --rm -t ${{ steps.build.outputs.digest }}
+  docker_image:
+    name: Test the standard docker file
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build Docker Image
+        id: build
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: false
+          file: Dockerfile
+      - name: Run a smoke test
+        run: docker run --rm -t -v `pwd`:`pwd` -w `pwd` ${{ steps.build.outputs.digest }} nidhuggc -sc tests/smoke/C-tests/mutex_hard.c
+  debug_docker:
+    name: Test the debug docker file
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      # This build in particular is slow, so enable caching for this one. All
+      # our temp layers do not fit in github CI cache, so we have to be
+      # selective.
+      - name: Pull cached docker layers
+        uses: satackey/action-docker-layer-caching@v0.0.11
+        continue-on-error: true
+      - name: Build Docker Image
+        id: build
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: false
+          file: Dockerfile.debug
+          tags: nidhugg-debug
+      - name: Run a smoke test
+        run: docker run --rm -t -v `pwd`:`pwd` -w `pwd` nidhugg-debug nidhuggc -sc tests/smoke/C-tests/mutex_hard.c
+      - name: Run the unit tests
+        run: docker run --rm -t nidhugg-debug nidhugg-unittest
