@@ -47,7 +47,8 @@ public:
   virtual NODISCARD bool store(const SymData &ml) override;
   virtual NODISCARD bool atomic_store(const SymData &ml) override;
   virtual NODISCARD bool compare_exchange
-  (const SymData &sd, const SymData::block_type expected, bool success);
+  (const SymData &sd, const SymData::block_type expected, bool success)
+      override;
   virtual NODISCARD bool load(const SymAddrSize &ml) override;
   virtual NODISCARD bool full_memory_conflict() override;
   virtual NODISCARD bool fence() override;
