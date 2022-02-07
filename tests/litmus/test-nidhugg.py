@@ -62,7 +62,8 @@ def res_to_string(tst, res):
         s = s + ' ' + ('Allow' if res['allow'] else 'Forbid')
 
     if tst['expected trace count'] != res['tracecount']:
-        return (s + bcolors.FAIL + ' FAILURE: not same trace as ' + str(tst['expected trace count']) + bcolors.ENDC, False)
+        return (s + bcolors.FAIL + ' FAILURE: expected ' + str(tst['expected trace count'])
+                + ' not ' + str(res['tracecount']) + ' traces' + bcolors.ENDC, False)
 
     return (s + bcolors.OKGREEN + ' OK ' + bcolors.ENDC + ' : ' + str(res['tracecount']), True)
 
