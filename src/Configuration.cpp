@@ -119,13 +119,20 @@ static llvm::cl::alias cl_robustness("robustness",llvm::cl::Hidden,
 
 static llvm::cl::OptionCategory cl_transformation_cat("Module Transformation Passes");
 
-static llvm::cl::opt<bool> cl_transform_no_spin_assume("no-spin-assume",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
-                                                       llvm::cl::desc("Disable the spin assume pass in module\n"
-                                                                      "transformation."));
+static llvm::cl::opt<bool> cl_transform_no_spin_assume("no-spin-assume",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat));
+
+static llvm::cl::opt<bool> cl_transform_spin_assume("spin-assume",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
+                                                    llvm::cl::desc("Enable the spin assume pass in module\n"
+                                                                   "transformation."));
 
 static llvm::cl::opt<bool> cl_transform_no_dead_code_elim
 ("no-dead-code-elim",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
  llvm::cl::desc("Disable the dead code elimination pass in module\n"
+                "transformation."));
+
+static llvm::cl::opt<bool> cl_transform_no_partial_loop_purity
+("no-partial-loop-purity",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
+ llvm::cl::desc("Disable the partial loop purity bounding pass in module\n"
                 "transformation."));
 
 static llvm::cl::opt<int>
@@ -190,7 +197,8 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "smtlib",
     "source","optimal","observers","rf",
     "check-robustness",
-    "no-spin-assume",
+    "spin-assume",
+    "no-partial-loop-purity",
     "unroll",
     "print-progress",
     "print-progress-estimate",
@@ -215,8 +223,9 @@ void Configuration::assign_by_commandline(){
   c11 = cl_c11;
   dpor_algorithm = cl_dpor_algorithm;
   check_robustness = cl_check_robustness;
-  transform_spin_assume = !cl_transform_no_spin_assume;
+  transform_spin_assume = cl_transform_spin_assume;
   transform_dead_code_elim = !cl_transform_no_dead_code_elim;
+  transform_partial_loop_purity = !cl_transform_no_partial_loop_purity;
   transform_loop_unroll = cl_transform_loop_unroll;
   if (cl_verifier_nondet_int.getNumOccurrences())
     svcomp_nondet_int = (int)cl_verifier_nondet_int;
@@ -278,13 +287,17 @@ void Configuration::check_commandline(){
         << "WARNING: Program arguments (argv for test case) ignored in presence of --transform.\n";
     }
   }else{
-    if(cl_transform_no_spin_assume.getNumOccurrences()){
+    if(cl_transform_spin_assume.getNumOccurrences()){
       Debug::warn("Configuration::check_commandline:no:transform:transform-no-spin-assume")
-        << "WARNING: --no-spin-assume ignored in absence of --transform.\n";
+        << "WARNING: --spin-assume ignored in absence of --transform.\n";
     }
     if(cl_transform_loop_unroll.getNumOccurrences()){
       Debug::warn("Configuration::check_commandline:no:transform:transform_loop_unroll")
         << "WARNING: --unroll ignored in absence of --transform.\n";
+    }
+    if(cl_transform_no_partial_loop_purity.getNumOccurrences()){
+      Debug::warn("Configuration::check_commandline:no:transform:transform-no-partial-loop-purity")
+        << "WARNING: --no-partial-loop-purity ignored in absence of --transform.\n";
     }
   }
   /* Check commandline switch compatibility with memory model. */

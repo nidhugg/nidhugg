@@ -23,6 +23,7 @@ libnidhugg_a_SOURCES = \
   MRef.cpp MRef.h \
   nregex.cpp nregex.h \
   Option.h \
+  PartialLoopPurityPass.h PartialLoopPurityPass.cpp \
   POWERExecution.cpp \
   POWERInterpreter.cpp POWERInterpreter.h \
   POWERARMTraceBuilder.cpp POWERARMTraceBuilder.tcc POWERARMTraceBuilder.h POWERARMTraceBuilder_decl.h \
