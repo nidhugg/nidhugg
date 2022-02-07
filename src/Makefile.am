@@ -4,6 +4,7 @@ noinst_LIBRARIES = libnidhugg.a
 libnidhugg_a_SOURCES = \
   AddLibPass.cpp AddLibPass.h \
   BVClock.cpp BVClock.h \
+  CastElimPass.cpp CastElimPass.h \
   CheckModule.cpp CheckModule.h \
   Configuration.cpp Configuration.h \
   CPid.cpp CPid.h \

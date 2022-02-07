@@ -130,6 +130,11 @@ static llvm::cl::opt<bool> cl_transform_no_dead_code_elim
  llvm::cl::desc("Disable the dead code elimination pass in module\n"
                 "transformation."));
 
+static llvm::cl::opt<bool> cl_transform_no_cast_elim
+("no-cast-elim",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
+ llvm::cl::desc("Disable the cast elimination pass in module\n"
+                "transformation."));
+
 static llvm::cl::opt<bool> cl_transform_no_partial_loop_purity
 ("no-partial-loop-purity",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
  llvm::cl::desc("Disable the partial loop purity bounding pass in module\n"
@@ -225,6 +230,7 @@ void Configuration::assign_by_commandline(){
   check_robustness = cl_check_robustness;
   transform_spin_assume = cl_transform_spin_assume;
   transform_dead_code_elim = !cl_transform_no_dead_code_elim;
+  transform_cast_elim = !cl_transform_no_cast_elim;
   transform_partial_loop_purity = !cl_transform_no_partial_loop_purity;
   transform_loop_unroll = cl_transform_loop_unroll;
   if (cl_verifier_nondet_int.getNumOccurrences())
@@ -294,6 +300,10 @@ void Configuration::check_commandline(){
     if(cl_transform_loop_unroll.getNumOccurrences()){
       Debug::warn("Configuration::check_commandline:no:transform:transform_loop_unroll")
         << "WARNING: --unroll ignored in absence of --transform.\n";
+    }
+    if(cl_transform_no_cast_elim.getNumOccurrences()){
+      Debug::warn("Configuration::check_commandline:no:transform:transform-no-cast-elim")
+        << "WARNING: --no-cast-elim ignored in absence of --transform.\n";
     }
     if(cl_transform_no_partial_loop_purity.getNumOccurrences()){
       Debug::warn("Configuration::check_commandline:no:transform:transform-no-partial-loop-purity")

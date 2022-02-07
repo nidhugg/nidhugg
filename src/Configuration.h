@@ -187,6 +187,8 @@ public:
   bool transform_spin_assume;
   /* In module transformation, enable the DeadCodeElim pass. */
   bool transform_dead_code_elim = true;
+  /* In module transformation, enable the CastElim pass. */
+  bool transform_cast_elim = true;
   /* In module transformation, enable the PartialLoopPurity pass. */
   bool transform_partial_loop_purity = true;
   /* If transform_loop_unroll is non-negative, in module
