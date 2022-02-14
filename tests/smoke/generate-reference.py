@@ -1,1 +1,0 @@
-../litmus/generate-reference.py
