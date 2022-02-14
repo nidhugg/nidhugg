@@ -1,8 +1,0 @@
-NAME= queue_ok
-FILE=benchmarks/asserts/SV-COMP/queue_ok.c
-N = 1 2 3 4 5 6
-# CDSC is not compatible
-CDSC_DIR := nonexistant/
-TIME_LIMIT = 600
-
-include ../../../../benchmarks.mk
