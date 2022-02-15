@@ -1209,6 +1209,7 @@ void Interpreter::visitStoreInst(StoreInst &I) {
   }
 
   StoreValueToMemory(Val, Ptr, I.getOperand(0)->getType());
+  CheckAwaitWakeup(Val, Ptr, *Ptr_sas);
 }
 
 void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
@@ -1258,6 +1259,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
       return;
     }
     StoreValueToMemory(NewVal,Ptr,Ty);
+    CheckAwaitWakeup(NewVal, Ptr, *Ptr_sas);
   }else{
 #if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
     Result.AggregateVal[1].IntVal = 0;
@@ -1335,6 +1337,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I){
     return;
   }
   StoreValueToMemory(NewVal,Ptr,I.getType());
+  CheckAwaitWakeup(NewVal, Ptr, *Ptr_sas);
 }
 
 void Interpreter::visitInlineAsm(llvm::CallInst &CI, const std::string &asmstr){
@@ -3045,6 +3048,105 @@ void Interpreter::callAssertFail(Function *F,
   abort();
 }
 
+void Interpreter::callLoadAwait(Function *F,
+                                const std::vector<GenericValue> &ArgVals){
+  GenericValue *Ptr = (GenericValue*)GVTOP(ArgVals[0]);
+  uint64_t op_int = ArgVals[1].IntVal.getZExtValue();
+  AwaitCond::Op op(static_cast<AwaitCond::Op>(op_int));
+   /* Should be arg2 type, but if well-formed is same as return type */
+  Type *Ty = F->getReturnType();
+  SymData::block_type operand = SymData::alloc_block
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
+    (getDataLayout()->getTypeStoreSize(Ty));
+#else
+    (getDataLayout().getTypeStoreSize(Ty));
+#endif
+  StoreValueToMemory(ArgVals[2],
+                     static_cast<GenericValue*>((void*)operand.get()),Ty);
+
+  GenericValue Result;
+  Option<SymAddrSize> Ptr_sas = GetSymAddrSize(Ptr,Ty);
+  if(!Ptr_sas) return;
+
+  if(!TB.load_await(*Ptr_sas, AwaitCond{op, std::move(operand)})){
+    abort();
+    return;
+  }
+
+  assert(!(DryRun && DryRunMem.size()));
+  LoadValueFromMemory(Result, Ptr, Ty);
+  returnValueToCaller(F->getReturnType(),Result);
+}
+
+ void Interpreter::callXchgAwait(Function *F,
+                                const std::vector<GenericValue> &ArgVals){
+  GenericValue *Ptr = (GenericValue*)GVTOP(ArgVals[0]);
+  const GenericValue NewVal = ArgVals[1];
+  uint64_t op_int = ArgVals[2].IntVal.getZExtValue();
+  AwaitCond::Op op(static_cast<AwaitCond::Op>(op_int));
+   /* Should be arg2 type, but if well-formed is same as return type */
+  Type *Ty = F->getReturnType();
+  std::size_t Ty_size =
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
+    getDataLayout()->getTypeStoreSize(Ty);
+#else
+    getDataLayout().getTypeStoreSize(Ty);
+#endif
+  SymData::block_type operand = SymData::alloc_block(Ty_size);
+  StoreValueToMemory(ArgVals[3],
+                     static_cast<GenericValue*>((void*)operand.get()),Ty);
+  AwaitCond cond{op, std::move(operand)};
+
+  Option<SymAddrSize> Ptr_sas = GetSymAddrSize(Ptr,Ty);
+  if(!Ptr_sas) return;
+
+  GenericValue OldVal;
+  assert(!(DryRun && DryRunMem.size()));
+  LoadValueFromMemory(OldVal, Ptr, Ty);
+#ifndef NDEBUG
+  SymData::block_type OldValBlock = SymData::alloc_block(Ptr_sas->size);
+  memcpy(OldValBlock.get(), (const void*)Ptr, Ptr_sas->size);
+  assert(cond.satisfied_by(OldValBlock.get(), Ptr_sas->size));
+#endif
+
+  SymData sd = GetSymData(*Ptr_sas,Ty,NewVal);
+
+  if(!TB.xchg_await(sd, std::move(cond))){
+    abort();
+    return;
+  }
+
+  /* Store NewVal */
+  if(DryRun){
+    DryRunMem.emplace_back(std::move(sd));
+    return;
+  }
+  StoreValueToMemory(NewVal,Ptr,Ty);
+  CheckAwaitWakeup(NewVal, Ptr, *Ptr_sas);
+
+  returnValueToCaller(F->getReturnType(),OldVal);
+}
+
+void Interpreter::CheckAwaitWakeup(const GenericValue &Val, const void *ptr,
+                                   const SymAddrSize &sas) {
+  assert(!DryRun);
+
+  auto sas_awaits_iter = blocking_awaits.find(sas);
+  if (sas_awaits_iter == blocking_awaits.end()) return;
+  auto &sas_awaits = sas_awaits_iter->second;
+
+  /* Complexity could be improved, but it's unlikely to matter. */
+  for (auto it = sas_awaits.begin(); it != sas_awaits.end();) {
+    if (it->second.satisfied_by(ptr, sas.size)) {
+      TB.mark_available(it->first);
+      it = sas_awaits.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  if (sas_awaits.empty()) blocking_awaits.erase(sas_awaits_iter);
+}
+
 //===----------------------------------------------------------------------===//
 // callFunction - Execute the specified function...
 //
@@ -3114,6 +3216,12 @@ void Interpreter::callFunction(Function *F,
     return;
   }else if(F->getName().str() == "__assert_fail"){
     callAssertFail(F,ArgVals);
+    return;
+  }else if(F->getName().str().rfind("__VERIFIER_load_await", 0) == 0){
+    callLoadAwait(F,ArgVals);
+    return;
+  }else if(F->getName().str().rfind("__VERIFIER_xchg_await", 0) == 0){
+    callXchgAwait(F,ArgVals);
     return;
   }
 
@@ -3264,6 +3372,39 @@ bool Interpreter::isPthreadMutexLock(Instruction &I, GenericValue **ptr){
   return true;
 }
 
+bool Interpreter::isLoadAwait(Instruction &I, GenericValue **ptr, AwaitCond *cond){
+  return isAnyAwait(I, ptr, cond, "__VERIFIER_load_await", 0);
+}
+
+bool Interpreter::isXchgAwait(Instruction &I, GenericValue **ptr, AwaitCond *cond){
+  return isAnyAwait(I, ptr, cond, "__VERIFIER_xchg_await", 1);
+}
+
+bool Interpreter::isAnyAwait(Instruction &I, GenericValue **ptr, AwaitCond *cond,
+                             const char *name_prefix, unsigned nargs){
+  if(!isa<CallInst>(I)) return false;
+  AnyCallInst CI(static_cast<CallInst*>(&I));
+  Function *F = CI.getCalledFunction();
+  if(!F || F->getName().str().rfind(name_prefix, 0) != 0) return false;
+  auto args = CI.arg_begin();
+  *ptr = (GenericValue*)GVTOP(getOperandValue(args[0],ECStack()->back()));
+  uint64_t op_int = getOperandValue(args[nargs+1],ECStack()->back()).IntVal.getZExtValue();
+  AwaitCond::Op op(static_cast<AwaitCond::Op>(op_int));
+
+  Type *Ty = args[nargs+2]->getType();
+  SymData::block_type operand = SymData::alloc_block
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
+    (getDataLayout()->getTypeStoreSize(Ty));
+#else
+    (getDataLayout().getTypeStoreSize(Ty));
+#endif
+  StoreValueToMemory(getOperandValue(args[nargs+2],ECStack()->back()),
+                     static_cast<GenericValue*>((void*)operand.get()),Ty);
+
+  *cond = AwaitCond{op, std::move(operand)};
+  return true;
+}
+
 bool Interpreter::checkRefuse(Instruction &I){
   {
     int tid;
@@ -3298,6 +3439,49 @@ bool Interpreter::checkRefuse(Instruction &I){
       }else{
         // Either unlocked mutex, or uninitialized mutex.
         // In both cases let callPthreadMutex handle it.
+      }
+    }
+  }
+  {
+    GenericValue *ptr;
+    AwaitCond cond;
+    enum kind { NONE = 0, LOAD = 1, XCHG = 2, } kind = NONE;
+    int nargs = 0;
+    if(isLoadAwait(I, &ptr, &cond)) kind = LOAD;
+    else if(isXchgAwait(I, &ptr, &cond)) {
+        kind = XCHG;
+        nargs = 1;
+    }
+    if(kind != NONE) {
+      Option<SymAddrSize> ptr_sas = TryGetSymAddrSize(ptr,I.getOperand(nargs+2)->getType());
+      if (ptr_sas) {
+        assert(!(DryRun && DryRunMem.size()));
+        SymData::block_type actual = SymData::alloc_block(ptr_sas->size);
+        memcpy(actual.get(), (const void*)ptr, ptr_sas->size);
+        if (!cond.satisfied_by((const void*)ptr, ptr_sas->size)) {
+          assert(!cond.satisfied_by(actual.get(), ptr_sas->size));
+          bool callback_ret;
+          if (kind == LOAD) callback_ret = TB.load_await_fail(*ptr_sas, cond);
+          else {
+            assert(kind == XCHG);
+            ExecutionContext &SF = ECStack()->back();
+            GenericValue Val = getOperandValue(I.getOperand(1), SF);
+            SymData sd = GetSymData(*ptr_sas,I.getOperand(1)->getType(),Val);
+            callback_ret = TB.xchg_await_fail(sd, cond);
+          }
+          if(!callback_ret) {
+            abort();
+            return true;
+          }
+          TB.refuse_schedule();
+          /* TODO: Overlapping accesses */
+          blocking_awaits[*ptr_sas].emplace(CurrentThread, std::move(cond));
+          return true;
+        }
+      } else {
+        Debug::warn("await-bad-addr")
+          << "Await will segfault";
+        /* Bad address, let execute and crash */
       }
     }
   }
