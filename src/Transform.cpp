@@ -23,6 +23,7 @@
 #include "DeadCodeElimPass.h"
 #include "CastElimPass.h"
 #include "PartialLoopPurityPass.h"
+#include "AssumeAwaitPass.h"
 #include "StrModule.h"
 #include "Transform.h"
 
@@ -122,6 +123,9 @@ namespace Transform {
     }
     if (conf.transform_loop_unroll >= 0) {
       PM.add(new LoopBoundPass(conf.transform_loop_unroll));
+    }
+    if(conf.transform_assume_await){
+      PM.add(new AssumeAwaitPass());
     }
     PM.add(new AddLibPass());
     bool modified = PM.run(mod);

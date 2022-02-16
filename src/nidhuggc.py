@@ -32,6 +32,9 @@ nidhuggcparamslist = [
     Param('--spin-assume','Use the spin-assume transformation on module before calling nidhugg.',False,True),
     Param('--no-dead-code-elim','Don\'t use the dead code elimination pass on module before calling nidhugg.',False,True),
     Param('--no-cast-elim','Don\'t use the cast elimination pass on module before calling nidhugg.',False,True),
+    Param('--no-assume-await','Don\'t use the assume-await transformation on module before calling nidhugg.',False,True),
+    Param('--assume-await','Always use the assume-await transformation on module before calling nidhugg.',False,True),
+    Param('--no-assume-xchgawait','Don\'t transform assume statements to xchg-await before calling nidhugg.',False,True),
     Param('--unroll','Use unroll transformation on module before calling nidhugg.','N',True),
 ]
 nidhuggcparams = { p.name : p for p in nidhuggcparamslist }

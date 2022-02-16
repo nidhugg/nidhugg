@@ -125,6 +125,24 @@ static llvm::cl::opt<bool> cl_transform_spin_assume("spin-assume",llvm::cl::NotH
                                                     llvm::cl::desc("Enable the spin assume pass in module\n"
                                                                    "transformation."));
 
+enum class Tristate{
+  DEFAULT,
+  TRUE,
+  FALSE,
+};
+
+static llvm::cl::opt<Tristate> cl_transform_assume_await
+(llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat), llvm::cl::init(Tristate::DEFAULT),
+ llvm::cl::desc("Disable or enable the assume to await pass in module transformation."),
+ llvm::cl::values(clEnumValN(Tristate::TRUE,"assume-await","Force-enable the assume to await pass in module transformation"),
+                  clEnumValN(Tristate::FALSE,"no-assume-await","Disable the assume to await pass in module transformation"),
+                  clEnumValN(Tristate::DEFAULT,"default-assume-await","Enable the assume to await pass in module"
+                             " transformation\nif the current mode supports await-statements")
+#ifdef LLVM_CL_VALUES_USES_SENTINEL
+                  ,clEnumValEnd
+#endif
+                  ));
+
 static llvm::cl::opt<bool> cl_transform_no_dead_code_elim
 ("no-dead-code-elim",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
  llvm::cl::desc("Disable the dead code elimination pass in module\n"
@@ -204,6 +222,7 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "check-robustness",
     "spin-assume",
     "no-partial-loop-purity",
+    "assume-await","no-assume-await","default-assume-await",
     "unroll",
     "print-progress",
     "print-progress-estimate",
@@ -232,6 +251,11 @@ void Configuration::assign_by_commandline(){
   transform_dead_code_elim = !cl_transform_no_dead_code_elim;
   transform_cast_elim = !cl_transform_no_cast_elim;
   transform_partial_loop_purity = !cl_transform_no_partial_loop_purity;
+  if (cl_transform_assume_await == Tristate::DEFAULT) {
+    transform_assume_await = false;
+  } else {
+    transform_assume_await = cl_transform_assume_await == Tristate::TRUE;
+  }
   transform_loop_unroll = cl_transform_loop_unroll;
   if (cl_verifier_nondet_int.getNumOccurrences())
     svcomp_nondet_int = (int)cl_verifier_nondet_int;
@@ -296,6 +320,10 @@ void Configuration::check_commandline(){
     if(cl_transform_spin_assume.getNumOccurrences()){
       Debug::warn("Configuration::check_commandline:no:transform:transform-no-spin-assume")
         << "WARNING: --spin-assume ignored in absence of --transform.\n";
+    }
+    if(cl_transform_assume_await.getNumOccurrences()){
+      Debug::warn("Configuration::check_commandline:no:transform:transform-assume-await")
+        << "WARNING: --no-assume-await ignored in absence of --transform.\n";
     }
     if(cl_transform_loop_unroll.getNumOccurrences()){
       Debug::warn("Configuration::check_commandline:no:transform:transform_loop_unroll")
