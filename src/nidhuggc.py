@@ -281,7 +281,7 @@ def main():
         # Compile
         irfname = get_IR(nidhuggcargs,compilerargs)
         # Transform
-        irfname = transform(nidhuggcargs,transformargs,irfname)
+        irfname = transform(nidhuggcargs,transformargs+nidhuggargs,irfname)
         # Run stateless model-checker
         ret = run_nidhugg(nidhuggcargs,nidhuggargs,irfname)
         print('Total wall-clock time: {0:.2f} s'.format(time.time()-t0))

@@ -275,48 +275,7 @@ void Configuration::assign_by_commandline(){
 
 void Configuration::check_commandline(){
   /* Check commandline switch compatibility with --transform. */
-  if(cl_transform.getNumOccurrences()){
-    if(cl_extfun_no_race.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:extfun_no_race")
-        << "WARNING: --extfun-no-race ignored in presence of --transform.\n";
-    }
-    if(cl_malloc_may_fail.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:malloc_may_fail")
-        << "WARNING: --malloc_may_fail ignored in presence of --transform.\n";
-    }
-    if(cl_disable_mutex_init_requirement.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:disable_mutex_init_requirement")
-        << "WARNING: --disable-mutex-init-requirement ignored in presence of --transform.\n";
-    }
-    if(cl_max_search_depth.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:max-search-depth")
-        << "WARNING: --max-search-depth ignored in presence of --transform.\n";
-    }
-    if(cl_memory_model.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:memory_model")
-        << "WARNING: Given memory model ignored in presence of --transform.\n";
-    }
-    if(cl_dpor_algorithm.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:dpor_algorithm")
-        << "WARNING: Given DPOR algorithm ignored in presence of --transform.\n";
-    }
-    if(cl_print_progress.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:print-progress")
-        << "WARNING: --print-progress ignored in presence of --transform.\n";
-    }
-    if(cl_print_progress_estimate.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:print-progress-estimate")
-        << "WARNING: --print-progress-estimate ignored in presence of --transform.\n";
-    }
-    if(cl_check_robustness.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:check_robustness")
-        << "WARNING: --robustness ignored in presence of --transform.\n";
-    }
-    if(cl_program_arguments.size()){
-      Debug::warn("Configuration::check_commandline:transform:program_arguments")
-        << "WARNING: Program arguments (argv for test case) ignored in presence of --transform.\n";
-    }
-  }else{
+  if(!cl_transform.getNumOccurrences()){
     if(cl_transform_spin_assume.getNumOccurrences()){
       Debug::warn("Configuration::check_commandline:no:transform:transform-no-spin-assume")
         << "WARNING: --spin-assume ignored in absence of --transform.\n";
