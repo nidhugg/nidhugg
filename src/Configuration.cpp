@@ -252,7 +252,11 @@ void Configuration::assign_by_commandline(){
   transform_cast_elim = !cl_transform_no_cast_elim;
   transform_partial_loop_purity = !cl_transform_no_partial_loop_purity;
   if (cl_transform_assume_await == Tristate::DEFAULT) {
-    transform_assume_await = false;
+    /* Source-DPOR and TSO probably work too, and maybe also Observers,
+     * but Optimal-DPOR is the only one we've formally proven correct,
+     * for now */
+    transform_assume_await = (memory_model == SC
+                              && dpor_algorithm == Configuration::OPTIMAL);
   } else {
     transform_assume_await = cl_transform_assume_await == Tristate::TRUE;
   }

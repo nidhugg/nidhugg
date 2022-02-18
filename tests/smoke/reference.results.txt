@@ -61,36 +61,36 @@ safestack_c21_21_opt Forbid : 36
 unroll_double_loop Forbid : 1
 
 # Optimal/Observers with load-await
-simplified_dekker_opt Forbid : 5 # 3 with await
+simplified_dekker_opt Forbid : 3
 broken_mutual_exclusion_opt Forbid : 4
 broken_mutual_exclusion_obs Forbid : 3
-revealed_write_opt Forbid : 3 # 2 with await
-revealed_write_reverse_opt Forbid : 3 # 2 with await
-parker_reproc_1_opt Forbid : 8 # 7 with await
-parker_reproc_1_obs Forbid : 6 # 5 with await
-dekker_lock_trylock_opt Forbid : 6 # 4 with await
-await_mud_opt Forbid : 7 # 3 with await
-await_muddier_opt Forbid : 8 # 4 with await
-linuxrwlocks_repro Forbid : 26 # 17 with await
+revealed_write_opt Forbid : 2
+revealed_write_reverse_opt Forbid : 2
+parker_reproc_1_opt Forbid : 7
+parker_reproc_1_obs Forbid : 5
+dekker_lock_trylock_opt Forbid : 4
+await_mud_opt Forbid : 3
+await_muddier_opt Forbid : 4
+linuxrwlocks_repro Forbid : 17
 
 # Optimal/Observers with xchg-await. These use the xchgawait intrinsic
 # directly, and so does not yet run.
-#xchgawait_vs_inc_chain_opt Forbid : 3
-#xchgawait_vs_inc_chain_2_opt Forbid : 3
-#xchgawait_vs_inc_chain_reverse_opt Forbid : 3
-#xchgawait_vs_inc_chain_reverse_blocked_opt Forbid : 3
-#xchgawait_test1_opt Forbid : 1
-#xchgawait_test2_opt Forbid : 398
-#xchgawait_test2_obs Forbid : 369
-#xchgawait_test3_opt Forbid : 5
-#xchgawait_test4_opt Forbid : 4
+xchgawait_vs_inc_chain_opt Forbid : 3
+xchgawait_vs_inc_chain_2_opt Forbid : 3
+xchgawait_vs_inc_chain_reverse_opt Forbid : 3
+xchgawait_vs_inc_chain_reverse_blocked_opt Forbid : 3
+xchgawait_test1_opt Forbid : 1
+xchgawait_test2_opt Forbid : 398
+xchgawait_test2_obs Forbid : 369
+xchgawait_test3_opt Forbid : 5
+xchgawait_test4_opt Forbid : 4
 
 # Optimal/Observers with awaits and commuting rmws
-#xchgawait_vs_indep_inc Forbid : 3
-await_vs_indep_inc Forbid : 16 # 3 with await
-await_vs_indep_inc_2 Forbid : 32 # 3 with await
-await_vs_indep_inc_easy Forbid : 16 # 3 with await
-linuxrwlocks_repro_ifaa Forbid : 21 # 12 with await
+xchgawait_vs_indep_inc Forbid : 3
+await_vs_indep_inc Forbid : 3
+await_vs_indep_inc_2 Forbid : 3
+await_vs_indep_inc_easy Forbid : 3
+linuxrwlocks_repro_ifaa Forbid : 12
 
 # Optimal/Observers with commuting rmws
 safestack_c21_21_opt_rmwcomm Forbid : 21
@@ -100,17 +100,17 @@ safestack_c21_21_opt_rmwcomm Forbid : 21
 plptest_fully_pure Forbid : 2
 plptest_risk_of_segfault Forbid : 2
 plptest_spinloop Forbid : 2
-plptest_br_cond_not Forbid : 4 # 1 with await
+plptest_br_cond_not Forbid : 1
 plptest_safestack_21_easy Forbid : 11
 plptest_safestack_21_inlined Forbid : 11
 plptest_safestack_21_inlined_xchg Forbid : 11
 plptest_safestack_21 Forbid : 11
-plptest_burns_nobound Forbid : 16 # 9 with await
+plptest_burns_nobound Forbid : 9
 plptest_seqlock Forbid : 7
-plptest_seqlock_harder Forbid : 7 # 5 with await
+plptest_seqlock_harder Forbid : 5
 plptest_treiber_pop_easier Forbid : 27
 plptest_cmpxchg_reuse Forbid : 12
-plptest_cmpxchg_reuse_await Forbid : 12 # 10 with await
+plptest_cmpxchg_reuse_await Forbid : 10
 plptest_cmpxchg_member_reuse Forbid : 12
 plptest_cmpxchg_weak_reuse Forbid : 12
 # These should not be transformed

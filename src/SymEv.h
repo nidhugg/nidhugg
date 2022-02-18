@@ -27,6 +27,7 @@
 #include "MRef.h"
 #include "SymAddr.h"
 #include "RMWAction.h"
+#include "AwaitCond.h"
 
 /* Symbolic representation of an event */
 struct SymEv {
@@ -37,10 +38,12 @@ struct SymEv {
     NONDET,
 
     LOAD,
+    LOAD_AWAIT,
     STORE,
     FULLMEM, /* Observe & clobber everything */
 
     RMW,
+    XCHG_AWAIT,
     CMPXHG,
     CMPXHGFAIL,
 
@@ -76,9 +79,11 @@ struct SymEv {
   union arg2 {
   public:
     RmwAction::Kind rmw_kind;
+    AwaitCond::Op await_op;
 
     arg2() {}
     arg2(RmwAction::Kind kind) : rmw_kind(kind) {}
+    arg2(AwaitCond::Op await_op) : await_op(await_op) {}
   } arg2;
   bool _rmw_result_used;
   SymData::block_type _expected, _written;
@@ -88,10 +93,16 @@ struct SymEv {
   static SymEv Nondet(int count) { return {NONDET, count}; }
 
   static SymEv Load(SymAddrSize addr) { return {LOAD, addr}; }
+  static SymEv LoadAwait(SymAddrSize addr, AwaitCond cond) {
+    return {LOAD_AWAIT, addr, std::move(cond)};
+  }
   static SymEv Store(SymData addr) { return {STORE, std::move(addr)}; }
   static SymEv Rmw(SymData addr, RmwAction action) {
     assert(addr.get_block());
     return {RMW, std::move(addr), std::move(action)};
+  }
+  static SymEv XchgAwait(SymData addr, AwaitCond cond) {
+    return {XCHG_AWAIT, std::move(addr), std::move(cond)};
   }
   static SymEv CmpXhg(SymData addr, SymData::block_type expected) {
     return {CMPXHG, addr, expected};
@@ -134,6 +145,7 @@ struct SymEv {
   bool has_data() const;
   bool has_expected() const;
   bool has_rmwaction() const { return kind == RMW; }
+  bool has_cond() const { return kind == LOAD_AWAIT || kind == XCHG_AWAIT; };
   bool empty() const { return kind == NONE; }
   const SymAddrSize &addr()   const { assert(has_addr()); return arg.addr; }
         int          num()    const { assert(has_num()); return arg.num; }
@@ -155,12 +167,20 @@ struct SymEv {
     assert(has_rmwaction());
     return _rmw_result_used;
   }
+  AwaitCond cond() const {
+    assert(has_cond());
+    assert(_expected);
+    return {arg2.await_op, _expected};
+  }
 
   void purge_data();
   void set_observed(bool observed);
 
 private:
   SymEv(enum kind kind, union arg arg) : kind(kind), arg(arg) {};
+  SymEv(enum kind kind, union arg arg, AwaitCond cond)
+    : kind(kind), arg(arg), arg2(cond.op),
+    _expected(std::move(cond.operand)) {};
   SymEv(enum kind kind, SymData addr_written)
     : kind(kind), arg(std::move(addr_written.get_ref())),
       _written(std::move(addr_written.get_shared_block())) {};
@@ -172,6 +192,12 @@ private:
     : kind(kind), arg(addr_written.get_ref()), arg2(action.kind),
       _rmw_result_used(action.result_used),
       _expected(std::move(action.operand)),
+      _written(std::move(addr_written.get_shared_block())) {
+      assert(has_data());
+    };
+  SymEv(enum kind kind, SymData addr_written, AwaitCond cond)
+    : kind(kind), arg(addr_written.get_ref()), arg2(cond.op),
+      _expected(std::move(cond.operand)),
       _written(std::move(addr_written.get_shared_block())) {
       assert(has_data());
     };

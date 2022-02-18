@@ -48,6 +48,7 @@ struct RmwAction {
 
   /* Computes the result of this rmw action when given data as input */
   void apply_to(SymData &dst, const SymData &data);
+  void apply_to(void *dst, std::size_t size, void *data);
 };
 
 #endif
