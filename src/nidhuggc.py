@@ -25,8 +25,10 @@ nidhuggcparams = [
     {'name':'--clang','help':'Specify the path to clang.','param':'PATH'},
     {'name':'--clangxx','help':'Specify the path to clang++.','param':'PATH'},
     {'name':'--nidhugg','help':'Specify the path to the nidhugg binary.','param':'PATH'},
-    {'name':'--no-spin-assume','help':'Don\'t use the spin-assume transformation on module before calling nidhugg.','param':False},
+    {'name':'--no-partial-loop-purity','help':'Don\'t reduce partially pure loops with assumes before calling nidhugg.','param':False},
+    {'name':'--spin-assume','help':'Use the spin-assume transformation on module before calling nidhugg.','param':False},
     {'name':'--no-dead-code-elim','help':'Don\'t use the dead code elimination pass on module before calling nidhugg.','param':False},
+    {'name':'--no-cast-elim','help':'Don\'t use the cast elimination pass on module before calling nidhugg.','param':False},
     {'name':'--unroll','help':'Use unroll transformation on module before calling nidhugg.','param':'N'},
 ]
 
@@ -44,8 +46,10 @@ nidhuggcparamaliases = {
     '-clang':'--clang',
     '-clangxx':'--clangxx',
     '-nidhugg':'--nidhugg',
-    '-no-spin-assume':'--no-spin-assume',
+    '-no-partial-loop-purity':'--no-partial-loop-purity',
+    '-spin-assume':'--spin-assume',
     '-no-dead-code-elim':'--no-dead-code-elim',
+    '-no-cast-elim':'--no-cast-elim',
     '-unroll':'--unroll',
 }
 
@@ -266,9 +270,13 @@ def main():
                 CLANGXX=argarg
             elif argname == '--nidhugg':
                 NIDHUGG=argarg
-            elif argname == '--no-spin-assume':
+            elif argname == '--no-partial-loop-purity':
+                transformargs.append(argname)
+            elif argname == '--spin-assume':
                 transformargs.append(argname)
             elif argname == '--no-dead-code-elim':
+                transformargs.append(argname)
+            elif argname == '--no-cast-elim':
                 transformargs.append(argname)
             elif argname == '--unroll':
                 transformargs.append('--unroll={0}'.format(argarg))

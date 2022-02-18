@@ -17,11 +17,11 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-template<class T>
+template<class T, class Compare>
 template<typename ITER>
-VecSet<T>::VecSet(ITER begin, ITER end){
+VecSet<T, Compare>::VecSet(ITER begin, ITER end){
   for(; begin != end; ++begin){
-    if(vec.size() && vec.back() < *begin){
+    if(vec.size() && lt(vec.back(), *begin)){
       vec.push_back(*begin);
     }else{
       insert(*begin);
@@ -29,10 +29,10 @@ VecSet<T>::VecSet(ITER begin, ITER end){
   }
 }
 
-template<class T>
-VecSet<T>::VecSet(std::initializer_list<T> il){
+template<class T, class Compare>
+VecSet<T,Compare>::VecSet(std::initializer_list<T> il){
   for(auto it = il.begin(); it != il.end(); ++it){
-    if(vec.size() && vec.back() < *it){
+    if(vec.size() && lt(vec.back(), *it)){
       vec.push_back(*it);
     }else{
       insert(*it);
@@ -40,30 +40,30 @@ VecSet<T>::VecSet(std::initializer_list<T> il){
   }
 }
 
-template<class T>
-VecSet<T>::VecSet(VecSet<T> &&S)
+template<class T, class Compare>
+VecSet<T,Compare>::VecSet(VecSet &&S)
   : vec(std::move(S.vec))
 {
 }
 
-template<class T>
-VecSet<T> &VecSet<T>::operator=(VecSet<T> &&S){
+template<class T, class Compare>
+VecSet<T,Compare> &VecSet<T,Compare>::operator=(VecSet &&S){
   if(this != &S){
     vec = std::move(S.vec);
   }
   return *this;
 }
 
-template<class T>
-int VecSet<T>::find_geq(const T &t) const{
+template<class T, class Compare>
+int VecSet<T, Compare>::find_geq(const T &t) const{
   /* Use binary search */
   int a = 0;
   int b = vec.size();
   while(a < b){
     int c = (a+b)/2;
-    if(vec[c] < t){
+    if(lt(vec[c], t)){
       a = c+1;
-    }else if(vec[c] == t){
+    }else if(!lt(t, vec[c])){
       return c;
     }else{
       b = c;
@@ -72,8 +72,8 @@ int VecSet<T>::find_geq(const T &t) const{
   return a;
 }
 
-template<class T>
-int VecSet<T>::find(const T &t) const{
+template<class T, class Compare>
+int VecSet<T, Compare>::find(const T &t) const{
   int i = find_geq(t);
   if(i == int(vec.size()) || !(vec[i] == t)){
     return -1;
@@ -82,8 +82,8 @@ int VecSet<T>::find(const T &t) const{
   }
 }
 
-template<class T>
-int VecSet<T>::count(const T &t) const{
+template<class T, class Compare>
+int VecSet<T, Compare>::count(const T &t) const{
   if(find(t) >= 0){
     return 1;
   }else{
@@ -91,10 +91,11 @@ int VecSet<T>::count(const T &t) const{
   }
 }
 
-template<class T>
-std::pair<int,bool> VecSet<T>::insert(const T &t){
+template<class T, class Compare>
+std::pair<int,bool> VecSet<T,Compare>::insert(const T &t){
   int i = find_geq(t);
-  if(i < int(vec.size()) && vec[i] == t){
+  if(i < int(vec.size()) && !lt(t, vec[i])){
+    assert(!lt(vec[i], t)); /* vec[i] must compare equal to t */
     /* t is already in the set */
     return std::pair<int,bool>(i,false);
   }else{
@@ -111,10 +112,10 @@ std::pair<int,bool> VecSet<T>::insert(const T &t){
   }
 }
 
-template<class T>
-std::pair<int,bool> VecSet<T>::insert_geq(const T &t){
+template<class T, class Compare>
+std::pair<int,bool> VecSet<T,Compare>::insert_geq(const T &t){
   int i = vec.size();
-  assert(!i || vec.back() <= t);
+  assert(!i || !lt(t, vec.back()));
   if(i && vec.back() == t){
     /* t is already in the set */
     return std::pair<int,bool>(i-1,false);
@@ -124,14 +125,14 @@ std::pair<int,bool> VecSet<T>::insert_geq(const T &t){
   }
 }
 
-template<class T>
-void VecSet<T>::insert_gt(const T &t){
-  assert(vec.size() == 0 || vec.back() < t);
+template<class T, class Compare>
+void VecSet<T,Compare>::insert_gt(const T &t){
+  assert(vec.size() == 0 || lt(vec.back(), t));
   vec.push_back(t);
 }
 
-template<class T>
-int VecSet<T>::insert(const VecSet<T> &s){
+template<class T, class Compare>
+int VecSet<T,Compare>::insert(const VecSet &s){
   if(s.size() == 0){
     return 0;
   }else if(s.size() == 1){
@@ -143,9 +144,9 @@ int VecSet<T>::insert(const VecSet<T> &s){
     int a = 0; // pointer into this set
     int b = 0; // pointer into s
     while(a < size() && b < s.size()){
-      if(vec[a] < s.vec[b]){
+      if(lt(vec[a], s.vec[b])){
         ++a;
-      }else if(vec[a] == s.vec[b]){
+      }else if(!lt(s.vec[b], vec[a])){
         ++a;
         ++b;
       }else{
@@ -165,16 +166,16 @@ int VecSet<T>::insert(const VecSet<T> &s){
       /* Insert one-by-one the largest remaining element from this union s */
       for(int i = int(vec.size())-1; i >= 0; i--){
         assert(i >= a);
-        if(a < 0 || (b >= 0 && vec[a] < s.vec[b])){
+        if(a < 0 || (b >= 0 && lt(vec[a], s.vec[b]))){
           vec[i] = s.vec[b];
           --b;
-        }else if(a >= 0 && b >= 0 && vec[a] == s.vec[b]){
+        }else if(a >= 0 && b >= 0 && !lt(s.vec[b], vec[a])){
           vec[i] = vec[a];
           --a;
           --b;
         }else{
           assert(a >= 0);
-          assert(b < 0 || s.vec[b] < vec[a]);
+          assert(b < 0 || lt(s.vec[b], vec[a]));
           vec[i] = vec[a];
           --a;
         }
@@ -186,21 +187,26 @@ int VecSet<T>::insert(const VecSet<T> &s){
   }
 }
 
-template<class T>
-int VecSet<T>::erase(const T &t){
+template<class T, class Compare>
+int VecSet<T,Compare>::erase(const T &t){
   int i = find_geq(t);
-  if(int(vec.size()) <= i || !(vec[i] == t)) return 0;
+  if(int(vec.size()) <= i || lt(t, vec[i])) return 0;
 
-  for(int j = i; j < int(vec.size())-1; ++j){
-    vec[j] = vec[j+1];
-  }
-  vec.resize(vec.size()-1,t);
+  erase_at(i);
 
   return 1;
 }
 
-template<class T>
-int VecSet<T>::erase(const VecSet<T> &S){
+template<class T, class Compare>
+void VecSet<T,Compare>::erase_at(int p){
+  for(int j = p; j < int(vec.size())-1; ++j){
+    vec[j] = vec[j+1];
+  }
+  vec.resize(vec.size()-1,vec[0]);
+}
+
+template<class T, class Compare>
+int VecSet<T,Compare>::erase(const VecSet &S){
   if(vec.empty()) return 0;
   if(S.vec.empty()) return 0;
   int a = 0;
@@ -208,16 +214,16 @@ int VecSet<T>::erase(const VecSet<T> &S){
   int ains = 0;
   int erase_count = 0;
   while(a < size() && b < S.size()){
-    if(vec[a] == S.vec[b]){
-      ++a;
-      ++b;
-      ++erase_count;
-    }else if(vec[a] < S.vec[b]){
+    if(lt(vec[a], S.vec[b])){
       if(ains != a) vec[ains] = vec[a];
       ++a;
       ++ains;
-    }else{
+    }else if(lt(S.vec[b], vec[a])){
       ++b;
+    }else{
+      ++a;
+      ++b;
+      ++erase_count;
     }
   }
   if(ains != a){
@@ -231,18 +237,18 @@ int VecSet<T>::erase(const VecSet<T> &S){
   return erase_count;
 }
 
-template<class T>
-bool VecSet<T>::check_invariant() const{
+template<class T, class Compare>
+bool VecSet<T,Compare>::check_invariant() const{
   for(unsigned i = 1; i < vec.size(); ++i){
-    if(!(vec[i-1] < vec[i])){
+    if(!(lt(vec[i-1], vec[i]))){
       return false;
     }
   }
   return true;
 }
 
-template<class T>
-std::string VecSet<T>::to_string_one_line(std::function<std::string(const T&)> f) const{
+template<class T, class Compare>
+std::string VecSet<T,Compare>::to_string_one_line(std::function<std::string(const T&)> f) const{
   std::string s = "{";
   for(unsigned i = 0; i < vec.size(); ++i){
     if(i != 0) s += ", ";
@@ -252,8 +258,8 @@ std::string VecSet<T>::to_string_one_line(std::function<std::string(const T&)> f
   return s;
 }
 
-template<class T>
-bool VecSet<T>::subset_of(const VecSet<T> &s) const{
+template<class T, class Compare>
+bool VecSet<T,Compare>::subset_of(const VecSet &s) const{
   if(vec.size() > s.vec.size()){
     return false;
   }
@@ -263,9 +269,9 @@ bool VecSet<T>::subset_of(const VecSet<T> &s) const{
     if((int(vec.size()) - a) > (int(s.vec.size()) - b)){
       return false;
     }
-    if(vec[a] < s.vec[b]){
+    if(lt(vec[a], s.vec[b])){
       return false;
-    }else if(vec[a] == s.vec[b]){
+    }else if(!lt(s.vec[b], vec[a])){
       ++a;
       ++b;
     }else{
@@ -275,14 +281,14 @@ bool VecSet<T>::subset_of(const VecSet<T> &s) const{
   return true;
 }
 
-template<class T>
-bool VecSet<T>::intersects(const VecSet<T> &s) const{
+template<class T, class Compare>
+bool VecSet<T,Compare>::intersects(const VecSet &s) const{
   int a = 0; // pointer into vec
   int b = 0; // pointer into s.vec
   while(a < int(vec.size()) && b < int(s.vec.size())){
-    if(vec[a] < s.vec[b]){
+    if(lt(vec[a], s.vec[b])){
       ++a;
-    }else if(vec[a] == s.vec[b]){
+    }else if(!lt(s.vec[b], vec[a])){
       return true;
     }else{
       ++b;

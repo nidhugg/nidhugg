@@ -63,5 +63,26 @@ unroll_double_loop Forbid : 1
 # Optimal/Observers with commuting rmws
 safestack_c21_21_opt_rmwcomm Forbid : 21
 
+# Tests for the partial-loop-purity transformation pass. These should be
+# transformed
+plptest_fully_pure Forbid : 2
+plptest_risk_of_segfault Forbid : 2
+plptest_spinloop Forbid : 2
+plptest_br_cond_not Forbid : 4
+plptest_safestack_21_easy Forbid : 11
+plptest_safestack_21_inlined Forbid : 11
+plptest_safestack_21_inlined_xchg Forbid : 11
+plptest_safestack_21 Forbid : 11
+plptest_burns_nobound Forbid : 16
+plptest_seqlock Forbid : 7
+plptest_seqlock_harder Forbid : 7
+plptest_treiber_pop_easier Forbid : 27
+plptest_cmpxchg_reuse Forbid : 12
+plptest_cmpxchg_member_reuse Forbid : 12
+plptest_cmpxchg_weak_reuse Forbid : 12
+# These should not be transformed
+plptest_cmpxchg_reuse_reorder Forbid : 14
+plptest_leaky_counter Forbid : 4
+
 # Total number of traces: 1116
 # Total running time: 9.51 s

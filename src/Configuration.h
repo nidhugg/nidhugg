@@ -92,7 +92,7 @@ public:
     debug_collect_all_traces = false;
     debug_print_on_reset = false;
     debug_print_on_error = false;
-    transform_spin_assume = true;
+    transform_spin_assume = false;
     transform_loop_unroll = -1;
     svcomp_nondet_int = nullptr;
     print_progress = false;
@@ -187,6 +187,10 @@ public:
   bool transform_spin_assume;
   /* In module transformation, enable the DeadCodeElim pass. */
   bool transform_dead_code_elim = true;
+  /* In module transformation, enable the CastElim pass. */
+  bool transform_cast_elim = true;
+  /* In module transformation, enable the PartialLoopPurity pass. */
+  bool transform_partial_loop_purity = true;
   /* If transform_loop_unroll is non-negative, in module
    * transformation, enable loop unrolling with depth
    * transform_loop_unroll.
