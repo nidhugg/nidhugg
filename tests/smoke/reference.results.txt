@@ -110,7 +110,8 @@ plptest_seqlock Forbid : 7
 plptest_seqlock_harder Forbid : 5
 plptest_treiber_pop_easier Forbid : 27
 plptest_cmpxchg_reuse Forbid : 12
-plptest_cmpxchg_reuse_await Forbid : 10
+# Crashes at transform stage in CI images with LLVM <= 4
+#plptest_cmpxchg_reuse_await Forbid : 10
 plptest_cmpxchg_member_reuse Forbid : 12
 plptest_cmpxchg_weak_reuse Forbid : 12
 # These should not be transformed
