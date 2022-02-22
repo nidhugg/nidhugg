@@ -44,6 +44,10 @@ public:
   virtual ~TraceBuilder();
   /* Returns true iff the sleepset is currently empty. */
   virtual bool sleepset_is_empty() const = 0;
+  /* When called at the end of an execution, returns true iff there are
+   * any await-statements that are blocking.
+   */
+  virtual bool await_blocked() const { return false; }
   /* Returns true iff this trace contains any happens-before cycle.
    *
    * If there is a happens-before cycle, and conf.check_robustness is

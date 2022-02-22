@@ -110,13 +110,15 @@ public:
   public:
     /* Empty result */
     Result() : trace_count(0), sleepset_blocked_trace_count(0),
-               assume_blocked_trace_count(0) {};
+               assume_blocked_trace_count(0), await_blocked_trace_count(0) {};
     /* The number of explored (non-sleepset-blocked) traces */
     uint64_t trace_count;
     /* The number of explored sleepset-blocked traces */
     uint64_t sleepset_blocked_trace_count;
     /* The number of explored assume-blocked traces */
     uint64_t assume_blocked_trace_count;
+    /* The number of explored assume-blocked traces */
+    uint64_t await_blocked_trace_count;
 
     bool has_errors() const { return error_trace && error_trace->has_errors(); };
   };
