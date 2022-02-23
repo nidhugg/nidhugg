@@ -234,6 +234,8 @@ void DPORDriver::print_progress(uint64_t computation_count, long double estimate
       llvm::dbgs() << ", " << res.sleepset_blocked_trace_count << " ssb";
     if(res.assume_blocked_trace_count)
       llvm::dbgs() << ", " << res.assume_blocked_trace_count << " ab";
+    if(res.await_blocked_trace_count)
+      llvm::dbgs() << ", " << res.await_blocked_trace_count << " awb";
     if(tasks_left != -1)
       llvm::dbgs() << " (" << tasks_left << " jobs)";
     if(conf.print_progress_estimate){
@@ -258,6 +260,8 @@ bool DPORDriver::handle_trace(TraceBuilder *TB, Trace *t, uint64_t *computation_
     ++res.sleepset_blocked_trace_count;
   }else if(assume_blocked){
     ++res.assume_blocked_trace_count;
+  }else if(TB->await_blocked()){
+    ++res.await_blocked_trace_count;
   }else{
     ++res.trace_count;
   }

@@ -143,7 +143,9 @@ def run_test(tst):
                                       stderr = subprocess.STDOUT).decode()
         lines = out.split("\n")
         res['tracecount'] = grep_count(lines, "Trace count: ") \
-            + grep_count(lines, "Assume-blocked trace count: ")
+            + grep_count(lines, "Assume-blocked trace count: ") \
+            + grep_count(lines, "Await-blocked trace count: ") \
+            + grep_count(lines, "Sleepset-blocked trace count: ")
         if out.find('No errors were detected') >= 0:
             res['allow'] = False
         else:

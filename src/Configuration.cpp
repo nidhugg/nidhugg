@@ -125,6 +125,24 @@ static llvm::cl::opt<bool> cl_transform_spin_assume("spin-assume",llvm::cl::NotH
                                                     llvm::cl::desc("Enable the spin assume pass in module\n"
                                                                    "transformation."));
 
+enum class Tristate{
+  DEFAULT,
+  TRUE,
+  FALSE,
+};
+
+static llvm::cl::opt<Tristate> cl_transform_assume_await
+(llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat), llvm::cl::init(Tristate::DEFAULT),
+ llvm::cl::desc("Disable or enable the assume to await pass in module transformation."),
+ llvm::cl::values(clEnumValN(Tristate::TRUE,"assume-await","Force-enable the assume to await pass in module transformation"),
+                  clEnumValN(Tristate::FALSE,"no-assume-await","Disable the assume to await pass in module transformation"),
+                  clEnumValN(Tristate::DEFAULT,"default-assume-await","Enable the assume to await pass in module"
+                             " transformation\nif the current mode supports await-statements")
+#ifdef LLVM_CL_VALUES_USES_SENTINEL
+                  ,clEnumValEnd
+#endif
+                  ));
+
 static llvm::cl::opt<bool> cl_transform_no_dead_code_elim
 ("no-dead-code-elim",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
  llvm::cl::desc("Disable the dead code elimination pass in module\n"
@@ -204,6 +222,7 @@ const std::set<std::string> &Configuration::commandline_opts(){
     "check-robustness",
     "spin-assume",
     "no-partial-loop-purity",
+    "assume-await","no-assume-await","default-assume-await",
     "unroll",
     "print-progress",
     "print-progress-estimate",
@@ -232,6 +251,15 @@ void Configuration::assign_by_commandline(){
   transform_dead_code_elim = !cl_transform_no_dead_code_elim;
   transform_cast_elim = !cl_transform_no_cast_elim;
   transform_partial_loop_purity = !cl_transform_no_partial_loop_purity;
+  if (cl_transform_assume_await == Tristate::DEFAULT) {
+    /* Source-DPOR and TSO probably work too, and maybe also Observers,
+     * but Optimal-DPOR is the only one we've formally proven correct,
+     * for now */
+    transform_assume_await = (memory_model == SC
+                              && dpor_algorithm == Configuration::OPTIMAL);
+  } else {
+    transform_assume_await = cl_transform_assume_await == Tristate::TRUE;
+  }
   transform_loop_unroll = cl_transform_loop_unroll;
   if (cl_verifier_nondet_int.getNumOccurrences())
     svcomp_nondet_int = (int)cl_verifier_nondet_int;
@@ -251,51 +279,14 @@ void Configuration::assign_by_commandline(){
 
 void Configuration::check_commandline(){
   /* Check commandline switch compatibility with --transform. */
-  if(cl_transform.getNumOccurrences()){
-    if(cl_extfun_no_race.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:extfun_no_race")
-        << "WARNING: --extfun-no-race ignored in presence of --transform.\n";
-    }
-    if(cl_malloc_may_fail.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:malloc_may_fail")
-        << "WARNING: --malloc_may_fail ignored in presence of --transform.\n";
-    }
-    if(cl_disable_mutex_init_requirement.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:disable_mutex_init_requirement")
-        << "WARNING: --disable-mutex-init-requirement ignored in presence of --transform.\n";
-    }
-    if(cl_max_search_depth.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:max-search-depth")
-        << "WARNING: --max-search-depth ignored in presence of --transform.\n";
-    }
-    if(cl_memory_model.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:memory_model")
-        << "WARNING: Given memory model ignored in presence of --transform.\n";
-    }
-    if(cl_dpor_algorithm.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:dpor_algorithm")
-        << "WARNING: Given DPOR algorithm ignored in presence of --transform.\n";
-    }
-    if(cl_print_progress.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:print-progress")
-        << "WARNING: --print-progress ignored in presence of --transform.\n";
-    }
-    if(cl_print_progress_estimate.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:print-progress-estimate")
-        << "WARNING: --print-progress-estimate ignored in presence of --transform.\n";
-    }
-    if(cl_check_robustness.getNumOccurrences()){
-      Debug::warn("Configuration::check_commandline:transform:check_robustness")
-        << "WARNING: --robustness ignored in presence of --transform.\n";
-    }
-    if(cl_program_arguments.size()){
-      Debug::warn("Configuration::check_commandline:transform:program_arguments")
-        << "WARNING: Program arguments (argv for test case) ignored in presence of --transform.\n";
-    }
-  }else{
+  if(!cl_transform.getNumOccurrences()){
     if(cl_transform_spin_assume.getNumOccurrences()){
       Debug::warn("Configuration::check_commandline:no:transform:transform-no-spin-assume")
         << "WARNING: --spin-assume ignored in absence of --transform.\n";
+    }
+    if(cl_transform_assume_await.getNumOccurrences()){
+      Debug::warn("Configuration::check_commandline:no:transform:transform-assume-await")
+        << "WARNING: --no-assume-await ignored in absence of --transform.\n";
     }
     if(cl_transform_loop_unroll.getNumOccurrences()){
       Debug::warn("Configuration::check_commandline:no:transform:transform_loop_unroll")

@@ -25,6 +25,7 @@
 #include "Configuration.h"
 #include "SymAddr.h"
 #include "RMWAction.h"
+#include "AwaitCond.h"
 #include "Trace.h"
 #include "DetCheckTraceBuilder.h"
 #include "CompilerHelp.h"
@@ -150,6 +151,15 @@ public:
     return load(ml.get_ref())
       && atomic_store(ml);
   }
+  virtual NODISCARD bool xchg_await(const SymData &ml, AwaitCond cond) {
+    invalid_input_error("Exchange-await not supported by selected algorithm");
+    return false;
+  }
+  virtual NODISCARD bool xchg_await_fail(const SymData &ml, AwaitCond cond) {
+    invalid_input_error("Exchange-await not supported by selected algorithm");
+    return false;
+  }
+
   /* Perform a compare-exchange to sd.get_ref().
    *
    * success is true iff ml.get_ref() contained the value of expected.
@@ -165,6 +175,14 @@ public:
    * Returns true on success, false if an error has been generated.
    */
   virtual NODISCARD bool load(const SymAddrSize &ml) = 0;
+  virtual NODISCARD bool load_await(const SymAddrSize &ml, AwaitCond cond) {
+    invalid_input_error("Load-await not supported by selected algorithm");
+    return false;
+  }
+  virtual NODISCARD bool load_await_fail(const SymAddrSize &ml, AwaitCond cond) {
+    invalid_input_error("Load-await not supported by selected algorithm");
+    return false;
+  }
   /* Perform an action that conflicts with all memory accesses and all
    * other full memory conflicts.
    *

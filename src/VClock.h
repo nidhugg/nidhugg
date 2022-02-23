@@ -168,6 +168,10 @@ public:
   bool leq(const VClock<int> &vc) const;
   bool gt(const VClock<int> &vc) const;
   bool geq(const VClock<int> &vc) const;
+  /* A vector clock u intersects a (below) clock v if there is at least
+   * one d within the domain of v such that u[d] >= v[d]
+   */
+  bool intersects_below(const VClock<int> &vc) const;
 
   /* *** Total order comparisons *** */
   bool operator==(const VClock<int> &vc) const;

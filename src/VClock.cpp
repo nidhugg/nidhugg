@@ -194,6 +194,13 @@ bool VClock<int>::gt(const VClock<int> &vc) const{
   return greater;
 }
 
+bool VClock<int>::intersects_below(const VClock<int> &vc) const{
+  for (std::size_t i = 0; i < vc.size_ub(); ++i) {
+    if ((*this)[i] >= vc[i]) return true;
+  }
+  return false;
+}
+
 std::string VClock<int>::to_string() const{
   int m = vec.size() - 1;
   while(0 <= m && vec[m] == 0) --m;

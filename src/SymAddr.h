@@ -170,6 +170,9 @@ public:
 
   bool operator==(const SymAddrSize &o) const { return addr == o.addr && size == o.size; };
   bool operator!=(const SymAddrSize &o) const { return !(*this == o); };
+  bool operator<(const SymAddrSize &o) const {
+    return addr < o.addr || (addr == o.addr && size < o.size);
+  }
 
   std::string to_string(std::function<std::string(int)> pid_str
                         = (std::string(&)(int))std::to_string) const;

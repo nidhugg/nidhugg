@@ -25,18 +25,32 @@
 #include <llvm/Support/SwapByteOrder.h> /* On llvm >= 11 */
 
 namespace {
-  int smemcmp(const void *lhs, const void *rhs, std::size_t count) {
+  int apcmp(const void *lhsv, const void *rhsv, std::size_t count) {
+    if (llvm::sys::IsBigEndianHost) {
+      return std::memcmp(lhsv, rhsv, count);
+    } else {
+      const uint8_t *lhs = static_cast<const uint8_t*>(lhsv);
+      const uint8_t *rhs = static_cast<const uint8_t*>(rhsv);
+      while(count--) {
+        if (lhs[count] > rhs[count]) return 1;
+        else if (lhs[count] < rhs[count]) return -1;
+      }
+      return 0;
+    }
+  }
+
+  int sapcmp(const void *lhs, const void *rhs, std::size_t count) {
     if (!count) return 0;
     std::size_t big_byte_index;
     if (llvm::sys::IsBigEndianHost) {
-      big_byte_index = count-1;
-    } else {
       big_byte_index = 0;
+    } else {
+      big_byte_index = count-1;
     }
     bool lsign = ((const char*)lhs)[big_byte_index] >> (CHAR_BIT-1);
     bool rsign = ((const char*)rhs)[big_byte_index] >> (CHAR_BIT-1);
     if (lsign != rsign) return lsign ? -1 : 1;
-    return std::memcmp(lhs, rhs, count);
+    return apcmp(lhs, rhs, count);
   }
 }
 
@@ -51,10 +65,13 @@ const char *RmwAction::name(Kind kind) {
 void RmwAction::apply_to(SymData &dst, const SymData &data) {
   assert(dst.get_ref() == data.get_ref());
   assert(dst.get_shared_block().unique());
-  std::size_t size = dst.get_ref().size;
-  uint8_t *outp = static_cast<uint8_t*>(dst.get_block());
+  apply_to(dst.get_block(), dst.get_ref().size, data.get_block());
+}
+
+void RmwAction::apply_to(void *dst, std::size_t size, void *data) {
+  uint8_t *outp = static_cast<uint8_t*>(dst);
   const uint8_t *inp, *argp;
-  inp = static_cast<uint8_t*>(data.get_block());
+  inp = static_cast<uint8_t*>(data);
   argp = static_cast<uint8_t*>(operand.get());
 
   switch (kind) {
@@ -64,7 +81,7 @@ void RmwAction::apply_to(SymData &dst, const SymData &data) {
     outp += shift;
     inp += shift;
     argp += shift;
-    uint8_t carry = 0;
+    int8_t carry = 0;
     for (size_t i = 0; i < size; ++i) {
       uint16_t sum;
       if (kind == ADD) sum = inp[i*multiplier] + argp[i*multiplier] + carry;
@@ -90,7 +107,7 @@ void RmwAction::apply_to(SymData &dst, const SymData &data) {
   } break;
   case MAX: case MIN: case UMAX: case UMIN:  {
     bool is_signed = kind == MAX || kind == MIN;
-    int out = (is_signed ? smemcmp : memcmp)(data.get_block(), operand.get(), size);
+    int out = (is_signed ? sapcmp : apcmp)(data, operand.get(), size);
     bool take_rhs = out > 0;
     if (kind == MAX || kind == UMAX) take_rhs = !take_rhs;
     const uint8_t *res = take_rhs ? argp : inp;

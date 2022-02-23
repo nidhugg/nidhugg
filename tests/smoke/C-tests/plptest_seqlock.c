@@ -1,4 +1,4 @@
-// nidhuggc: -sc -optimal
+// nidhuggc: -sc -optimal -no-assume-await
 
 #include <stdbool.h>
 #include <pthread.h>

@@ -28,6 +28,7 @@
 #include "Option.h"
 
 #include <boost/container/flat_map.hpp>
+#include <unordered_map>
 
 typedef llvm::SmallVector<SymEv,1> sym_ty;
 
@@ -43,6 +44,7 @@ public:
   virtual bool is_replaying() const override;
   virtual void metadata(const llvm::MDNode *md) override;
   virtual bool sleepset_is_empty() const override;
+  virtual bool await_blocked() const override { return blocked_awaits.size(); }
   virtual bool check_for_cycles() override;
   virtual Trace *get_trace() const override;
   virtual bool reset() override;
@@ -54,9 +56,16 @@ public:
   virtual NODISCARD bool store(const SymData &ml) override;
   virtual NODISCARD bool atomic_store(const SymData &ml) override;
   virtual NODISCARD bool atomic_rmw(const SymData &ml, RmwAction action) override;
+  virtual NODISCARD bool xchg_await(const SymData &ml, AwaitCond cond) override;
+  virtual NODISCARD bool xchg_await_fail(const SymData &ml, AwaitCond cond) override;
+
   virtual NODISCARD bool compare_exchange
   (const SymData &sd, const SymData::block_type expected, bool success) override;
   virtual NODISCARD bool load(const SymAddrSize &ml) override;
+  virtual NODISCARD bool load_await(const SymAddrSize &ml, AwaitCond cond)
+    override;
+  virtual NODISCARD bool load_await_fail(const SymAddrSize &ml, AwaitCond cond)
+    override;
   virtual NODISCARD bool full_memory_conflict() override;
   virtual NODISCARD bool fence() override;
   virtual NODISCARD bool join(int tgt_proc) override;
@@ -334,7 +343,7 @@ protected:
 
   struct Race {
   public:
-    enum Kind {
+    enum Kind : uint8_t {
       /* Any kind of event that does not block any other process */
       NONBLOCK,
       /* A nonblocking race where additionally a third event is
@@ -347,27 +356,29 @@ protected:
       LOCK_SUC,
       /* A nondeterministic event that can be performed differently */
       NONDET,
+      /* An event that can be blocked by other processes. Includes a set
+       * "exclude" to exclude from the wakeup sequence. */
+      SEQUENCE,
     };
+    SymEv ev;
     Kind kind;
     int first_event;
     int second_event;
     IID<IPid> second_process;
+    std::vector<unsigned> exclude; // XXX: Make me fixed_vector
     union{
-      const Mutex *mutex;
       int witness_event;
       int alternative;
       int unlock_event;
     };
     static Race Nonblock(int first, int second) {
-      return Race(NONBLOCK, first, second, {-1,0}, nullptr);
+      return Race(NONBLOCK, first, second, {-1,0}, -1);
     };
     static Race Observed(int first, int second, int witness) {
       return Race(OBSERVED, first, second, {-1,0}, witness);
     };
-    static Race LockFail(int first, int second, IID<IPid> process,
-                         const Mutex *mutex) {
-      assert(mutex);
-      return Race(LOCK_FAIL, first, second, process, mutex);
+    static Race LockFail(int first, int second, IID<IPid> process) {
+      return Race(LOCK_FAIL, first, second, process, -1);
     };
     static Race LockSuc(int first, int second, int unlock) {
       return Race(LOCK_SUC, first, second, {-1,0}, unlock);
@@ -375,18 +386,38 @@ protected:
     static Race Nondet(int event, int alt) {
       return Race(NONDET, event, -1, {-1,0}, alt);
     };
+    static Race Sequence(int first, int second, IID<IPid> process, SymEv ev,
+                         std::vector<unsigned> exclude) {
+      return Race(SEQUENCE, first, second, process, std::move(ev),
+                  std::move(exclude));
+    }
+    bool is_fail_kind() const {
+      return kind == LOCK_FAIL || kind == SEQUENCE;
+    }
   private:
-    Race(Kind k, int f, int s, IID<IPid> p, const Mutex *m) :
-      kind(k), first_event(f), second_event(s), second_process(p), mutex(m) {}
     Race(Kind k, int f, int s, IID<IPid> p, int w) :
       kind(k), first_event(f), second_event(s), second_process(p),
       witness_event(w) {}
+    Race(Kind k, int f, int s, IID<IPid> p, SymEv &&ev,
+         std::vector<unsigned> &&exclude) :
+      ev(std::move(ev)), kind(k), first_event(f), second_event(s),
+      second_process(p), exclude(std::move(exclude)) {}
   };
 
   /* Locations in the trace where a process is blocked waiting for a
    * lock. All are of kind LOCK_FAIL.
    */
   std::vector<Race> lock_fail_races;
+
+  /* All currently blocking Await-events. */
+  struct BlockedAwait {
+    BlockedAwait(int index, SymEv ev)
+      : ev(std::move(ev)), index(index) {}
+    SymEv ev;
+    int index;
+  };
+  std::unordered_map<SymAddr, boost::container::flat_map<IPid,BlockedAwait>>
+    blocked_awaits;
 
   /* Information about a (short) sequence of consecutive events by the
    * same thread. At most one event in the sequence may have conflicts
@@ -417,6 +448,16 @@ protected:
      * involving this event as the main event.
      */
     std::vector<Race> races;
+    /* Events that unblock the current event (and thus are not races),
+     * but are not inherently needed to enable this event.
+     *
+     * For a lock-event, the prior unlock event does not need to be in
+     * here, as it is handles specially by LockSuc races in races.
+     *
+     * May not contain -1
+     */
+    VecSet<int> happens_after_later;
+
     /* Is it possible for any event in this sequence to have a
      * conflict with another event?
      */
@@ -520,6 +561,8 @@ protected:
     return Branch(prefix.branch(index), prefix[index].sym);
   };
 
+  IID<CPid> get_iid(unsigned i) const;
+
   /* Perform the logic of atomic_store(), aside from recording a
    * symbolic event.
    */
@@ -536,6 +579,12 @@ protected:
                       VecSet<int> &seen_accesses,
                       VecSet<std::pair<int,int>> &seen_pairs,
                       bool is_update);
+  /* Adds the races implied by an await at position pos in prefix to
+   * races. pos may be prefix.len() (corresponding to a deadlocked
+   * await).
+   * Returns false if an error was added */
+  bool do_await(unsigned pos, const IID<IPid> &iid, const SymEv &e,
+                const VClock<IPid> &above_clock, std::vector<Race> &races);
 
   /* Finds the index in prefix of the event of process pid that has iid-index
    * index.
@@ -572,9 +621,9 @@ protected:
    */
   void add_lock_suc_race(int lock, int unlock);
   /* Record that the currently executing event is being blocked trying
-   * to aquire mutex m, which is held by the lock event event.
+   * to aquire a mutex, which is held by the lock event event.
    */
-  void add_lock_fail_race(const Mutex &m, int event);
+  void add_lock_fail_race(int event);
   /* Check if two events in the current prefix are in conflict. */
   bool do_events_conflict(int i, int j) const;
   bool do_events_conflict(const Event &fst, const Event &snd) const;
@@ -597,10 +646,14 @@ protected:
   bool is_observed_conflict(IPid fst_pid, const SymEv &fst,
                             IPid snd_pid, const SymEv &snd,
                             IPid thd_pid, const SymEv &thd) const;
-  /* Reconstruct the vector cloc and symbolic event of a blocked attempt
-   * at aquiring a mutex recorded in race.
+  /* Reconstruct the above-vector clock of a blocked event with IID
+   * iid. */
+  VClock<IPid> reconstruct_blocked_clock(IID<IPid> iid) const;
+  /* Reconstruct the vector clock and symbolic event of a blocked event
+   * recorded in race, for example a blocked attempt at aquiring a
+   * mutex.
    */
-  Event reconstruct_lock_event(const Race &race) const;
+  Event reconstruct_blocked_event(const Race &race) const;
   /* Computes a mapping between IPid and current local clock value
    * (index) of that process after executing the prefix [0,event).
    */
@@ -659,6 +712,16 @@ protected:
     const;
   /* Recompute the observation states on the symbolic events in v. */
   void recompute_observed(std::vector<Branch> &v) const;
+  /* Check whether an await would be satisfied if played at position i
+   * in the current prefix.
+   */
+  bool awaitcond_satisfied_before(unsigned i, const SymAddrSize &ml,
+                                  const AwaitCond &cond) const;
+  /* The same, but assuming that before playing the await, we play a set
+   * of events given as seq (referring to events in prefix)
+   */
+  bool awaitcond_satisfied_by(unsigned i, const std::vector<unsigned> &seq,
+                              const SymAddrSize &ml, const AwaitCond &cond) const;
   struct obs_sleep {
     struct sleeper {
       IPid pid;
