@@ -2673,10 +2673,12 @@ void TSOTraceBuilder::race_detect_optimal
     enum { NO, RECURSE, NEXT } skip = NO;
     for (auto child_it = node.begin(); child_it != node.end(); ++child_it) {
       const sym_ty &child_sym = child_it.branch().sym;
+      bool found_match = false;
 
       for (auto vei = v.begin(); skip == NO && vei != v.end(); ++vei) {
         const Branch &ve = *vei;
         if (child_it.branch() == ve) {
+          found_match = true;
           if (child_sym != ve.sym) {
             /* This can happen due to observer effects. We must now make sure
              * ve.second->sym does not have any conflicts with any previous
@@ -2746,6 +2748,11 @@ void TSOTraceBuilder::race_detect_optimal
         }
       }
       if (skip == NEXT) { skip = NO; continue; }
+
+      if (!found_match) {
+        /* Insertion is not necessary in this case */
+        return;
+      }
 
       /* The child is compatible with v, recurse into it. */
       node = child_it.node();
