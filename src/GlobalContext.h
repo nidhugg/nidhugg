@@ -25,15 +25,20 @@
 #include <llvm/LLVMContext.h>
 #endif
 
+#ifndef __GLOBAL_CONTEXT_H__
+#define __GLOBAL_CONTEXT_H__
+
 namespace GlobalContext {
 
   /* Get a global context. The context is initialized on the first
    * call to get.
    */
-  llvm::LLVMContext &get();
+  // llvm::LLVMContext &get();
 
   /* Destroy the global context. Does nothing if the global context
    * has not been created.
    */
-  void destroy();
+  inline void destroy() {}
 }
+
+#endif /* !defined(__GLOBAL_CONTEXT_H__) */

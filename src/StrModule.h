@@ -35,12 +35,12 @@ namespace StrModule {
   /* Reads the file infile, interprets its contents as LLVM assembly
    * or bitcode, and creates and returns the corresponding module.
    */
-  llvm::Module *read_module(std::string infile, llvm::LLVMContext &context = GlobalContext::get());
+  llvm::Module *read_module(std::string infile, llvm::LLVMContext &context);
 
   /* Interprets the contents of src as LLVM assembly or bitcode, and
    * creates and returns the corresponding module.
    */
-  llvm::Module *read_module_src(const std::string &src, llvm::LLVMContext &context = GlobalContext::get());
+  llvm::Module *read_module_src(const std::string &src, llvm::LLVMContext &context);
 
   /* Stores mod as assembly to outfile. */
   void write_module(llvm::Module *mod, std::string outfile);

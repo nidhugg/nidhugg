@@ -103,12 +103,12 @@ POWERInterpreter::POWERInterpreter(llvm::Module *M, POWERARMTraceBuilder &TB, co
 
   IL = new llvm::IntrinsicLowering(TD);
 
-  static llvm::Value *V0 = llvm::ConstantInt::get(llvm::Type::getInt32Ty(M->getContext()),0);
-  static llvm::Value *P0_32 = llvm::ConstantPointerNull::get(llvm::Type::getInt32PtrTy(M->getContext()));
+  llvm::Value *V0 = llvm::ConstantInt::get(llvm::Type::getInt32Ty(M->getContext()),0);
+  llvm::Value *P0_32 = llvm::ConstantPointerNull::get(llvm::Type::getInt32PtrTy(M->getContext()));
   dummy_store = new llvm::StoreInst(V0,P0_32,/*IsVolatile=*/false,/*Align=*/{},
                                     /*InsertBefore=*/(llvm::Instruction*)nullptr);
-  static llvm::Value *P0_8 = llvm::ConstantPointerNull::get(llvm::Type::getInt8PtrTy(M->getContext()));
-  static llvm::Type *I8 = llvm::Type::getInt8Ty(M->getContext());
+  llvm::Value *P0_8 = llvm::ConstantPointerNull::get(llvm::Type::getInt8PtrTy(M->getContext()));
+  llvm::Type *I8 = llvm::Type::getInt8Ty(M->getContext());
   dummy_load8 = new llvm::LoadInst(I8, P0_8,"",/*IsVolatile=*/false,/*Align=*/{},
                                    /*InsertBefore=*/(llvm::Instruction*)nullptr);
 }

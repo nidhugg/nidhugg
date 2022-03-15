@@ -294,7 +294,9 @@ namespace{
 
 DPORDriver::Result DPORDriver::run_rfsc_sequential() {
   Result res;
-  std::unique_ptr<llvm::Module> mod = parse(PARSE_AND_CHECK);
+  auto context = std::make_unique<llvm::LLVMContext>();
+  std::unique_ptr<llvm::Module> mod = parse(PARSE_AND_CHECK,
+                                            *context);
   RFSCDecisionTree decision_tree(make_scheduler(conf));
   RFSCUnfoldingTree unfolding_tree;
   RFSCTraceBuilder TB(decision_tree, unfolding_tree, conf);
@@ -325,10 +327,13 @@ DPORDriver::Result DPORDriver::run_rfsc_sequential() {
     if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
       estimate = std::round(TB.estimate_trace_count());
     }
-    if((computation_count+1) % 1000 == 0){
-      /* llvm::ExecutionEngine leaks global variables until the Module is
-       * destructed */
-      mod = parse();
+    if((computation_count+1) % 1024 == 0){
+      /* llvm::ExecutionEngine leaks global variables until the Module
+       * is destroyed, and the parser leaks MDNodes until the context is
+       * destroyed! */
+      mod.reset();
+      context = std::make_unique<llvm::LLVMContext>();
+      mod = parse(PARSE_ONLY, *context);
     }
 
   } while(tasks_left);
@@ -382,8 +387,11 @@ DPORDriver::Result DPORDriver::run_rfsc_parallel() {
         print_progress(state.computation_count, estimate, res, remain);
       }
       if (++my_computation_count % 1024 == 0) {
-        /* llvm::ExecutionEngine leaks global variables until the Module is
-         * destructed */
+        /* llvm::ExecutionEngine leaks global variables until the Module
+         * is destroyed, and the parser leaks MDNodes until the context is
+         * destroyed! */
+        mod.reset();
+        context = std::make_unique<llvm::LLVMContext>();
         mod = parse(PARSE_ONLY, *context);
       }
     }
@@ -408,8 +416,6 @@ DPORDriver::Result DPORDriver::run_rfsc_parallel() {
 
 DPORDriver::Result DPORDriver::run(){
   Result res;
-  std::unique_ptr<llvm::Module> mod = parse(PARSE_AND_CHECK);
-
   TraceBuilder *TB = nullptr;
 
   switch(conf.memory_model){
@@ -444,16 +450,22 @@ DPORDriver::Result DPORDriver::run(){
     throw std::logic_error("DPORDriver: Unsupported memory model.");
   }
 
+  auto context = std::make_unique<llvm::LLVMContext>();
+  std::unique_ptr<llvm::Module> mod = parse(PARSE_AND_CHECK, *context);
+
   uint64_t computation_count = 0;
   long double estimate = 1;
   do{
     if(conf.print_progress){
       print_progress(computation_count, estimate, res);
     }
-    if((computation_count+1) % 1000 == 0){
-      /* llvm::ExecutionEngine leaks global variables until the Module is
-       * destructed */
-      mod = parse();
+    if((computation_count+1) % 1024 == 0){
+      /* llvm::ExecutionEngine leaks global variables until the Module
+       * is destroyed, and the parser leaks MDNodes until the context is
+       * destroyed! */
+      mod.reset();
+      context = std::make_unique<llvm::LLVMContext>();
+      mod = parse(PARSE_ONLY, *context);
     }
 
     bool assume_blocked = false;

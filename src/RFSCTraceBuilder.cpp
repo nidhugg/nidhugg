@@ -197,10 +197,7 @@ void RFSCTraceBuilder::cancel_replay(){
 }
 
 void RFSCTraceBuilder::metadata(const llvm::MDNode *md){
-  if(curev().md == 0){
-    curev().md = md;
-  }
-  last_md = md;
+  curev().md = last_md = md;
 }
 
 bool RFSCTraceBuilder::sleepset_is_empty() const{

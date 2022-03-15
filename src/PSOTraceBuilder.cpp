@@ -220,10 +220,7 @@ void PSOTraceBuilder::cancel_replay(){
 }
 
 void PSOTraceBuilder::metadata(const llvm::MDNode *md){
-  if(curnode().md == 0){
-    curnode().md = md;
-  }
-  last_md = md;
+  curnode().md = last_md = md;
 }
 
 bool PSOTraceBuilder::sleepset_is_empty() const{

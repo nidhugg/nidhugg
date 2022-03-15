@@ -140,8 +140,8 @@ private:
    * optionally checking validity (should be done the first time) */
   enum ParseOptions { PARSE_ONLY, PARSE_AND_CHECK };
   std::unique_ptr<llvm::Module> parse
-  (ParseOptions opts = PARSE_ONLY,
-   llvm::LLVMContext &context = GlobalContext::get());
+  (ParseOptions opts,
+   llvm::LLVMContext &context);
   /* Opens and reads the file filename. Stores the entire content in
    * tgt. Throws an exception on failure.
    */
