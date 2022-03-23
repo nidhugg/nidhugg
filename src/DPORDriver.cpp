@@ -39,11 +39,6 @@
 #include <cfloat>
 #include <thread>
 
-#if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
-#include <llvm/IR/LLVMContext.h>
-#elif defined(HAVE_LLVM_LLVMCONTEXT_H)
-#include <llvm/LLVMContext.h>
-#endif
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/Host.h>
@@ -52,6 +47,11 @@
 
 namespace {
   const char ESC_char = 27;
+
+  /* Reinitialize the LLVMContext every REINIT_CONTEXT_EVERY traces
+   * to avoid leaking memory.
+   */
+  const uint64_t REINIT_CONTEXT_EVERY = 1024;
 
   struct RunResult {
     Trace *trace;
@@ -132,6 +132,20 @@ parse(ParseOptions opts, llvm::LLVMContext &context){
     }
   }
   return mod;
+}
+
+void DPORDriver::
+clear_memory_use(uint64_t trace_number,
+                 std::unique_ptr<llvm::LLVMContext> &context,
+                 std::unique_ptr<llvm::Module> &module) {
+  if(trace_number % REINIT_CONTEXT_EVERY == 0){
+    /* llvm::ExecutionEngine leaks global variables until the Module
+     * is destroyed, and the parser leaks MDNodes until the context is
+     * destroyed! */
+    module.reset();
+    context = std::make_unique<llvm::LLVMContext>();
+    module = parse(PARSE_ONLY, *context);
+  }
 }
 
 std::unique_ptr<DPORInterpreter> DPORDriver::
@@ -294,7 +308,9 @@ namespace{
 
 DPORDriver::Result DPORDriver::run_rfsc_sequential() {
   Result res;
-  std::unique_ptr<llvm::Module> mod = parse(PARSE_AND_CHECK);
+  auto context = std::make_unique<llvm::LLVMContext>();
+  std::unique_ptr<llvm::Module> mod = parse(PARSE_AND_CHECK,
+                                            *context);
   RFSCDecisionTree decision_tree(make_scheduler(conf));
   RFSCUnfoldingTree unfolding_tree;
   RFSCTraceBuilder TB(decision_tree, unfolding_tree, conf);
@@ -325,11 +341,7 @@ DPORDriver::Result DPORDriver::run_rfsc_sequential() {
     if(conf.print_progress_estimate && (computation_count+1) % 100 == 0){
       estimate = std::round(TB.estimate_trace_count());
     }
-    if((computation_count+1) % 1000 == 0){
-      /* llvm::ExecutionEngine leaks global variables until the Module is
-       * destructed */
-      mod = parse();
-    }
+    clear_memory_use(computation_count+1, context, mod);
 
   } while(tasks_left);
 
@@ -369,23 +381,21 @@ DPORDriver::Result DPORDriver::run_rfsc_parallel() {
       TB.compute_prefixes();
       TB.work_item.reset();
 
-      std::lock_guard<std::mutex> lock(state.mutex);
-      uint64_t remain =
-        sched.outstanding_jobs.fetch_sub(1, std::memory_order_relaxed)
-        - 1;
-      if (handle_trace(&TB, t, &state.computation_count, res, assume_blocked)
-          || remain == 0) {
-        sched.halt();
+      {
+        std::lock_guard<std::mutex> lock(state.mutex);
+        uint64_t remain =
+          sched.outstanding_jobs.fetch_sub(1, std::memory_order_relaxed)
+          - 1;
+        if (handle_trace(&TB, t, &state.computation_count, res, assume_blocked)
+            || remain == 0) {
+          sched.halt();
+        }
+        if(conf.print_progress){
+          const long double estimate = 1;
+          print_progress(state.computation_count, estimate, res, remain);
+        }
       }
-      if(conf.print_progress){
-        const long double estimate = 1;
-        print_progress(state.computation_count, estimate, res, remain);
-      }
-      if (++my_computation_count % 1024 == 0) {
-        /* llvm::ExecutionEngine leaks global variables until the Module is
-         * destructed */
-        mod = parse(PARSE_ONLY, *context);
-      }
+      clear_memory_use(++my_computation_count, context, mod);
     }
   };
 
@@ -408,8 +418,6 @@ DPORDriver::Result DPORDriver::run_rfsc_parallel() {
 
 DPORDriver::Result DPORDriver::run(){
   Result res;
-  std::unique_ptr<llvm::Module> mod = parse(PARSE_AND_CHECK);
-
   TraceBuilder *TB = nullptr;
 
   switch(conf.memory_model){
@@ -444,17 +452,16 @@ DPORDriver::Result DPORDriver::run(){
     throw std::logic_error("DPORDriver: Unsupported memory model.");
   }
 
+  auto context = std::make_unique<llvm::LLVMContext>();
+  std::unique_ptr<llvm::Module> mod = parse(PARSE_AND_CHECK, *context);
+
   uint64_t computation_count = 0;
   long double estimate = 1;
   do{
     if(conf.print_progress){
       print_progress(computation_count, estimate, res);
     }
-    if((computation_count+1) % 1000 == 0){
-      /* llvm::ExecutionEngine leaks global variables until the Module is
-       * destructed */
-      mod = parse();
-    }
+    clear_memory_use(computation_count+1, context, mod);
 
     bool assume_blocked = false;
     Trace *t = run_once(*TB, mod.get(), assume_blocked);

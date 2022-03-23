@@ -248,7 +248,7 @@ void TSOTraceBuilder::cancel_replay(){
 }
 
 void TSOTraceBuilder::metadata(const llvm::MDNode *md){
-  if(!dryrun && curev().md == 0){
+  if(!dryrun){
     curev().md = md;
   }
   last_md = md;

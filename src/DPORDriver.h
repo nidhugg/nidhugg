@@ -33,6 +33,11 @@
 #elif defined(HAVE_LLVM_MODULE_H)
 #include <llvm/Module.h>
 #endif
+#if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
+#include <llvm/IR/LLVMContext.h>
+#elif defined(HAVE_LLVM_LLVMCONTEXT_H)
+#include <llvm/LLVMContext.h>
+#endif
 
 #include <string>
 
@@ -140,8 +145,8 @@ private:
    * optionally checking validity (should be done the first time) */
   enum ParseOptions { PARSE_ONLY, PARSE_AND_CHECK };
   std::unique_ptr<llvm::Module> parse
-  (ParseOptions opts = PARSE_ONLY,
-   llvm::LLVMContext &context = GlobalContext::get());
+  (ParseOptions opts,
+   llvm::LLVMContext &context);
   /* Opens and reads the file filename. Stores the entire content in
    * tgt. Throws an exception on failure.
    */
@@ -169,6 +174,12 @@ private:
    * if it should be run strictly sequential.
    */
   Result run_rfsc_sequential();
+  /* Make sure memory does not accumulate indefinately in the module or
+   * context. May destroy and reallocate both (invalidates all llvm
+   * pointers derived from them). */
+  void clear_memory_use(uint64_t trace_number,
+                        std::unique_ptr<llvm::LLVMContext> &context,
+                        std::unique_ptr<llvm::Module> &module);
 };
 
 #endif

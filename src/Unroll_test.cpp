@@ -399,6 +399,7 @@ declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
 BOOST_AUTO_TEST_CASE(PHI_exit){
   Configuration tconf;
   tconf.transform_loop_unroll = 4;
+  llvm::LLVMContext context;
   llvm::Module *mod =
     StrModule::read_module_src(R"(
 @x = global i32 0
@@ -417,7 +418,7 @@ done:
   %rv = phi i32 [%rv0 ,%entry], [%rvloop, %header]
   ret i32 %rv
 }
-)");
+)", context);
   BOOST_CHECK(Transform::transform(*mod,tconf));
   BOOST_CHECK(!llvm::verifyModule(*mod));
 
@@ -427,6 +428,7 @@ done:
 BOOST_AUTO_TEST_CASE(PHI_exit_2){
   Configuration tconf;
   tconf.transform_loop_unroll = 4;
+  llvm::LLVMContext context;
   llvm::Module *mod =
     StrModule::read_module_src(R"(
 @x = global i32 0
@@ -448,7 +450,7 @@ done:
   %c = phi i32 [%a, %entry], [%b, %header]
   ret i32 0
 }
-)");
+)", context);
   BOOST_CHECK(Transform::transform(*mod,tconf));
   BOOST_CHECK(!llvm::verifyModule(*mod));
 
@@ -458,6 +460,7 @@ done:
 BOOST_AUTO_TEST_CASE(PHI_exit_3){
   Configuration tconf;
   tconf.transform_loop_unroll = 4;
+  llvm::LLVMContext context;
   llvm::Module *mod =
     StrModule::read_module_src(R"(
 @x = global i32 0
@@ -480,7 +483,7 @@ done:
   %rv = phi i32 [%a,%entry], [%b,%header], [%c,%body]
   ret i32 0
 }
-)");
+)", context);
   BOOST_CHECK(Transform::transform(*mod,tconf));
   BOOST_CHECK(!llvm::verifyModule(*mod));
 

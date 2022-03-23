@@ -67,7 +67,7 @@ bool AddLibPass::optAddFunction(llvm::Module &M,
   bool added_def = false;
   for(auto it = srces.begin(); !added_def && it != srces.end(); ++it){
     std::string src = StrModule::portasm(*it);
-    llvm::Module *M2 = StrModule::read_module_src(src);
+    llvm::Module *M2 = StrModule::read_module_src(src, M.getContext());
     /* Not really true, but silences linker warnings */
     M2->setDataLayout(M.getDataLayout());
 
