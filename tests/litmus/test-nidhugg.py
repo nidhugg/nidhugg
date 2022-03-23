@@ -135,24 +135,28 @@ def slave(q, p):
 
 def run_test(tst):
     res = dict()
+    allow = False # Allow means "error found" (litmus test terminology)
     try:
         srcfile = LITMUSDIR + '/' + tst['tstname'] + '.c'
         extra_opts = look_for_extra_opts(srcfile) or ['--sc', '--rf']
         out = subprocess.check_output([NIDHUGGCBIN]
                                       + extra_opts + [srcfile],
-                                      stderr = subprocess.STDOUT).decode()
-        lines = out.split("\n")
-        res['tracecount'] = grep_count(lines, "Trace count: ") \
-            + grep_count(lines, "Assume-blocked trace count: ") \
-            + grep_count(lines, "Await-blocked trace count: ") \
-            + grep_count(lines, "Sleepset-blocked trace count: ")
-        if out.find('No errors were detected') >= 0:
-            res['allow'] = False
-        else:
-            res['allow'] = True
-    except subprocess.CalledProcessError:
-        res['failure'] = NIDHUGGCBIN
-        res['tracecount'] = -1
+                                      stderr = subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        if e.returncode != 42:
+            res['failure'] = NIDHUGGCBIN
+            res['tracecount'] = -1
+            return res
+        allow = True
+        out = e.output
+    out = out.decode()
+    lines = out.split("\n")
+    res['tracecount'] = grep_count(lines, "Trace count: ") \
+        + grep_count(lines, "Assume-blocked trace count: ") \
+        + grep_count(lines, "Await-blocked trace count: ") \
+        + grep_count(lines, "Sleepset-blocked trace count: ")
+    res['allow'] = allow
+    assert((out.find('No errors were detected') >= 0) == (not allow))
     return res
 
 def look_for_extra_opts(srcfile):
