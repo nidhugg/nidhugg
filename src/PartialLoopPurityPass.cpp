@@ -63,7 +63,9 @@
 #include <llvm/Analysis/CallGraph.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/IR/Constants.h>
+#include <llvm/IR/InlineAsm.h>
 #include <llvm/Support/Debug.h>
+#include <llvm/Config/llvm-config.h>
 
 #include <unordered_map>
 #include <sstream>
@@ -910,7 +912,25 @@ namespace {
     }
 
     if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(&I)) {
-      if (CI->getCalledFunction()->getName() == "__VERIFIER_assume") return true;
+      if (CI->getCalledFunction() &&
+          CI->getCalledFunction()->getName() == "__VERIFIER_assume") return true;
+      llvm::Value *CalledValue;
+      /* llvm::CallBase::getCalledValue() was renamed to
+       * getCalledOperand() in llvm 8, but the old function remained at
+       * least until llvm 10
+       */
+#if LLVM_VERSION_MAJOR > 8
+      CalledValue = CI->getCalledOperand();
+#else
+      CalledValue = CI->getCalledValue();
+#endif
+
+      if (llvm::InlineAsm *IA = llvm::dyn_cast<llvm::InlineAsm>(CalledValue)) {
+        /* Inline assembly is pure iff the string is empty; i.e., if
+         * it's used as a compiler barrier
+         */
+        return (IA->getAsmString() == "");
+      }
       if (may_inline) {
         auto it = may_inline->find(CI->getCalledFunction());
         if (it != may_inline->end() && it->second) {
@@ -984,7 +1004,8 @@ namespace {
           ~ppg() { assert(S.back() == F); S.pop_back(); }
         } push_pop_guard(F, stack);
         for (llvm::CallGraphNode::CallRecord &callee : *CG[F]) {
-          if (!visit(callee.second->getFunction())) {
+          if (callee.second == CG.getCallsExternalNode()
+              || !visit(callee.second->getFunction())) {
             return local_may_inline[F] = false;
           }
         }
