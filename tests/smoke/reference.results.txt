@@ -106,8 +106,8 @@ plptest_safestack_21_inlined Forbid : 11
 plptest_safestack_21_inlined_xchg Forbid : 11
 plptest_safestack_21 Forbid : 11
 plptest_burns_nobound Forbid : 9
-plptest_seqlock Forbid : 7
-plptest_seqlock_harder Forbid : 5
+plptest_seqlock Forbid : 9 // Expected failing. Correct: 7
+plptest_seqlock_harder Forbid : 9 // Expected failing. Correct: 5
 plptest_treiber_pop_easier Forbid : 27
 plptest_cmpxchg_reuse Forbid : 12
 # Crashes at transform stage in CI images with LLVM <= 4

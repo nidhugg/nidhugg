@@ -150,7 +150,7 @@ namespace {
       /* FCMP_TRUE and FCMP_FALSE are used as special values indicating
        * unconditional purity
        */
-      llvm::CmpInst::Predicate op = llvm::CmpInst::FCMP_TRUE;
+      llvm::CmpInst::Predicate op = llvm::CmpInst::FCMP_FALSE;
 
       BinaryPredicate() {}
       BinaryPredicate(bool static_value) {
@@ -387,7 +387,7 @@ namespace {
   };
 
   struct PurityCondition {
-    PurityCondition(BinaryPredLoc cond = true) {
+    PurityCondition(BinaryPredLoc cond = false) {
       if (!cond.is_false()) condset.insert_gt(cond);
     }
     PurityCondition(bool b){
@@ -818,7 +818,7 @@ namespace {
     }
 
     /* Generic implementation; no concern for branch conditions */
-    PurityCondition cond;
+    PurityCondition cond(true);
     for (const llvm::BasicBlock *s : llvm::successors(BB)) {
       cond &= getIn(L, conds, BB, s);
     }
