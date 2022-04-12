@@ -95,8 +95,7 @@ public:
   int erase(const T &t);
   /* Erase the value at position p from the set.
    *
-   * Invalidates all iterators, returns a new iterator to the element
-   * after p, or the end iterator if there is no such element.
+   * Invalidates all iterators.
    */
   void erase_at(int p);
   /* Erase all elements of S from this set.
@@ -131,8 +130,8 @@ public:
   typedef typename std::vector<T>::const_iterator const_iterator;
   const_iterator begin() const { return vec.cbegin(); };
   const_iterator end() const { return vec.cend(); };
-  const std::vector<T> &get_vector() const { return vec; };
-  // std::vector<T> &&get_vector() && { return vec; };
+  const std::vector<T> &get_vector() const & { return vec; };
+  std::vector<T> &&get_vector() && { return std::move(vec); };
   bool operator==(const VecSet &s) const { return vec == s.vec; };
   bool operator<(const VecSet &s) const { return vec < s.vec; };
   bool operator>(const VecSet &s) const { return vec > s.vec; };
