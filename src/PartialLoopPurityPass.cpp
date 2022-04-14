@@ -1166,10 +1166,10 @@ namespace {
 
   bool recurseLoops(llvm::Loop *L, const std::function<bool(llvm::Loop*)> &f) {
     bool changed = false;
+    changed |= f(L);
     for (auto it = L->begin(); it != L->end(); ++it) {
       changed |= recurseLoops(*it, f);
     }
-    changed |= f(L);
     return changed;
   }
 
