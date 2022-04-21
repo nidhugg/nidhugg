@@ -28,47 +28,64 @@
 #include "TSOPSOTraceBuilder.h"
 #include "Seqno.h"
 
-/* An identifier for a thread. An index into this->threads.
-   *
-   * Even indexes are for real threads. Odd indexes i are for
-   * auxiliary threads corresponding to the real thread at index i-1.
-   */
+/* Representation of a set of program events from any number of
+ * executions where each event is uniquely identified by its thread,
+ * program-order predecessor event (parent), and possibly a write event
+ * that is read from (read_from).
+ *
+ * Each program event is represented by a unique UnfoldingNode in
+ * memory, so that pointer comparison suffices as an equality check
+ * between events.
+ *
+ * Nodes are memory-managed with reference counting and lookup with
+ * find_unfolding_node is thread-safe.
+ */
 class RFSCUnfoldingTree final {
 public:
   RFSCUnfoldingTree() {};
 
   struct UnfoldingNode;
+  typedef std::shared_ptr<const UnfoldingNode> NodePtr;
  private:
   friend struct UnfoldingNode;
-  typedef llvm::SmallVector<std::weak_ptr<UnfoldingNode>,1> UnfoldingNodeChildren;
+  typedef llvm::SmallVector<std::weak_ptr<const UnfoldingNode>,1> UnfoldingNodeChildren;
  public:
 
   static SeqnoRoot unf_ctr_root;
   static thread_local Seqno unf_ctr;
 
+  /* Represents uniquely a program event. Must be created by calling
+   * RFSCUnfoldingTree::find_unfolding_node() */
   struct UnfoldingNode {
-  public:
-    UnfoldingNode(std::shared_ptr<UnfoldingNode> parent,
-                  std::shared_ptr<UnfoldingNode> read_from)
+    NodePtr parent, read_from;
+    /* Do not call directly, use
+     * RFSCUnfoldingTree::find_unfolding_node() */
+    UnfoldingNode(NodePtr parent, NodePtr read_from)
       : parent(std::move(parent)), read_from(std::move(read_from)),
         seqno(++RFSCUnfoldingTree::unf_ctr) {};
-    std::shared_ptr<UnfoldingNode> parent, read_from;
-    UnfoldingNodeChildren children;
-    std::mutex mutex;
+  private:
+    /* The children of this node. Used by get_or_create. */
+    mutable UnfoldingNodeChildren children;
+    /* Protects children, the only mutable field */
+    mutable std::mutex mutex;
+    friend class RFSCUnfoldingTree;
+  public:
+    /* Only for the purpose of nicer debug printing, do not use for
+     * anything else. */
     unsigned seqno;
   };
 
-  std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> find_unfolding_node
-    (const CPid &cpid,
-     const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &parent,
-     const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from);
+  /* Returns the node representing the event uniquely identified by
+   * (cpid, parent, read_from). parent, if non-null, must also be of
+   * thread cpid. */
+  NodePtr find_unfolding_node
+    (const CPid &cpid, const NodePtr &parent, const NodePtr &read_from);
 
  private:
-  std::shared_ptr<UnfoldingNode>
-    get_or_create(UnfoldingNodeChildren &parent_list,
-     const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &parent,
-     const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from);
+  NodePtr get_or_create(UnfoldingNodeChildren &parent_list,
+                        const NodePtr &parent, const NodePtr &read_from);
 
+  /* The first events of some thread */
   struct UnfoldingRoot {
     UnfoldingNodeChildren children;
     std::mutex mutex;
