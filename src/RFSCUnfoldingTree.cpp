@@ -24,12 +24,11 @@
 SeqnoRoot RFSCUnfoldingTree::unf_ctr_root{};
 thread_local Seqno RFSCUnfoldingTree::unf_ctr{unf_ctr_root};
 
-std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> RFSCUnfoldingTree::
+RFSCUnfoldingTree::NodePtr RFSCUnfoldingTree::
 get_or_create(UnfoldingNodeChildren &parent_list,
-              const std::shared_ptr<UnfoldingNode> &parent,
-              const std::shared_ptr<UnfoldingNode> &read_from) {
+              const NodePtr &parent, const NodePtr &read_from) {
   for (unsigned ci = 0; ci < parent_list.size();) {
-    std::shared_ptr<UnfoldingNode> c = parent_list[ci].lock();
+    NodePtr c = parent_list[ci].lock();
     if (!c) {
       /* Delete the null element and continue */
       std::swap(parent_list[ci], parent_list.back());
@@ -45,16 +44,15 @@ get_or_create(UnfoldingNodeChildren &parent_list,
   }
 
   /* Did not exist, create it. */
-  std::shared_ptr<UnfoldingNode> c =
-    std::make_shared<UnfoldingNode>(parent, read_from);
+  NodePtr c = std::make_shared<UnfoldingNode>(parent, read_from);
   parent_list.push_back(c);
   return c;
 }
 
-std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> RFSCUnfoldingTree::
+RFSCUnfoldingTree::NodePtr RFSCUnfoldingTree::
 find_unfolding_node(const CPid &cpid,
-                    const std::shared_ptr<UnfoldingNode> &parent,
-                    const std::shared_ptr<UnfoldingNode> &read_from) {
+                    const NodePtr &parent,
+                    const NodePtr &read_from) {
   if (parent) {
     std::lock_guard<std::mutex> lock(parent->mutex);
     return get_or_create(parent->children, parent, read_from);

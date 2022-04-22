@@ -860,8 +860,8 @@ void RFSCTraceBuilder::compute_unfolding() {
       deepest_node = last_decision;
     }
 
-    const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> null_ptr;
-    const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> *parent;
+    const RFSCUnfoldingTree::NodePtr null_ptr;
+    const RFSCUnfoldingTree::NodePtr *parent;
     IID<IPid> iid = prefix[i].iid;
     IPid p = iid.get_pid();
     if (iid.get_index() == 1) {
@@ -874,7 +874,7 @@ void RFSCTraceBuilder::compute_unfolding() {
       prefix[i].event = *parent;
       continue;
     }
-    const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> *read_from = &null_ptr;
+    const RFSCUnfoldingTree::NodePtr *read_from = &null_ptr;
     if (prefix[i].read_from && *prefix[i].read_from != -1) {
       read_from = &prefix[*prefix[i].read_from].event;
     }
@@ -884,7 +884,7 @@ void RFSCTraceBuilder::compute_unfolding() {
 
     if (int(i) >= replay_point) {
       if (is_load(i)) {
-        const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &decision
+        const RFSCUnfoldingTree::NodePtr &decision
         = is_lock_type(i) ? prefix[i].event : prefix[i].event->read_from;
         deepest_node = decision_tree.new_decision_node(std::move(deepest_node), decision);
         prefix[i].set_decision(deepest_node);
@@ -894,17 +894,17 @@ void RFSCTraceBuilder::compute_unfolding() {
   work_item = std::move(deepest_node);
 }
 
-std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> RFSCTraceBuilder::
+RFSCUnfoldingTree::NodePtr RFSCTraceBuilder::
 unfold_find_unfolding_node(IPid p, int index, Option<int> prefix_rf) {
-  const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> null_ptr;
-  const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> *parent;
+  const RFSCUnfoldingTree::NodePtr null_ptr;
+  const RFSCUnfoldingTree::NodePtr *parent;
   if (index == 1) {
     parent = &null_ptr;
   } else {
     int par_idx = find_process_event(p, index-1);
     parent = &prefix[par_idx].event;
   }
-  const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> *read_from = &null_ptr;
+  const RFSCUnfoldingTree::NodePtr *read_from = &null_ptr;
   if (prefix_rf && *prefix_rf != -1) {
     read_from = &prefix[*prefix_rf].event;
   }
@@ -913,10 +913,10 @@ unfold_find_unfolding_node(IPid p, int index, Option<int> prefix_rf) {
 }
 
 
-std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode>
+RFSCUnfoldingTree::NodePtr
 RFSCTraceBuilder::unfold_alternative
-(unsigned i, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from) {
-  std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &parent
+(unsigned i, const RFSCUnfoldingTree::NodePtr &read_from) {
+  const RFSCUnfoldingTree::NodePtr &parent
     = prefix[i].event->parent;
   IPid p = prefix[i].iid.get_pid();
 
@@ -1188,7 +1188,7 @@ void RFSCTraceBuilder::compute_prefixes() {
   for (unsigned i = 0; i < prefix.size(); ++i) {
     auto try_swap = [&](int i, int j) {
         int original_read_from = *prefix[i].read_from;
-        std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> alt
+        RFSCUnfoldingTree::NodePtr alt
           = unfold_alternative(j, prefix[i].event->read_from);
         DecisionNode &decision = *prefix[i].decision_ptr;
         // Returns false if unfolding node is already known and therefore does not have to be further evaluated
@@ -1215,7 +1215,7 @@ void RFSCTraceBuilder::compute_prefixes() {
     auto try_swap_lock = [&](int i, int unlock, int j) {
         assert(does_lock(i) && is_unlock(unlock) && is_lock(j)
                && *prefix[j].read_from == int(unlock));
-        std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> alt
+        RFSCUnfoldingTree::NodePtr alt
           = unfold_alternative(j, prefix[i].event->read_from);
         DecisionNode &decision = *prefix[i].decision_ptr;
         if (!decision.try_alloc_unf(alt)) return;
@@ -1241,7 +1241,7 @@ void RFSCTraceBuilder::compute_prefixes() {
     auto try_swap_blocked = [&](int i, IPid jp, SymEv sym) {
         int original_read_from = *prefix[i].read_from;
         auto jidx = threads[jp].last_event_index()+1;
-        std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> alt
+        RFSCUnfoldingTree::NodePtr alt
           = unfold_find_unfolding_node(jp, jidx, original_read_from);
         DecisionNode &decision = *prefix[i].decision_ptr;
         if (!decision.try_alloc_unf(alt)) return;
@@ -1324,7 +1324,7 @@ void RFSCTraceBuilder::compute_prefixes() {
                && is_store_when_reading_from(j, original_read_from));
         /* Can only swap ajacent RMWs */
         if (*prefix[j].read_from != int(i)) return;
-        std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> read_from
+        RFSCUnfoldingTree::NodePtr read_from
           = unfold_alternative(j, prefix[i].event->read_from);
         if (!decision.try_alloc_unf(read_from)) return;
         if (!can_swap_by_vclocks(i, j)) return;
@@ -1357,7 +1357,7 @@ void RFSCTraceBuilder::compute_prefixes() {
           /* RMW pair */
           try_read_from_rmw(j);
         } else {
-          const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from =
+          const RFSCUnfoldingTree::NodePtr &read_from =
             j == -1 ? nullptr : prefix[j].event;
           if (!decision.try_alloc_unf(read_from)) return;
           if (!can_rf_by_vclocks(i, original_read_from, j)) return;

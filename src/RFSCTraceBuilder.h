@@ -275,7 +275,7 @@ protected:
     bool may_conflict;
 
     /* The unfolding event corresponding to this executed event. */
-    std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> event;
+    RFSCUnfoldingTree::NodePtr event;
 
     Option<int> read_from;
     /* Symbolic representation of the globally visible operation of this event.
@@ -429,10 +429,10 @@ protected:
 
   // TODO: Refactor RFSCUnfoldingTree and and deprecate these methods.
   // Workaround due to require access to parent while not having a root-node
-  std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unfold_find_unfolding_node
+  RFSCUnfoldingTree::NodePtr unfold_find_unfolding_node
   (IPid pid, int index, Option<int> read_from);
-  std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unfold_alternative
-  (unsigned i, const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &read_from);
+  RFSCUnfoldingTree::NodePtr unfold_alternative
+  (unsigned i, const RFSCUnfoldingTree::NodePtr &read_from);
   // END TODO
 
   void add_event_to_graph(SaturatedGraph &g, unsigned i) const;

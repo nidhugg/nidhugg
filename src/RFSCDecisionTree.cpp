@@ -23,7 +23,7 @@
 
 std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node
 (std::shared_ptr<DecisionNode> parent,
- std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf) {
+ RFSCUnfoldingTree::NodePtr unf) {
   auto decision = std::make_shared<DecisionNode>(std::move(parent));
   decision->alloc_unf(std::move(unf));
   return decision;
@@ -32,7 +32,7 @@ std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node
 
 void RFSCDecisionTree::construct_sibling
 (const DecisionNode &decision,
- std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf, Leaf l) {
+ RFSCUnfoldingTree::NodePtr unf, Leaf l) {
   scheduler->enqueue(decision.make_sibling(std::move(unf), l));
 }
 
@@ -169,7 +169,7 @@ bool WorkstealingPQScheduler::ThreadWorkQueue::steal(ThreadWorkQueue &other) {
  ******************************************************************************/
 
 std::shared_ptr<DecisionNode> DecisionNode::make_sibling
-(std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf, Leaf l) const {
+(RFSCUnfoldingTree::NodePtr unf, Leaf l) const {
   return std::make_shared<DecisionNode>(parent, std::move(unf), l);
 }
 
@@ -209,13 +209,13 @@ const SaturatedGraph &DecisionNode::get_saturated_graph(std::function<void(Satur
 
 
 bool DecisionNode::try_alloc_unf
-(const std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> &unf) {
+(const RFSCUnfoldingTree::NodePtr &unf) {
   std::lock_guard<std::mutex> lock(parent->decision_node_mutex);
   return parent->children_unf_set.insert(unf).second;
 }
 
 
-void DecisionNode::alloc_unf(std::shared_ptr<RFSCUnfoldingTree::UnfoldingNode> unf) {
+void DecisionNode::alloc_unf(RFSCUnfoldingTree::NodePtr unf) {
   std::lock_guard<std::mutex> lock(parent->decision_node_mutex);
 #ifndef NDEBUG
   auto res =
