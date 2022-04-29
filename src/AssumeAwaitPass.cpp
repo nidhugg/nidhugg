@@ -316,7 +316,7 @@ static llvm::FunctionType *getFunctionType(llvm::Type *fptr) {
   if (llvm::FunctionType *fty = llvm::dyn_cast<llvm::FunctionType>(fptr)) {
     return fty;
   } else if (llvm::PointerType *pty = llvm::dyn_cast<llvm::PointerType>(fptr)) {
-    return getFunctionType(pty->getElementType());
+    return getFunctionType(pty->getPointerElementType());
   } else {
     llvm::dbgs() << fptr << "\n";
     ::abort();
