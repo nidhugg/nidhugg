@@ -12,7 +12,7 @@ if [ -n "$LLVM_VERSION" ]; then
         3.[89]*|[4-6].*)
             LLVM_UBUNTU_VER=16.04
             ;;
-        [7-9].*|10.*)
+        [7-9].*|10.*|14.0.0)
             LLVM_UBUNTU_VER=18.04
             ;;
         ?*)
