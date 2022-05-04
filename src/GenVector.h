@@ -84,6 +84,8 @@ namespace gen {
     void push_back(T&& val);
     template <typename... Args> T &emplace_back(Args&&... args);
 
+    void pop_back();
+
   private:
 #ifndef NDEBUG
     typedef std::atomic_uint_fast32_t _debug_refcount_type;
@@ -370,6 +372,17 @@ namespace gen {
   template<typename T, std::size_t limb_size> template<typename... Args>
   T &vector<T, limb_size>::emplace_back(Args&&... args) {
     return *new (push_back_internal()) T(std::forward<Args>(args)...);
+  }
+  template<typename T, std::size_t limb_size>
+  void vector<T,limb_size>::pop_back() {
+    assert_writable();
+    assert(!empty());
+    size_type last = --_size;
+    size_type limb = last / limb_size;
+    size_type limb_ix = last % limb_size;
+    if (!root_is_cow_or_empty() && !limb_is_cow(limb)) {
+      (*start[limb])[limb_ix].~T();
+    }
   }
   template<typename T, std::size_t limb_size>
   const T *vector<T,limb_size>::deref(const limb_type *const *start, size_type ix) {

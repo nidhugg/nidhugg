@@ -952,11 +952,18 @@ static bool symev_is_lock_type(const SymEv &e) {
     || e.kind == SymEv::M_UNLOCK  || e.kind == SymEv::M_DELETE;
 }
 
-bool RFSCTraceBuilder::is_load(unsigned i) const {
-  const SymEv &e = prefix[i].sym;
+static bool symev_is_load(const SymEv &e) {
   return e.kind == SymEv::LOAD || e.kind == SymEv::RMW
     || e.kind == SymEv::CMPXHG || e.kind == SymEv::CMPXHGFAIL
     || symev_is_lock_type(e);
+}
+
+static bool is_load(const RFSCTraceBuilder::TraceOverlay &trace, unsigned i) {
+  return symev_is_load(trace.prefix_at(i).sym());
+}
+
+bool RFSCTraceBuilder::is_load(unsigned i) const {
+  return symev_is_load(prefix[i].sym);
 }
 
 bool RFSCTraceBuilder::is_lock(unsigned i) const {
@@ -988,10 +995,17 @@ bool RFSCTraceBuilder::is_lock_type(unsigned i) const {
   return symev_is_lock_type(prefix[i].sym);
 }
 
-bool RFSCTraceBuilder::is_store(unsigned i) const {
-  const SymEv &e = prefix[i].sym;
+static bool symev_is_store(const SymEv &e) {
   return e.kind == SymEv::STORE || e.kind == SymEv::CMPXHG
     || e.kind == SymEv::RMW || symev_is_lock_type(e);
+}
+
+static bool is_store(const RFSCTraceBuilder::TraceOverlay &trace, unsigned i) {
+  return symev_is_store(trace.prefix_at(i).sym());
+}
+
+bool RFSCTraceBuilder::is_store(unsigned i) const {
+  return symev_is_store(prefix[i].sym);
 }
 
 bool RFSCTraceBuilder::is_cmpxhgfail(unsigned i) const {
@@ -1009,12 +1023,19 @@ bool RFSCTraceBuilder::is_store_when_reading_from(unsigned i, int read_from) con
   return memcmp(expected.get_block(), actual.get_block(), e.addr().size) == 0;
 }
 
-SymAddrSize RFSCTraceBuilder::get_addr(unsigned i) const {
-  const SymEv &e = prefix[i].sym;
+static SymAddrSize symev_get_addr(const SymEv &e) {
   if (e.has_addr()) {
     return e.addr();
   }
   abort();
+}
+
+static SymAddrSize get_addr(const RFSCTraceBuilder::TraceOverlay &trace, unsigned i) {
+  return symev_get_addr(trace.prefix_at(i).sym());
+}
+
+SymAddrSize RFSCTraceBuilder::get_addr(unsigned i) const {
+  return symev_get_addr(prefix[i].sym);
 }
 
 SymData RFSCTraceBuilder::get_data(int i, const SymAddrSize &addr) const {
@@ -1029,91 +1050,55 @@ SymData RFSCTraceBuilder::get_data(int i, const SymAddrSize &addr) const {
   return e.data();
 }
 
-static std::ptrdiff_t delete_from_back(std::vector<int> &vec, int val) {
-  for (auto it = vec.end();;) {
-    assert(it != vec.begin() && "Element must exist");
-    --it;
-    if (val == *it) {
-      std::swap(*it, vec.back());
-      auto pos = it - vec.begin();
+static std::ptrdiff_t delete_from_back(gen::vector<int> &vec, int val) {
+  for (auto ix = vec.size();;) {
+    assert(ix != 0 && "Element must exist");
+    --ix;
+    if (val == vec[ix]) {
+      std::swap(vec.mut(ix), vec.mut(vec.size()-1));
       vec.pop_back();
-      return pos;
+      return ix;
     }
   }
 }
 
-RFSCTraceBuilder::CmpXhgUndoLog RFSCTraceBuilder::
-recompute_cmpxhg_success(unsigned idx, std::vector<int> &writes) {
-  auto kind = CmpXhgUndoLog::NONE;
-  SymEv &e =  prefix[idx].sym;
+void RFSCTraceBuilder::
+recompute_cmpxhg_success(unsigned idx, TraceOverlay &trace) const {
+  auto &ev = trace.prefix_mut(idx);
+  SymEv &e = ev.sym;
   if (e.kind == SymEv::M_TRYLOCK || e.kind == SymEv::M_TRYLOCK_FAIL) {
     bool before = e.kind == SymEv::M_TRYLOCK;
-    bool after = *prefix[idx].read_from == -1 || !does_lock(*prefix[idx].read_from);
-    unsigned pos = 0;
+    bool after = *ev.read_from == -1 || !does_lock(*ev.read_from);
+    SymAddrSize addr = e.addr();
+    gen::vector<int> &writes = trace.writes_by_addr.mut(addr.addr);
     if (after && !before) {
-      e = SymEv::MTryLock(e.addr());
-      kind = CmpXhgUndoLog::M_FAIL;
-      pos = writes.size();
+      e = SymEv::MTryLock(addr);
       writes.push_back(idx);
     } else if (before && !after) {
-      e = SymEv::MTryLockFail(e.addr());
-      kind = CmpXhgUndoLog::M_SUCCEED;
-      pos = delete_from_back(writes, idx);
+      e = SymEv::MTryLockFail(addr);
+      delete_from_back(writes, idx);
     }
-
-    return CmpXhgUndoLog{kind, idx, pos, &e};
+    return;
   }
   if (e.kind != SymEv::CMPXHG && e.kind != SymEv::CMPXHGFAIL) {
-      return CmpXhgUndoLog{CmpXhgUndoLog::NONE, idx, 0, nullptr};
+    return;
   }
+  SymAddrSize addr = e.addr();
+  gen::vector<int> &writes = trace.writes_by_addr.mut(addr.addr);
   bool before = e.kind == SymEv::CMPXHG;
   SymData expected = e.expected();
-  SymData actual = get_data(*prefix[idx].read_from, e.addr());
-  bool after = memcmp(expected.get_block(), actual.get_block(), e.addr().size) == 0;
+  SymData actual = get_data(*ev.read_from, addr);
+  bool after = memcmp(expected.get_block(), actual.get_block(), addr.size) == 0;
   if (after) {
     e = SymEv::CmpXhg(e.data(), e.expected().get_shared_block());
   } else {
     e = SymEv::CmpXhgFail(e.data(), e.expected().get_shared_block());
   }
   // assert(recompute_cmpxhg_success(idx, writes).kind == CmpXhgUndoLog::NONE);
-  unsigned pos = 0;
   if (after && !before) {
-    kind = CmpXhgUndoLog::FAIL;
-    pos = writes.size();
     writes.push_back(idx);
   } else if (before && !after) {
-    kind = CmpXhgUndoLog::SUCCEED;
-    pos = delete_from_back(writes, idx);
-  }
-  return CmpXhgUndoLog{kind, idx, pos, &e};
-}
-
-void RFSCTraceBuilder::
-undo_cmpxhg_recomputation(CmpXhgUndoLog log, std::vector<int> &writes) {
-  if (log.kind == CmpXhgUndoLog::NONE) return;
-  SymEv &e = *log.e;
-  switch (log.kind) {
-  case CmpXhgUndoLog::M_SUCCEED:
-    e = SymEv::MTryLock(e.addr());
-    goto succeed_cont;
-  case CmpXhgUndoLog::M_FAIL:
-    e = SymEv::MTryLockFail(e.addr());
-    goto fail_cont;
-  case CmpXhgUndoLog::SUCCEED: {
-    e = SymEv::CmpXhg(e.data(), e.expected().get_shared_block());
-  succeed_cont:
-    writes.push_back(log.idx);
-    assert(writes.size() > log.pos);
-    std::swap(writes.back(), writes[log.pos]);
-  } break;
-  default: assert(false && "Unreachable");
-  case CmpXhgUndoLog::FAIL: {
-    e = SymEv::CmpXhgFail(e.data(), e.expected().get_shared_block());
-  fail_cont:
-    assert(writes.back() == int(log.idx));
-    assert(writes.size()-1 == log.pos);
-    writes.pop_back();
-  } break;
+    delete_from_back(writes, idx);
   }
 }
 
@@ -1170,12 +1155,12 @@ void RFSCTraceBuilder::compute_prefixes() {
       + iid_string(i) + prefix[i].sym.to_string();
   };
 
-  std::map<SymAddr,std::vector<int>> writes_by_address;
+  gen::map<SymAddr,gen::vector<int>> writes_by_address;
   std::map<SymAddr,std::vector<int>> cmpxhgfail_by_address;
   std::vector<std::unordered_map<SymAddr,std::vector<unsigned>>>
     writes_by_process_and_address(threads.size());
   for (unsigned j = 0; j < prefix.size(); ++j) {
-    if (is_store(j))      writes_by_address    [get_addr(j).addr].push_back(j);
+    if (is_store(j))      writes_by_address.mut(get_addr(j).addr).push_back(j);
     if (is_store(j))
       writes_by_process_and_address[prefix[j].iid.get_pid()][get_addr(j).addr]
         .push_back(j);
@@ -1199,18 +1184,16 @@ void RFSCTraceBuilder::compute_prefixes() {
                        << " and " << pretty_index(j)
                        << ", after " << pretty_index(original_read_from);
         }
-        prefix[j].read_from = original_read_from;
-        prefix[i].decision_swap(prefix[j]);
+        TraceOverlay ol(this, writes_by_address, {unsigned(i), unsigned(j)});
+        ol.prefix_mut(j).read_from = original_read_from;
+        ol.prefix_mut(i).decision_swap(ol.prefix_mut(j));
 
-        Leaf solution = try_sat({unsigned(j)}, writes_by_address);
+        Leaf solution = try_sat({unsigned(j)}, ol);
         if (!solution.is_bottom()) {
           decision_tree.construct_sibling(decision, std::move(alt),
                                           std::move(solution));
           tasks_created++;
         }
-        /* Reset read-from and decision */
-        prefix[j].read_from = i;
-        prefix[i].decision_swap(prefix[j]);
       };
     auto try_swap_lock = [&](int i, int unlock, int j) {
         assert(does_lock(i) && is_unlock(unlock) && is_lock(j)
@@ -1225,18 +1208,16 @@ void RFSCTraceBuilder::compute_prefixes() {
           llvm::dbgs() << "Trying to swap " << pretty_index(i)
                        << " and " << pretty_index(j)
                        << ", after " << pretty_index(original_read_from);
-        prefix[j].read_from = original_read_from;
-        prefix[i].decision_swap(prefix[j]);
+        TraceOverlay ol(this, writes_by_address, {unsigned(i), unsigned(j)});
+        ol.prefix_mut(j).read_from = original_read_from;
+        ol.prefix_mut(i).decision_swap(ol.prefix_mut(j));
 
-        Leaf solution = try_sat({unsigned(j)}, writes_by_address);
+        Leaf solution = try_sat({unsigned(j)}, ol);
         if (!solution.is_bottom()) {
           decision_tree.construct_sibling(decision, std::move(alt),
                                           std::move(solution));
           tasks_created++;
         }
-        /* Reset read-from and decision */
-        prefix[j].read_from = unlock;
-        prefix[i].decision_swap(prefix[j]);
       };
     auto try_swap_blocked = [&](int i, IPid jp, SymEv sym) {
         int original_read_from = *prefix[i].read_from;
@@ -1245,6 +1226,8 @@ void RFSCTraceBuilder::compute_prefixes() {
           = unfold_find_unfolding_node(jp, jidx, original_read_from);
         DecisionNode &decision = *prefix[i].decision_ptr;
         if (!decision.try_alloc_unf(alt)) return;
+        /* Ouch. We should do this on TraceOverlay instead. The blocker
+         * is the can_swap_by_vclocks use below. */
         int j = ++prefix_idx;
         assert(prefix.size() == j);
         prefix.emplace_back(IID<IPid>(jp, jidx), 0, std::move(sym));
@@ -1253,27 +1236,24 @@ void RFSCTraceBuilder::compute_prefixes() {
         compute_above_clock(j);
 
         if (can_swap_by_vclocks(i, j)) {
-
           if (conf.debug_print_on_reset)
             llvm::dbgs() << "Trying replace " << pretty_index(i)
                          << " with deadlocked " << pretty_index(j)
                          << ", after " << pretty_index(original_read_from);
-          prefix[j].read_from = original_read_from;
-          prefix[i].decision_swap(prefix[j]);
-          assert(!prefix[i].pinned);
-          prefix[i].pinned = true;
+          TraceOverlay ol(this, writes_by_address, {unsigned(i), unsigned(j)});
+          ol.prefix_mut(j).read_from = original_read_from;
+          ol.prefix_mut(i).decision_swap(ol.prefix_mut(j));
+          assert(!ol.prefix_at(i).pinned());
+          ol.prefix_mut(i).pinned = true;
 
-          Leaf solution = try_sat({unsigned(j)}, writes_by_address);
+          Leaf solution = try_sat({unsigned(j)}, ol);
           if (!solution.is_bottom()) {
             decision_tree.construct_sibling(decision, std::move(alt),
                                             std::move(solution));
             tasks_created++;
           }
-
-          /* Reset decision */
-          prefix[i].decision_swap(prefix[j]);
-          prefix[i].pinned = false;
         }
+
         /* Delete j */
         threads[jp].event_indices.pop_back();
         prefix.pop_back();
@@ -1282,7 +1262,7 @@ void RFSCTraceBuilder::compute_prefixes() {
     if (!prefix[i].pinned && is_lock_type(i)) {
       Timing::Guard ponder_mutex_guard(ponder_mutex_context);
       auto addr = get_addr(i);
-      const std::vector<int> &accesses = writes_by_address[addr.addr];
+      const gen::vector<int> &accesses = writes_by_address[addr.addr];
       auto next = std::upper_bound(accesses.begin(), accesses.end(), i);
       if (next == accesses.end()) {
         if (does_lock(i)) {
@@ -1310,7 +1290,7 @@ void RFSCTraceBuilder::compute_prefixes() {
       try_swap_lock(i, unlock, relock);
     } else if (!prefix[i].pinned && is_load(i)) {
       auto addr = get_addr(i);
-      std::vector<int> &possible_writes = writes_by_address[addr.addr];
+      const gen::vector<int> &possible_writes = writes_by_address[addr.addr];
       int original_read_from = *prefix[i].read_from;
       assert(std::any_of(possible_writes.begin(), possible_writes.end(),
              [=](int i) { return i == original_read_from; })
@@ -1332,22 +1312,18 @@ void RFSCTraceBuilder::compute_prefixes() {
           llvm::dbgs() << "Trying to swap " << pretty_index(i)
                        << " and " << pretty_index(j)
                        << ", reading from " << pretty_index(original_read_from);
-        prefix[j].read_from = original_read_from;
-        prefix[i].read_from = j;
-        auto undoj = recompute_cmpxhg_success(j, possible_writes);
-        auto undoi = recompute_cmpxhg_success(i, possible_writes);
+        TraceOverlay ol(this, writes_by_address, {i, unsigned(j)});
+        ol.prefix_mut(j).read_from = original_read_from;
+        ol.prefix_mut(i).read_from = j;
+        recompute_cmpxhg_success(j, ol);
+        recompute_cmpxhg_success(i, ol);
 
-        Leaf solution = try_sat({unsigned(j), i}, writes_by_address);
+        Leaf solution = try_sat({unsigned(j), i}, ol);
         if (!solution.is_bottom()) {
           decision_tree.construct_sibling(decision, std::move(read_from),
                                           std::move(solution));
           tasks_created++;
         }
-
-        /* Reset read-from */
-        prefix[j].read_from = i;
-        undo_cmpxhg_recomputation(undoi, possible_writes);
-        undo_cmpxhg_recomputation(undoj, possible_writes);
       };
       auto try_read_from = [&](int j) {
         Timing::Guard analysis_timing_guard(try_read_from_context);
@@ -1365,16 +1341,15 @@ void RFSCTraceBuilder::compute_prefixes() {
             llvm::dbgs() << "Trying to make " << pretty_index(i)
                          << " read from " << pretty_index(j)
                          << " instead of " << pretty_index(original_read_from);
-          prefix[i].read_from = j;
-          auto undoi = recompute_cmpxhg_success(i, possible_writes);
+          TraceOverlay ol(this, writes_by_address, {unsigned(i)});
+          ol.prefix_mut(i).read_from = j;
+          recompute_cmpxhg_success(i, ol);
 
-          Leaf solution = try_sat({i}, writes_by_address);
+          Leaf solution = try_sat({i}, ol);
           if (!solution.is_bottom()) {
             decision_tree.construct_sibling(decision, read_from, std::move(solution));
             tasks_created++;
           }
-
-          undo_cmpxhg_recomputation(undoi, possible_writes);
         }
       };
 
@@ -1413,47 +1388,43 @@ void RFSCTraceBuilder::compute_prefixes() {
           }
         }
       }
-
-      /* Reset read from, but leave pinned = true */
-      prefix[i].read_from = original_read_from;
     }
   }
 }
 
 void RFSCTraceBuilder::output_formula
-(SatSolver &sat,
- std::map<SymAddr,std::vector<int>> &writes_by_address,
+(SatSolver &sat, const TraceOverlay &trace,
  const std::vector<bool> &keep){
   unsigned no_keep = 0;
   std::vector<unsigned> var;
-  for (unsigned i = 0; i < prefix.size(); ++i) {
+  for (unsigned i = 0; i < trace.prefix_size(); ++i) {
     var.push_back(no_keep);
     if (keep[i]) no_keep++;
   }
 
   sat.alloc_variables(no_keep);
   /* PO */
-  for (unsigned i = 0; i < prefix.size(); ++i) {
+  for (unsigned i = 0; i < trace.prefix_size(); ++i) {
     if (!keep[i]) continue;
-    if (Option<unsigned> pred = po_predecessor(i)) {
+    if (Option<unsigned> pred = trace.po_predecessor(i)) {
       assert(*pred != i);
       sat.add_edge(var[*pred], var[i]);
     }
   }
 
   /* Read-from and SC consistency */
-  for (unsigned r = 0; r < prefix.size(); ++r) {
-    if (!keep[r] || !prefix[r].read_from) continue;
-    int w = *prefix[r].read_from;
+  for (unsigned r = 0; r < trace.prefix_size(); ++r) {
+    if (!keep[r] || !trace.prefix_at(r).read_from()) continue;
+    int w = *trace.prefix_at(r).read_from();
     assert(int(r) != w);
     if (w == -1) {
-      for (int j : writes_by_address[get_addr(r).addr]) {
+      for (int j : trace.writes_by_addr[::get_addr(trace, r).addr]) {
         if (j == int(r) || !keep[j]) continue;
         sat.add_edge(var[r], var[j]);
       }
     } else {
       sat.add_edge(var[w], var[r]);
-      for (int j : writes_by_address[get_addr(r).addr]) {
+      for (int j : trace.writes_by_addr[::get_addr(trace, r).addr]) {
         if (j == w || j == int(r) || !keep[j]) continue;
         sat.add_edge_disj(var[j], var[w],
                           var[r], var[j]);
@@ -1462,9 +1433,9 @@ void RFSCTraceBuilder::output_formula
   }
 
   /* Other happens-after edges (such as thread spawn and join) */
-  for (unsigned i = 0; i < prefix.size(); ++i) {
+  for (unsigned i = 0; i < trace.prefix_size(); ++i) {
     if (!keep[i]) continue;
-    for (unsigned j : prefix[i].happens_after) {
+    for (unsigned j : trace.prefix_at(i).happens_after()) {
       sat.add_edge(var[j], var[i]);
     }
   }
@@ -1478,32 +1449,47 @@ template<typename T, typename F> auto map(const std::vector<T> &vec, F f)
   return ret;
 }
 
-void RFSCTraceBuilder::add_event_to_graph(SaturatedGraph &g, unsigned i) const {
-  SaturatedGraph::EventKind kind = SaturatedGraph::NONE;
-  SymAddr addr;
-  if (is_load(i)) {
-    if (is_store(i)) kind = SaturatedGraph::RMW;
-    else kind = SaturatedGraph::LOAD;
-  } else if (is_store(i)) kind = SaturatedGraph::STORE;
-  if (kind != SaturatedGraph::NONE) addr = get_addr(i).addr;
-  Option<IID<IPid>> read_from;
-  if (prefix[i].read_from && *prefix[i].read_from != -1)
-    read_from = prefix[*prefix[i].read_from].iid;
-  IID<IPid> iid = prefix[i].iid;
-  g.add_event(iid.get_pid(), iid, kind, addr,
-              read_from, map(prefix[i].happens_after,
-                             [this](unsigned j){return prefix[j].iid;}));
+template<typename F> auto map(const RFSCTraceBuilder::TraceOverlay &vec, F f)
+  -> std::vector<typename std::result_of<F(RFSCTraceBuilder::TraceOverlay::TraceEventConstRef)>::type> {
+  std::vector<typename std::result_of<F(RFSCTraceBuilder::TraceOverlay::TraceEventConstRef)>::type> ret;
+  ret.reserve(vec.prefix_size());
+  for (unsigned i = 0; i < vec.prefix_size(); ++i)
+    ret.emplace_back(f(vec.prefix_at(i)));
+  return ret;
 }
 
+static void add_event_to_graph(SaturatedGraph &g, const RFSCTraceBuilder::TraceOverlay &trace, unsigned i) {
+  SaturatedGraph::EventKind kind = SaturatedGraph::NONE;
+  SymAddr addr;
+  if (is_load(trace, i)) {
+    if (is_store(trace, i)) kind = SaturatedGraph::RMW;
+    else kind = SaturatedGraph::LOAD;
+  } else if (is_store(trace, i)) {
+    kind = SaturatedGraph::STORE;
+  }
+  if (kind != SaturatedGraph::NONE)
+    addr = get_addr(trace, i).addr;
+  Option<IID<int>> read_from;
+  if (trace.prefix_at(i).read_from() && *trace.prefix_at(i).read_from() != -1)
+    read_from = trace.prefix_at(*trace.prefix_at(i).read_from()).iid();
+  IID<int> iid = trace.prefix_at(i).iid();
+  g.add_event(iid.get_pid(), iid, kind, addr,
+              read_from, map(trace.prefix_at(i).happens_after(),
+                             [&trace](unsigned j){return trace.prefix_at(j).iid();}));
+}
+
+static std::vector<bool>
+causal_past(int decision, const RFSCTraceBuilder::TraceOverlay &trace);
+
 const SaturatedGraph &RFSCTraceBuilder::get_cached_graph
-(DecisionNode &decision) {
+(DecisionNode &decision, const TraceOverlay &trace) {
   const int depth = decision.depth;
   return decision.get_saturated_graph(
-    [depth, this](SaturatedGraph &g) {
-      std::vector<bool> keep = causal_past(depth-1);
-      for (unsigned i = 0; i < prefix.size(); ++i) {
-        if (keep[i] && !g.has_event(prefix[i].iid)) {
-          add_event_to_graph(g, i);
+    [depth, &trace](SaturatedGraph &g) {
+      std::vector<bool> keep = causal_past(depth-1, trace);
+      for (unsigned i = 0; i < trace.prefix_size(); ++i) {
+        if (keep[i] && !g.has_event(trace.prefix_at(i).iid())) {
+          add_event_to_graph(g, trace, i);
         }
       }
 
@@ -1515,27 +1501,27 @@ const SaturatedGraph &RFSCTraceBuilder::get_cached_graph
 Leaf
 RFSCTraceBuilder::try_sat
 (std::initializer_list<unsigned> changed_events,
- std::map<SymAddr,std::vector<int>> &writes_by_address){
+ const TraceOverlay &trace){
   Timing::Guard timing_guard(graph_context);
   unsigned last_change = changed_events.end()[-1];
-  DecisionNode &decision = *prefix[last_change].decision_ptr;
+  DecisionNode &decision = *trace.prefix_at(last_change).decision_ptr();
   int decision_depth = decision.depth;
-  std::vector<bool> keep = causal_past(decision_depth);
+  std::vector<bool> keep = causal_past(decision_depth, trace);
 
-  SaturatedGraph g(get_cached_graph(decision).clone());
-  for (unsigned i = 0; i < prefix.size(); ++i) {
-    if (keep[i] && i != last_change && !g.has_event(prefix[i].iid)) {
-      add_event_to_graph(g, i);
+  SaturatedGraph g(get_cached_graph(decision, trace).clone());
+  for (unsigned i = 0; i < trace.prefix_size(); ++i) {
+    if (keep[i] && i != last_change && !g.has_event(trace.prefix_at(i).iid())) {
+      add_event_to_graph(g, trace, i);
     }
   }
-  add_event_to_graph(g, last_change);
+  add_event_to_graph(g, trace, last_change);
   if (!g.saturate()) {
     if (conf.debug_print_on_reset)
       llvm::dbgs() << ": Saturation yielded cycle\n";
     return Leaf();
   }
   std::vector<IID<int>> current_exec
-    = map(prefix, [](const Event &e) { return e.iid; });
+    = map(trace, [](const TraceOverlay::TraceEventConstRef &e) { return e.iid(); });
   /* We need to preserve g */
   if (Option<std::vector<IID<int>>> res
       = try_generate_prefix(std::move(g), std::move(current_exec))) {
@@ -1550,14 +1536,15 @@ RFSCTraceBuilder::try_sat
     std::vector<unsigned> order = map(*res, [this](IID<int> iid) {
         return find_process_event(iid.get_pid(), iid.get_index());
       });
-    return order_to_leaf(decision_depth, changed_events, std::move(order));
+    return order_to_leaf(decision_depth, changed_events, trace,
+                         std::move(order));
   }
 
   std::unique_ptr<SatSolver> sat = conf.get_sat_solver();
   {
     Timing::Guard timing_guard(sat_context);
 
-    output_formula(*sat, writes_by_address, keep);
+    output_formula(*sat, trace, keep);
     //output_formula(std::cerr, writes_by_address, keep);
 
     if (!sat->check_sat()) {
@@ -1570,11 +1557,11 @@ RFSCTraceBuilder::try_sat
   std::vector<unsigned> model = sat->get_model();
 
   unsigned no_keep = 0;
-  for (unsigned i = 0; i < prefix.size(); ++i) {
+  for (unsigned i = 0; i < trace.prefix_size(); ++i) {
     if (keep[i]) no_keep++;
   }
   std::vector<unsigned> order(no_keep);
-  for (unsigned i = 0, var = 0; i < prefix.size(); ++i) {
+  for (unsigned i = 0, var = 0; i < trace.prefix_size(); ++i) {
     if (keep[i]) {
       unsigned pos = model[var++];
       order[pos] = i;
@@ -1589,57 +1576,64 @@ RFSCTraceBuilder::try_sat
     llvm::dbgs() << "]\n";
   }
 
-  return order_to_leaf(decision_depth, changed_events, std::move(order));
+  return order_to_leaf(decision_depth, changed_events, trace, std::move(order));
 }
 
 Leaf RFSCTraceBuilder::order_to_leaf
 (int decision, std::initializer_list<unsigned> changed,
- const std::vector<unsigned> order) const{
+ const TraceOverlay &trace, const std::vector<unsigned> order) const{
   std::vector<Branch> new_prefix;
   new_prefix.reserve(order.size());
   for (unsigned i : order) {
     bool is_changed = std::any_of(changed.begin(), changed.end(),
                                   [i](unsigned c) { return c == i; });
-    bool new_pinned = prefix[i].pinned || (prefix[i].get_decision_depth() > decision);
-    int new_decision = prefix[i].get_decision_depth();
+    bool new_pinned = trace.prefix_at(i).pinned() || (trace.prefix_at(i).decision_depth() > decision);
+    int new_decision = trace.prefix_at(i).decision_depth();
     if (new_decision > decision) {
       new_pinned = true;
       new_decision = -1;
     }
-    new_prefix.emplace_back(prefix[i].iid.get_pid(),
-                            is_changed ? 1 : prefix[i].size,
+    new_prefix.emplace_back(trace.prefix_at(i).iid().get_pid(),
+                            is_changed ? 1 : trace.prefix_at(i).size(),
                             new_decision,
                             new_pinned,
-                            prefix[i].sym);
+                            trace.prefix_at(i).sym());
   }
 
   return Leaf(new_prefix);
 }
 
-std::vector<bool> RFSCTraceBuilder::causal_past(int decision) const {
-  std::vector<bool> acc(prefix.size());
-  for (unsigned i = 0; i < prefix.size(); ++i) {
-    assert(!((prefix[i].get_decision_depth() != -1) && prefix[i].pinned));
-    assert(is_load(i) == ((prefix[i].get_decision_depth() != -1) || prefix[i].pinned));
-    if (prefix[i].get_decision_depth() != -1 && prefix[i].get_decision_depth() <= decision) {
-      causal_past_1(acc, i);
+static void causal_past_1(std::vector<bool> &acc, unsigned i,
+                          const RFSCTraceBuilder::TraceOverlay &trace) {
+  if (acc[i] == true) return;
+  acc[i] = true;
+  const auto &e = trace.prefix_at(i);
+  Option<int> rf = e.read_from();
+  if (rf && *rf != -1) {
+    causal_past_1(acc, *rf, trace);
+  }
+  for (unsigned j : e.happens_after()) {
+    causal_past_1(acc, j, trace);
+  }
+  if (Option<unsigned> pred = trace.po_predecessor(i)) {
+    causal_past_1(acc, *pred, trace);
+  }
+}
+
+static std::vector<bool>
+causal_past(int decision, const RFSCTraceBuilder::TraceOverlay &trace) {
+  std::vector<bool> acc(trace.prefix_size());
+  for (unsigned i = 0; i < trace.prefix_size(); ++i) {
+    assert(!((trace.prefix_at(i).decision_depth() != -1)
+             && trace.prefix_at(i).pinned()));
+    assert(is_load(trace, i) == ((trace.prefix_at(i).decision_depth() != -1)
+                                 || trace.prefix_at(i).pinned()));
+    if (trace.prefix_at(i).decision_depth() != -1
+        && trace.prefix_at(i).decision_depth() <= decision) {
+      causal_past_1(acc, i, trace);
     }
   };
   return acc;
-}
-
-void RFSCTraceBuilder::causal_past_1(std::vector<bool> &acc, unsigned i) const{
-  if (acc[i] == true) return;
-  acc[i] = true;
-  if (prefix[i].read_from && *prefix[i].read_from != -1) {
-    causal_past_1(acc, *prefix[i].read_from);
-  }
-  for (unsigned j : prefix[i].happens_after) {
-    causal_past_1(acc, j);
-  }
-  if (Option<unsigned> pred = po_predecessor(i)) {
-    causal_past_1(acc, *pred);
-  }
 }
 
 std::vector<int> RFSCTraceBuilder::iid_map_at(int event) const{
@@ -1710,4 +1704,93 @@ long double RFSCTraceBuilder::estimate_trace_count(int idx) const{
   }
 
   return count;
+}
+
+RFSCTraceBuilder::TraceOverlay::TraceEvent::TraceEvent(const Event &e)
+  : size(e.size), iid(e.iid), pinned(e.pinned),
+    decision_depth(e.get_decision_depth()), decision_ptr(e.decision_ptr.get()),
+    sym(e.sym), read_from(e.read_from), underlying(&e) {}
+
+const std::vector<unsigned> &RFSCTraceBuilder::TraceOverlay::
+TraceEvent::happens_after() const {
+  return underlying->happens_after;
+}
+void RFSCTraceBuilder::TraceOverlay::TraceEvent::decision_swap(TraceEvent &e) {
+  std::swap(decision_ptr, e.decision_ptr);
+  std::swap(decision_depth, e.decision_depth);
+}
+
+RFSCTraceBuilder::TraceOverlay::TraceEventConstRef::
+TraceEventConstRef(const Event &e) : overlay(nullptr), event(&e) {}
+
+RFSCTraceBuilder::TraceOverlay::TraceEventConstRef::
+TraceEventConstRef(const TraceEvent &e) : overlay(&e), event(nullptr) {}
+
+int RFSCTraceBuilder::TraceOverlay::TraceEventConstRef::size() const {
+  return overlay ? overlay->size : event->size;
+}
+const IID<int> &RFSCTraceBuilder::TraceOverlay::TraceEventConstRef::iid()
+  const {
+  return overlay ? overlay->iid : event->iid;
+}
+bool RFSCTraceBuilder::TraceOverlay::TraceEventConstRef::pinned() const {
+  return overlay ? overlay->pinned : event->pinned;
+}
+int RFSCTraceBuilder::TraceOverlay::TraceEventConstRef::decision_depth() const {
+  return overlay ? overlay->decision_depth : event->get_decision_depth();
+}
+DecisionNode *RFSCTraceBuilder::TraceOverlay::TraceEventConstRef::decision_ptr()
+  const {
+  return overlay ? overlay->decision_ptr : event->decision_ptr.get();
+}
+const SymEv &RFSCTraceBuilder::TraceOverlay::TraceEventConstRef::sym() const {
+  return overlay ? overlay->sym : event->sym;
+}
+Option<int> RFSCTraceBuilder::TraceOverlay::TraceEventConstRef::read_from()
+  const {
+  return overlay ? overlay->read_from : event->read_from;
+}
+const std::vector<unsigned> &
+RFSCTraceBuilder::TraceOverlay::TraceEventConstRef::happens_after() const {
+  return overlay ? overlay->happens_after() : event->happens_after;
+}
+
+RFSCTraceBuilder::TraceOverlay::
+TraceOverlay(const RFSCTraceBuilder *tb, const writes_by_addr_ty &writes,
+             std::initializer_list<unsigned> preallocate)
+  : TraceOverlay(tb, writes_by_addr_ty(writes), std::move(preallocate)) {}
+
+RFSCTraceBuilder::TraceOverlay::
+TraceOverlay(const RFSCTraceBuilder *tb, writes_by_addr_ty &&writes,
+             std::initializer_list<unsigned> preallocate)
+  : writes_by_addr(std::move(writes)), tb(tb) {
+  prefix_overlay.reserve(preallocate.size());
+  for (unsigned i : preallocate) {
+    /* Assume that preallocate is sorted */
+    prefix_overlay.try_emplace(prefix_overlay.end(), i, tb->prefix[i]);
+  }
+}
+
+std::size_t RFSCTraceBuilder::TraceOverlay::prefix_size() const {
+  return tb->prefix.size();
+}
+
+auto RFSCTraceBuilder::TraceOverlay::prefix_at(unsigned index) const
+  -> TraceEventConstRef {
+  auto it = prefix_overlay.find(index);
+  if (it != prefix_overlay.end()) {
+    return TraceEventConstRef(it->second);
+  }
+  return TraceEventConstRef(tb->prefix[index]);
+}
+
+auto RFSCTraceBuilder::TraceOverlay::prefix_mut(unsigned index)
+  -> TraceEvent& {
+  auto ret = prefix_overlay.try_emplace(index, tb->prefix[index]);
+  return ret.first->second;
+}
+
+Option<unsigned> RFSCTraceBuilder::TraceOverlay::po_predecessor(unsigned index)
+  const {
+  return tb->po_predecessor(index);
 }
