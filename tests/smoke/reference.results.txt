@@ -120,6 +120,7 @@ plptest_defined_nowhere Forbid : 13
 plptest_cmpxchg_reuse_reorder Forbid : 14
 plptest_leaky_counter Forbid : 4
 plptest_nested Forbid : 2
+plptest_impure_phi Allow : 2
 
 # TSO test with inline assembly
 inlineasm Forbid : 12
