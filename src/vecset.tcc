@@ -17,6 +17,8 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#include <algorithm>
+
 template<class T, class Compare>
 template<typename ITER>
 VecSet<T, Compare>::VecSet(ITER begin, ITER end){
@@ -295,4 +297,20 @@ bool VecSet<T,Compare>::intersects(const VecSet &s) const{
     }
   }
   return false;
+}
+
+template<class T, class Compare>
+bool VecSet<T, Compare>::seq_lt(const std::vector<T> &a, const std::vector<T> &b){
+  Compare lt;
+  return lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(), lt);
+}
+
+template<class T, class Compare>
+bool VecSet<T, Compare>::seq_eq(const std::vector<T> &a, const std::vector<T> &b){
+  Compare lt;
+  if (a.size() != b.size()) return false;
+  for (std::size_t i = 0; i < a.size(); ++i) {
+    if (lt(a[i], b[i]) || lt(b[i], a[i])) return false;
+  }
+  return true;
 }
