@@ -115,6 +115,7 @@ plptest_cmpxchg_reuse Forbid : 12
 plptest_cmpxchg_member_reuse Forbid : 12
 plptest_cmpxchg_weak_reuse Forbid : 12
 plptest_futex_mutex Forbid : 10
+plptest_defined_nowhere Forbid : 13
 # These should not be transformed
 plptest_cmpxchg_reuse_reorder Forbid : 14
 plptest_leaky_counter Forbid : 4
