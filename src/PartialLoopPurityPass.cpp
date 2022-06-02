@@ -1005,7 +1005,7 @@ namespace {
       if (!isSafeToLoadFromPointer(RMW->getPointerOperand())) {
         ret &= InsertionPoint(I.getNextNode());
       }
-      ret.map(collapseTautologies);
+      ret = ret.map(collapseTautologies);
       return ret;
     }
 
