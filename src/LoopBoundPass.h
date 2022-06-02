@@ -36,13 +36,13 @@ public:
         << "WARNING: Negative depth given to loop bounding pass. Defaulting to depth zero.\n";
       unroll_depth = 0;
     }
-  };
+  }
   virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
   virtual bool runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM);
 #ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
-  virtual llvm::StringRef getPassName() const { return "LoopBoundingPass"; };
+  virtual llvm::StringRef getPassName() const { return "LoopBoundingPass"; }
 #else
-  virtual const char *getPassName() const { return "LoopBoundingPass"; };
+  virtual const char *getPassName() const { return "LoopBoundingPass"; }
 #endif
 protected:
   int unroll_depth;

@@ -40,14 +40,14 @@
 class Error{
 public:
   /* An error that was discovered in the event loc. */
-  Error(const IID<CPid> &loc) : loc(loc) {};
-  virtual ~Error() {};
+  Error(const IID<CPid> &loc) : loc(loc) {}
+  virtual ~Error() {}
   Error(const Error&) = delete;
   Error &operator=(const Error&) = delete;
   /* Create a deep copy of this error. */
   virtual Error *clone() const = 0;
   /* The location (event) where the error was discovered. */
-  virtual IID<CPid> get_location() const { return loc; };
+  virtual IID<CPid> get_location() const { return loc; }
   /* A human-readable representation of the error. */
   virtual std::string to_string() const = 0;
 protected:
@@ -62,7 +62,7 @@ public:
    * condition is described by assert_condition.
    */
   AssertionError(const IID<CPid> &loc, std::string assert_condition)
-    : Error(loc), condition(assert_condition) {};
+    : Error(loc), condition(assert_condition) {}
   virtual Error *clone() const;
   virtual std::string to_string() const;
 private:
@@ -74,7 +74,7 @@ private:
 class PthreadsError : public Error{
 public:
   PthreadsError(const IID<CPid> &loc, std::string msg)
-    : Error(loc), msg(msg) {};
+    : Error(loc), msg(msg) {}
   virtual Error *clone() const;
   virtual std::string to_string() const;
 private:
@@ -84,7 +84,7 @@ private:
 class SegmentationFaultError : public Error{
 public:
   SegmentationFaultError(const IID<CPid> &loc)
-    : Error(loc) {};
+    : Error(loc) {}
   virtual Error *clone() const;
   virtual std::string to_string() const;
 };
@@ -99,7 +99,7 @@ public:
 class RobustnessError : public Error{
 public:
   RobustnessError(const IID<CPid> &loc)
-    : Error(loc) {};
+    : Error(loc) {}
   virtual Error *clone() const;
   virtual std::string to_string() const;
 };
@@ -108,7 +108,7 @@ public:
 class MemoryError : public Error{
 public:
   MemoryError(const IID<CPid> &loc, std::string msg)
-    : Error(loc), msg(msg) {};
+    : Error(loc), msg(msg) {}
   virtual Error *clone() const;
   virtual std::string to_string() const;
 private:
@@ -121,7 +121,7 @@ private:
 class NondeterminismError : public Error{
 public:
   NondeterminismError(const IID<CPid> &loc, std::string msg)
-    : Error(loc), msg(msg) {};
+    : Error(loc), msg(msg) {}
   virtual Error *clone() const;
   virtual std::string to_string() const;
 private:
@@ -134,7 +134,7 @@ private:
 class InvalidInputError : public Error{
 public:
   InvalidInputError(const IID<CPid> &loc, std::string msg)
-    : Error(loc), msg(msg) {};
+    : Error(loc), msg(msg) {}
   virtual Error *clone() const;
   virtual std::string to_string() const;
 private:
@@ -180,15 +180,15 @@ public:
   Trace(const Trace&) = delete;
   Trace &operator=(const Trace&) = delete;
   /* The trace keeps ownership of the errors. */
-  const std::vector<Error*> &get_errors() const { return errors; };
-  bool has_errors() const { return errors.size(); };
+  const std::vector<Error*> &get_errors() const { return errors; }
+  bool has_errors() const { return errors.size(); }
   /* A multi-line, human-readable string representation of this
    * Trace. Indentation will be in multiples of ind spaces.
    */
   virtual std::string to_string(int ind = 0) const;
   /* Was the exploration of this execution (sleep set) blocked? */
-  virtual bool is_blocked() const { return blocked; };
-  virtual void set_blocked(bool b = true) { blocked = b; };
+  virtual bool is_blocked() const { return blocked; }
+  virtual void set_blocked(bool b = true) { blocked = b; }
 protected:
   std::vector<Error*> errors;
   bool blocked;
@@ -217,11 +217,11 @@ public:
   IIDSeqTrace(const IIDSeqTrace&) = delete;
   IIDSeqTrace &operator=(const IIDSeqTrace&) = delete;
   /* The sequence of events. */
-  virtual const std::vector<IID<CPid> > &get_computation() const { return computation; };
+  virtual const std::vector<IID<CPid> > &get_computation() const { return computation; }
   /* The sequence of metadata (see above). */
   virtual const SrcLocVector &get_computation_metadata() const{
     return computation_md;
-  };
+  }
   virtual std::string to_string(int ind = 0) const;
 protected:
   std::vector<IID<CPid> > computation;

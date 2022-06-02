@@ -60,14 +60,14 @@ public:
   /* Does not implement the full iterator API, for now. */
   class iterator {
   public:
-    const Branch &branch() { return iter->first; };
-    WakeupTreeRef<Branch> node() { return {*iter->second}; };
-    bool operator<(const iterator &it) const { return iter < it.iter; };
-    bool operator==(const iterator &it) const { return iter == it.iter; };
-    bool operator>(const iterator &it) const { return iter > it.iter; };
-    bool operator<=(const iterator &it) const { return iter <= it.iter; };
-    bool operator!=(const iterator &it) const { return iter != it.iter; };
-    bool operator>=(const iterator &it) const { return iter >= it.iter; };
+    const Branch &branch() { return iter->first; }
+    WakeupTreeRef<Branch> node() { return {*iter->second}; }
+    bool operator<(const iterator &it) const { return iter < it.iter; }
+    bool operator==(const iterator &it) const { return iter == it.iter; }
+    bool operator>(const iterator &it) const { return iter > it.iter; }
+    bool operator<=(const iterator &it) const { return iter <= it.iter; }
+    bool operator!=(const iterator &it) const { return iter != it.iter; }
+    bool operator>=(const iterator &it) const { return iter >= it.iter; }
     iterator operator++(){ iter++; return *this; }
     iterator(typename WakeupTree<Branch>::children_type::iterator iter)
       : iter(iter) {}

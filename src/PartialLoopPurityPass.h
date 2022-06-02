@@ -28,7 +28,7 @@
 class PartialLoopPurityPass : public llvm::ModulePass{
 public:
   static char ID;
-  PartialLoopPurityPass() : llvm::ModulePass(ID) {};
+  PartialLoopPurityPass() : llvm::ModulePass(ID) {}
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
   bool runOnModule(llvm::Module &M) override;
 };

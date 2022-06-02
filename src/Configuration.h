@@ -106,7 +106,7 @@ public:
     sat_solver = SMTLIB;
 #endif
     argv.push_back(get_default_program_name());
-  };
+  }
   /* Read the switches given to the program by the user. Assign
    * configuration options accordingly.
    */

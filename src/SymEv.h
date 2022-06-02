@@ -90,7 +90,7 @@ struct SymEv {
   bool _rmw_result_used;
   SymData::block_type _expected, _written;
 
-  SymEv() : kind(NONE) {};
+  SymEv() : kind(NONE) {}
   static SymEv None() { return {NONE, {}}; }
   static SymEv Nondet(int count) { return {NONDET, count}; }
 
@@ -140,14 +140,14 @@ struct SymEv {
                         = (std::string(&)(int))std::to_string) const;
 
   bool operator==(const SymEv &s) const;
-  bool operator!=(const SymEv &s) const { return !(*this == s); };
+  bool operator!=(const SymEv &s) const { return !(*this == s); }
 
   bool has_addr() const;
   bool has_num() const;
   bool has_data() const;
   bool has_expected() const;
   bool has_rmwaction() const { return kind == RMW; }
-  bool has_cond() const { return kind == LOAD_AWAIT || kind == XCHG_AWAIT; };
+  bool has_cond() const { return kind == LOAD_AWAIT || kind == XCHG_AWAIT; }
   bool empty() const { return kind == NONE; }
   const SymAddrSize &addr()   const { assert(has_addr()); return arg.addr; }
         int          num()    const { assert(has_num()); return arg.num; }
@@ -179,30 +179,30 @@ struct SymEv {
   void set_observed(bool observed);
 
 private:
-  SymEv(enum kind kind, union arg arg) : kind(kind), arg(arg) {};
+  SymEv(enum kind kind, union arg arg) : kind(kind), arg(arg) {}
   SymEv(enum kind kind, union arg arg, AwaitCond cond)
     : kind(kind), arg(arg), arg2(cond.op),
-    _expected(std::move(cond.operand)) {};
+    _expected(std::move(cond.operand)) {}
   SymEv(enum kind kind, SymData addr_written)
     : kind(kind), arg(std::move(addr_written.get_ref())),
-      _written(std::move(addr_written.get_shared_block())) {};
+      _written(std::move(addr_written.get_shared_block())) {}
   SymEv(enum kind kind, SymData addr_written, SymData::block_type expected)
     : kind(kind), arg(std::move(addr_written.get_ref())),
       _expected(std::move(expected)),
-      _written(std::move(addr_written.get_shared_block())) {};
+      _written(std::move(addr_written.get_shared_block())) {}
   SymEv(enum kind kind, SymData addr_written, RmwAction action)
     : kind(kind), arg(addr_written.get_ref()), arg2(action.kind),
       _rmw_result_used(action.result_used),
       _expected(std::move(action.operand)),
       _written(std::move(addr_written.get_shared_block())) {
       assert(has_data());
-    };
+    }
   SymEv(enum kind kind, SymData addr_written, AwaitCond cond)
     : kind(kind), arg(addr_written.get_ref()), arg2(cond.op),
       _expected(std::move(cond.operand)),
       _written(std::move(addr_written.get_shared_block())) {
       assert(has_data());
-    };
+    }
 };
 
 inline std::ostream &operator<<(std::ostream &os, const SymEv &e){

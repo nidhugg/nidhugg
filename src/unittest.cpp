@@ -32,12 +32,12 @@
 struct Fixture{
   Fixture(){
     // Global initialization
-  };
+  }
   ~Fixture(){
     // Global destruction
     GlobalContext::destroy();
     llvm::llvm_shutdown();
-  };
+  }
 };
 
 BOOST_GLOBAL_FIXTURE(Fixture);

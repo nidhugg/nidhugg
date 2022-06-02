@@ -94,7 +94,7 @@ namespace gen {
         std::make_unique<_debug_refcount_type>(0);
     void assert_writable() const;
 #else
-    inline constexpr void assert_writable() const {};
+    inline constexpr void assert_writable() const {}
 #endif
     typedef T limb_type[limb_size];
     static_assert(sizeof(T) * limb_size == sizeof(limb_type), "Packing assumption");

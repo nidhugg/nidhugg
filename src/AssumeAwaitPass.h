@@ -31,7 +31,7 @@
 class AssumeAwaitPass final : public llvm::FunctionPass{
 public:
   static char ID;
-  AssumeAwaitPass() : llvm::FunctionPass(ID) {};
+  AssumeAwaitPass() : llvm::FunctionPass(ID) {}
   bool doInitialization(llvm::Module &M) override;
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
   bool runOnFunction(llvm::Function &F) override;

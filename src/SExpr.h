@@ -58,7 +58,7 @@ public:
         std::vector<SExpr> elems;
     };
 
-    Kind kind() const { return Kind(variant.which()); };
+    Kind kind() const { return Kind(variant.which()); }
     const Token &token() const { return boost::get<Token>(variant); }
     const Int &num() const { return boost::get<Int>(variant); }
           List &list()       { return boost::get<List>(variant); }
