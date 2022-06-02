@@ -20,11 +20,13 @@
 #ifndef __WAKEUP_TREES_H__
 #define __WAKEUP_TREES_H__
 
-#include <memory>
-#include <vector>
-#include <deque>
-#include <map>
 #include "Debug.h"
+
+#include <map>
+#include <deque>
+#include <memory>
+#include <utility>
+#include <vector>
 
 /* Constraints on template argument type Branch:
  *  * Needs to define operator<(const Branch &), defining a total order.

@@ -28,8 +28,10 @@
 #  include <atomic>
 #  include <memory>
 #endif
-#include <utility>
 #include <cstdint>
+#include <functional>
+#include <tuple>
+#include <utility>
 
 namespace gen {
 

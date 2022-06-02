@@ -24,6 +24,8 @@
 
 #include "SymAddr.h"
 
+#include <utility>
+
 struct AwaitCond {
   SymData::block_type operand;
   /* An Op is a bitfield, with the following meanings for bits 3..0, msb

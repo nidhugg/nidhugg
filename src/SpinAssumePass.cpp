@@ -57,6 +57,8 @@
 #include "SpinAssumePass.h"
 #include "vecset.h"
 
+#include <vector>
+
 #ifdef LLVM_HAS_ATTRIBUTELIST
 typedef llvm::AttributeList AttributeList;
 #else

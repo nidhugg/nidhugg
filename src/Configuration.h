@@ -26,9 +26,10 @@
 #include "SatSolver.h"
 #include "Option.h"
 
+#include <memory>
 #include <set>
 #include <string>
-#include <memory>
+#include <vector>
 
 /* A Configuration object keeps track of all configuration options
  * that should be used during a program analysis. The configuration

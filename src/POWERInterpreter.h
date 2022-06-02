@@ -44,6 +44,12 @@
 #include "DPORInterpreter.h"
 #include "AnyCallInst.h"
 
+#include <map>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #if defined(HAVE_LLVM_IR_DATALAYOUT_H)

@@ -22,6 +22,9 @@
 
 #include <fstream>
 #include <locale>
+#include <set>
+#include <utility>
+#include <vector>
 
 #if defined(HAVE_LLVM_DEBUGINFO_H)
 #include <llvm/DebugInfo.h>

@@ -19,6 +19,8 @@
 
 #include "VClock.h"
 
+#include <algorithm>
+
 VClock<int>::VClock(){}
 
 VClock<int>::VClock(const std::vector<int> &v) : vec(v) {

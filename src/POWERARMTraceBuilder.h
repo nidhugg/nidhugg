@@ -23,6 +23,8 @@
 #define __POWER_TRACE_BUILDER_H__
 
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 #include "BVClock.h"
 #include "FBVClock.h"

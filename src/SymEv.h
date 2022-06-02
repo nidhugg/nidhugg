@@ -21,6 +21,8 @@
 #define __SYM_EV_H__
 
 #include <functional>
+#include <string>
+#include <utility>
 
 #include <llvm/Support/raw_ostream.h>
 

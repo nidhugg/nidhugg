@@ -27,8 +27,10 @@
 #include "GenVector.h"
 #include "GenMap.h"
 
-#include <vector>
 #include <deque>
+#include <string>
+#include <utility>
+#include <vector>
 
 class SaturatedGraph final {
 public:

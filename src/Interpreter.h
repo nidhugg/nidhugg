@@ -69,8 +69,14 @@
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <map>
+#include <memory>
 #include <random>
+#include <set>
 #include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <boost/container/flat_map.hpp>
 

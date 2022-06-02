@@ -26,6 +26,7 @@
 #include <llvm/Support/CommandLine.h>
 #include <boost/variant.hpp>
 #include <iomanip>
+#include <string>
 
 static llvm::cl::opt<bool>
 cl_bv("smtlib-bv",llvm::cl::NotHidden,

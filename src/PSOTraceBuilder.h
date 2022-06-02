@@ -24,6 +24,10 @@
 #include "TSOPSOTraceBuilder.h"
 #include "VClock.h"
 
+#include <map>
+#include <string>
+#include <vector>
+
 class PSOTraceBuilder : public TSOPSOTraceBuilder{
 public:
   PSOTraceBuilder(const Configuration &conf = Configuration::default_conf);

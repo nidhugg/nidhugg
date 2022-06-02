@@ -24,6 +24,8 @@
 
 #include "TraceBuilder.h"
 
+#include <vector>
+
 /* A DetCheckTraceBuilder is an abstract TraceBuilder which adds some
  * functionality for detecting and reporting thread-wise
  * nondeterminism in the target program during computation replays.

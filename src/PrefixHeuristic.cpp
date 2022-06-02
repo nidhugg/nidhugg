@@ -19,10 +19,14 @@
 
 #include "PrefixHeuristic.h"
 #include "Timing.h"
-#include <list>
-#include <set>
-#include <iostream>
+
 #include <fstream>
+#include <list>
+#include <map>
+#include <iostream>
+#include <set>
+#include <utility>
+
 #include <llvm/Support/CommandLine.h>
 
 static Timing::Context heuristic_context("heuristic");
