@@ -453,7 +453,7 @@ namespace {
       for (BinaryPredicate &term : vec)
         term = f(term);
 
-      ConjunctionLoc res(true);
+      ConjunctionLoc res(true, insertion_point);
       for (BinaryPredicate &term : vec)
         res.addConjunct(std::move(term));
       return res;
