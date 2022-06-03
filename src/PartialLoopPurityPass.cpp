@@ -66,6 +66,7 @@
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/InlineAsm.h>
 #include <llvm/Support/Debug.h>
+#include <llvm/Support/FormattedStream.h>
 #include <llvm/Config/llvm-config.h>
 
 #include <unordered_map>
@@ -433,7 +434,8 @@ namespace {
       addConjuncts({std::move(terms)});
       if (is_false()) insertion_point = nullptr;
     }
-    bool is_true() const { return conjuncts.empty() && !insertion_point; }
+    bool has_conjuncts() const { return !conjuncts.empty(); }
+    bool is_true() const { return !has_conjuncts() && !insertion_point; }
     bool is_false() const { return conjuncts.size() == 1 && conjuncts[0].is_false(); }
     auto begin() const { return conjuncts.begin(); }
     auto end() const { return conjuncts.end(); }
@@ -722,7 +724,7 @@ namespace {
     return os;
   }
   llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const ConjunctionLoc &cond) {
-    if (cond.is_true()) os << "true";
+    if (!cond.has_conjuncts()) os << "true";
     else {
       for (auto it = cond.begin(); it != cond.end(); ++it) {
         if (it != cond.begin()) os << " && ";
@@ -1005,7 +1007,7 @@ namespace {
       if (!isSafeToLoadFromPointer(RMW->getPointerOperand())) {
         ret &= InsertionPoint(I.getNextNode());
       }
-      ret.map(collapseTautologies);
+      ret = ret.map(collapseTautologies);
       return ret;
     }
 
@@ -1067,6 +1069,42 @@ namespace {
     /* Extension point: We could add more instructions here */
 
     return false;
+  }
+
+  void debugPrintInstructionPCs(llvm::Loop *L, PurityConditions &conds) {
+    const auto &blocks = L->getBlocks();
+    llvm::dbgs() << "Results of analysing " << L->getHeader()->getParent()->getName()
+                 << ":" << *L;
+    std::map<llvm::Instruction*,PurityCondition> iconds;
+    for (auto it = blocks.rbegin(); it != blocks.rend(); ++it) {
+      llvm::BasicBlock *BB = *it;
+      PurityCondition cond = computeOut(L, conds, BB);
+      iconds[BB->getTerminator()] = cond;
+      for (auto it = BB->rbegin(); ++it != BB->rend();) {
+        iconds[&*it] = cond &= instructionPurity(L, *it);
+      }
+    }
+    llvm::formatted_raw_ostream os(llvm::errs());
+    std::string indent(2, ' ');
+    for (llvm::BasicBlock *BB : blocks) {
+      os << indent << BB->getName() << ":";
+      os.PadToColumn(30+indent.size());
+      os.changeColor(llvm::raw_ostream::YELLOW, false, false)
+        << " ; preds = ";
+      for (auto it = pred_begin(BB); it != pred_end(BB); ++it) {
+        if (it != pred_begin(BB)) os << ", ";
+        os << "%" << (*it)->getName();
+      }
+      os.resetColor() << "\n";
+      for (llvm::Instruction &I : *BB) {
+        I.print(os << indent, true);
+        os.PadToColumn(70+indent.size());
+        os.changeColor(llvm::raw_ostream::BLUE, false, false)
+          << " ; " << iconds[&I];
+        os.resetColor() << "\n";
+      }
+      os << "\n";
+    }
   }
 
   PurityConditions analyseLoop(llvm::Loop *L) {
@@ -1243,6 +1281,7 @@ namespace {
     assert(!may_inline);
     assert(!inlining_needed);
     PurityConditions conditions = analyseLoop(L);
+    // debugPrintInstructionPCs(L, conditions);
     PurityCondition headerCond = conditions[L->getHeader()];
     assert(!inlining_needed);
     if (headerCond.is_false()) {
