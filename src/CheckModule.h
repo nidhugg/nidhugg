@@ -42,11 +42,11 @@ namespace CheckModule {
 
   class CheckModuleError : public std::exception{
   public:
-    CheckModuleError(const std::string &msg) : msg("CheckModuleError: "+msg) {};
+    CheckModuleError(const std::string &msg) : msg("CheckModuleError: "+msg) {}
     CheckModuleError(const CheckModuleError&) = default;
-    virtual ~CheckModuleError() throw() {};
+    virtual ~CheckModuleError() throw() {}
     CheckModuleError &operator=(const CheckModuleError&) = default;
-    virtual const char *what() const throw() { return msg.c_str(); };
+    virtual const char *what() const throw() { return msg.c_str(); }
   private:
     std::string msg;
   };

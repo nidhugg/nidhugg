@@ -90,7 +90,7 @@ namespace gen {
       leaf(gen_type generation, const leaf &other)
         : value_container(other), next(other.next) {
         child::_generation = -1-generation;
-      };
+      }
       leaf(const leaf&) = delete;
       /* Always a leaf */
       child *next;
@@ -123,7 +123,7 @@ namespace gen {
       std::make_unique<_debug_refcount_type>(0);
     void assert_writable() const;
 #else
-    inline constexpr void assert_writable() const {};
+    inline constexpr void assert_writable() const {}
 #endif
 
     template<typename Fn>
@@ -131,7 +131,7 @@ namespace gen {
 
   public:
     /* Empty */
-    map(){};
+    map() {}
     /* Copy-on-write duplicate another map. It must not be modified after this. */
     explicit map(const map &);
     /* Steal another map. It will be empty after this. It is allowed to steal

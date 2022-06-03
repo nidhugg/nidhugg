@@ -32,7 +32,7 @@
 class DeadCodeElimPass final : public llvm::FunctionPass{
 public:
   static char ID;
-  DeadCodeElimPass() : llvm::FunctionPass(ID) {};
+  DeadCodeElimPass() : llvm::FunctionPass(ID) {}
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
   bool runOnFunction(llvm::Function &F) override;
 #ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF

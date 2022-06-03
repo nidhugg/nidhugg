@@ -124,19 +124,19 @@ protected:
     const void *ml;
     bool operator<(const Access &a) const{
       return type < a.type || (type == a.type && ml < a.ml);
-    };
+    }
     bool operator==(const Access &a) const{
       return type == a.type && (type == NA || ml == a.ml);
-    };
-    Access() : type(NA), ml(0) {};
-    Access(Type t, const void *m) : type(t), ml(m) {};
+    }
+    Access() : type(NA), ml(0) {}
+    Access(Type t, const void *m) : type(t), ml(m) {}
   };
 
   /* Various information about a thread in the current execution. */
   class Thread{
   public:
     Thread(const CPid &cpid, int spawn_event)
-      : cpid(cpid), available(true), spawn_event(spawn_event) {};
+      : cpid(cpid), available(true), spawn_event(spawn_event) {}
     CPid cpid;
     /* Is the thread available for scheduling? */
     bool available;
@@ -177,7 +177,7 @@ protected:
    */
   class ByteInfo{
   public:
-    ByteInfo() : last_update(-1) {};
+    ByteInfo() : last_update(-1) {}
     /* An index into prefix, to the latest update that accessed this
      * byte. last_update == -1 if there has been no update to this
      * byte.
@@ -194,8 +194,8 @@ protected:
    */
   class Mutex{
   public:
-    Mutex() : last_access(-1), last_lock(-1), locked(false) {};
-    Mutex(int lacc) : last_access(lacc), last_lock(-1), locked(false) {};
+    Mutex() : last_access(-1), last_lock(-1), locked(false) {}
+    Mutex(int lacc) : last_access(lacc), last_lock(-1), locked(false) {}
     int last_access;
     int last_lock;
     bool locked;
@@ -209,8 +209,8 @@ protected:
   /* A CondVar represents a pthread_cond_t object. */
   class CondVar{
   public:
-    CondVar() : last_signal(-1) {};
-    CondVar(int init_idx) : last_signal(init_idx) {};
+    CondVar() : last_signal(-1) {}
+    CondVar(int init_idx) : last_signal(init_idx) {}
     /* Index in prefix of the latest call to either of
      * pthread_cond_init, pthread_cond_signal, or
      * pthread_cond_broadcast for this condition variable.
@@ -243,7 +243,7 @@ protected:
     Event(const IID<IPid> &iid, int alt = 0, SymEv sym = {})
       : alt(0), size(1), pinned(false),
         iid(iid), origin_iid(iid), md(0), clock(), may_conflict(false),
-        sym(std::move(sym)), sleep_branch_trace_count(0), decision_depth(-1) {};
+        sym(std::move(sym)), sleep_branch_trace_count(0), decision_depth(-1) {}
     /* Some instructions may execute in several alternative ways
      * nondeterministically. (E.g. malloc may succeed or fail
      * nondeterministically if Configuration::malloy_may_fail is set.)
@@ -300,20 +300,20 @@ protected:
 
     int get_decision_depth() const {
       return decision_depth;
-    };
+    }
     void set_decision(std::shared_ptr<DecisionNode> decision) {
       decision_ptr = std::move(decision);
       decision_depth = decision_ptr ? decision_ptr->depth : -1;
-    };
+    }
     void set_branch_decision(int decision, const std::shared_ptr<DecisionNode> &work_item) {
       decision_depth = decision;
       decision_ptr = decision == -1 ? nullptr : RFSCDecisionTree::find_ancestor(work_item, decision_depth);
-    };
+    }
 
     void decision_swap(Event &e) {
       std::swap(decision_ptr, e.decision_ptr);
       std::swap(decision_depth, e.decision_depth);
-    };
+    }
 
   private:
     /* The hierarchical order of events. */
@@ -365,19 +365,19 @@ protected:
     assert(aux == -1);
     assert(proc < int(threads.size()));
     return proc;
-  };
+  }
 
   Event &curev() {
     assert(0 <= prefix_idx);
     assert(prefix_idx < int(prefix.size()));
     return prefix[prefix_idx];
-  };
+  }
 
   const Event &curev() const {
     assert(0 <= prefix_idx);
     assert(prefix_idx < int(prefix.size()));
     return prefix[prefix_idx];
-  };
+  }
 
   /* Perform the logic of atomic_store(), aside from recording a
    * symbolic event.

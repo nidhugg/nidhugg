@@ -68,7 +68,7 @@ protected:
    */
   class PendingStoreByte{
   public:
-    PendingStoreByte(const SymAddrSize &ml, uint8_t val) : ml(ml), val(val) {};
+    PendingStoreByte(const SymAddrSize &ml, uint8_t val) : ml(ml), val(val) {}
     /* ml is the complete memory location of the pending store of
      * which this byte is part.
      */
@@ -82,7 +82,7 @@ protected:
    */
   class PSOThread{
   public:
-    PSOThread() : awaiting_buffer_flush(BFL_NO), buffer_flush_ml({SymMBlock::Global(0),0},1) {};
+    PSOThread() : awaiting_buffer_flush(BFL_NO), buffer_flush_ml({SymMBlock::Global(0),0},1) {}
     /* aux_to_byte and byte_to_aux provide the mapping between
      * auxiliary thread indices and the first byte in the memory
      * locations for which that auxiliary thread is responsible.
@@ -132,7 +132,7 @@ protected:
       }
 #endif
       return store_buffers.empty();
-    };
+    }
   };
   /* All threads that are or have been running during this execution
    * have an entry in Threads, in the order in which they were
