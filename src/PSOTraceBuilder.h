@@ -97,19 +97,19 @@ protected:
     SymAddr ml;
     bool operator<(const Access &a) const{
       return type < a.type || (type == a.type && ml < a.ml);
-    };
+    }
     bool operator==(const Access &a) const{
       return type == a.type && (type == NA || ml == a.ml);
-    };
-    Access() : type(NA), ml(SymMBlock::Global(0),0) {};
-    Access(Type t, SymAddr m) : type(t), ml(m) {};
+    }
+    Access() : type(NA), ml(SymMBlock::Global(0),0) {}
+    Access(Type t, SymAddr m) : type(t), ml(m) {}
   };
 
   /* A byte of a store pending in a store buffer. */
   class PendingStoreByte{
   public:
     PendingStoreByte(const SymAddrSize &ml, const VClock<IPid> &clk, const llvm::MDNode *md)
-      : ml(ml), clock(clk), last_rowe(-1), md(md) {};
+      : ml(ml), clock(clk), last_rowe(-1), md(md) {}
     /* The memory location that is being written to. */
     SymAddrSize ml;
     /* The clock of the store event which produced this store buffer
@@ -134,7 +134,7 @@ protected:
   public:
     Thread(int proc, const CPid &cpid, const VClock<IPid> &clk, IPid parent)
       : proc(proc), cpid(cpid), available(true), clock(clk), parent(parent),
-        sleeping(false), sleep_full_memory_conflict(false) {};
+        sleeping(false), sleep_full_memory_conflict(false) {}
     /* The process number used to communicate process identities with
      * the interpreter. For auxiliary threads, proc is the process
      * number of the corresponding real thread.
@@ -206,7 +206,7 @@ protected:
       }
 #endif
       return store_buffers.empty();
-    };
+    }
   };
   /* The threads in the current execution, in the order they were
    * created. Threads on even indexes are real, threads on odd indexes
@@ -241,7 +241,7 @@ protected:
    */
   class ByteInfo{
   public:
-    ByteInfo() : last_update(-1), last_update_ml({SymMBlock::Global(0),0},1) {};
+    ByteInfo() : last_update(-1), last_update_ml({SymMBlock::Global(0),0},1) {}
     /* An index into prefix, to the latest update that accessed this
      * byte. last_update == -1 if there has been no update to this
      * byte.
@@ -262,17 +262,17 @@ protected:
      */
     struct last_read_t {
       std::vector<int> v;
-      int operator[](int i) const { return (i < int(v.size()) ? v[i] : -1); };
+      int operator[](int i) const { return (i < int(v.size()) ? v[i] : -1); }
       int &operator[](int i) {
         if(int(v.size()) <= i){
           v.resize(i+1,-1);
         }
         return v[i];
-      };
-      std::vector<int>::iterator begin() { return v.begin(); };
-      std::vector<int>::const_iterator begin() const { return v.begin(); };
-      std::vector<int>::iterator end() { return v.end(); };
-      std::vector<int>::const_iterator end() const { return v.end(); };
+      }
+      std::vector<int>::iterator begin() { return v.begin(); }
+      std::vector<int>::const_iterator begin() const { return v.begin(); }
+      std::vector<int>::iterator end() { return v.end(); }
+      std::vector<int>::const_iterator end() const { return v.end(); }
     } last_read;
   };
   std::map<SymAddr,ByteInfo> mem;
@@ -285,8 +285,8 @@ protected:
    */
   class Mutex{
   public:
-    Mutex() : last_access(-1), last_lock(-1), locked(false) {};
-    Mutex(int lacc) : last_access(lacc), last_lock(-1), locked(false) {};
+    Mutex() : last_access(-1), last_lock(-1), locked(false) {}
+    Mutex(int lacc) : last_access(lacc), last_lock(-1), locked(false) {}
     int last_access;
     int last_lock;
     bool locked;
@@ -300,8 +300,8 @@ protected:
   /* A CondVar represents a pthread_cond_t object. */
   class CondVar{
   public:
-    CondVar() : last_signal(-1) {};
-    CondVar(int init_idx) : last_signal(init_idx) {};
+    CondVar() : last_signal(-1) {}
+    CondVar(int init_idx) : last_signal(init_idx) {}
     /* Index in prefix of the latest call to either of
      * pthread_cond_init, pthread_cond_signal, or
      * pthread_cond_broadcast for this condition variable.
@@ -333,10 +333,10 @@ protected:
     int alt;
     bool operator<(const Branch &b) const{
       return pid < b.pid || (pid == b.pid && alt < b.alt);
-    };
+    }
     bool operator==(const Branch &b) const{
       return pid == b.pid && alt == b.alt;
-    };
+    }
   };
 
   /* Information about a (short) sequence of consecutive events by the
@@ -349,7 +349,7 @@ protected:
     Event(const IID<IPid> &iid,
           const VClock<IPid> &clk)
       : iid(iid), origin_iid(iid), size(1), alt(0), md(0), clock(clk),
-        may_conflict(false), sleep_branch_trace_count(0) {};
+        may_conflict(false), sleep_branch_trace_count(0) {}
     /* The identifier for the first event in this event sequence. */
     IID<IPid> iid;
     /* The IID of the program instruction which is the origin of this
@@ -434,19 +434,19 @@ protected:
       p = threads[p].aux_to_ipid[aux];
     }
     return p;
-  };
+  }
 
   Event &curnode() {
     assert(0 <= prefix_idx);
     assert(prefix_idx < int(prefix.size()));
     return prefix[prefix_idx];
-  };
+  }
 
   const Event &curnode() const {
     assert(0 <= prefix_idx);
     assert(prefix_idx < int(prefix.size()));
     return prefix[prefix_idx];
-  };
+  }
 
   std::string iid_string(const Event &evt) const;
   void add_branch(int i, int j);

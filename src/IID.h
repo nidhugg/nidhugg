@@ -44,24 +44,24 @@ template<typename Pid_t>
 class IID{
 public:
   /* Create the null IID. */
-  IID() : idx(), pid() {};
+  IID() : idx(), pid() {}
   /* Create the IID (p,i). */
-  IID(const Pid_t &p, int i) : idx(i), pid(p) { assert(i >= 0); };
+  IID(const Pid_t &p, int i) : idx(i), pid(p) { assert(i >= 0); }
   IID(const IID&) = default;
   IID &operator=(const IID&) = default;
 
-  const Pid_t &get_pid() const { return pid; };
-  int get_index() const { return idx; };
+  const Pid_t &get_pid() const { return pid; }
+  int get_index() const { return idx; }
 
-  bool valid() const { return idx > 0; };
-  bool is_null() const { return idx == 0; };
+  bool valid() const { return idx > 0; }
+  bool is_null() const { return idx == 0; }
 
-  IID &operator++() { ++idx; return *this; };
-  IID operator++(int) { return IID(pid,idx++); };
-  IID &operator--() { assert(idx > 0); --idx; return *this; };
-  IID operator--(int) { assert(idx > 0); return IID(pid,idx--); };
-  IID operator+(int d) const { return IID(pid,idx+d); };
-  IID operator-(int d) const { return IID(pid,idx-d); };
+  IID &operator++() { ++idx; return *this; }
+  IID operator++(int) { return IID(pid,idx++); }
+  IID &operator--() { assert(idx > 0); --idx; return *this; }
+  IID operator--(int) { assert(idx > 0); return IID(pid,idx--); }
+  IID operator+(int d) const { return IID(pid,idx+d); }
+  IID operator-(int d) const { return IID(pid,idx-d); }
 
   /* Comparison:
    * The comparison operators implement a total order over IIDs.
@@ -70,14 +70,14 @@ public:
    */
   bool operator==(const IID &iid) const{
     return (idx == iid.idx && pid == iid.pid);
-  };
-  bool operator!=(const IID &iid) const { return !((*this) == iid); };
+  }
+  bool operator!=(const IID &iid) const { return !((*this) == iid); }
   bool operator<(const IID &iid) const {
     return (pid < iid.pid || (pid == iid.pid && idx < iid.idx));
-  };
-  bool operator<=(const IID &iid) const { return (*this) < iid || (*this) == iid; };
-  bool operator>(const IID &iid) const { return iid < (*this); };
-  bool operator>=(const IID &iid) const { return iid <= (*this); };
+  }
+  bool operator<=(const IID &iid) const { return (*this) < iid || (*this) == iid; }
+  bool operator>(const IID &iid) const { return iid < (*this); }
+  bool operator>=(const IID &iid) const { return iid <= (*this); }
 
   std::string to_string() const;
 private:

@@ -45,7 +45,7 @@ namespace PATB_impl{
     Access(Type tp)
       : type(tp), addr(0,1), data(addr,1),
         addr_known(false), data_known(false),
-        load_req(0) {};
+        load_req(0) {}
     /* Is this a store or a load? */
     Type type;
     /* The memory location accessed. */
@@ -65,7 +65,7 @@ namespace PATB_impl{
      */
     POWERARMTraceBuilder::ldreqfun_t *load_req;
     /* Is address and data (if a store) known? */
-    bool satisfied() const { return addr_known && (type != STORE || data_known); };
+    bool satisfied() const { return addr_known && (type != STORE || data_known); }
   };
 
   /* An Access corresponds to a number of byte-sized accesses. These
@@ -80,9 +80,9 @@ namespace PATB_impl{
       STORE
     };
     ByteAccess(Type tp, void *addr) // Load or store
-      : type(tp), addr(addr), data(0), data_known(false) {};
+      : type(tp), addr(addr), data(0), data_known(false) {}
     ByteAccess(void *addr, char data) // Store
-      : type(STORE), addr(addr), data(data), data_known(true) {};
+      : type(STORE), addr(addr), data(data), data_known(true) {}
     /* Is this a store or a load? */
     Type type;
     /* The address of the accessed byte. Guaranteed to be known. */
@@ -93,7 +93,7 @@ namespace PATB_impl{
     /* Is the data known? (Always false for loads.) */
     bool data_known;
     /* Is address and data (if a store) known? */
-    bool satisfied() const { return type != STORE || data_known; };
+    bool satisfied() const { return type != STORE || data_known; }
   };
 
   /* Rel objects are used to encode relations over events (such as co,
@@ -178,8 +178,8 @@ namespace PATB_impl{
      */
     class Choice{
     public:
-      Choice(int cp) : co_pos(cp) { assert(0 <= cp); }; // coherence choice
-      Choice(IID<int> src) : co_pos(-1), src(src) {}; // source choice
+      Choice(int cp) : co_pos(cp) { assert(0 <= cp); } // coherence choice
+      Choice(IID<int> src) : co_pos(-1), src(src) {} // source choice
       /* co_pos represents a position in the coherence order at the
        * time that this event is committed. The represented position
        * is the position such that the event is preceded by precisely
@@ -194,8 +194,8 @@ namespace PATB_impl{
        * value. Null if this event reads the initial value.
        */
       IID<int> src;
-      bool is_coherence_choice() const { return 0 <= co_pos; };
-      bool is_source_choice() const { return !is_coherence_choice(); };
+      bool is_coherence_choice() const { return 0 <= co_pos; }
+      bool is_source_choice() const { return !is_coherence_choice(); }
       bool operator<(const Choice &C) const{
         if(is_coherence_choice() != C.is_coherence_choice()){
           return is_coherence_choice();
@@ -205,14 +205,14 @@ namespace PATB_impl{
         }else{
           return src < C.src;
         }
-      };
+      }
       bool operator==(const Choice &C) const{
         if(is_coherence_choice()){
           return co_pos == C.co_pos; // Note: this also implies C.is_coherence_choice()
         }else{
           return !C.is_coherence_choice() && src == C.src;
         }
-      };
+      }
     };
     /* A vector containing the choices for each byte-access. The
      * choice choices[i] corresponds to the byte-access baccesses[i]
@@ -234,8 +234,8 @@ namespace PATB_impl{
     Relations rel;
     ExtraRel ER;
 
-    bool operator<(const Param &B) const { return choices < B.choices; };
-    bool operator==(const Param &B) const { return choices == B.choices; };
+    bool operator<(const Param &B) const { return choices < B.choices; }
+    bool operator==(const Param &B) const { return choices == B.choices; }
   };
 
   class Branch{
@@ -243,8 +243,8 @@ namespace PATB_impl{
     struct PEvent{
       IID<int> iid;
       Param param;
-      bool operator<(const PEvent &e) const { return iid < e.iid || (iid == e.iid && param < e.param); };
-      bool operator==(const PEvent &e) const { return iid == e.iid && param == e.param; };
+      bool operator<(const PEvent &e) const { return iid < e.iid || (iid == e.iid && param < e.param); }
+      bool operator==(const PEvent &e) const { return iid == e.iid && param == e.param; }
     };
     std::vector<PEvent> branch;
     /* param_type describes how e.recalc_params and
@@ -276,7 +276,7 @@ namespace PATB_impl{
         if(!(branch[i] == B.branch[i])) return branch[i] < B.branch[i];
       }
       return false;
-    };
+    }
     bool operator==(const Branch &B) const{
       if(param_type != B.param_type) return false;
       if(branch.size() != B.branch.size()) return false;
@@ -284,7 +284,7 @@ namespace PATB_impl{
         if(!(branch[i] == B.branch[i])) return false;
       }
       return true;
-    };
+    }
   };
 
   /* An event is some atomic operation performing memory accesses. */
@@ -307,7 +307,7 @@ namespace PATB_impl{
       accesses.resize(load_count+store_count,Access(Access::STORE));
       cb_bwd.set(clock_index);
       recalc_params = RECALC_NO;
-    };
+    }
     /* The identifier of this event. */
     IID<int> iid;
     /* Is the event committed? */
@@ -364,7 +364,7 @@ namespace PATB_impl{
     int unknown_data_count;
     bool all_addr_and_data_known() const {
       return unknown_addr_count == 0 && unknown_data_count == 0;
-    };
+    }
     /* The indices of the events which are address dependencies of
      * this event. I.e. i is in addr_deps iff IID(proc,i) is an
      * address dependency of this event, where proc ==
@@ -473,7 +473,7 @@ namespace PATB_impl{
      * branch_start and branch_end are -1.
      */
     int branch_start, branch_end;
-    bool in_locked_branch() const { return 0 <= branch_start; };
+    bool in_locked_branch() const { return 0 <= branch_start; }
     /* If this event is part of a locked branch, and branch_start is
      * the index in prefix of this event, then cur_branch is that
      * locked branch. Otherwise, cur_branch is undefined.
@@ -509,7 +509,7 @@ namespace PATB_impl{
         }
       }
       return ss.str();
-    };
+    }
 
     /* Returns true iff any access of this event has a load_req */
     bool has_load_req() const {
@@ -519,7 +519,7 @@ namespace PATB_impl{
         }
       }
       return false;
-    };
+    }
   };
 
   /* POWER specific version of PAEvent. */
@@ -529,7 +529,7 @@ namespace PATB_impl{
                const VecSet<int> addr_deps, const VecSet<int> &data_deps,
                int eieio_idx, int lwsync_idx, int sync_idx, int clk_idx)
       : PAEvent(load_count,store_count,addr_deps,data_deps,
-                eieio_idx,lwsync_idx,sync_idx,clk_idx) {};
+                eieio_idx,lwsync_idx,sync_idx,clk_idx) {}
   };
 
   /* ARM specific version of PAEvent. */
@@ -540,7 +540,7 @@ namespace PATB_impl{
              int eieio_idx, int lwsync_idx, int sync_idx,
              int clk_idx)
       : PAEvent(load_count,store_count,addr_deps,data_deps,
-                eieio_idx,lwsync_idx,sync_idx,clk_idx) {};
+                eieio_idx,lwsync_idx,sync_idx,clk_idx) {}
   };
 
   /* A Mem object contains information about the accesses to one
@@ -549,7 +549,7 @@ namespace PATB_impl{
   template<MemoryModel MemMod,CB_T CB,class Event>
   class Mem{
   public:
-    Mem() : loads(1) {};
+    Mem() : loads(1) {}
     /* The coherence vector contains all committed events that store
      * to this byte, in co-order.
      */
@@ -572,7 +572,7 @@ namespace PATB_impl{
    */
   class TraceRecorder : public Trace{
   public:
-    TraceRecorder(const std::vector<CPid> *cpids) : Trace({}), cpids(cpids), active(false) {};
+    TraceRecorder(const std::vector<CPid> *cpids) : Trace({}), cpids(cpids), active(false) {}
     /* Get the recorded trace representation. */
     std::string to_string(int ind = 0) const;
     /* Called when an event is committed by the TraceBuilder. */
@@ -589,15 +589,15 @@ namespace PATB_impl{
     /* Called when the ExecutionEngine detects an error. */
     void trace_register_error(int proc, const std::string &err_msg);
     /* Clear the recorded trace */
-    void clear() { lines.clear(); last_committed.consumed = true; fun_call_stack.clear(); };
-    void activate() { active = true; };
-    void deactivate() { active = false; };
-    bool is_active() const { return active; };
+    void clear() { lines.clear(); last_committed.consumed = true; fun_call_stack.clear(); }
+    void activate() { active = true; }
+    void deactivate() { active = false; }
+    bool is_active() const { return active; }
   private:
     const std::vector<CPid> *cpids;
     bool active;
     struct Committed{
-      Committed() : consumed(true) {};
+      Committed() : consumed(true) {}
       bool consumed;
       IID<int> iid;
       Param param;
@@ -660,7 +660,7 @@ namespace PATB_impl{
 
     virtual bool check_for_cycles(){
       throw std::logic_error("POWERARMTraceBuilder::check_for_cycles: Not supported.");
-    };
+    }
     virtual int spawn(int proc);
     virtual void abort();
     virtual Trace *get_trace() const;
@@ -728,7 +728,7 @@ namespace PATB_impl{
         : fch_count(0), committed_prefix(0), addr_known_prefix(0),
           last_fetched_eieio_idx(-1),
           last_fetched_lwsync_idx(-1),
-          last_fetched_sync_idx(-1) {};
+          last_fetched_sync_idx(-1) {}
       /* The number of events which have been fetched for this thread
        * in the current computation.
        */
@@ -788,17 +788,17 @@ namespace PATB_impl{
       int i = int(prefix.size())-1;
       while(0 <= i && prefix[i] != iid) --i;
       return i;
-    };
+    }
     Event &get_evt(const IID<int> &iid) {
       assert(0 <= iid.get_pid() && iid.get_pid() < int(fch.size()));
       assert(0 < iid.get_index() && iid.get_index() <= int(fch[iid.get_pid()].size()));
       return fch[iid.get_pid()][iid.get_index()-1];
-    };
+    }
     const Event &get_evt(const IID<int> &iid) const {
       assert(0 <= iid.get_pid() && iid.get_pid() < int(fch.size()));
       assert(0 < iid.get_index() && iid.get_index() <= int(fch[iid.get_pid()].size()));
       return fch[iid.get_pid()][iid.get_index()-1];
-    };
+    }
     /* Update the value of committed_prefix in threads[proc].
      */
     void update_committed_prefix(int proc);
@@ -1035,7 +1035,7 @@ namespace PATB_impl{
         pfx[iid.get_pid()] = iid.get_index();
       }
       return true;
-    };
+    }
 
     /* Replaces A with the set A union C, where C is the set of all
      * elements in B except the smallest element in B.
@@ -1056,8 +1056,8 @@ namespace PATB_impl{
             const std::vector<Error*> &errors,
             const std::string &str_rep = "",
             bool blocked = false)
-      : Trace(errors,blocked), events(events), cpids(cpids), string_rep(str_rep), conf(conf) {};
-    virtual ~PATrace(){};
+      : Trace(errors,blocked), events(events), cpids(cpids), string_rep(str_rep), conf(conf) {}
+    virtual ~PATrace(){}
     virtual std::string to_string(int ind = 0) const;
   protected:
     std::vector<Evt> events;
