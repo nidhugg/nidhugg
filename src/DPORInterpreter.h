@@ -24,6 +24,8 @@
 
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 
+#include <memory>
+
 /* Common base class for all Interpreter instances used in nidhugg */
 class DPORInterpreter : public llvm::ExecutionEngine {
   /* True if we have executed a false assume statement.

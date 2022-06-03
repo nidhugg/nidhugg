@@ -21,6 +21,7 @@
 #include "PSOTraceBuilder.h"
 #include "TraceUtil.h"
 
+#include <algorithm>
 #include <sstream>
 #include <stdexcept>
 

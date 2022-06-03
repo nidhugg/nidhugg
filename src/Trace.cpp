@@ -20,8 +20,10 @@
 #include "Trace.h"
 #include "TraceUtil.h"
 
+#include <map>
 #include <set>
 #include <sstream>
+#include <utility>
 
 Trace::Trace(const std::vector<Error*> &errors, bool blk)
   : errors(errors), blocked(blk) {

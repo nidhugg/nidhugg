@@ -28,6 +28,11 @@
 #include "DPORInterpreter.h"
 #include "GlobalContext.h"
 
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
 #if defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
 #elif defined(HAVE_LLVM_MODULE_H)
@@ -38,8 +43,6 @@
 #elif defined(HAVE_LLVM_LLVMCONTEXT_H)
 #include <llvm/LLVMContext.h>
 #endif
-
-#include <string>
 
 namespace llvm{
   class ExecutionEngine;

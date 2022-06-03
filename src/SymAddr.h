@@ -22,12 +22,13 @@
 #ifndef __SYM_ADDR_H__
 #define __SYM_ADDR_H__
 
-#include <cstdint>
-#include <cassert>
 #include <algorithm>
-#include <string>
+#include <cassert>
+#include <cstdint>
 #include <functional>
 #include <memory>
+#include <string>
+#include <utility>
 
 struct SymMBlock {
   static SymMBlock Null() {

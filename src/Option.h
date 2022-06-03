@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <cassert>
 #include <type_traits>
+#include <utility>
 
 template<typename Value>
 class Option {

@@ -28,7 +28,11 @@
 #include "Option.h"
 
 #include <boost/container/flat_map.hpp>
+#include <map>
+#include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 typedef llvm::SmallVector<SymEv,1> sym_ty;
 

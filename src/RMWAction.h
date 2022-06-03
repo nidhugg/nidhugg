@@ -24,6 +24,8 @@
 
 #include "SymAddr.h"
 
+#include <utility>
+
 struct RmwAction {
   SymData::block_type operand;
   enum Kind : uint8_t {

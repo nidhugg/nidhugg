@@ -21,9 +21,11 @@
 #ifndef __SEXPR_H__
 #define __SEXPR_H__
 
-#include <vector>
 #include <istream>
 #include <ostream>
+#include <string>
+#include <vector>
+#include <utility>
 #include <boost/variant.hpp>
 
 class SExpr final {

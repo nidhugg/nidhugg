@@ -21,6 +21,9 @@
 #include "POWERARMTraceBuilder.h"
 
 #include <cassert>
+#include <map>
+#include <string>
+#include <vector>
 
 #ifndef __POWERARM_TRACE_BUILDER_H__
 #define __POWERARM_TRACE_BUILDER_H__

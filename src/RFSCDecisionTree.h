@@ -25,12 +25,16 @@
 #include "SaturatedGraph.h"
 #include "RFSCUnfoldingTree.h"
 
-#include <unordered_set>
-#include <mutex>
-#include <condition_variable>
-#include <queue>
 #include <atomic>
-
+#include <condition_variable>
+#include <deque>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <queue>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 struct DecisionNode;
 

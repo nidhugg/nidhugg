@@ -24,6 +24,8 @@
 #include "SaturatedGraph.h"
 #include "Option.h"
 
+#include <vector>
+
 Option<std::vector<IID<int>>>
 try_generate_prefix(SaturatedGraph g, std::vector<IID<int>> current_exec);
 

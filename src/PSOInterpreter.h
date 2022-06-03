@@ -24,6 +24,11 @@
 #include "Interpreter.h"
 #include "PSOTraceBuilder.h"
 
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
+
 /* A PSOInterpreter is an interpreter running under the PSO
  * semantics. The execution should be guided by scheduling from a
  * PSOTraceBuilder.

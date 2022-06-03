@@ -30,8 +30,13 @@
 #include "RFSCUnfoldingTree.h"
 #include "RFSCDecisionTree.h"
 
+#include <map>
+#include <memory>
+#include <string>
+#include <utility>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 #include <boost/container/flat_map.hpp>
 
 

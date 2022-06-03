@@ -22,6 +22,7 @@
 #ifndef __ADD_LIB_PASS_H__
 #define __ADD_LIB_PASS_H__
 
+#include <string>
 #include <vector>
 
 #include <llvm/Pass.h>

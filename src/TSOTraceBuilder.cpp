@@ -21,6 +21,8 @@
 #include "TSOTraceBuilder.h"
 #include "TraceUtil.h"
 
+#include <algorithm>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 

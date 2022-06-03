@@ -26,6 +26,7 @@
 #include <functional>
 #include <initializer_list>
 #include <string>
+#include <utility>
 #include <vector>
 
 /* A set, implemented as a sorted vector */

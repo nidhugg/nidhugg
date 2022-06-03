@@ -23,6 +23,7 @@
 
 #include <llvm/Support/CommandLine.h>
 #include <iostream>
+#include <string>
 
 namespace {
 static llvm::cl::opt<bool>

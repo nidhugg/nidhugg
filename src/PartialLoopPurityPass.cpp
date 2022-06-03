@@ -69,8 +69,11 @@
 #include <llvm/Support/FormattedStream.h>
 #include <llvm/Config/llvm-config.h>
 
-#include <unordered_map>
+#include <algorithm>
 #include <sstream>
+#include <utility>
+#include <vector>
+#include <unordered_map>
 
 #ifdef LLVM_HAS_TERMINATORINST
 typedef llvm::TerminatorInst TerminatorInst;

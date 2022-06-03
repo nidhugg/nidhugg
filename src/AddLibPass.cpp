@@ -21,6 +21,9 @@
 #include "Debug.h"
 #include "StrModule.h"
 
+#include <memory>
+#include <stdexcept>
+
 #if defined(HAVE_LLVM_IR_CONSTANTS_H)
 #include <llvm/IR/Constants.h>
 #elif defined(HAVE_LLVM_CONSTANTS_H)
@@ -38,8 +41,6 @@
 #elif defined(HAVE_LLVM_LINKER_LINKER_H)
 #include <llvm/Linker/Linker.h>
 #endif
-
-#include <stdexcept>
 
 void AddLibPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
 }

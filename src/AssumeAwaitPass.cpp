@@ -19,6 +19,10 @@
 
 #include <config.h>
 
+#include <string>
+#include <utility>
+#include <vector>
+
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
 #if defined(HAVE_LLVM_IR_DOMINATORS_H)

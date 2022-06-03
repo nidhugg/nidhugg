@@ -27,10 +27,12 @@
 #endif
 #include <algorithm>
 #include <array>
+#include <climits>
+#include <cstdint>
 #include <functional>
 #include <memory>
-#include <cstdint>
-#include <climits>
+#include <utility>
+#include <vector>
 
 namespace gen {
 

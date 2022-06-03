@@ -21,9 +21,12 @@
 #ifndef __RFSC_UNFOLDING_TREE_H__
 #define __RFSC_UNFOLDING_TREE_H__
 
-#include <unordered_set>
+#include <map>
+#include <memory>
 #include <mutex>
 #include <shared_mutex>
+#include <utility>
+#include <unordered_set>
 
 #include "TSOPSOTraceBuilder.h"
 #include "Seqno.h"

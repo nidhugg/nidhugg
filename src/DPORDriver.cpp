@@ -33,10 +33,11 @@
 #include "RFSCUnfoldingTree.h"
 #include "Cpubind.h"
 
-#include <fstream>
-#include <stdexcept>
-#include <iomanip>
 #include <cfloat>
+#include <fstream>
+#include <iomanip>
+#include <queue>
+#include <stdexcept>
 #include <thread>
 
 #include <llvm/IRReader/IRReader.h>

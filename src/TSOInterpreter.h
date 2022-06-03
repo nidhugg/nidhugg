@@ -24,6 +24,11 @@
 #include "Interpreter.h"
 #include "TSOTraceBuilder.h"
 
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
 /* A TSOInterpreter is an interpreter running under the TSO
  * semantics. The execution should be guided by scheduling from a
  * TSOTraceBuilder.

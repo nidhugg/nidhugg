@@ -25,6 +25,8 @@
 
 #ifndef NO_SMTLIB_SOLVER
 
+#include <vector>
+
 #ifndef HAVE_BOOST
 #  error "BOOST is required"
 #endif
