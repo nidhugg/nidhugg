@@ -39,6 +39,6 @@ namespace GlobalContext {
    * has not been created.
    */
   inline void destroy() {}
-}
+}  // namespace GlobalContext
 
 #endif /* !defined(__GLOBAL_CONTEXT_H__) */

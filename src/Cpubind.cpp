@@ -66,7 +66,7 @@ cl_pack("cpubind-pack", llvm::cl::NotHidden, llvm::cl::init(HWLOC_OBJ_CORE),
     }
     return sum;
   }
-}
+}  // namespace
 
 Cpubind::Cpubind(int n) {
   if (cl_nobind) return;

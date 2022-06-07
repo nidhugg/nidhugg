@@ -60,7 +60,7 @@ namespace Transform {
    */
   bool transform(llvm::Module &mod, const Configuration &conf);
 
-}
+}  // namespace Transform
 
 #endif
 

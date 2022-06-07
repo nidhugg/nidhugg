@@ -190,5 +190,5 @@ namespace StrModule {
 #endif
     return s;
   }
-}
+}  // namespace StrModule
 

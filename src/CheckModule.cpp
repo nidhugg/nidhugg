@@ -428,8 +428,7 @@ namespace CheckModule {
       }
     }
   }
-
-}
+}  // namespace CheckModule
 
 void CheckModule::check_nondet_int(const llvm::Module *M){
   check_nondet_int(M,"__VERIFIER_nondet_int");

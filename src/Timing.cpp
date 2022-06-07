@@ -125,6 +125,6 @@ namespace Timing {
 #undef OUT
   }
 
-}
+}  // namespace Timing
 
 #endif /* !defined(NO_TIMING) */

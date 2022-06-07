@@ -93,4 +93,4 @@ namespace nregex{
     regfree(&preg);
     return result;
   }
-}
+}  // namespace nregex

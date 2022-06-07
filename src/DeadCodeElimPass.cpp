@@ -57,7 +57,7 @@ namespace {
     } while(use.size() != old_size);
     return use;
   }
-}
+}  // namespace
 
 bool DeadCodeElimPass::runOnFunction(llvm::Function &F) {
   size_t deleted = 0;

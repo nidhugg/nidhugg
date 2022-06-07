@@ -60,7 +60,7 @@ namespace TraceUtil {
   std::string get_src_line_verbatim(const llvm::MDNode *m);
   std::string get_src_line_verbatim(const SrcLocVector::LocRef &loc);
   std::string basename(const std::string &fname);
-}
+}  // namespace TraceUtil
 
 class SrcLocVectorBuilder {
 public:

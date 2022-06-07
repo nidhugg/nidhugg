@@ -52,7 +52,7 @@ namespace gen {
                 std::make_tuple<>()) {}
       std::tuple<const Key, T> value;
     };
-  }
+  }  // namespace impl
 
   template<typename Key, typename T, typename Hash, class KeyEqual,
            class ValueType>
@@ -171,7 +171,7 @@ namespace gen {
   inline void for_each(const map<K,T,H,KE,VT> &v, Fn&& f) {
     return v.for_each(std::forward<Fn>(f));
   }
-}
+}  // namespace gen
 
 /* Start implementation */
 
@@ -243,7 +243,7 @@ namespace gen {
       static const T val;
     };
     template<typename T> const T const_ref_provider<T>::val = T();
-  }
+  }  // namespace impl
 
   template<typename Key, typename T, typename Hash, class KeyEqual, class VT>
   void map<Key,T,Hash,KeyEqual,VT>::free_child(child *child) {
@@ -484,6 +484,6 @@ namespace gen {
       }
     }
   }
-}
+}  // namespace gen
 
 #endif

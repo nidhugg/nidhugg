@@ -81,7 +81,7 @@ namespace Transform {
       }
     };
     char ClearOptnonePass::ID = 0;
-  }
+  }  // namespace
 
   bool transform(llvm::Module &mod, const Configuration &conf){
     llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
@@ -136,4 +136,4 @@ namespace Transform {
     return modified;
   }
 
-}
+}  // namespace Transform

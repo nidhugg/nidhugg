@@ -78,6 +78,6 @@ namespace CheckModule {
   void check_nondet_int(const llvm::Module *M); // __VERIFIER_nondet_int, __VERIFIER_nondet_uint
   void check_assume(const llvm::Module *M); // __VERIFIER_assume
 
-}
+}  // namespace CheckModule
 
 #endif

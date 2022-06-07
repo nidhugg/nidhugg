@@ -71,7 +71,7 @@ namespace {
   };
 
   typedef gen::map<heap_int,heap_int,constant_hash> id_hash_map;
-}
+}  // namespace
 
 namespace std {
   template <> struct hash<heap_int> {
@@ -81,7 +81,7 @@ namespace std {
       return std::hash<int>()(i);
     }
   };
-}
+}  // namespace std
 
 /* Workaround broken boost version */
 #if BOOST_VERSION < 106700 // 1.67

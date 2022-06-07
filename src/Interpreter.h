@@ -645,6 +645,6 @@ private:
                   const char *name_prefix, unsigned nargs);
 };
 
-} // End llvm namespace
+}  // namespace llvm
 
 #endif

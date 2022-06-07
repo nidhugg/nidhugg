@@ -46,7 +46,7 @@ namespace {
     }
     return nullptr;
   }
-}
+}  // namespace
 
 bool CastElimPass::runOnFunction(llvm::Function &F) {
   size_t eliminated = 0;

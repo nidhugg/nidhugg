@@ -40,7 +40,7 @@ namespace Timing {
   };
 
   constexpr bool timing_enabled() { return false; }
-}
+}  // namespace Timing
 
 #else /* defined(NO_TIMING) */
 #include <chrono>
@@ -64,7 +64,7 @@ namespace Timing {
     };
 
     extern bool is_enabled;
-  }
+  }  // namespace impl
 
   class Context {
     Context(Context &) = delete;
@@ -107,7 +107,7 @@ namespace Timing {
 
   void print_report();
   inline bool timing_enabled() { return impl::is_enabled; }
-}
+}  // namespace Timing
 
 #endif /* !defined(NO_TIMING) */
 
