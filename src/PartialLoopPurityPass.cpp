@@ -21,12 +21,11 @@
 
 #include "PartialLoopPurityPass.h"
 
-#include "vecset.h"
-
 #include "CheckModule.h"
 #include "Debug.h"
 #include "Option.h"
 #include "SpinAssumePass.h"
+#include "vecset.h"
 
 #include <llvm/Analysis/CallGraph.h>
 #include <llvm/Analysis/LoopPass.h>
