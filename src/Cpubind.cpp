@@ -72,38 +72,38 @@ Cpubind::Cpubind(int n) {
   if (cl_nobind) return;
   if (hwloc_topology_load(topo) == -1)
     throw std::logic_error("Hwloc failed to load");
-      hwloc_obj_type_t root_type = cl_pack;
-    int root_count = hwloc_get_nbobjs_by_type(topo, root_type);
-    if (root_count == 0) {
-      std::cerr << "cpubind: Failed to realise pack: There are no objects of that type\n";
-      root_type = HWLOC_OBJ_MACHINE;
-      root_count = 1;
+  hwloc_obj_type_t root_type = cl_pack;
+  int root_count = hwloc_get_nbobjs_by_type(topo, root_type);
+  if (root_count == 0) {
+    std::cerr << "cpubind: Failed to realise pack: There are no objects of that type\n";
+    root_type = HWLOC_OBJ_MACHINE;
+    root_count = 1;
+  }
+  std::vector<hwloc_obj_t> roots;
+  std::vector<int> root_children;
+  int total_children = 0;
+  roots.reserve(root_count);
+  root_children.reserve(root_count);
+  for (int i = 0; i < root_count; ++i) {
+    roots.push_back(hwloc_get_obj_by_type(topo, root_type, i));
+    int child_count = count_children(roots.back());
+    root_children.push_back(child_count);
+    total_children += child_count;
+  }
+  binds.resize(n);
+  for (int i = 0, pos = 0; i < root_count; ++i) {
+    int picks_left = n - pos;
+    int count = (root_children[i]*picks_left + total_children - 1) / total_children;
+    if (count)
+      hwloc_distrib(topo, &roots[i], 1, binds.data()+pos, count, INT_MAX, 0);
+    pos += count;
+    total_children -= root_children[i];
+  }
+  if (!cl_no_bind_singlify) {
+    for (int i = 0; i < n; ++i) {
+      hwloc_bitmap_singlify(binds[i]);
     }
-    std::vector<hwloc_obj_t> roots;
-    std::vector<int> root_children;
-    int total_children = 0;
-    roots.reserve(root_count);
-    root_children.reserve(root_count);
-    for (int i = 0; i < root_count; ++i) {
-      roots.push_back(hwloc_get_obj_by_type(topo, root_type, i));
-      int child_count = count_children(roots.back());
-      root_children.push_back(child_count);
-      total_children += child_count;
-    }
-    binds.resize(n);
-    for (int i = 0, pos = 0; i < root_count; ++i) {
-      int picks_left = n - pos;
-      int count = (root_children[i]*picks_left + total_children - 1) / total_children;
-      if (count)
-        hwloc_distrib(topo, &roots[i], 1, binds.data()+pos, count, INT_MAX, 0);
-      pos += count;
-      total_children -= root_children[i];
-    }
-    if (!cl_no_bind_singlify) {
-      for (int i = 0; i < n; ++i) {
-        hwloc_bitmap_singlify(binds[i]);
-      }
-    }
+  }
 }
 
 void Cpubind::bind(int i) {
