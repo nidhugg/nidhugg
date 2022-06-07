@@ -22,8 +22,8 @@
 #ifndef __PARTIAL_LOOP_PURITY_PASS_H__
 #define __PARTIAL_LOOP_PURITY_PASS_H__
 
-#include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
+#include <llvm/Pass.h>
 
 class PartialLoopPurityPass : public llvm::ModulePass{
 public:

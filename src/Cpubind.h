@@ -33,8 +33,9 @@ public:
 
 #else
 #include <hwloc.h>
-#include <vector>
+
 #include <stdexcept>
+#include <vector>
 
 class Cpubind {
 public:

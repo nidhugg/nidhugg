@@ -24,13 +24,13 @@
 
 #include "IID.h"
 
+#include <llvm/Support/raw_ostream.h>
+
 #include <map>
 #include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
-
-#include <llvm/Support/raw_ostream.h>
 
 /* A VClock<DOM> is a vector clock - a function from some domain DOM
  * to natural numbers.

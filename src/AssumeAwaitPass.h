@@ -22,8 +22,8 @@
 #ifndef __ASSUME_AWAIT_PASS_H__
 #define __ASSUME_AWAIT_PASS_H__
 
-#include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
+#include <llvm/Pass.h>
 
 /* The AssumeAwaitPass identifies calls to __VERIFIER_assume with simple
  * conditions and replaces them with

@@ -22,8 +22,8 @@
 #ifndef __CAST_ELIM_PASS_H__
 #define __CAST_ELIM_PASS_H__
 
-#include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
+#include <llvm/Pass.h>
 
 /* The CastElim pass eliminates some unnecessary casts that can
  * complicate later analyses. */

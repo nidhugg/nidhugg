@@ -20,16 +20,16 @@
 #ifndef __SYM_EV_H__
 #define __SYM_EV_H__
 
-#include <functional>
-#include <string>
-#include <utility>
-
-#include <llvm/Support/raw_ostream.h>
-
 #include "MRef.h"
 #include "SymAddr.h"
 #include "RMWAction.h"
 #include "AwaitCond.h"
+
+#include <llvm/Support/raw_ostream.h>
+
+#include <functional>
+#include <string>
+#include <utility>
 
 /* Symbolic representation of an event */
 struct SymEv {

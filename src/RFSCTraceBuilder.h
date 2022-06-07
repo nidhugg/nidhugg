@@ -33,12 +33,12 @@
 #include <map>
 #include <memory>
 #include <string>
-#include <utility>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
-#include <boost/container/flat_map.hpp>
 
+#include <boost/container/flat_map.hpp>
 
 class RFSCTraceBuilder final : public TSOPSOTraceBuilder{
 public:

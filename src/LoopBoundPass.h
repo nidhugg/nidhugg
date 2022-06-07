@@ -22,8 +22,8 @@
 #ifndef __LOOP_BOUND_PASS_H__
 #define __LOOP_BOUND_PASS_H__
 
-#include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
+#include <llvm/Pass.h>
 
 #include "Debug.h"
 

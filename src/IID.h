@@ -22,12 +22,11 @@
 #ifndef __IID_H__
 #define __IID_H__
 
-#include <ostream>
-#include <string>
+#include <llvm/Support/raw_ostream.h>
 
 #include <cassert>
-
-#include <llvm/Support/raw_ostream.h>
+#include <ostream>
+#include <string>
 
 /* An IID is an identifier for a particular event (instruction or
  * system event) in a computation. It is a pair (p,i) where p is the

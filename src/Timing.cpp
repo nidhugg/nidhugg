@@ -20,12 +20,13 @@
 #ifndef NO_TIMING
 
 #include "Timing.h"
-#include <vector>
-#include <iostream>
-#include <iomanip>
-#include <algorithm>
 
 #include <llvm/Support/CommandLine.h>
+
+#include <algorithm>
+#include <iomanip>
+#include <iostream>
+#include <vector>
 
 namespace Timing {
   namespace impl {

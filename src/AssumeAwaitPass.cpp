@@ -23,8 +23,10 @@
 #include <utility>
 #include <vector>
 
-#include <llvm/Pass.h>
+#include <llvm/Config/llvm-config.h>
 #include <llvm/Analysis/LoopPass.h>
+#include <llvm/IR/InstIterator.h>
+#include <llvm/IR/Operator.h>
 #if defined(HAVE_LLVM_IR_DOMINATORS_H)
 #include <llvm/IR/Dominators.h>
 #elif defined(HAVE_LLVM_ANALYSIS_DOMINATORS_H)
@@ -50,12 +52,10 @@
 #elif defined(HAVE_LLVM_MODULE_H)
 #include <llvm/Module.h>
 #endif
-#include <llvm/Transforms/Utils/BasicBlockUtils.h>
-#include <llvm/IR/InstIterator.h>
-#include <llvm/IR/Operator.h>
-#include <llvm/Config/llvm-config.h>
-#include <llvm/Support/Debug.h>
+#include <llvm/Pass.h>
 #include <llvm/Support/CommandLine.h>
+#include <llvm/Support/Debug.h>
+#include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
 // #include "CheckModule.h"
 #include "AssumeAwaitPass.h"
