@@ -73,7 +73,7 @@ private:
    * constructors and operators for all fields.
    */
   struct ResultBase {
-    ResultBase() : error_trace(nullptr) {};
+    ResultBase() : error_trace(nullptr) {}
     ~ResultBase(){
       if(all_traces.empty()){ // Otherwise error_trace also appears in all_traces.
         delete error_trace;
@@ -81,7 +81,7 @@ private:
       for(Trace *t : all_traces){
         delete t;
       }
-    };
+    }
     ResultBase(const ResultBase&) = delete;
     ResultBase(ResultBase &&other)
       : error_trace(std::exchange(other.error_trace, nullptr)),
@@ -118,7 +118,7 @@ public:
   public:
     /* Empty result */
     Result() : trace_count(0), sleepset_blocked_trace_count(0),
-               assume_blocked_trace_count(0), await_blocked_trace_count(0) {};
+               assume_blocked_trace_count(0), await_blocked_trace_count(0) {}
     /* The number of explored (non-sleepset-blocked) traces */
     uint64_t trace_count;
     /* The number of explored sleepset-blocked traces */
@@ -128,7 +128,7 @@ public:
     /* The number of explored assume-blocked traces */
     uint64_t await_blocked_trace_count;
 
-    bool has_errors() const { return error_trace && error_trace->has_errors(); };
+    bool has_errors() const { return error_trace && error_trace->has_errors(); }
   };
 
   /* Explore the traces of the given module, and return the result.

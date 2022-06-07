@@ -25,7 +25,7 @@
 
 class SatSolver {
 public:
-  virtual ~SatSolver() {};
+  virtual ~SatSolver() {}
   /* Clear all variables and constraints. */
   virtual void reset() = 0;
   /* Allocate variables [0,count). Must not be called twice without an

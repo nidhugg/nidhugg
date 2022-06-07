@@ -36,7 +36,7 @@ public:
   void *ref;
   /* The number of bytes in the sequence. */
   int size;
-  MRef(void *r, int sz) : ref(r), size(sz) { assert(0 < size); };
+  MRef(void *r, int sz) : ref(r), size(sz) { assert(0 < size); }
   /* Returns true iff all bytes in this MRef are also in mr. */
   bool subsetof(const MRef &mr) const;
   bool subsetof(const ConstMRef &mr) const;
@@ -49,13 +49,13 @@ public:
   bool includes(void const *bptr) const {
     return ref <= bptr &&
       bptr < (void const*)((uint8_t const*)ref + size);
-  };
-  bool operator==(const MRef &ml) const { return ref == ml.ref && size == ml.size; };
-  bool operator!=(const MRef &ml) const { return ref != ml.ref || size != ml.size; };
-  bool operator<(const MRef &ml) const { return ref < ml.ref || (ref == ml.ref && size < ml.size); };
-  bool operator<=(const MRef &ml) const { return ref <= ml.ref && (ref != ml.ref || size <= ml.size); };
-  bool operator>(const MRef &ml) const { return ref > ml.ref || (ref == ml.ref && size > ml.size); };
-  bool operator>=(const MRef &ml) const { return ref >=ml.ref && (ref != ml.ref || size >= ml.size); };
+  }
+  bool operator==(const MRef &ml) const { return ref == ml.ref && size == ml.size; }
+  bool operator!=(const MRef &ml) const { return ref != ml.ref || size != ml.size; }
+  bool operator<(const MRef &ml) const { return ref < ml.ref || (ref == ml.ref && size < ml.size); }
+  bool operator<=(const MRef &ml) const { return ref <= ml.ref && (ref != ml.ref || size <= ml.size); }
+  bool operator>(const MRef &ml) const { return ref > ml.ref || (ref == ml.ref && size > ml.size); }
+  bool operator>=(const MRef &ml) const { return ref >=ml.ref && (ref != ml.ref || size >= ml.size); }
 
   class const_iterator{
   public:
@@ -65,45 +65,45 @@ public:
     typedef void const ** pointer;
     typedef unsigned difference_type;
 
-    bool operator<(const const_iterator &it) const { return ptr < it.ptr; };
-    bool operator>(const const_iterator &it) const { return ptr > it.ptr; };
-    bool operator==(const const_iterator &it) const { return ptr == it.ptr; };
-    bool operator!=(const const_iterator &it) const { return ptr != it.ptr; };
-    bool operator<=(const const_iterator &it) const { return ptr <= it.ptr; };
-    bool operator>=(const const_iterator &it) const { return ptr >= it.ptr; };
+    bool operator<(const const_iterator &it) const { return ptr < it.ptr; }
+    bool operator>(const const_iterator &it) const { return ptr > it.ptr; }
+    bool operator==(const const_iterator &it) const { return ptr == it.ptr; }
+    bool operator!=(const const_iterator &it) const { return ptr != it.ptr; }
+    bool operator<=(const const_iterator &it) const { return ptr <= it.ptr; }
+    bool operator>=(const const_iterator &it) const { return ptr >= it.ptr; }
     const_iterator operator++(int) {
       const_iterator it = *this;
       ++ptr;
       return it;
-    };
+    }
     const_iterator &operator++() {
       ++ptr;
       return *this;
-    };
+    }
     const_iterator operator--(int) {
       const_iterator it = *this;
       --ptr;
       return it;
-    };
+    }
     const_iterator &operator--() {
       --ptr;
       return *this;
-    };
-    void const *operator*() const{ return ptr; };
+    }
+    void const *operator*() const{ return ptr; }
   private:
     const_iterator(void const *ref, int sz, int i) {
       assert(0 <= sz);
       assert(0 <= i);
       assert(i <= sz);
       ptr = (uint8_t const *)ref + i;
-    };
+    }
     friend class MRef;
     friend class ConstMRef;
     uint8_t const *ptr;
   };
 
-  const_iterator begin() const { return const_iterator(ref,size,0); };
-  const_iterator end() const { return const_iterator(ref,size,size); };
+  const_iterator begin() const { return const_iterator(ref,size,0); }
+  const_iterator end() const { return const_iterator(ref,size,size); }
 };
 
 /* A ConstMRef object is as an MRef object, but refers to const
@@ -114,8 +114,8 @@ public:
   const void *ref;
   /* The number of bytes in the sequence. */
   int size;
-  ConstMRef(const void *r, int sz) : ref(r), size(sz) { assert(0 < size); };
-  ConstMRef(const MRef &R) : ref(R.ref), size(R.size) { assert(0 < size); };
+  ConstMRef(const void *r, int sz) : ref(r), size(sz) { assert(0 < size); }
+  ConstMRef(const MRef &R) : ref(R.ref), size(R.size) { assert(0 < size); }
   /* Returns true iff all bytes in this ConstMRef are also in mr. */
   bool subsetof(const MRef &mr) const;
   bool subsetof(const ConstMRef &mr) const;
@@ -128,16 +128,16 @@ public:
   bool includes(void const *bptr) const {
     return ref <= bptr &&
       bptr < (void const*)((uint8_t const*)ref + size);
-  };
-  bool operator==(const ConstMRef &ml) const { return ref == ml.ref && size == ml.size; };
-  bool operator!=(const ConstMRef &ml) const { return ref != ml.ref || size != ml.size; };
-  bool operator<(const ConstMRef &ml) const { return ref < ml.ref || (ref == ml.ref && size < ml.size); };
-  bool operator<=(const ConstMRef &ml) const { return ref <= ml.ref && (ref != ml.ref || size <= ml.size); };
-  bool operator>(const ConstMRef &ml) const { return ref > ml.ref || (ref == ml.ref && size > ml.size); };
-  bool operator>=(const ConstMRef &ml) const { return ref >=ml.ref && (ref != ml.ref || size >= ml.size); };
+  }
+  bool operator==(const ConstMRef &ml) const { return ref == ml.ref && size == ml.size; }
+  bool operator!=(const ConstMRef &ml) const { return ref != ml.ref || size != ml.size; }
+  bool operator<(const ConstMRef &ml) const { return ref < ml.ref || (ref == ml.ref && size < ml.size); }
+  bool operator<=(const ConstMRef &ml) const { return ref <= ml.ref && (ref != ml.ref || size <= ml.size); }
+  bool operator>(const ConstMRef &ml) const { return ref > ml.ref || (ref == ml.ref && size > ml.size); }
+  bool operator>=(const ConstMRef &ml) const { return ref >=ml.ref && (ref != ml.ref || size >= ml.size); }
 
-  MRef::const_iterator begin() const { return MRef::const_iterator(ref,size,0); };
-  MRef::const_iterator end() const { return MRef::const_iterator(ref,size,size); };
+  MRef::const_iterator begin() const { return MRef::const_iterator(ref,size,0); }
+  MRef::const_iterator end() const { return MRef::const_iterator(ref,size,size); }
 };
 
 /* An MBlock object is an MRef ref together with a chunk of memory,
@@ -168,8 +168,8 @@ public:
   MBlock(const MBlock &B);
   MBlock &operator=(const MBlock &B);
   ~MBlock();
-  const MRef &get_ref() const { return ref; };
-  void *get_block() const { return block; };
+  const MRef &get_ref() const { return ref; }
+  void *get_block() const { return block; }
 };
 
 #endif

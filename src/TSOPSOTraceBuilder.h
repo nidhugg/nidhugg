@@ -56,8 +56,8 @@
 class TSOPSOTraceBuilder : public DetCheckTraceBuilder{
 public:
   TSOPSOTraceBuilder(const Configuration &conf = Configuration::default_conf)
-    : DetCheckTraceBuilder(conf) {};
-  virtual ~TSOPSOTraceBuilder() {};
+    : DetCheckTraceBuilder(conf) {}
+  virtual ~TSOPSOTraceBuilder() {}
   /* Schedules the next thread.
    *
    * Sets *proc and *aux, such that (*proc,*aux) should be the next

@@ -113,12 +113,12 @@ protected:
     const void *ml;
     bool operator<(const Access &a) const{
       return type < a.type || (type == a.type && ml < a.ml);
-    };
+    }
     bool operator==(const Access &a) const{
       return type == a.type && (type == NA || ml == a.ml);
-    };
-    Access() : type(NA), ml(0) {};
-    Access(Type t, const void *m) : type(t), ml(m) {};
+    }
+    Access() : type(NA), ml(0) {}
+    Access(Type t, const void *m) : type(t), ml(m) {}
   };
 
   /* A store pending in a store buffer. */
@@ -126,7 +126,7 @@ protected:
   public:
     PendingStore(const SymAddrSize &ml, unsigned store_event,
                  const llvm::MDNode *md)
-      : ml(ml), store_event(store_event), last_rowe(-1), md(md) {};
+      : ml(ml), store_event(store_event), last_rowe(-1), md(md) {}
     /* The memory location that is being written to. */
     SymAddrSize ml;
     /* The index into prefix of the store event that produced this store
@@ -151,7 +151,7 @@ protected:
   public:
     Thread(const CPid &cpid, int spawn_event)
       : cpid(cpid), available(true), spawn_event(spawn_event), sleeping(false),
-        sleep_full_memory_conflict(false), sleep_sym(nullptr) {};
+        sleep_full_memory_conflict(false), sleep_sym(nullptr) {}
     CPid cpid;
     /* Is the thread available for scheduling? */
     bool available;
@@ -217,7 +217,7 @@ protected:
    */
   class ByteInfo{
   public:
-    ByteInfo() : last_update(-1), last_update_ml({SymMBlock::Global(0),0},1) {};
+    ByteInfo() : last_update(-1), last_update_ml({SymMBlock::Global(0),0},1) {}
     /* An index into prefix, to the latest update that accessed this
      * byte. last_update == -1 if there has been no update to this
      * byte.
@@ -251,17 +251,17 @@ protected:
      */
     struct last_read_t {
       std::vector<int> v;
-      int operator[](int i) const { return (i < int(v.size()) ? v[i] : -1); };
+      int operator[](int i) const { return (i < int(v.size()) ? v[i] : -1); }
       int &operator[](int i) {
         if(int(v.size()) <= i){
           v.resize(i+1,-1);
         }
         return v[i];
-      };
-      std::vector<int>::iterator begin() { return v.begin(); };
-      std::vector<int>::const_iterator begin() const { return v.begin(); };
-      std::vector<int>::iterator end() { return v.end(); };
-      std::vector<int>::const_iterator end() const { return v.end(); };
+      }
+      std::vector<int>::iterator begin() { return v.begin(); }
+      std::vector<int>::const_iterator begin() const { return v.begin(); }
+      std::vector<int>::iterator end() { return v.end(); }
+      std::vector<int>::const_iterator end() const { return v.end(); }
     } last_read;
   };
   std::map<SymAddr,ByteInfo> mem;
@@ -274,8 +274,8 @@ protected:
    */
   class Mutex{
   public:
-    Mutex() : last_access(-1), last_lock(-1), locked(false) {};
-    Mutex(int lacc) : last_access(lacc), last_lock(-1), locked(false) {};
+    Mutex() : last_access(-1), last_lock(-1), locked(false) {}
+    Mutex(int lacc) : last_access(lacc), last_lock(-1), locked(false) {}
     int last_access;
     int last_lock;
     bool locked;
@@ -289,8 +289,8 @@ protected:
   /* A CondVar represents a pthread_cond_t object. */
   class CondVar{
   public:
-    CondVar() : last_signal(-1) {};
-    CondVar(int init_idx) : last_signal(init_idx) {};
+    CondVar() : last_signal(-1) {}
+    CondVar(int init_idx) : last_signal(init_idx) {}
     /* Index in prefix of the latest call to either of
      * pthread_cond_init, pthread_cond_signal, or
      * pthread_cond_broadcast for this condition variable.
@@ -339,10 +339,10 @@ protected:
     int size;
     bool operator<(const Branch &b) const{
       return pid < b.pid || (pid == b.pid && alt < b.alt);
-    };
+    }
     bool operator==(const Branch &b) const{
       return pid == b.pid && alt == b.alt;
-    };
+    }
   };
 
   struct Race {
@@ -377,19 +377,19 @@ protected:
     };
     static Race Nonblock(int first, int second) {
       return Race(NONBLOCK, first, second, {-1,0}, -1);
-    };
+    }
     static Race Observed(int first, int second, int witness) {
       return Race(OBSERVED, first, second, {-1,0}, witness);
-    };
+    }
     static Race LockFail(int first, int second, IID<IPid> process) {
       return Race(LOCK_FAIL, first, second, process, -1);
-    };
+    }
     static Race LockSuc(int first, int second, int unlock) {
       return Race(LOCK_SUC, first, second, {-1,0}, unlock);
-    };
+    }
     static Race Nondet(int event, int alt) {
       return Race(NONDET, event, -1, {-1,0}, alt);
-    };
+    }
     static Race Sequence(int first, int second, IID<IPid> process, SymEv ev,
                          std::vector<unsigned> exclude) {
       return Race(SEQUENCE, first, second, process, std::move(ev),
@@ -432,7 +432,7 @@ protected:
   public:
     Event(const IID<IPid> &iid, sym_ty sym = {})
       : iid(iid), origin_iid(iid), md(0), clock(), may_conflict(false),
-        sym(std::move(sym)), sleep_branch_trace_count(0) {};
+        sym(std::move(sym)), sleep_branch_trace_count(0) {}
     /* The identifier for the first event in this event sequence. */
     IID<IPid> iid;
     /* The IID of the program instruction which is the origin of this
@@ -536,25 +536,25 @@ protected:
     assert(-1 <= aux && aux <= 0);
     assert(proc*2+1 < int(threads.size()));
     return aux ? proc*2 : proc*2+1;
-  };
+  }
 
   Event &curev() {
     assert(0 <= prefix_idx);
     assert(prefix_idx < int(prefix.len()));
     return prefix[prefix_idx];
-  };
+  }
 
   const Event &curev() const {
     assert(0 <= prefix_idx);
     assert(prefix_idx < int(prefix.len()));
     return prefix[prefix_idx];
-  };
+  }
 
   const Branch &curbranch() const {
     assert(0 <= prefix_idx);
     assert(prefix_idx < int(prefix.len()));
     return prefix.branch(prefix_idx);
-  };
+  }
 
   /* Symbolic events in Branches in the wakeup tree do not record the
    * data of memory accesses as these can change between executions.
@@ -563,7 +563,7 @@ protected:
    */
   Branch branch_with_symbolic_data(unsigned index) const {
     return Branch(prefix.branch(index), prefix[index].sym);
-  };
+  }
 
   IID<CPid> get_iid(unsigned i) const;
 

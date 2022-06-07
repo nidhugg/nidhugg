@@ -53,8 +53,8 @@
 class POWERARMTraceBuilder : public TraceBuilder {
 public:
   POWERARMTraceBuilder(const Configuration &conf = Configuration::default_conf)
-    : TraceBuilder(conf) {};
-  virtual ~POWERARMTraceBuilder(){};
+    : TraceBuilder(conf) {}
+  virtual ~POWERARMTraceBuilder() {}
 
   /* Access identification:
    *
@@ -159,7 +159,7 @@ public:
 
   virtual bool check_for_cycles(){
     throw std::logic_error("POWERARMTraceBuilder::check_for_cycles: Not supported.");
-  };
+  }
   /* Call to spawn a new thread. proc should be the parent thread. The
    * identifier of the new thread is returned.
    */

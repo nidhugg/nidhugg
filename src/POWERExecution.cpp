@@ -1822,9 +1822,9 @@ llvm::GenericValue POWERInterpreter::executeBitCastInst(llvm::Value *SrcVal,
         Dest = TempDst;
       }
     } else {
-      if (DstElemTy->isDoubleTy())
+      if (DstElemTy->isDoubleTy()) {
         Dest.DoubleVal = TempDst.AggregateVal[0].IntVal.bitsToDouble();
-      else if (DstElemTy->isFloatTy()) {
+      } else if (DstElemTy->isFloatTy()) {
         Dest.FloatVal = TempDst.AggregateVal[0].IntVal.bitsToFloat();
       } else {
         Dest.IntVal = TempDst.AggregateVal[0].IntVal;
@@ -1847,15 +1847,15 @@ llvm::GenericValue POWERInterpreter::executeBitCastInst(llvm::Value *SrcVal,
         llvm_unreachable("Invalid BitCast");
       }
     } else if (DstTy->isFloatTy()) {
-      if (SrcTy->isIntegerTy())
+      if (SrcTy->isIntegerTy()) {
         Dest.FloatVal = Src.IntVal.bitsToFloat();
-      else {
+      } else {
         Dest.FloatVal = Src.FloatVal;
       }
     } else if (DstTy->isDoubleTy()) {
-      if (SrcTy->isIntegerTy())
+      if (SrcTy->isIntegerTy()) {
         Dest.DoubleVal = Src.IntVal.bitsToDouble();
-      else {
+      } else {
         Dest.DoubleVal = Src.DoubleVal;
       }
     } else {
@@ -2681,8 +2681,8 @@ std::shared_ptr<POWERInterpreter::FetchedInstruction> POWERInterpreter::fetch(ll
   }
 
   struct ExtraAccess{
-    ExtraAccess(int aid, MRef addr) : is_addr(true), aid(aid), addr(addr), data(addr,0) {};
-    ExtraAccess(int staid, MBlock data) : is_addr(false), aid(staid), addr(data.get_ref()), data(data) {};
+    ExtraAccess(int aid, MRef addr) : is_addr(true), aid(aid), addr(addr), data(addr,0) {}
+    ExtraAccess(int staid, MBlock data) : is_addr(false), aid(staid), addr(data.get_ref()), data(data) {}
     bool is_addr;
     int aid;
     MRef addr;

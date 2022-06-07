@@ -35,7 +35,7 @@
 class DeclareAssumePass : public llvm::ModulePass {
 public:
   static char ID;
-  DeclareAssumePass() : llvm::ModulePass(ID) {};
+  DeclareAssumePass() : llvm::ModulePass(ID) {}
   virtual bool runOnModule(llvm::Module &M);
 };
 
@@ -61,13 +61,13 @@ public:
 class SpinAssumePass : public llvm::LoopPass{
 public:
   static char ID;
-  SpinAssumePass() : llvm::LoopPass(ID) {};
+  SpinAssumePass() : llvm::LoopPass(ID) {}
   virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
   virtual bool runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM);
 #ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
-  virtual llvm::StringRef getPassName() const { return "SpinAssumePass"; };
+  virtual llvm::StringRef getPassName() const { return "SpinAssumePass"; }
 #else
-  virtual const char *getPassName() const { return "SpinAssumePass"; };
+  virtual const char *getPassName() const { return "SpinAssumePass"; }
 #endif
 protected:
   bool is_spin(const llvm::Loop *l) const;

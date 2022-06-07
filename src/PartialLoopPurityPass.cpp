@@ -452,7 +452,7 @@ namespace {
       for (BinaryPredicate &term : vec)
         res.addConjunct(std::move(term));
       return res;
-    };
+    }
 
     /* Earliest location that can support an insertion. */
     InsertionPoint insertion_point;
@@ -463,7 +463,7 @@ namespace {
       }
       bool operator()(const BinaryPredicate &a, const BinaryPredicate &b) const {
         return tupleit(a) < tupleit(b);
-      };
+      }
     };
 
     // &=, if you will
@@ -490,11 +490,11 @@ namespace {
       }
       conjuncts = std::move(newset);
       conjuncts.insert(cond);
-    };
+    }
     void addConjuncts(const VecSet<BinaryPredicate, LexicalCompare> &conds) {
       for(const BinaryPredicate &cond : conds)
         addConjunct(cond); /* Can be more efficient */
-    };
+    }
 
     VecSet<BinaryPredicate, LexicalCompare> conjuncts;
 
@@ -585,7 +585,7 @@ namespace {
       for (Elem &term : vec)
         res.addCond(std::move(term));
       return res;
-    };
+    }
 
   private:
     using Elem = ConjunctionLoc;
@@ -614,7 +614,7 @@ namespace {
       }
       bool operator()(const Elem &a, const Elem &b) const {
         return tupleit(a) < tupleit(b);
-      };
+      }
     };
 
 
@@ -627,11 +627,11 @@ namespace {
       }
       disjuncts = std::move(newset);
       disjuncts.insert(cond);
-    };
+    }
     void addConds(const VecSet<Elem, LexicalCompare> &conds) {
       for(const Elem &cond : conds)
         addCond(cond); /* Can be more efficient */
-    };
+    }
 
     static bool erase_greater(VecSet<Elem, LexicalCompare> &set,
                              const Elem &c) {

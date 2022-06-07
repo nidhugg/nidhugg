@@ -81,7 +81,7 @@ public:
      * queue data structures */
     assert(wq_empty());
     return SaturatedGraph(*this);
-  };
+  }
 
 private:
   explicit SaturatedGraph(const SaturatedGraph &other) = default;
@@ -98,7 +98,7 @@ private:
           Option<ID> po_predecessor)
       : iid(iid), ext_id(ext_id), is_load(is_load), is_store(is_store), addr(addr),
         read_from(read_from), readers(std::move(readers)),
-        po_predecessor(po_predecessor) {};
+        po_predecessor(po_predecessor) {}
     IID<Pid> iid;
     ExtID ext_id;
     bool is_load;
@@ -149,7 +149,7 @@ private:
 #ifndef NDEBUG
   void check_graph_consistency() const;
 #else
-  void check_graph_consistency() const {};
+  void check_graph_consistency() const {}
 #endif
 
   std::deque<ID> wq_queue;

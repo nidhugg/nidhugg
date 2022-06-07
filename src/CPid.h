@@ -75,12 +75,12 @@ public:
   std::string to_string() const;
 
   /* Comparison implements a total order over CPids. */
-  bool operator==(const CPid &c) const { return compare(c) == 0; };
-  bool operator!=(const CPid &c) const { return compare(c) != 0; };
-  bool operator<(const CPid &c) const { return compare(c) < 0; };
-  bool operator<=(const CPid &c) const { return compare(c) <= 0; };
-  bool operator>(const CPid &c) const { return compare(c) > 0; };
-  bool operator>=(const CPid &c) const { return compare(c) >= 0; };
+  bool operator==(const CPid &c) const { return compare(c) == 0; }
+  bool operator!=(const CPid &c) const { return compare(c) != 0; }
+  bool operator<(const CPid &c) const { return compare(c) < 0; }
+  bool operator<=(const CPid &c) const { return compare(c) <= 0; }
+  bool operator>(const CPid &c) const { return compare(c) > 0; }
+  bool operator>=(const CPid &c) const { return compare(c) >= 0; }
 private:
   /* For a CPid <p0.p1.....pn> or <p0.p1.....pn/i>, the vector
    * proc_seq is [p1,...,pn]. */

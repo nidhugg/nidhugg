@@ -120,7 +120,7 @@ protected:
   /* A Thread object keeps track of each running thread. */
   class Thread{
   public:
-    Thread() : AssumeBlocked(false), RandEng(42), pending_mutex_lock(0), pending_condvar_awake(0) {};
+    Thread() : AssumeBlocked(false), RandEng(42), pending_mutex_lock(0), pending_condvar_awake(0) {}
     /* The complex thread identifier of this thread. */
     CPid cpid;
     /* The runtime stack of executing code. The top of the stack is the
@@ -207,7 +207,7 @@ protected:
    */
   class PthreadMutex{
   public:
-    PthreadMutex() : owner(-1) {};
+    PthreadMutex() : owner(-1) {}
     /* The ID of the thread which currently holds the mutex object. If
      * no thread holds the mutex object, then owner is -1.
      */
@@ -216,10 +216,10 @@ protected:
      * pthread_mutex_lock) to acquire the mutex object.
      */
     VecSet<int> waiting;
-    bool isLocked() const { return 0 <= owner; };
-    bool isUnlocked() const { return owner < 0; };
-    void lock(int Proc) { assert(owner < 0); owner = Proc; };
-    void unlock() { owner = -1; };
+    bool isLocked() const { return 0 <= owner; }
+    bool isUnlocked() const { return owner < 0; }
+    void lock(int Proc) { assert(owner < 0); owner = Proc; }
+    void unlock() { owner = -1; }
   };
   /* The pthread mutex objects which have been initialized, and not
    * destroyed in this execution.
@@ -237,7 +237,7 @@ protected:
    *
    * This is the stack of the currently executing thread.
    */
-  std::vector<ExecutionContext> *ECStack() { return &Threads[CurrentThread].ECStack; };
+  std::vector<ExecutionContext> *ECStack() { return &Threads[CurrentThread].ECStack; }
 
   struct SymMBlockSize {
     SymMBlockSize(SymMBlock block, uint32_t size) :
@@ -298,13 +298,13 @@ public:
                                   bool AbortOnFailure = true) {
     // FIXME: not implemented.
     return 0;
-  };
+  }
 
   void *getPointerToNamedFunction(llvm::StringRef Name,
                                   bool AbortOnFailure = true) {
     // FIXME: not implemented.
     return 0;
-  };
+  }
 
   /* Returns true iff this trace contains any happens-before cycle.
    *
@@ -313,7 +313,7 @@ public:
    *
    * Call this method only at the end of execution.
    */
-  virtual bool checkForCycles() const { return TB.check_for_cycles(); };
+  virtual bool checkForCycles() const { return TB.check_for_cycles(); }
 
   /// runAtExitHandlers - Run any functions registered by the program's calls to
   /// atexit(3), which we intercept and store in AtExitHandlers.
@@ -386,7 +386,7 @@ public:
   virtual void visitExtractValueInst(ExtractValueInst &I);
   virtual void visitInsertValueInst(InsertValueInst &I);
 
-  virtual void visitFenceInst(FenceInst &I) { /* Do nothing */ };
+  virtual void visitFenceInst(FenceInst &I) { /* Do nothing */ }
   virtual void visitAtomicCmpXchgInst(AtomicCmpXchgInst &I);
   virtual void visitAtomicRMWInst(AtomicRMWInst &I);
   virtual void visitInlineAsm(llvm::CallInst &CI, const std::string &asmstr);
@@ -463,7 +463,7 @@ protected:  // Helper functions
    */
   virtual void runAux(int proc, int aux){
     llvm_unreachable("Interpreter::runAux: No auxiliary threads defined in basic Interpreter.");
-  };
+  }
 
   /* Creates a new thread with an empty stack and CPid cpid, and
    * returns its ID (index into Threads).
@@ -472,7 +472,7 @@ protected:  // Helper functions
     Threads.push_back(Thread());
     Threads.back().cpid = cpid;
     return int(Threads.size())-1;
-  };
+  }
 
   /* Set the return value from the current thread to Result of type
    * retTy.
@@ -543,7 +543,7 @@ protected:  // Helper functions
     SymData B(Ptr,alloc_size);
     StoreValueToMemory(Val,static_cast<GenericValue*>(B.get_block()),Ty);
     return B;
-  };
+  }
 
   /* Checks whether F refers to a valid function, returns true if so, or
    * false if not. If invalid also reports the error in TB and calls

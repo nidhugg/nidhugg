@@ -287,7 +287,7 @@ Trace *TSOTraceBuilder::get_trace() const{
   for(unsigned i = 0; i < prefix.len(); ++i){
     cmp.push_back(IID<CPid>(threads[prefix[i].iid.get_pid()].cpid,prefix[i].iid.get_index()));
     cmp_md.push_from(prefix[i].md);
-  };
+  }
   for(unsigned i = 0; i < errors.size(); ++i){
     errs.push_back(errors[i]->clone());
   }
@@ -3083,7 +3083,7 @@ bool TSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
   /* Attempt to replay computation under SC */
   struct proc_t {
     proc_t()
-      : pc(0), pfx_index(0), store_index(0), blocked(false), block_clock() {};
+      : pc(0), pfx_index(0), store_index(0), blocked(false), block_clock() {}
     int pc; // Current program counter
     int pfx_index; // Index into prefix
     int store_index; // Index into stores

@@ -58,7 +58,7 @@ public:
    */
   virtual bool check_for_cycles() = 0;
   /* Have any errors been discovered in the current trace? */
-  virtual bool has_error() const { return errors.size(); };
+  virtual bool has_error() const { return errors.size(); }
   /* Compute the Trace of the current execution. */
   virtual Trace *get_trace() const = 0;
   /* Notify the TraceBuilder that the current execution has terminated.
@@ -74,7 +74,7 @@ public:
   /* Return the IID of the currently scheduled event. */
   virtual IID<CPid> get_iid() const = 0;
 
-  virtual void debug_print() const {};
+  virtual void debug_print() const {}
 
   /* Notify the TraceBuilder that an assertion has failed.
    *
@@ -118,7 +118,7 @@ public:
   /* Estimate the total number of traces for this program based on the
    * traces that have been seen.
    */
-  virtual long double estimate_trace_count() const { return 1; };
+  virtual long double estimate_trace_count() const { return 1; }
 protected:
   const Configuration &conf;
   std::vector<Error*> errors;

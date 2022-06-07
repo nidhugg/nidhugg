@@ -47,8 +47,8 @@ class AnyCallInst {
 
   operator bool() const { return (bool)CB; }
   bool operator==(std::nullptr_t) { return !CB; }
-  llvm::Instruction* operator &() { return CB; };
-  const llvm::Instruction* operator &() const { return CB; };
+  llvm::Instruction* operator &() { return CB; }
+  const llvm::Instruction* operator &() const { return CB; }
   llvm::Function *getCalledFunction() const { return CB->getCalledFunction(); }
   llvm::Value *getCalledOperand() const { return CB->getCalledOperand(); }
   auto arg_begin() { return CB->arg_begin(); }
@@ -67,8 +67,8 @@ class AnyCallInst {
 
   operator bool() const { return (bool)CS; }
   bool operator==(std::nullptr_t) { return !CS.getInstruction(); }
-  llvm::Instruction* operator &() { return CS.getInstruction(); };
-  const llvm::Instruction* operator &() const { return CS.getInstruction(); };
+  llvm::Instruction* operator &() { return CS.getInstruction(); }
+  const llvm::Instruction* operator &() const { return CS.getInstruction(); }
   llvm::Function *getCalledFunction() const { return CS.getCalledFunction(); }
   llvm::Value *getCalledOperand() const { return CS.getCalledValue(); }
   auto arg_begin() { return CS.arg_begin(); }

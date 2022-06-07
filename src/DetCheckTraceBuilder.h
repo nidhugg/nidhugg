@@ -33,7 +33,7 @@
 class DetCheckTraceBuilder : public TraceBuilder {
 public:
   DetCheckTraceBuilder(const Configuration &conf = Configuration::default_conf);
-  virtual ~DetCheckTraceBuilder(){};
+  virtual ~DetCheckTraceBuilder() {}
   /* Execute a conditional branch instruction, branching on the value
    * cnd.
    *

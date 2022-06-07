@@ -30,7 +30,7 @@
 class CastElimPass final : public llvm::FunctionPass{
 public:
   static char ID;
-  CastElimPass() : llvm::FunctionPass(ID) {};
+  CastElimPass() : llvm::FunctionPass(ID) {}
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
   bool runOnFunction(llvm::Function &F) override;
 #ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF

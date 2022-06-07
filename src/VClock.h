@@ -72,7 +72,7 @@ public:
 
   bool includes(const IID<DOM> &iid) const {
     return iid.get_index() <= (*this)[iid.get_pid()];
-  };
+  }
 
   /* *** Partial order comparisons ***
    *
@@ -157,7 +157,7 @@ public:
 
   bool includes(const IID<int> &iid) const {
     return iid.get_index() <= (*this)[iid.get_pid()];
-  };
+  }
 
   /* *** Partial order comparisons ***
    *
@@ -202,8 +202,8 @@ public:
     /* Assign this vector clock to (*this - vc). */
     Ref &operator-=(const Ref vc);
     unsigned size() const { return _size; }
-    int operator[](int d) const { assert(d >= 0 && unsigned(d) < _size); return base[d]; };
-    int &operator[](int d) { assert(d >= 0 && unsigned(d) < _size); return base[d]; };
+    int operator[](int d) const { assert(d >= 0 && unsigned(d) < _size); return base[d]; }
+    int &operator[](int d) { assert(d >= 0 && unsigned(d) < _size); return base[d]; }
 
     /* *** Partial order comparisons ***
      *

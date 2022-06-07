@@ -1146,7 +1146,7 @@ bool PSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
     int update;
     bool operator<(const stupd_t &su) const{
       return store < su.store;
-    };
+    }
   };
   /* stores[proc] is all store events of thread proc, ordered by
    * store index.
@@ -1167,7 +1167,7 @@ bool PSOTraceBuilder::has_cycle(IID<IPid> *loc) const{
   /* Attempt to replay computation under SC */
   struct thread_t {
     thread_t()
-      : pc(0), pfx_index(0), store_index(0), blocked(false), block_clock() {};
+      : pc(0), pfx_index(0), store_index(0), blocked(false), block_clock() {}
     int pc; // Current program counter
     int pfx_index; // Index into prefix
     int store_index; // Index into stores

@@ -62,7 +62,7 @@ protected:
    */
   class TSOThread{
   public:
-    TSOThread() : partial_buffer_flush(-1) {};
+    TSOThread() : partial_buffer_flush(-1) {}
     /* The TSO store buffer of this thread. Newer entries are further
      * to the back.
      */

@@ -226,8 +226,7 @@ public:
     : scheduler(std::move(scheduler)) {
     // Initiallize the work_queue with a "root"-node
     this->scheduler->enqueue(std::make_shared<DecisionNode>());
-  };
-
+  }
 
   /* Backtracks a TraceBuilders DecisionNode up to an ancestor with not yet
    * evaluated sibling. */

@@ -212,7 +212,7 @@ Trace *RFSCTraceBuilder::get_trace() const{
   for(unsigned i = 0; i < prefix.size(); ++i){
     cmp.push_back(IID<CPid>(threads[prefix[i].iid.get_pid()].cpid,prefix[i].iid.get_index()));
     cmp_md.push_from(prefix[i].md);
-  };
+  }
   for(unsigned i = 0; i < errors.size(); ++i){
     errs.push_back(errors[i]->clone());
   }
@@ -1482,10 +1482,10 @@ template<typename T, typename F> auto map(const std::vector<T> &vec, F f)
 void RFSCTraceBuilder::add_event_to_graph(SaturatedGraph &g, unsigned i) const {
   SaturatedGraph::EventKind kind = SaturatedGraph::NONE;
   SymAddr addr;
-  if (is_load(i)) {
-    if (is_store(i)) kind = SaturatedGraph::RMW;
-    else kind = SaturatedGraph::LOAD;
-  } else if (is_store(i)) kind = SaturatedGraph::STORE;
+  if (is_load(i))
+    kind = (is_store(i)) ? SaturatedGraph::RMW : SaturatedGraph::LOAD;
+  else if (is_store(i))
+    kind = SaturatedGraph::STORE;
   if (kind != SaturatedGraph::NONE) addr = get_addr(i).addr;
   Option<IID<IPid>> read_from;
   if (prefix[i].read_from && *prefix[i].read_from != -1)
@@ -1625,7 +1625,7 @@ std::vector<bool> RFSCTraceBuilder::causal_past(int decision) const {
     if (prefix[i].get_decision_depth() != -1 && prefix[i].get_decision_depth() <= decision) {
       causal_past_1(acc, i);
     }
-  };
+  }
   return acc;
 }
 
