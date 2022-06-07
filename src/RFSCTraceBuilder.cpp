@@ -1482,12 +1482,10 @@ template<typename T, typename F> auto map(const std::vector<T> &vec, F f)
 void RFSCTraceBuilder::add_event_to_graph(SaturatedGraph &g, unsigned i) const {
   SaturatedGraph::EventKind kind = SaturatedGraph::NONE;
   SymAddr addr;
-  if (is_load(i)) {
-    if (is_store(i)) kind = SaturatedGraph::RMW;
-    else kind = SaturatedGraph::LOAD;
-  } else {
-    if (is_store(i)) kind = SaturatedGraph::STORE;
-  }
+  if (is_load(i))
+    kind = (is_store(i)) ? SaturatedGraph::RMW : SaturatedGraph::LOAD;
+  else if (is_store(i))
+    kind = SaturatedGraph::STORE;
   if (kind != SaturatedGraph::NONE) addr = get_addr(i).addr;
   Option<IID<IPid>> read_from;
   if (prefix[i].read_from && *prefix[i].read_from != -1)
