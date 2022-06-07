@@ -42,6 +42,6 @@ namespace Debug {
    */
   llvm::raw_ostream &warn(const std::string &wid);
 
-}
+}  // namespace Debug
 
 #endif

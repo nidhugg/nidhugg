@@ -50,7 +50,7 @@ namespace {
 #endif
     }
   };
-}
+}  // namespace
 #  define TEST_SUITE_DECORATOR                          \
   , * boost::unit_test::precondition(unless_valgrind())
 #  define TEST_CASE_CHECK_SKIP() ((void)0)

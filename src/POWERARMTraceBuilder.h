@@ -204,7 +204,7 @@ namespace PATB_impl{
   };
 
   template<MemoryModel MemMod, CB_T CB, class Event> class TB;
-}
+}  // namespace PATB_impl
 
 typedef PATB_impl::TB<PATB_impl::ARM,PATB_impl::CB_ARM,PATB_impl::ARMEvent> ARMTraceBuilder;
 typedef PATB_impl::TB<PATB_impl::POWER,PATB_impl::CB_POWER,PATB_impl::POWEREvent> POWERTraceBuilder;

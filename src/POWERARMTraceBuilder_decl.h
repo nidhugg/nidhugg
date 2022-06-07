@@ -1066,6 +1066,6 @@ namespace PATB_impl{
     Configuration conf;
   };
 
-}
+}  // namespace PATB_impl
 
 #endif

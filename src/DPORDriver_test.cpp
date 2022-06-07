@@ -292,6 +292,6 @@ namespace DPORDriver_test {
 
     return retval;
   }
-}
+}  // namespace DPORDriver_test
 
 #endif

@@ -116,7 +116,7 @@ public:
         | std::size_t(unsigned(a.pid)) << 32;
     }
   };
-}
+}  // namespace std
 
 #include "IID.tcc"
 

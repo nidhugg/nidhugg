@@ -52,7 +52,7 @@ namespace {
     if (lsign != rsign) return lsign ? -1 : 1;
     return apcmp(lhs, rhs, count);
   }
-}
+}  // namespace
 
 bool AwaitCond::satisfied_by(const void *data, std::size_t size) const {
   int cmp;

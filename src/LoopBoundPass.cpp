@@ -46,7 +46,7 @@ namespace {
     }
     return llvm::CallInst::Create(F_assume,{cond},"",before);
   }
-};
+}  // namespace
 
 void LoopBoundPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
   llvm::LoopPass::getAnalysisUsage(AU);

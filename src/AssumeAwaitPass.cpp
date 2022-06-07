@@ -267,7 +267,7 @@ namespace {
     }
     return true;
   }
-}
+}  // namespace
 
 bool AssumeAwaitPass::doInitialization(llvm::Module &M){
   bool modified_M = false;

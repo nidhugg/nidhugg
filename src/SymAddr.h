@@ -148,7 +148,7 @@ public:
       | std::size_t(a.offset) << 32;
   }
 };
-}
+}  // namespace std
 
 struct SymAddrSize {
 public:

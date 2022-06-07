@@ -103,7 +103,7 @@ namespace DPORDriver_test {
                            const DPORDriver::Result &optimal_res,
                            const Configuration &conf);
 
-}
+}  // namespace DPORDriver_test
 
 #endif
 #endif

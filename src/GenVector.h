@@ -162,7 +162,7 @@ namespace gen {
   template<typename T, std::size_t limb_size, typename Fn>
   bool all_of(const vector<T,limb_size> &v, Fn&& f);
 
-}
+}  // namespace gen
 
 /* Start implementation */
 

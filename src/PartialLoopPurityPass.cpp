@@ -1339,7 +1339,7 @@ namespace {
 
     return true;
   }
-}
+}  // namespace
 
 void PartialLoopPurityPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
   AU.addRequired<DeclareAssumePass>();

@@ -36,4 +36,4 @@ namespace nregex{
    * format.
    */
   std::string regex_replace(std::string tgt, std::string regex, std::string format);
-}
+}  // namespace nregex

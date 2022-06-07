@@ -52,7 +52,7 @@ namespace {
     if (lsign != rsign) return lsign ? -1 : 1;
     return apcmp(lhs, rhs, count);
   }
-}
+}  // namespace
 
 const char *RmwAction::name(Kind kind) {
   const static char *names[] = {

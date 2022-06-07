@@ -83,7 +83,7 @@ namespace {
       cv.notify_one();
     }
   };
-}
+}  // namespace
 
 DPORDriver::DPORDriver(const Configuration &C) :
   conf(C) {
@@ -294,7 +294,7 @@ bool DPORDriver::handle_trace(TraceBuilder *TB, Trace *t, uint64_t *computation_
 }
 
 
-namespace{
+namespace {
   std::unique_ptr<RFSCScheduler> make_scheduler(const Configuration &conf) {
     switch (conf.exploration_scheduler) {
     case Configuration::PRIOQUEUE:
@@ -305,7 +305,7 @@ namespace{
       abort();
     }
   }
-}
+}  // namespace
 
 DPORDriver::Result DPORDriver::run_rfsc_sequential() {
   Result res;
