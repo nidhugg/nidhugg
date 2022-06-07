@@ -433,7 +433,7 @@ GenericValue lle_X_sprintf(FunctionType *FT,
           sprintf(Buffer, FmtBuf, Args[ArgNo++].IntVal.getZExtValue());
         } else {
           sprintf(Buffer, FmtBuf,uint32_t(Args[ArgNo++].IntVal.getZExtValue()));
-	}
+        }
         break;
       case 'e': case 'E': case 'g': case 'G': case 'f':
         sprintf(Buffer, FmtBuf, Args[ArgNo++].DoubleVal); break;
