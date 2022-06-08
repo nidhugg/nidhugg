@@ -139,8 +139,8 @@ namespace gen {
     class const_iterator {
       const limb_type *const *start;
       size_type index;
-      const_iterator(const limb_type *const *start, size_type index)
-        : start(start), index(index) {}
+      const_iterator(const limb_type *const *start_init, size_type index)
+        : start(start_init), index(index) {}
       friend class vector;
     public:
       typedef const T value_type, *pointer, &reference;
