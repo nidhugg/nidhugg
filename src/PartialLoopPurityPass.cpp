@@ -1370,7 +1370,7 @@ namespace {
       }
       //llvm::dbgs() << " Insertion point: " << *I << "\n";
       llvm::Value *Cond = nullptr;
-      if (conj.is_true()) {
+      if (!conj.has_conjuncts()) {
         Cond = llvm::ConstantInt::getTrue(L->getHeader()->getContext());
       } else {
         for (const BinaryPredicate &term : conj) {
