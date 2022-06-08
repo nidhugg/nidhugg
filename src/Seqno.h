@@ -21,9 +21,9 @@
 #ifndef __SEQNO_H__
 #define __SEQNO_H__
 
+#include <algorithm>
 #include <atomic>
 #include <cassert>
-#include <algorithm>
 
 struct SeqnoRoot {
   std::atomic<unsigned long> thread_count{0};

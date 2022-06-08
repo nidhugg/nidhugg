@@ -18,8 +18,10 @@
  */
 
 #include "RMWAction.h"
-#include <cstring>
+
 #include <climits>
+#include <cstring>
+
 /* One of these contains llvm::sys::IsBigEndianHost */
 #include <llvm/Support/Host.h>          /* On llvm < 11 */
 #include <llvm/Support/SwapByteOrder.h> /* On llvm >= 11 */
@@ -55,7 +57,7 @@ namespace {
 }  // namespace
 
 const char *RmwAction::name(Kind kind) {
-  const static char *names[] = {
+  static const char *names[] = {
     nullptr, "XCHG", "ADD", "SUB", "AND", "NAND", "OR", "XOR", "MAX", "MIN",
     "UMAX", "UMIN",
   };

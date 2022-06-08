@@ -22,8 +22,8 @@
 
 #include "Debug.h"
 
-#include <map>
 #include <deque>
+#include <map>
 #include <memory>
 #include <utility>
 #include <vector>

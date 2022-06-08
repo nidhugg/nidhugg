@@ -19,13 +19,13 @@
 
 #include <config.h>
 
-#include <llvm/ADT/SmallPtrSet.h>
-#include <llvm/IR/BasicBlock.h>
-#include <llvm/Analysis/ValueTracking.h>
-#include <llvm/Support/Debug.h>
-
 #include "CastElimPass.h"
-#include "llvm/Support/Casting.h"
+
+#include <llvm/ADT/SmallPtrSet.h>
+#include <llvm/Analysis/ValueTracking.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/Support/Casting.h>
+#include <llvm/Support/Debug.h>
 
 void CastElimPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
   AU.setPreservesCFG();

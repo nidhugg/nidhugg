@@ -22,8 +22,8 @@
 #ifndef __DEAD_CODE_ELIM_PASS_H__
 #define __DEAD_CODE_ELIM_PASS_H__
 
-#include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
+#include <llvm/Pass.h>
 
 /* The DeadCodeElim pass is a conservative dead-code eliminator, which
  * preserves behaviour visible to stateless model checking, such as

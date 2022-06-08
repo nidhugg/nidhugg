@@ -20,6 +20,7 @@
 #include "CheckModule.h"
 #include "Debug.h"
 
+#include <llvm/ADT/StringSet.h>
 #if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
 #elif defined(HAVE_LLVM_LLVMCONTEXT_H)
@@ -27,7 +28,6 @@
 #endif
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
-#include <llvm/ADT/StringSet.h>
 
 #include <set>
 

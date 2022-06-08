@@ -22,13 +22,13 @@
 #ifndef __CPID_H__
 #define __CPID_H__
 
+#include <llvm/Support/raw_ostream.h>
+
 #include <initializer_list>
 #include <map>
 #include <ostream>
 #include <string>
 #include <vector>
-
-#include <llvm/Support/raw_ostream.h>
 
 /* A CPid is a "complex process identifier". For real processes, it is
  * an integer sequence <p0.....pn> where p0 = 0, The first process of

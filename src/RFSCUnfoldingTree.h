@@ -25,8 +25,8 @@
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
-#include <utility>
 #include <unordered_set>
+#include <utility>
 
 #include "TSOPSOTraceBuilder.h"
 #include "Seqno.h"

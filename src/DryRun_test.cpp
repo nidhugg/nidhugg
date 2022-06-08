@@ -20,15 +20,16 @@
 #include <config.h>
 #ifdef HAVE_BOOST_UNIT_TEST_FRAMEWORK
 
-#include "DPORDriver.h"
-#include "StrModule.h"
 #include "vecset.h"
 
-#include <sstream>
+#include "DPORDriver.h"
+#include "StrModule.h"
 
 #include <llvm/Support/Debug.h>
 
 #include <boost/test/unit_test.hpp>
+
+#include <sstream>
 
 BOOST_AUTO_TEST_SUITE(DryRun_test)
 

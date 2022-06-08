@@ -21,9 +21,9 @@
 #include "Timing.h"
 
 #include <fstream>
+#include <iostream>
 #include <list>
 #include <map>
-#include <iostream>
 #include <set>
 #include <utility>
 

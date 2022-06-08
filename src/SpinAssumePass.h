@@ -22,8 +22,8 @@
 #ifndef __SPIN_ASSUME_PASS_H__
 #define __SPIN_ASSUME_PASS_H__
 
-#include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
+#include <llvm/Pass.h>
 
 /* The DeclareAssumePass checks that __VERIFIER_assume is correctly
  * declared in the module. If they are incorrectly declared, an

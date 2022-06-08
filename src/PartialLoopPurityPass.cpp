@@ -19,25 +19,31 @@
 
 #include <config.h>
 
-#include "CheckModule.h"
 #include "PartialLoopPurityPass.h"
-#include "SpinAssumePass.h"
-#include "Debug.h"
-#include "vecset.h"
-#include "Option.h"
 
-#include <llvm/Pass.h>
+#include "CheckModule.h"
+#include "Debug.h"
+#include "Option.h"
+#include "SpinAssumePass.h"
+#include "vecset.h"
+
+#include <llvm/Analysis/CallGraph.h>
 #include <llvm/Analysis/LoopPass.h>
+#include <llvm/Analysis/ValueTracking.h>
 #if defined(HAVE_LLVM_IR_DOMINATORS_H)
 #include <llvm/IR/Dominators.h>
 #elif defined(HAVE_LLVM_ANALYSIS_DOMINATORS_H)
 #include <llvm/Analysis/Dominators.h>
 #endif
+#include <llvm/Config/llvm-config.h>
 #if defined(HAVE_LLVM_IR_FUNCTION_H)
 #include <llvm/IR/Function.h>
 #elif defined(HAVE_LLVM_FUNCTION_H)
 #include <llvm/Function.h>
 #endif
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/InlineAsm.h>
+#include <llvm/IR/Verifier.h>
 #if defined(HAVE_LLVM_IR_INSTRUCTIONS_H)
 #include <llvm/IR/Instructions.h>
 #elif defined(HAVE_LLVM_INSTRUCTIONS_H)
@@ -58,22 +64,19 @@
 #elif defined(HAVE_LLVM_IR_CALLSITE_H)
 #include <llvm/IR/CallSite.h>
 #endif
-#include <llvm/Transforms/Utils/BasicBlockUtils.h>
-#include <llvm/Transforms/Utils/Cloning.h>
-#include <llvm/Analysis/ValueTracking.h>
-#include <llvm/Analysis/CallGraph.h>
-#include <llvm/IR/Verifier.h>
-#include <llvm/IR/Constants.h>
-#include <llvm/IR/InlineAsm.h>
+#include <llvm/Pass.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/FormattedStream.h>
-#include <llvm/Config/llvm-config.h>
+#include <llvm/Transforms/Utils/BasicBlockUtils.h>
+#include <llvm/Transforms/Utils/Cloning.h>
 
 #include <algorithm>
+#include <map>
 #include <sstream>
+#include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
-#include <unordered_map>
 
 #ifdef LLVM_HAS_TERMINATORINST
 typedef llvm::TerminatorInst TerminatorInst;

@@ -22,10 +22,10 @@
 #define __TSO_TRACE_BUILDER_H__
 
 #include "TSOPSOTraceBuilder.h"
-#include "VClock.h"
-#include "SymEv.h"
-#include "WakeupTrees.h"
 #include "Option.h"
+#include "SymEv.h"
+#include "VClock.h"
+#include "WakeupTrees.h"
 
 #include <boost/container/flat_map.hpp>
 #include <map>

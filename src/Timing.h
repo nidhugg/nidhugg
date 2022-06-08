@@ -43,10 +43,12 @@ namespace Timing {
 }  // namespace Timing
 
 #else /* defined(NO_TIMING) */
-#include <chrono>
-#include <atomic>
-#include <memory>
+
 #include <pthread.h>
+
+#include <atomic>
+#include <chrono>
+#include <memory>
 
 namespace Timing {
   typedef std::chrono::steady_clock clock;
