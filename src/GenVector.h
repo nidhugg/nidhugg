@@ -359,7 +359,7 @@ namespace gen {
     if (limb_ix != 0) uncow_if_needed(limb);
     else grow();
     ++_size;
-    return (*start[limb]) + limb_ix ;
+    return (*start[limb]) + limb_ix;
   }
   template<typename T, std::size_t limb_size>
   void vector<T,limb_size>::push_back(const T &val) {
