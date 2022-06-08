@@ -1037,6 +1037,7 @@ void PSOTraceBuilder::add_branch(int i, int j){
   const VClock<IPid> &iclock = prefix[i].clock;
   for(int k = i+1; k <= j; ++k){
     IPid p = prefix[k].iid.get_pid();
+    assert(p >= 0);
     /* Did we already cover p? */
     if(p < int(candidates.size()) && 0 <= candidates[p]) continue;
     const VClock<IPid> &pclock = prefix[k].clock;
