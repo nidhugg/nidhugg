@@ -185,7 +185,7 @@ static void executeFRemInst(GenericValue &Dest, GenericValue Src1,
   LLVM_VECTOR_TYPEID_CASES {                                         \
     assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());    \
     Dest.AggregateVal.resize( Src1.AggregateVal.size() );            \
-    for( uint32_t _i=0;_i<Src1.AggregateVal.size();_i++)             \
+    for( uint32_t _i=0; _i<Src1.AggregateVal.size(); _i++)           \
       Dest.AggregateVal[_i].IntVal = APInt(1,                        \
       Src1.AggregateVal[_i].IntVal.OP(Src2.AggregateVal[_i].IntVal));\
   } break;
@@ -374,7 +374,7 @@ void Interpreter::visitICmpInst(ICmpInst &I) {
 #define IMPLEMENT_VECTOR_FCMP_T(OP, TY)                             \
   assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());     \
   Dest.AggregateVal.resize( Src1.AggregateVal.size() );             \
-  for( uint32_t _i=0;_i<Src1.AggregateVal.size();_i++)              \
+  for( uint32_t _i=0; _i<Src1.AggregateVal.size(); _i++)            \
     Dest.AggregateVal[_i].IntVal = APInt(1,                         \
     Src1.AggregateVal[_i].TY##Val OP Src2.AggregateVal[_i].TY##Val);\
   break;
@@ -417,7 +417,7 @@ static GenericValue executeFCMP_OEQ(GenericValue Src1, GenericValue Src2,
 #define MASK_VECTOR_NANS_T(X,Y, TZ, FLAG)                                   \
   assert(X.AggregateVal.size() == Y.AggregateVal.size());                   \
   Dest.AggregateVal.resize( X.AggregateVal.size() );                        \
-  for( uint32_t _i=0;_i<X.AggregateVal.size();_i++) {                       \
+  for( uint32_t _i=0; _i<X.AggregateVal.size(); _i++) {                     \
     if (X.AggregateVal[_i].TZ##Val != X.AggregateVal[_i].TZ##Val ||         \
         Y.AggregateVal[_i].TZ##Val != Y.AggregateVal[_i].TZ##Val)           \
       Dest.AggregateVal[_i].IntVal = APInt(1,FLAG);                         \
@@ -602,14 +602,14 @@ static GenericValue executeFCMP_ORD(GenericValue Src1, GenericValue Src2,
     assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());
     Dest.AggregateVal.resize( Src1.AggregateVal.size() );
     if(dyn_cast<VectorType>(Ty)->getElementType()->isFloatTy()) {
-      for( size_t _i=0;_i<Src1.AggregateVal.size();_i++)
+      for( size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
         Dest.AggregateVal[_i].IntVal = APInt(1,
         ( (Src1.AggregateVal[_i].FloatVal ==
         Src1.AggregateVal[_i].FloatVal) &&
         (Src2.AggregateVal[_i].FloatVal ==
         Src2.AggregateVal[_i].FloatVal)));
     } else {
-      for( size_t _i=0;_i<Src1.AggregateVal.size();_i++)
+      for (size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
         Dest.AggregateVal[_i].IntVal = APInt(1,
         ( (Src1.AggregateVal[_i].DoubleVal ==
         Src1.AggregateVal[_i].DoubleVal) &&
@@ -633,14 +633,14 @@ static GenericValue executeFCMP_UNO(GenericValue Src1, GenericValue Src2,
     assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());
     Dest.AggregateVal.resize( Src1.AggregateVal.size() );
     if(dyn_cast<VectorType>(Ty)->getElementType()->isFloatTy()) {
-      for( size_t _i=0;_i<Src1.AggregateVal.size();_i++)
+      for (size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
         Dest.AggregateVal[_i].IntVal = APInt(1,
         ( (Src1.AggregateVal[_i].FloatVal !=
            Src1.AggregateVal[_i].FloatVal) ||
           (Src2.AggregateVal[_i].FloatVal !=
            Src2.AggregateVal[_i].FloatVal)));
       } else {
-        for( size_t _i=0;_i<Src1.AggregateVal.size();_i++)
+        for (size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
           Dest.AggregateVal[_i].IntVal = APInt(1,
           ( (Src1.AggregateVal[_i].DoubleVal !=
              Src1.AggregateVal[_i].DoubleVal) ||

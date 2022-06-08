@@ -186,7 +186,7 @@ static void executeFRemInst(llvm::GenericValue &Dest, llvm::GenericValue Src1,
   LLVM_VECTOR_TYPEID_CASES {                                            \
     assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());       \
     Dest.AggregateVal.resize( Src1.AggregateVal.size() );               \
-    for( uint32_t _i=0;_i<Src1.AggregateVal.size();_i++)                \
+    for (uint32_t _i=0; _i<Src1.AggregateVal.size(); _i++)              \
       Dest.AggregateVal[_i].IntVal = llvm::APInt(1,                     \
                                                  Src1.AggregateVal[_i].IntVal.OP(Src2.AggregateVal[_i].IntVal)); \
   } break;
@@ -374,7 +374,7 @@ void POWERInterpreter::visitICmpInst(llvm::ICmpInst &I) {
 #define IMPLEMENT_VECTOR_FCMP_T(OP, TY)                                 \
   assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());         \
   Dest.AggregateVal.resize( Src1.AggregateVal.size() );                 \
-  for( uint32_t _i=0;_i<Src1.AggregateVal.size();_i++)                  \
+  for (uint32_t _i=0; _i<Src1.AggregateVal.size(); _i++)                \
     Dest.AggregateVal[_i].IntVal = llvm::APInt(1,                       \
                                                Src1.AggregateVal[_i].TY##Val OP Src2.AggregateVal[_i].TY##Val); \
   break;
@@ -417,7 +417,7 @@ static llvm::GenericValue executeFCMP_OEQ(llvm::GenericValue Src1, llvm::Generic
 #define MASK_VECTOR_NANS_T(X,Y, TZ, FLAG)                           \
   assert(X.AggregateVal.size() == Y.AggregateVal.size());           \
   Dest.AggregateVal.resize( X.AggregateVal.size() );                \
-  for( uint32_t _i=0;_i<X.AggregateVal.size();_i++) {               \
+  for( uint32_t _i=0; _i<X.AggregateVal.size(); _i++) {             \
     if (X.AggregateVal[_i].TZ##Val != X.AggregateVal[_i].TZ##Val || \
         Y.AggregateVal[_i].TZ##Val != Y.AggregateVal[_i].TZ##Val)   \
       Dest.AggregateVal[_i].IntVal = llvm::APInt(1,FLAG);           \
@@ -456,7 +456,7 @@ static llvm::GenericValue executeFCMP_ONE(llvm::GenericValue Src1, llvm::Generic
   }
   // in vector case mask out NaN elements
   if (Ty->isVectorTy())
-    for( size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
+    for (size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
       if (DestMask.AggregateVal[_i].IntVal == false)
         Dest.AggregateVal[_i].IntVal = llvm::APInt(1,false);
 
@@ -602,14 +602,14 @@ static llvm::GenericValue executeFCMP_ORD(llvm::GenericValue Src1, llvm::Generic
     assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());
     Dest.AggregateVal.resize( Src1.AggregateVal.size() );
     if(llvm::dyn_cast<llvm::VectorType>(Ty)->getElementType()->isFloatTy()) {
-      for( size_t _i=0;_i<Src1.AggregateVal.size();_i++)
+      for (size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
         Dest.AggregateVal[_i].IntVal = llvm::APInt(1,
                                                    ( (Src1.AggregateVal[_i].FloatVal ==
                                                       Src1.AggregateVal[_i].FloatVal) &&
                                                      (Src2.AggregateVal[_i].FloatVal ==
                                                       Src2.AggregateVal[_i].FloatVal)));
     } else {
-      for( size_t _i=0;_i<Src1.AggregateVal.size();_i++)
+      for (size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
         Dest.AggregateVal[_i].IntVal = llvm::APInt(1,
                                                    ( (Src1.AggregateVal[_i].DoubleVal ==
                                                       Src1.AggregateVal[_i].DoubleVal) &&
@@ -633,14 +633,14 @@ static llvm::GenericValue executeFCMP_UNO(llvm::GenericValue Src1, llvm::Generic
     assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());
     Dest.AggregateVal.resize( Src1.AggregateVal.size() );
     if(llvm::dyn_cast<llvm::VectorType>(Ty)->getElementType()->isFloatTy()) {
-      for( size_t _i=0;_i<Src1.AggregateVal.size();_i++)
+      for (size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
         Dest.AggregateVal[_i].IntVal = llvm::APInt(1,
                                                    ( (Src1.AggregateVal[_i].FloatVal !=
                                                       Src1.AggregateVal[_i].FloatVal) ||
                                                      (Src2.AggregateVal[_i].FloatVal !=
                                                       Src2.AggregateVal[_i].FloatVal)));
     } else {
-      for( size_t _i=0;_i<Src1.AggregateVal.size();_i++)
+      for (size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
         Dest.AggregateVal[_i].IntVal = llvm::APInt(1,
                                                    ( (Src1.AggregateVal[_i].DoubleVal !=
                                                       Src1.AggregateVal[_i].DoubleVal) ||
