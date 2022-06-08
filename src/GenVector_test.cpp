@@ -125,7 +125,7 @@ BOOST_AUTO_TEST_CASE(COW_mut) {
                 for (int l = 0; l < i; ++l)
                     BOOST_CHECK_EQUAL(v[l],42+l);
                 for (int l = 0; l < j; ++l) {
-                    int expected = (l==j)?42+i:((l==k)?43+i:42+l);
+                    int expected = (l ==j ) ? 42+i : ((l == k) ? 43+i : 42+l);
                     BOOST_CHECK_EQUAL(w[l],expected);
                 }
             }
@@ -148,7 +148,7 @@ BOOST_AUTO_TEST_CASE(COW_push_mut) {
             for (int l = 0; l < i; ++l)
                 BOOST_CHECK_EQUAL(v[l],42+l);
             for (int l = 0; l < j; ++l) {
-                int expected = (l==j)?43+i:42+l;
+                int expected = (l == j) ? 43+i : 42+l;
                 BOOST_CHECK_EQUAL(w[l],expected);
             }
         }
@@ -170,7 +170,7 @@ BOOST_AUTO_TEST_CASE(COW_mut_push) {
             for (int l = 0; l < i; ++l)
                 BOOST_CHECK_EQUAL(v[l],42+l);
             for (int l = 0; l < j; ++l) {
-                int expected = (l==j)?43+i:42+l;
+                int expected = (l == j) ? 43+i : 42+l;
                 BOOST_CHECK_EQUAL(w[l],expected);
             }
         }

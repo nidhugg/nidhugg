@@ -458,7 +458,7 @@ void SaturatedGraph::reverse_saturate() {
       const Event &e = events[id];
       VClockVec::Ref vc = below_clocks[id] = top;
       vc[e.iid.get_pid()] = e.iid.get_index();
-      foreach_succ(id, e, [&vc,&below_clocks](ID o){vc-=below_clocks[o];});
+      foreach_succ(id, e, [&vc,&below_clocks](ID o){ vc -= below_clocks[o]; });
       if (e.is_store) {
         new_out.clear();
         for (unsigned r : e.readers) {

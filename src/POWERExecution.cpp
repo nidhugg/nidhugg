@@ -186,7 +186,7 @@ static void executeFRemInst(llvm::GenericValue &Dest, llvm::GenericValue Src1,
   LLVM_VECTOR_TYPEID_CASES {                                            \
     assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());       \
     Dest.AggregateVal.resize( Src1.AggregateVal.size() );               \
-    for (uint32_t _i=0; _i<Src1.AggregateVal.size(); _i++)              \
+    for (uint32_t _i = 0; _i < Src1.AggregateVal.size(); _i++)          \
       Dest.AggregateVal[_i].IntVal = llvm::APInt(1,                     \
                                                  Src1.AggregateVal[_i].IntVal.OP(Src2.AggregateVal[_i].IntVal)); \
   } break;
@@ -235,7 +235,7 @@ static llvm::GenericValue executeICMP_ULT(llvm::GenericValue Src1, llvm::Generic
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(ult,Ty);
     IMPLEMENT_VECTOR_INTEGER_ICMP(ult,Ty);
-    IMPLEMENT_POINTER_ICMP(<);
+    IMPLEMENT_POINTER_ICMP( < );
   default:
     llvm::dbgs() << "Unhandled type for ICMP_ULT predicate: " << *Ty << "\n";
     llvm_unreachable(nullptr);
@@ -249,7 +249,7 @@ static llvm::GenericValue executeICMP_SLT(llvm::GenericValue Src1, llvm::Generic
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(slt,Ty);
     IMPLEMENT_VECTOR_INTEGER_ICMP(slt,Ty);
-    IMPLEMENT_POINTER_ICMP(<);
+    IMPLEMENT_POINTER_ICMP( < );
   default:
     llvm::dbgs() << "Unhandled type for ICMP_SLT predicate: " << *Ty << "\n";
     llvm_unreachable(nullptr);
@@ -263,7 +263,7 @@ static llvm::GenericValue executeICMP_UGT(llvm::GenericValue Src1, llvm::Generic
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(ugt,Ty);
     IMPLEMENT_VECTOR_INTEGER_ICMP(ugt,Ty);
-    IMPLEMENT_POINTER_ICMP(>);
+    IMPLEMENT_POINTER_ICMP( > );
   default:
     llvm::dbgs() << "Unhandled type for ICMP_UGT predicate: " << *Ty << "\n";
     llvm_unreachable(nullptr);
@@ -277,7 +277,7 @@ static llvm::GenericValue executeICMP_SGT(llvm::GenericValue Src1, llvm::Generic
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(sgt,Ty);
     IMPLEMENT_VECTOR_INTEGER_ICMP(sgt,Ty);
-    IMPLEMENT_POINTER_ICMP(>);
+    IMPLEMENT_POINTER_ICMP( > );
   default:
     llvm::dbgs() << "Unhandled type for ICMP_SGT predicate: " << *Ty << "\n";
     llvm_unreachable(nullptr);
@@ -374,7 +374,7 @@ void POWERInterpreter::visitICmpInst(llvm::ICmpInst &I) {
 #define IMPLEMENT_VECTOR_FCMP_T(OP, TY)                                 \
   assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());         \
   Dest.AggregateVal.resize( Src1.AggregateVal.size() );                 \
-  for (uint32_t _i=0; _i<Src1.AggregateVal.size(); _i++)                \
+  for (uint32_t _i = 0; _i < Src1.AggregateVal.size(); _i++)            \
     Dest.AggregateVal[_i].IntVal = llvm::APInt(1,                       \
                                                Src1.AggregateVal[_i].TY##Val OP Src2.AggregateVal[_i].TY##Val); \
   break;
@@ -417,7 +417,7 @@ static llvm::GenericValue executeFCMP_OEQ(llvm::GenericValue Src1, llvm::Generic
 #define MASK_VECTOR_NANS_T(X,Y, TZ, FLAG)                           \
   assert(X.AggregateVal.size() == Y.AggregateVal.size());           \
   Dest.AggregateVal.resize( X.AggregateVal.size() );                \
-  for( uint32_t _i=0; _i<X.AggregateVal.size(); _i++) {             \
+  for (uint32_t _i = 0; _i < X.AggregateVal.size(); _i++) {         \
     if (X.AggregateVal[_i].TZ##Val != X.AggregateVal[_i].TZ##Val || \
         Y.AggregateVal[_i].TZ##Val != Y.AggregateVal[_i].TZ##Val)   \
       Dest.AggregateVal[_i].IntVal = llvm::APInt(1,FLAG);           \
@@ -449,14 +449,14 @@ static llvm::GenericValue executeFCMP_ONE(llvm::GenericValue Src1, llvm::Generic
   switch (Ty->getTypeID()) {
     IMPLEMENT_FCMP(!=, Float);
     IMPLEMENT_FCMP(!=, Double);
-    IMPLEMENT_VECTOR_FCMP(!=);
+    IMPLEMENT_VECTOR_FCMP( != );
   default:
     llvm::dbgs() << "Unhandled type for FCmp NE instruction: " << *Ty << "\n";
     llvm_unreachable(nullptr);
   }
   // in vector case mask out NaN elements
   if (Ty->isVectorTy())
-    for (size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
+    for (size_t _i = 0; _i < Src1.AggregateVal.size(); _i++)
       if (DestMask.AggregateVal[_i].IntVal == false)
         Dest.AggregateVal[_i].IntVal = llvm::APInt(1,false);
 
@@ -469,7 +469,7 @@ static llvm::GenericValue executeFCMP_OLE(llvm::GenericValue Src1, llvm::Generic
   switch (Ty->getTypeID()) {
     IMPLEMENT_FCMP(<=, Float);
     IMPLEMENT_FCMP(<=, Double);
-    IMPLEMENT_VECTOR_FCMP(<=);
+    IMPLEMENT_VECTOR_FCMP( <= );
   default:
     llvm::dbgs() << "Unhandled type for FCmp LE instruction: " << *Ty << "\n";
     llvm_unreachable(nullptr);
@@ -483,7 +483,7 @@ static llvm::GenericValue executeFCMP_OGE(llvm::GenericValue Src1, llvm::Generic
   switch (Ty->getTypeID()) {
     IMPLEMENT_FCMP(>=, Float);
     IMPLEMENT_FCMP(>=, Double);
-    IMPLEMENT_VECTOR_FCMP(>=);
+    IMPLEMENT_VECTOR_FCMP( >= );
   default:
     llvm::dbgs() << "Unhandled type for FCmp GE instruction: " << *Ty << "\n";
     llvm_unreachable(nullptr);
@@ -497,7 +497,7 @@ static llvm::GenericValue executeFCMP_OLT(llvm::GenericValue Src1, llvm::Generic
   switch (Ty->getTypeID()) {
     IMPLEMENT_FCMP(<, Float);
     IMPLEMENT_FCMP(<, Double);
-    IMPLEMENT_VECTOR_FCMP(<);
+    IMPLEMENT_VECTOR_FCMP( < );
   default:
     llvm::dbgs() << "Unhandled type for FCmp LT instruction: " << *Ty << "\n";
     llvm_unreachable(nullptr);
@@ -511,7 +511,7 @@ static llvm::GenericValue executeFCMP_OGT(llvm::GenericValue Src1, llvm::Generic
   switch (Ty->getTypeID()) {
     IMPLEMENT_FCMP(>, Float);
     IMPLEMENT_FCMP(>, Double);
-    IMPLEMENT_VECTOR_FCMP(>);
+    IMPLEMENT_VECTOR_FCMP( > );
   default:
     llvm::dbgs() << "Unhandled type for FCmp GT instruction: " << *Ty << "\n";
     llvm_unreachable(nullptr);
@@ -534,7 +534,7 @@ static llvm::GenericValue executeFCMP_OGT(llvm::GenericValue Src1, llvm::Generic
   if (TY->isVectorTy()) {                                   \
     llvm::GenericValue DestMask = Dest;                     \
     Dest = _FUNC(Src1, Src2, Ty);                           \
-    for( size_t _i=0; _i<Src1.AggregateVal.size(); _i++)    \
+    for (size_t _i = 0; _i < Src1.AggregateVal.size(); _i++)\
       if (DestMask.AggregateVal[_i].IntVal == true)         \
         Dest.AggregateVal[_i].IntVal = llvm::APInt(1,true); \
     return Dest;                                            \
@@ -602,14 +602,14 @@ static llvm::GenericValue executeFCMP_ORD(llvm::GenericValue Src1, llvm::Generic
     assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());
     Dest.AggregateVal.resize( Src1.AggregateVal.size() );
     if(llvm::dyn_cast<llvm::VectorType>(Ty)->getElementType()->isFloatTy()) {
-      for (size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
+      for (size_t _i = 0; _i < Src1.AggregateVal.size(); _i++)
         Dest.AggregateVal[_i].IntVal = llvm::APInt(1,
                                                    ( (Src1.AggregateVal[_i].FloatVal ==
                                                       Src1.AggregateVal[_i].FloatVal) &&
                                                      (Src2.AggregateVal[_i].FloatVal ==
                                                       Src2.AggregateVal[_i].FloatVal)));
     } else {
-      for (size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
+      for (size_t _i = 0; _i < Src1.AggregateVal.size(); _i++)
         Dest.AggregateVal[_i].IntVal = llvm::APInt(1,
                                                    ( (Src1.AggregateVal[_i].DoubleVal ==
                                                       Src1.AggregateVal[_i].DoubleVal) &&
@@ -633,14 +633,14 @@ static llvm::GenericValue executeFCMP_UNO(llvm::GenericValue Src1, llvm::Generic
     assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());
     Dest.AggregateVal.resize( Src1.AggregateVal.size() );
     if(llvm::dyn_cast<llvm::VectorType>(Ty)->getElementType()->isFloatTy()) {
-      for (size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
+      for (size_t _i = 0; _i < Src1.AggregateVal.size(); _i++)
         Dest.AggregateVal[_i].IntVal = llvm::APInt(1,
                                                    ( (Src1.AggregateVal[_i].FloatVal !=
                                                       Src1.AggregateVal[_i].FloatVal) ||
                                                      (Src2.AggregateVal[_i].FloatVal !=
                                                       Src2.AggregateVal[_i].FloatVal)));
     } else {
-      for (size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
+      for (size_t _i = 0; _i < Src1.AggregateVal.size(); _i++)
         Dest.AggregateVal[_i].IntVal = llvm::APInt(1,
                                                    ( (Src1.AggregateVal[_i].DoubleVal !=
                                                       Src1.AggregateVal[_i].DoubleVal) ||
@@ -663,7 +663,7 @@ static llvm::GenericValue executeFCMP_BOOL(llvm::GenericValue Src1, llvm::Generi
   if(Ty->isVectorTy()) {
     assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());
     Dest.AggregateVal.resize( Src1.AggregateVal.size() );
-    for( size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
+    for (size_t _i = 0; _i < Src1.AggregateVal.size(); _i++)
       Dest.AggregateVal[_i].IntVal = llvm::APInt(1,val);
   } else {
     Dest.IntVal = llvm::APInt(1, val);
@@ -2035,7 +2035,7 @@ void POWERInterpreter::visitShuffleVectorInst(llvm::ShuffleVectorInst &I){
     llvm_unreachable("Unhandled dest type for insertelement instruction");
     break;
   case llvm::Type::IntegerTyID:
-    for( unsigned i=0; i<src3Size; i++) {
+    for (unsigned i = 0; i < src3Size; i++) {
       unsigned j = Src3.AggregateVal[i].IntVal.getZExtValue();
       if(j < src1Size)
         Dest.AggregateVal[i].IntVal = Src1.AggregateVal[j].IntVal;
@@ -2051,7 +2051,7 @@ void POWERInterpreter::visitShuffleVectorInst(llvm::ShuffleVectorInst &I){
     }
     break;
   case llvm::Type::FloatTyID:
-    for( unsigned i=0; i<src3Size; i++) {
+    for (unsigned i = 0; i < src3Size; i++) {
       unsigned j = Src3.AggregateVal[i].IntVal.getZExtValue();
       if(j < src1Size)
         Dest.AggregateVal[i].FloatVal = Src1.AggregateVal[j].FloatVal;
@@ -2062,7 +2062,7 @@ void POWERInterpreter::visitShuffleVectorInst(llvm::ShuffleVectorInst &I){
     }
     break;
   case llvm::Type::DoubleTyID:
-    for( unsigned i=0; i<src3Size; i++) {
+    for (unsigned i = 0; i < src3Size; i++) {
       unsigned j = Src3.AggregateVal[i].IntVal.getZExtValue();
       if(j < src1Size)
         Dest.AggregateVal[i].DoubleVal = Src1.AggregateVal[j].DoubleVal;
