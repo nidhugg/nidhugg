@@ -37,8 +37,10 @@ namespace {
     heap_int &operator=(const heap_int &i) { *p = *i.p; return *this; }
     heap_int &operator=(int i) { *p = i; return *this; }
     ~heap_int() {
-      if(!p) BOOST_TEST_ERROR("Double free!");
-      else delete(std::exchange(p, nullptr));
+      if (!p)
+        BOOST_TEST_ERROR("Double free!");
+      else
+        delete(std::exchange(p, nullptr));
     }
     operator int() const { return *p; }
   private:

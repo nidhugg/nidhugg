@@ -305,8 +305,11 @@ bool AssumeAwaitPass::runOnFunction(llvm::Function &F) {
     for (auto it = BB.begin(), end = BB.end(); it != end;) {
       if (tryRewriteAssume(&F, &BB, &*it)) {
         changed = true;
-        if (it->use_empty()) it = it->eraseFromParent();
-        else ++it;
+        if (it->use_empty()) {
+          it = it->eraseFromParent();
+        } else {
+          ++it;
+        }
       } else {
         ++it;
       }
