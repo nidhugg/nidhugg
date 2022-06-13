@@ -31,48 +31,48 @@
 class PSOTraceBuilder : public TSOPSOTraceBuilder{
 public:
   PSOTraceBuilder(const Configuration &conf = Configuration::default_conf);
-  virtual ~PSOTraceBuilder() override;
-  virtual bool schedule(int *proc, int *aux, int *alt, bool *dryrun) override;
-  virtual void refuse_schedule() override;
-  virtual void mark_available(int proc, int aux = -1) override;
-  virtual void mark_unavailable(int proc, int aux = -1) override;
-  virtual void cancel_replay() override;
-  virtual bool is_replaying() const override;
-  virtual void metadata(const llvm::MDNode *md) override;
-  virtual bool sleepset_is_empty() const override;
-  virtual bool check_for_cycles() override;
-  virtual Trace *get_trace() const override;
-  virtual bool reset() override;
-  virtual IID<CPid> get_iid() const override;
+  ~PSOTraceBuilder() override;
+  bool schedule(int *proc, int *aux, int *alt, bool *dryrun) override;
+  void refuse_schedule() override;
+  void mark_available(int proc, int aux = -1) override;
+  void mark_unavailable(int proc, int aux = -1) override;
+  void cancel_replay() override;
+  bool is_replaying() const override;
+  void metadata(const llvm::MDNode *md) override;
+  bool sleepset_is_empty() const override;
+  bool check_for_cycles() override;
+  Trace *get_trace() const override;
+  bool reset() override;
+  IID<CPid> get_iid() const override;
 
-  virtual void debug_print() const  override;
+  void debug_print() const  override;
 
-  virtual NODISCARD bool spawn() override;
-  virtual NODISCARD bool store(const SymData &ml) override;
-  virtual NODISCARD bool atomic_store(const SymData &ml) override;
-  virtual NODISCARD bool compare_exchange
+  NODISCARD bool spawn() override;
+  NODISCARD bool store(const SymData &ml) override;
+  NODISCARD bool atomic_store(const SymData &ml) override;
+  NODISCARD bool compare_exchange
   (const SymData &sd, const SymData::block_type expected, bool success)
       override;
-  virtual NODISCARD bool load(const SymAddrSize &ml) override;
-  virtual NODISCARD bool full_memory_conflict() override;
-  virtual NODISCARD bool fence() override;
-  virtual NODISCARD bool join(int tgt_proc) override;
-  virtual NODISCARD bool mutex_lock(const SymAddrSize &ml) override;
-  virtual NODISCARD bool mutex_lock_fail(const SymAddrSize &ml) override;
-  virtual NODISCARD bool mutex_trylock(const SymAddrSize &ml) override;
-  virtual NODISCARD bool mutex_unlock(const SymAddrSize &ml) override;
-  virtual NODISCARD bool mutex_init(const SymAddrSize &ml) override;
-  virtual NODISCARD bool mutex_destroy(const SymAddrSize &ml) override;
-  virtual NODISCARD bool cond_init(const SymAddrSize &ml) override;
-  virtual NODISCARD bool cond_signal(const SymAddrSize &ml) override;
-  virtual NODISCARD bool cond_broadcast(const SymAddrSize &ml) override;
-  virtual NODISCARD bool cond_wait(const SymAddrSize &cond_ml,
-                         const SymAddrSize &mutex_ml) override;
-  virtual NODISCARD bool cond_awake(const SymAddrSize &cond_ml,
-                          const SymAddrSize &mutex_ml) override;
-  virtual NODISCARD int cond_destroy(const SymAddrSize &ml) override;
-  virtual NODISCARD bool register_alternatives(int alt_count) override;
-  virtual long double estimate_trace_count() const override;
+  NODISCARD bool load(const SymAddrSize &ml) override;
+  NODISCARD bool full_memory_conflict() override;
+  NODISCARD bool fence() override;
+  NODISCARD bool join(int tgt_proc) override;
+  NODISCARD bool mutex_lock(const SymAddrSize &ml) override;
+  NODISCARD bool mutex_lock_fail(const SymAddrSize &ml) override;
+  NODISCARD bool mutex_trylock(const SymAddrSize &ml) override;
+  NODISCARD bool mutex_unlock(const SymAddrSize &ml) override;
+  NODISCARD bool mutex_init(const SymAddrSize &ml) override;
+  NODISCARD bool mutex_destroy(const SymAddrSize &ml) override;
+  NODISCARD bool cond_init(const SymAddrSize &ml) override;
+  NODISCARD bool cond_signal(const SymAddrSize &ml) override;
+  NODISCARD bool cond_broadcast(const SymAddrSize &ml) override;
+  NODISCARD bool cond_wait(const SymAddrSize &cond_ml,
+                           const SymAddrSize &mutex_ml) override;
+  NODISCARD bool cond_awake(const SymAddrSize &cond_ml,
+                            const SymAddrSize &mutex_ml) override;
+  NODISCARD int cond_destroy(const SymAddrSize &ml) override;
+  NODISCARD bool register_alternatives(int alt_count) override;
+  long double estimate_trace_count() const override;
 protected:
   /* An identifier for a thread. An index into this->threads.
    *
