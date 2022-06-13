@@ -51,7 +51,8 @@ bool PSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       /* Continue executing the current Event */
       IPid pid = curnode().iid.get_pid();
       *proc = threads[pid].proc;
-      *aux = (threads[pid].cpid.is_auxiliary()) ? threads[pid].cpid.get_aux_index() : -1;
+      bool is_aux = threads[pid].cpid.is_auxiliary();
+      *aux = is_aux ? threads[pid].cpid.get_aux_index() : -1;
       *alt = 0;
       assert(threads[pid].available);
       ++threads[pid].clock[pid];
@@ -68,7 +69,8 @@ bool PSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       threads[pid].sleeping = true;
       sleepers.insert(pid);
       *proc = threads[pid].proc;
-      *aux = (threads[pid].cpid.is_auxiliary()) ? threads[pid].cpid.get_aux_index() : -1;
+      bool is_aux = threads[pid].cpid.is_auxiliary();
+      *aux = is_aux ? threads[pid].cpid.get_aux_index() : -1;
       *alt = 0;
       *dryrun = true;
       this->dryrun = true;
@@ -79,7 +81,8 @@ bool PSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
       ++prefix_idx;
       IPid pid = curnode().iid.get_pid();
       *proc = threads[pid].proc;
-      *aux = (threads[pid].cpid.is_auxiliary()) ? threads[pid].cpid.get_aux_index() : -1;
+      bool is_aux = threads[pid].cpid.is_auxiliary();
+      *aux = is_aux ? threads[pid].cpid.get_aux_index() : -1;
       *alt = curnode().alt;
       assert(threads[pid].available);
       ++threads[pid].clock[pid];
