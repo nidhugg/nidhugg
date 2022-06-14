@@ -79,6 +79,7 @@ public:
   bool operator>=(const IID &iid) const { return iid <= (*this); }
 
   std::string to_string() const;
+
 private:
   friend struct std::hash<IID>;
 

@@ -408,6 +408,7 @@ public:
   virtual GenericValue *getFirstVarArg () {
     return &(ECStack()->back().VarArgs[0]);
   }
+
 protected:  // Helper functions
   virtual GenericValue executeGEPOperation(Value *Ptr, gep_type_iterator I,
                                            gep_type_iterator E, ExecutionContext &SF);

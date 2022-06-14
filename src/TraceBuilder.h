@@ -34,7 +34,7 @@
  * exploration of an execution, various methods of the TraceBuilder
  * should be called in order to register events that affect the
  * chronological trace, such as memory accesses, fences, thread
- * creation etc. When the explored execution terminates,
+ * creation, etc. When the explored execution terminates,
  * TraceBuilder::reset should be called to initiate scheduling and
  * building for the next trace.
  */
@@ -119,6 +119,7 @@ public:
    * traces that have been seen.
    */
   virtual long double estimate_trace_count() const { return 1; }
+
 protected:
   const Configuration &conf;
   std::vector<Error*> errors;

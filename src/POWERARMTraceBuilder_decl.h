@@ -593,6 +593,7 @@ namespace PATB_impl{
     void activate() { active = true; }
     void deactivate() { active = false; }
     bool is_active() const { return active; }
+
   private:
     const std::vector<CPid> *cpids;
     bool active;
@@ -674,6 +675,7 @@ namespace PATB_impl{
     virtual void trace_register_function_entry(int proc, const std::string &fname, const llvm::MDNode *md);
     virtual void trace_register_function_exit(int proc);
     virtual void trace_register_error(int proc, const std::string &err_msg);
+
   private:
     /* prefix specifies an ordered sequence events as they occur in a
      * computation. The first sched_count events in prefix make up the
@@ -1041,7 +1043,6 @@ namespace PATB_impl{
      * elements in B except the smallest element in B.
      */
     void union_except_one(VecSet<Branch> &A, const VecSet<Branch> &B);
-
   };
 
   class PATrace : public Trace {
@@ -1059,6 +1060,7 @@ namespace PATB_impl{
       : Trace(errors,blocked), events(events), cpids(cpids), string_rep(str_rep), conf(conf) {}
     virtual ~PATrace(){}
     virtual std::string to_string(int ind = 0) const;
+
   protected:
     std::vector<Evt> events;
     std::vector<CPid> cpids;

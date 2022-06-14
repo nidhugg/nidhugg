@@ -121,7 +121,6 @@ public:
   bool is_pruned();
 
 private:
-
   std::shared_ptr<DecisionNode> parent;
 
   /* Defines if the subtree should be evaluated or not.
@@ -202,6 +201,7 @@ public:
 private:
   class alignas(64) ThreadWorkQueue {
     std::map<int,std::deque<std::shared_ptr<DecisionNode>>> queue;
+
   public:
     void push(std::shared_ptr<DecisionNode> ptr) {
       assert(ptr);

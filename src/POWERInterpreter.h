@@ -192,6 +192,7 @@ public:
       return *this;
     }
   };
+
 private:
   llvm::GenericValue ExitValue;          // The return value of the called function
   llvm::DataLayout TD;

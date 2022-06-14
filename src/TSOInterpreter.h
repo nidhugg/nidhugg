@@ -50,6 +50,7 @@ public:
   virtual void visitAtomicCmpXchgInst(llvm::AtomicCmpXchgInst &I);
   virtual void visitAtomicRMWInst(llvm::AtomicRMWInst &I);
   virtual void visitInlineAsm(llvm::CallInst &CI, const std::string &asmstr);
+
 protected:
   virtual void runAux(int proc, int aux);
   virtual int newThread(const CPid &cpid);

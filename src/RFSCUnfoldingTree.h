@@ -49,11 +49,12 @@ public:
 
   struct UnfoldingNode;
   typedef std::shared_ptr<const UnfoldingNode> NodePtr;
+
  private:
   friend struct UnfoldingNode;
   typedef llvm::SmallVector<std::weak_ptr<const UnfoldingNode>,1> UnfoldingNodeChildren;
- public:
 
+ public:
   static SeqnoRoot unf_ctr_root;
   static thread_local Seqno unf_ctr;
 
@@ -98,6 +99,5 @@ public:
 
   std::map<CPid,UnfoldingRoot> first_events;
   std::shared_timed_mutex unfolding_tree_mutex;
-
 };
 #endif

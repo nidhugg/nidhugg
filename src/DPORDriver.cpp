@@ -333,7 +333,6 @@ DPORDriver::Result DPORDriver::run_rfsc_sequential() {
 
     int to_create = TB.tasks_created;
 
-
     tasks_left += to_create;
 
     if (handle_trace(&TB, t, &computation_count, res, assume_blocked)) {
@@ -343,7 +342,6 @@ DPORDriver::Result DPORDriver::run_rfsc_sequential() {
       estimate = std::round(TB.estimate_trace_count());
     }
     clear_memory_use(computation_count+1, context, mod);
-
   } while(tasks_left);
 
   if(conf.print_progress){

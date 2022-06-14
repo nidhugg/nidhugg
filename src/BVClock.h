@@ -95,6 +95,7 @@ public:
   bool operator>=(const BVClock &vc) const;
 
   std::string to_string() const;
+
 private:
   std::vector<bool> vec;
 };
