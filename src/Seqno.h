@@ -24,24 +24,25 @@
 #include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <cstdint>
 
 struct SeqnoRoot {
-  std::atomic<unsigned long> thread_count{0};
+  std::atomic_uint_fast64_t thread_count{0};
 };
 
-template<unsigned long maxnrthreads = 1024>
+template<unsigned maxnrthreads = 1024>
 struct _seqno {
-  typedef unsigned long ulong;
+  typedef uint_fast64_t uf64;
 
   _seqno(SeqnoRoot &root) {
     tid = ++root.thread_count;
   }
-  ulong operator ++() {
+  uf64 operator ++() {
     return ++n * maxnrthreads + tid;
   }
 
   private:
-  ulong tid, n{0};
+  uf64 tid, n{0};
 };
 
 typedef _seqno<> Seqno;

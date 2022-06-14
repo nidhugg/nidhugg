@@ -22,6 +22,7 @@
 #include "TraceUtil.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <limits>
 #include <sstream>
 #include <stdexcept>
@@ -2184,7 +2185,7 @@ void TSOTraceBuilder::add_happens_after(unsigned second, unsigned first){
   assert(second != ~0u);
   assert(first != second);
   assert(first < second);
-  assert((long long)second <= prefix_idx);
+  assert((int_fast64_t)second <= prefix_idx);
 
   std::vector<unsigned> &vec = prefix[second].happens_after;
   if (vec.size() && vec.back() == first) return;
@@ -2193,7 +2194,7 @@ void TSOTraceBuilder::add_happens_after(unsigned second, unsigned first){
 }
 
 void TSOTraceBuilder::add_happens_after_thread(unsigned second, IPid thread){
-  assert((int)second == prefix_idx);
+  assert((int_fast64_t)second == prefix_idx);
   if (threads[thread].event_indices.empty()) return;
   add_happens_after(second, threads[thread].event_indices.back());
 }
@@ -2830,7 +2831,7 @@ wakeup_sequence(const Race &race) const{
     (std::vector<int>(threads.size(), std::numeric_limits<int>::max()));
 
   for (int k = i + 1; k < int(prefix.len()); ++k){
-    assert(exclude == exclude_end || long(*exclude) >= k);
+    assert(exclude == exclude_end || int_fast64_t(*exclude) >= k);
       const IID<IPid> &kiid = prefix[k].iid;
     if (exclude != exclude_end && *exclude == unsigned(k)) {
       /* XXX: We could just build the exclude clock in advance, and rely

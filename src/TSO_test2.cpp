@@ -25,6 +25,7 @@
 #include "StrModule.h"
 
 #include <boost/test/unit_test.hpp>
+#include <cstdint>
 
 BOOST_AUTO_TEST_SUITE(TSO_test)
 
@@ -1422,7 +1423,7 @@ BOOST_AUTO_TEST_CASE(Nondeterminism_detection){
   Configuration conf = DPORDriver_test::get_tso_conf();
   char changing = 0;
   std::stringstream ss;
-  ss << "inttoptr(i64 " << (unsigned long)(&changing) << " to i8*)";
+  ss << "inttoptr(i64 " << (uintptr_t)(&changing) << " to i8*)";
   std::string changingAddr = ss.str();
   std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
@@ -1482,7 +1483,7 @@ BOOST_AUTO_TEST_CASE(Nondeterminism_without_branch){
   Configuration conf = DPORDriver_test::get_sc_conf();
   char changing = 0;
   std::stringstream ss;
-  ss << "inttoptr(i64 " << (unsigned long)(&changing) << " to i8*)";
+  ss << "inttoptr(i64 " << (uintptr_t)(&changing) << " to i8*)";
   std::string changingAddr = ss.str();
   std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4

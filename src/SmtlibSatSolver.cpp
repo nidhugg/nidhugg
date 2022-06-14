@@ -24,6 +24,7 @@
 #include "SExpr.h"
 
 #include <llvm/Support/CommandLine.h>
+#include <cstddef>
 #include <boost/variant.hpp>
 #include <iomanip>
 #include <string>
@@ -155,7 +156,7 @@ std::vector<unsigned> SmtlibSatSolver::get_model() {
         }
         char *end;
         res[i] = std::strtol(t.c_str()+2, &end, base);
-        assert((end - t.c_str()) == long(t.size()));
+        assert((end - t.c_str()) == ptrdiff_t(t.size()));
       } else {
         assert(l2[1].kind() == SExpr::LIST);
         const auto &l3 = l2[1].list().elems;
@@ -164,7 +165,7 @@ std::vector<unsigned> SmtlibSatSolver::get_model() {
         assert(t.size() > 2 && t[0] == 'b' && t[1] == 'v');
         char *end;
         res[i] = std::strtol(t.c_str()+2, &end, 10);
-        assert((end - t.c_str()) == long(t.size()));
+        assert((end - t.c_str()) == ptrdiff_t(t.size()));
       }
     } else {
       assert(l2[1].kind() == SExpr::INT);

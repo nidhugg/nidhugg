@@ -24,6 +24,7 @@
 #include <llvm/Support/CommandLine.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <vector>
@@ -94,7 +95,7 @@ namespace Timing {
       result(Context *ctxt) : c(ctxt), inclusive(0), exclusive(0) {}
       Context *c;
       clock::duration inclusive, exclusive;
-      unsigned long count = 0;
+      uint_fast64_t count = 0;
     };
     std::vector<result> vec;
     for (Context *c = all_contexts; c; c = c->next) {

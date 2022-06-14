@@ -502,9 +502,9 @@ namespace PATB_impl{
         if(i != 0) ss << " ";
         const Param::Choice &C = B.choices[i];
         if(C.is_coherence_choice()){
-          ss << "ST@" << long(baccesses[i].addr) << ":#" << C.co_pos;
+          ss << "ST@" << intptr_t(baccesses[i].addr) << ":#" << C.co_pos;
         }else{
-          ss << "LD@" << long(baccesses[i].addr) << ":"
+          ss << "LD@" << intptr_t(baccesses[i].addr) << ":"
              << (C.src.is_null() ? std::string("init") : C.src.to_string());
         }
       }

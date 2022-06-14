@@ -21,8 +21,6 @@
 #ifndef __TIMING_H__
 #define __TIMING_H__
 
-#include <string>
-
 #ifdef NO_TIMING
 
 namespace Timing {
@@ -44,11 +42,12 @@ namespace Timing {
 
 #else /* defined(NO_TIMING) */
 
-#include <pthread.h>
-
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <memory>
+#include <pthread.h>
+#include <string>
 
 namespace Timing {
   typedef std::chrono::steady_clock clock;
@@ -79,7 +78,7 @@ namespace Timing {
     struct Thread {
       Thread();
       clock::duration inclusive, exclusive;
-      unsigned long count;
+      uint_fast64_t count;
       Thread *next;
     };
     std::atomic<Thread*> first_thread;
