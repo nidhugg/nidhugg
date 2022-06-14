@@ -1165,7 +1165,7 @@ void RFSCTraceBuilder::compute_prefixes() {
     llvm::dbgs() << "Computing prefixes\n";
 
   auto pretty_index = [&] (int i) -> std::string {
-    if (i==-1) return "init event";
+    if (i == -1) return "init event";
     return std::to_string(prefix[i].get_decision_depth()) + "("
       + std::to_string(prefix[i].event->seqno) + "):"
       + iid_string(i) + prefix[i].sym.to_string();

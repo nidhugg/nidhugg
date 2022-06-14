@@ -75,12 +75,12 @@ static std::string block_to_string(const SymData::block_type &blk, unsigned size
   uint8_t *ptr = (uint8_t*)blk.get();
   std::stringstream res;
   res << "0x" << std::hex;
-  for (; i > 0 && ptr[i] == 0; --i);
+  for (; i > 0 && ptr[i] == 0; --i) {}
   res << (int)ptr[i--];
   /* No leading zeroes on first digit */
   res.width(2);
   res.fill('0');
-  for (;i >= 0; --i) {
+  for ( ; i >= 0; --i) {
     res << (int)ptr[i];
   }
   return res.str();

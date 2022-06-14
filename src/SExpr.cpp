@@ -44,7 +44,7 @@ std::istream &operator>>(std::istream &is, SExpr &sexp) {
         sexp = SExpr(std::move(elems));
     } else {
         std::string str;
-        for(;!endoftok(c); c = is.get()) str.push_back(c);
+        for( ; !endoftok(c); c = is.get()) str.push_back(c);
         is.putback(c);
         char *end;
         int num = std::strtol(str.c_str(), &end, 10);

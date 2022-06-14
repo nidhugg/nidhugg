@@ -327,7 +327,7 @@ DPORDriver::Result DPORDriver::run_rfsc_sequential() {
 
     bool assume_blocked = false;
     TB.reset();
-    Trace *t= this->run_once(TB, mod.get(), assume_blocked);
+    Trace *t = this->run_once(TB, mod.get(), assume_blocked);
     TB.compute_prefixes();
     tasks_left--;
 

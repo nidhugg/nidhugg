@@ -185,7 +185,7 @@ static void executeFRemInst(GenericValue &Dest, GenericValue Src1,
   LLVM_VECTOR_TYPEID_CASES {                                         \
     assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());    \
     Dest.AggregateVal.resize( Src1.AggregateVal.size() );            \
-    for( uint32_t _i=0;_i<Src1.AggregateVal.size();_i++)             \
+    for (uint32_t _i = 0; _i < Src1.AggregateVal.size(); _i++)       \
       Dest.AggregateVal[_i].IntVal = APInt(1,                        \
       Src1.AggregateVal[_i].IntVal.OP(Src2.AggregateVal[_i].IntVal));\
   } break;
@@ -234,7 +234,7 @@ static GenericValue executeICMP_ULT(GenericValue Src1, GenericValue Src2,
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(ult,Ty);
     IMPLEMENT_VECTOR_INTEGER_ICMP(ult,Ty);
-    IMPLEMENT_POINTER_ICMP(<);
+    IMPLEMENT_POINTER_ICMP( < );
   default:
     dbgs() << "Unhandled type for ICMP_ULT predicate: " << *Ty << "\n";
     llvm_unreachable(0);
@@ -248,7 +248,7 @@ static GenericValue executeICMP_SLT(GenericValue Src1, GenericValue Src2,
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(slt,Ty);
     IMPLEMENT_VECTOR_INTEGER_ICMP(slt,Ty);
-    IMPLEMENT_POINTER_ICMP(<);
+    IMPLEMENT_POINTER_ICMP( < );
   default:
     dbgs() << "Unhandled type for ICMP_SLT predicate: " << *Ty << "\n";
     llvm_unreachable(0);
@@ -262,7 +262,7 @@ static GenericValue executeICMP_UGT(GenericValue Src1, GenericValue Src2,
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(ugt,Ty);
     IMPLEMENT_VECTOR_INTEGER_ICMP(ugt,Ty);
-    IMPLEMENT_POINTER_ICMP(>);
+    IMPLEMENT_POINTER_ICMP( > );
   default:
     dbgs() << "Unhandled type for ICMP_UGT predicate: " << *Ty << "\n";
     llvm_unreachable(0);
@@ -276,7 +276,7 @@ static GenericValue executeICMP_SGT(GenericValue Src1, GenericValue Src2,
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(sgt,Ty);
     IMPLEMENT_VECTOR_INTEGER_ICMP(sgt,Ty);
-    IMPLEMENT_POINTER_ICMP(>);
+    IMPLEMENT_POINTER_ICMP( > );
   default:
     dbgs() << "Unhandled type for ICMP_SGT predicate: " << *Ty << "\n";
     llvm_unreachable(0);
@@ -290,7 +290,7 @@ static GenericValue executeICMP_ULE(GenericValue Src1, GenericValue Src2,
   switch (Ty->getTypeID()) {
     IMPLEMENT_INTEGER_ICMP(ule,Ty);
     IMPLEMENT_VECTOR_INTEGER_ICMP(ule,Ty);
-    IMPLEMENT_POINTER_ICMP(<=);
+    IMPLEMENT_POINTER_ICMP( <= );
   default:
     dbgs() << "Unhandled type for ICMP_ULE predicate: " << *Ty << "\n";
     llvm_unreachable(0);
@@ -374,7 +374,7 @@ void Interpreter::visitICmpInst(ICmpInst &I) {
 #define IMPLEMENT_VECTOR_FCMP_T(OP, TY)                             \
   assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());     \
   Dest.AggregateVal.resize( Src1.AggregateVal.size() );             \
-  for( uint32_t _i=0;_i<Src1.AggregateVal.size();_i++)              \
+  for (uint32_t _i = 0; _i < Src1.AggregateVal.size(); _i++)        \
     Dest.AggregateVal[_i].IntVal = APInt(1,                         \
     Src1.AggregateVal[_i].TY##Val OP Src2.AggregateVal[_i].TY##Val);\
   break;
@@ -393,7 +393,7 @@ static GenericValue executeFCMP_OEQ(GenericValue Src1, GenericValue Src2,
   switch (Ty->getTypeID()) {
     IMPLEMENT_FCMP(==, Float);
     IMPLEMENT_FCMP(==, Double);
-    IMPLEMENT_VECTOR_FCMP(==);
+    IMPLEMENT_VECTOR_FCMP( == );
   default:
     dbgs() << "Unhandled type for FCmp EQ instruction: " << *Ty << "\n";
     llvm_unreachable(0);
@@ -417,7 +417,7 @@ static GenericValue executeFCMP_OEQ(GenericValue Src1, GenericValue Src2,
 #define MASK_VECTOR_NANS_T(X,Y, TZ, FLAG)                                   \
   assert(X.AggregateVal.size() == Y.AggregateVal.size());                   \
   Dest.AggregateVal.resize( X.AggregateVal.size() );                        \
-  for( uint32_t _i=0;_i<X.AggregateVal.size();_i++) {                       \
+  for (uint32_t _i = 0; _i < X.AggregateVal.size(); _i++) {                 \
     if (X.AggregateVal[_i].TZ##Val != X.AggregateVal[_i].TZ##Val ||         \
         Y.AggregateVal[_i].TZ##Val != Y.AggregateVal[_i].TZ##Val)           \
       Dest.AggregateVal[_i].IntVal = APInt(1,FLAG);                         \
@@ -449,14 +449,14 @@ static GenericValue executeFCMP_ONE(GenericValue Src1, GenericValue Src2,
   switch (Ty->getTypeID()) {
     IMPLEMENT_FCMP(!=, Float);
     IMPLEMENT_FCMP(!=, Double);
-    IMPLEMENT_VECTOR_FCMP(!=);
+    IMPLEMENT_VECTOR_FCMP( != );
     default:
       dbgs() << "Unhandled type for FCmp NE instruction: " << *Ty << "\n";
       llvm_unreachable(0);
   }
   // in vector case mask out NaN elements
   if (Ty->isVectorTy())
-    for( size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
+    for (size_t _i = 0; _i < Src1.AggregateVal.size(); _i++)
       if (DestMask.AggregateVal[_i].IntVal == false)
         Dest.AggregateVal[_i].IntVal = APInt(1,false);
 
@@ -469,7 +469,7 @@ static GenericValue executeFCMP_OLE(GenericValue Src1, GenericValue Src2,
   switch (Ty->getTypeID()) {
     IMPLEMENT_FCMP(<=, Float);
     IMPLEMENT_FCMP(<=, Double);
-    IMPLEMENT_VECTOR_FCMP(<=);
+    IMPLEMENT_VECTOR_FCMP( <= );
   default:
     dbgs() << "Unhandled type for FCmp LE instruction: " << *Ty << "\n";
     llvm_unreachable(0);
@@ -483,7 +483,7 @@ static GenericValue executeFCMP_OGE(GenericValue Src1, GenericValue Src2,
   switch (Ty->getTypeID()) {
     IMPLEMENT_FCMP(>=, Float);
     IMPLEMENT_FCMP(>=, Double);
-    IMPLEMENT_VECTOR_FCMP(>=);
+    IMPLEMENT_VECTOR_FCMP( >= );
   default:
     dbgs() << "Unhandled type for FCmp GE instruction: " << *Ty << "\n";
     llvm_unreachable(0);
@@ -497,7 +497,7 @@ static GenericValue executeFCMP_OLT(GenericValue Src1, GenericValue Src2,
   switch (Ty->getTypeID()) {
     IMPLEMENT_FCMP(<, Float);
     IMPLEMENT_FCMP(<, Double);
-    IMPLEMENT_VECTOR_FCMP(<);
+    IMPLEMENT_VECTOR_FCMP( < );
   default:
     dbgs() << "Unhandled type for FCmp LT instruction: " << *Ty << "\n";
     llvm_unreachable(0);
@@ -511,7 +511,7 @@ static GenericValue executeFCMP_OGT(GenericValue Src1, GenericValue Src2,
   switch (Ty->getTypeID()) {
     IMPLEMENT_FCMP(>, Float);
     IMPLEMENT_FCMP(>, Double);
-    IMPLEMENT_VECTOR_FCMP(>);
+    IMPLEMENT_VECTOR_FCMP( > );
   default:
     dbgs() << "Unhandled type for FCmp GT instruction: " << *Ty << "\n";
     llvm_unreachable(0);
@@ -534,7 +534,7 @@ static GenericValue executeFCMP_OGT(GenericValue Src1, GenericValue Src2,
   if (TY->isVectorTy()) {                                                \
     GenericValue DestMask = Dest;                                        \
     Dest = _FUNC(Src1, Src2, Ty);                                        \
-      for( size_t _i=0; _i<Src1.AggregateVal.size(); _i++)               \
+      for (size_t _i = 0; _i < Src1.AggregateVal.size(); _i++)           \
         if (DestMask.AggregateVal[_i].IntVal == true)                    \
           Dest.AggregateVal[_i].IntVal = APInt(1,true);                  \
       return Dest;                                                       \
@@ -602,14 +602,14 @@ static GenericValue executeFCMP_ORD(GenericValue Src1, GenericValue Src2,
     assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());
     Dest.AggregateVal.resize( Src1.AggregateVal.size() );
     if(dyn_cast<VectorType>(Ty)->getElementType()->isFloatTy()) {
-      for( size_t _i=0;_i<Src1.AggregateVal.size();_i++)
+      for (size_t _i = 0; _i < Src1.AggregateVal.size(); _i++)
         Dest.AggregateVal[_i].IntVal = APInt(1,
         ( (Src1.AggregateVal[_i].FloatVal ==
         Src1.AggregateVal[_i].FloatVal) &&
         (Src2.AggregateVal[_i].FloatVal ==
         Src2.AggregateVal[_i].FloatVal)));
     } else {
-      for( size_t _i=0;_i<Src1.AggregateVal.size();_i++)
+      for (size_t _i = 0; _i < Src1.AggregateVal.size(); _i++)
         Dest.AggregateVal[_i].IntVal = APInt(1,
         ( (Src1.AggregateVal[_i].DoubleVal ==
         Src1.AggregateVal[_i].DoubleVal) &&
@@ -633,14 +633,14 @@ static GenericValue executeFCMP_UNO(GenericValue Src1, GenericValue Src2,
     assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());
     Dest.AggregateVal.resize( Src1.AggregateVal.size() );
     if(dyn_cast<VectorType>(Ty)->getElementType()->isFloatTy()) {
-      for( size_t _i=0;_i<Src1.AggregateVal.size();_i++)
+      for (size_t _i = 0; _i < Src1.AggregateVal.size(); _i++)
         Dest.AggregateVal[_i].IntVal = APInt(1,
         ( (Src1.AggregateVal[_i].FloatVal !=
            Src1.AggregateVal[_i].FloatVal) ||
           (Src2.AggregateVal[_i].FloatVal !=
            Src2.AggregateVal[_i].FloatVal)));
       } else {
-        for( size_t _i=0;_i<Src1.AggregateVal.size();_i++)
+        for (size_t _i = 0; _i < Src1.AggregateVal.size(); _i++)
           Dest.AggregateVal[_i].IntVal = APInt(1,
           ( (Src1.AggregateVal[_i].DoubleVal !=
              Src1.AggregateVal[_i].DoubleVal) ||
@@ -663,7 +663,7 @@ static GenericValue executeFCMP_BOOL(GenericValue Src1, GenericValue Src2,
     if(Ty->isVectorTy()) {
       assert(Src1.AggregateVal.size() == Src2.AggregateVal.size());
       Dest.AggregateVal.resize( Src1.AggregateVal.size() );
-      for( size_t _i=0; _i<Src1.AggregateVal.size(); _i++)
+      for (size_t _i = 0; _i < Src1.AggregateVal.size(); _i++)
         Dest.AggregateVal[_i].IntVal = APInt(1,val);
     } else {
       Dest.IntVal = APInt(1, val);
@@ -2191,7 +2191,7 @@ void Interpreter::visitShuffleVectorInst(ShuffleVectorInst &I){
       llvm_unreachable("Unhandled dest type for insertelement instruction");
       break;
     case Type::IntegerTyID:
-      for( unsigned i=0; i<src3Size; i++) {
+      for (unsigned i = 0; i < src3Size; i++) {
         unsigned j = Src3.AggregateVal[i].IntVal.getZExtValue();
         if(j < src1Size)
           Dest.AggregateVal[i].IntVal = Src1.AggregateVal[j].IntVal;
@@ -2207,7 +2207,7 @@ void Interpreter::visitShuffleVectorInst(ShuffleVectorInst &I){
       }
       break;
     case Type::FloatTyID:
-      for( unsigned i=0; i<src3Size; i++) {
+      for (unsigned i = 0; i < src3Size; i++) {
         unsigned j = Src3.AggregateVal[i].IntVal.getZExtValue();
         if(j < src1Size)
           Dest.AggregateVal[i].FloatVal = Src1.AggregateVal[j].FloatVal;
@@ -2218,7 +2218,7 @@ void Interpreter::visitShuffleVectorInst(ShuffleVectorInst &I){
         }
       break;
     case Type::DoubleTyID:
-      for( unsigned i=0; i<src3Size; i++) {
+      for (unsigned i = 0; i < src3Size; i++) {
         unsigned j = Src3.AggregateVal[i].IntVal.getZExtValue();
         if(j < src1Size)
           Dest.AggregateVal[i].DoubleVal = Src1.AggregateVal[j].DoubleVal;

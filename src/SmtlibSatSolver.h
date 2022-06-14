@@ -39,7 +39,7 @@ public:
   virtual ~SmtlibSatSolver();
   virtual void reset();
   virtual void alloc_variables(unsigned count);
-  virtual void add_edge(unsigned from, unsigned to) ;
+  virtual void add_edge(unsigned from, unsigned to);
   virtual void add_edge_disj(unsigned froma, unsigned toa,
                              unsigned fromb, unsigned tob);
   virtual bool check_sat();

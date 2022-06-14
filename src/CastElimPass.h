@@ -34,9 +34,9 @@ public:
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
   bool runOnFunction(llvm::Function &F) override;
 #ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
-  llvm::StringRef getPassName() const override { return "CastElimPass"; } ;
+  llvm::StringRef getPassName() const override { return "CastElimPass"; }
 #else
-  const char *getPassName() const override { return "CastElimPass"; };
+  const char *getPassName() const override { return "CastElimPass"; }
 #endif
 private:
 };

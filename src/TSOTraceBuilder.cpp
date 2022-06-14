@@ -2087,7 +2087,8 @@ void TSOTraceBuilder::recompute_observed(std::vector<Branch> &v) const {
       case SymEv::CMPXHGFAIL:
         if (read_all)
           last_reads.erase (VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
-        else last_reads.insert(VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
+        else
+          last_reads.insert(VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
         break;
       case SymEv::STORE:
         assert(false); abort();
@@ -2098,7 +2099,8 @@ void TSOTraceBuilder::recompute_observed(std::vector<Branch> &v) const {
         }
         if (read_all)
           last_reads.insert(VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
-        else last_reads.erase (VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
+        else
+          last_reads.erase (VecSet<SymAddr>(e.addr().begin(), e.addr().end()));
         break;
       case SymEv::FULLMEM:
         last_reads.clear();

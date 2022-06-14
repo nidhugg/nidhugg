@@ -64,7 +64,7 @@ try_generate_prefix(SaturatedGraph g, std::vector<IID<int>> current_exec) {
     SymAddr a = g.event_addr(w);
 
     auto ins_ptr = total_co[a].end();
-    for (;ins_ptr != total_co[a].begin(); --ins_ptr) {
+    for ( ; ins_ptr != total_co[a].begin(); --ins_ptr) {
       IID<int> i = *std::prev(ins_ptr);
       const auto &ic = g.event_vc(i);
       assert(std::find(current_exec.begin(), current_exec.end(), w)

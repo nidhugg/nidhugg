@@ -264,8 +264,7 @@ namespace {
             if (CmpInst::isIntPredicate(res.op)
                 && (o.op == res.op || o.op == icmpop_invert_strictness(res.op))) {
               underapprox = true; /* Maybe not always? */
-              if ((check_predicate_satisfaction(RR, res.op, OR))) return o;
-              else return res;
+              return ((check_predicate_satisfaction(RR, res.op, OR))) ? o : res;
             }
           }
         }
@@ -643,7 +642,9 @@ namespace {
         if (c < set[i]) {
           set.erase_at(i);
           erased = true;
-        } else ++i;
+        } else {
+          ++i;
+        }
       }
       return erased;
     }

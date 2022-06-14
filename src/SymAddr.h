@@ -62,8 +62,7 @@ struct SymMBlock {
   bool is_heap() const { return !is_global() && alloc >= 0; }
 
   unsigned get_no() const {
-    if (alloc < 0) return -1-alloc;
-    else return alloc;
+    return (alloc < 0 ? -1-alloc : alloc);
   }
 
   std::string to_string(std::function<std::string(int)> pid_str
