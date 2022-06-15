@@ -21,6 +21,7 @@
 #include "POWERARMTraceBuilder.tcc"
 #include "TraceUtil.h"
 
+#include <cstdint>
 #include <iomanip>
 #include <sstream>
 #include <utility>
@@ -131,7 +132,7 @@ void PATB_impl::TraceRecorder::trace_register_metadata(int proc, const llvm::MDN
              << unsigned(((unsigned char*)(M.get_block()))[i]);
         }
         ss << " from [0x"
-           << (unsigned long)(A.addr.ref)
+           << (uintptr_t)(A.addr.ref)
            << "] source: ";
         VecSet<IID<int> > src;
         for(unsigned i = 0; i < last_committed.baccesses.size(); ++i){
@@ -162,7 +163,7 @@ void PATB_impl::TraceRecorder::trace_register_metadata(int proc, const llvm::MDN
              << unsigned(((unsigned char*)(A.data.get_block()))[i]);
         }
         ss << " to [0x"
-           << (unsigned long)(A.addr.ref)
+           << (uintptr_t)(A.addr.ref)
            << "]";
         ln += ss.str();
       }

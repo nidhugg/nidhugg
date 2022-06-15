@@ -24,6 +24,7 @@
 #include "TraceUtil.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <sstream>
 #include <stdexcept>
 
@@ -738,7 +739,7 @@ void RFSCTraceBuilder::add_happens_after(unsigned second, unsigned first){
   assert(second != ~0u);
   assert(first != second);
   assert(first < second);
-  assert((long long)second <= prefix_idx);
+  assert((int_fast64_t)second <= prefix_idx);
 
   std::vector<unsigned> &vec = prefix[second].happens_after;
   if (vec.size() && vec.back() == first) return;
@@ -747,7 +748,7 @@ void RFSCTraceBuilder::add_happens_after(unsigned second, unsigned first){
 }
 
 void RFSCTraceBuilder::add_happens_after_thread(unsigned second, IPid thread){
-  assert((int)second == prefix_idx);
+  assert((int_fast64_t)second == prefix_idx);
   if (threads[thread].event_indices.empty()) return;
   add_happens_after(second, threads[thread].event_indices.back());
 }

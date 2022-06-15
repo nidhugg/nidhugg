@@ -35,6 +35,7 @@
 #include "Interpreter.h"
 #include "Debug.h"
 
+#include <cstdint>
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/SmallString.h>
 #include <llvm/ADT/Statistic.h>
@@ -3551,7 +3552,7 @@ void Interpreter::run() {
   int aux;
   bool rerun = false;
   while(rerun || TB.schedule(&CurrentThread,&aux,&CurrentAlt,&DryRun)){
-    assert(0 <= CurrentThread && CurrentThread < long(Threads.size()));
+    assert(0 <= CurrentThread && CurrentThread < int_fast64_t(Threads.size()));
     rerun = false;
     if(0 <= aux){ // Run some auxiliary thread
       runAux(CurrentThread,aux);
