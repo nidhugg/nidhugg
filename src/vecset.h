@@ -143,6 +143,7 @@ public:
    * represented as f(t) without any new lines between the elements.
    */
   std::string to_string_one_line(std::function<std::string(const T&)> f) const;
+
 private:
   /* The set consists of the elements in vec.
    *

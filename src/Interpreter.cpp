@@ -105,7 +105,6 @@ create(Module *M, TSOPSOTraceBuilder &TB, const Configuration &C,
 Interpreter::Interpreter(Module *M, TSOPSOTraceBuilder &TB,
                          const Configuration &C)
   : DPORInterpreter(M), TD(M), TB(TB), conf(C) {
-
   Threads.push_back(Thread());
   Threads.back().cpid = CPid();
   CurrentThread = 0;

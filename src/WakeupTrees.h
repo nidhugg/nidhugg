@@ -102,6 +102,7 @@ private:
   WakeupTree<Branch> tree;
   WakeupTreeRef<Branch> rootref;
   std::vector<ExplorationNode> prefix;
+
 public:
   WakeupTreeExplorationBuffer() : rootref(tree) {}
   std::size_t len() const noexcept { return prefix.size(); }

@@ -223,6 +223,7 @@ public:
     return computation_md;
   }
   virtual std::string to_string(int ind = 0) const;
+
 protected:
   std::vector<IID<CPid> > computation;
   SrcLocVector computation_md;

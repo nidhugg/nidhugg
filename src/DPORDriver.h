@@ -110,6 +110,7 @@ private:
      */
     std::vector<Trace*> all_traces;
   };
+
 public:
   /* A Result object describes the result of exploring the traces of
    * some module.
@@ -134,6 +135,7 @@ public:
   /* Explore the traces of the given module, and return the result.
    */
   Result run();
+
 private:
   /* Configuration */
   const Configuration &conf;
@@ -172,7 +174,7 @@ private:
    * where eash thread will explore the execution tree concurrently.
    */
   Result run_rfsc_parallel();
-  /* As rfsc explores asyncronosly with a threadpool,
+  /* As RFSC explores asynchronously with a threadpool,
    * an alternate function is given without overhead
    * if it should be run strictly sequential.
    */

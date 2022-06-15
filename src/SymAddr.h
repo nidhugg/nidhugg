@@ -230,9 +230,11 @@ class SymData {
 public:
   typedef std::shared_ptr<uint8_t> block_type;
   static block_type alloc_block(int alloc_size);
+
 private:
   SymAddrSize ref;
   block_type block;
+
 public:
   /* Create an SymData with reference ref, and a fresh block of memory
    * of alloc_size bytes.

@@ -45,6 +45,7 @@ public:
 #else
   virtual const char *getPassName() const { return "AddLibPass"; }
 #endif
+
 protected:
   /* If a function named name is already defined in M, then return
    * false. Otherwise search for a definition in the LLVM assembly

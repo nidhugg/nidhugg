@@ -88,6 +88,7 @@ public:
   int cond_destroy(const SymAddrSize &ml) override;
   NODISCARD bool register_alternatives(int alt_count) override;
   long double estimate_trace_count() const override;
+
 protected:
   /* An identifier for a thread. An index into this->threads.
    *
@@ -397,6 +398,7 @@ protected:
     bool is_fail_kind() const {
       return kind == LOCK_FAIL || kind == SEQUENCE;
     }
+
   private:
     Race(Kind k, int f, int s, IID<IPid> p, int w) :
       kind(k), first_event(f), second_event(s), second_process(p),

@@ -45,6 +45,7 @@ public:
    * kept track of by this clock.
    */
   int size() const { return sys[cid].idx_to_id.size(); }
+
 private:
   ClockSystemID cid;
   int id;

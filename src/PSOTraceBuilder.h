@@ -73,6 +73,7 @@ public:
   NODISCARD int cond_destroy(const SymAddrSize &ml) override;
   NODISCARD bool register_alternatives(int alt_count) override;
   long double estimate_trace_count() const override;
+
 protected:
   /* An identifier for a thread. An index into this->threads.
    *

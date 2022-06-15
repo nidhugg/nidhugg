@@ -94,6 +94,7 @@ public:
   bool operator>=(const VClock<DOM> &vc) const;
 
   std::string to_string() const;
+
 private:
   std::map<DOM,int> clocks;
 };
@@ -183,6 +184,7 @@ public:
   bool operator>=(const VClock<int> &vc) const;
 
   std::string to_string() const;
+
 private:
   std::vector<int> vec;
 };
@@ -218,6 +220,7 @@ public:
     return { vec.data() + (d*clock_size), clock_size };
   }
   void assign(unsigned clock_size, std::size_t count, const VClock<int> &init);
+
 private:
   std::vector<int> vec;
   unsigned clock_size;

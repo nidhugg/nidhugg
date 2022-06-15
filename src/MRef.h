@@ -90,6 +90,7 @@ public:
       return *this;
     }
     void const *operator*() const{ return ptr; }
+
   private:
     const_iterator(void const *ref, int sz, int i) {
       assert(0 <= sz);
