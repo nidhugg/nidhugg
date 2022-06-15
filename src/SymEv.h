@@ -69,7 +69,6 @@ struct SymEv {
     UNOBS_STORE,
   } kind;
   union arg {
-  public:
     SymAddrSize addr;
     int num;
 
@@ -79,7 +78,6 @@ struct SymEv {
     // ~arg_union() {}
   } arg;
   union arg2 {
-  public:
     RmwAction::Kind rmw_kind;
     AwaitCond::Op await_op;
 
