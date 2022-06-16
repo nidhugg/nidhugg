@@ -88,7 +88,6 @@ typedef llvm::Instruction TerminatorInst;
 namespace {
   const int MAX_CONJUNCTION_TERMS = 5;
   const int MAX_DISJUNCTION_TERMS = 10;
-  const unsigned MAX_DATAFLOW_ITERATIONS = 100;
 
   /* Not reentrant */
   static const llvm::DominatorTree *DominatorTree;
@@ -1157,46 +1156,40 @@ namespace {
   PurityConditions analyseLoop(llvm::Loop *L) {
     PurityConditions conds;
     RPO rpo = getLoopRPO(L);
-    bool changed;
-    unsigned count = 0;
     // llvm::dbgs() << "Analysing " << L->getHeader()->getParent()->getName()
     //              << ":" << *L;
-    do {
-      changed = false;
 #ifndef NDEBUG
-      std::set<llvm::BasicBlock*> visited;
+    std::set<llvm::BasicBlock*> visited;
 #endif
-      for (auto it = rpo.blocks.rbegin(); it != rpo.blocks.rend(); ++it) {
-        llvm::BasicBlock *BB = *it;
+    for (auto it = rpo.blocks.rbegin(); it != rpo.blocks.rend(); ++it) {
+      llvm::BasicBlock *BB = *it;
 #ifndef NDEBUG
-        for (llvm::BasicBlock *S : llvm::successors(BB)) {
-          assert(visited.count(S) || L->getHeader() == S || !L->contains(S)
-                 || rpo.backedges.count({BB, S}));
-        }
-        visited.insert(BB);
+      for (llvm::BasicBlock *S : llvm::successors(BB)) {
+        assert(visited.count(S) || L->getHeader() == S || !L->contains(S)
+               || rpo.backedges.count({BB, S}));
+      }
+      visited.insert(BB);
 #endif
-        PurityCondition cond = computeOut(L, conds, rpo, BB);
-        /* Skip the terminator */
-        for (auto it = BB->rbegin(); ++it != BB->rend();) {
-          cond &= instructionPurity(L, *it);
-        }
-        if (conds[BB] != cond) {
-          // llvm::dbgs() << " " << BB->getName() << ": " << cond << "\n";
-          changed = true;
-          conds[BB] = cond;
-        }
+      PurityCondition cond = computeOut(L, conds, rpo, BB);
+      // llvm::dbgs() << "  out of " << BB->getName() << ": " << cond << "\n";
+      /* Skip the terminator */
+      for (auto it = BB->rbegin(); ++it != BB->rend();) {
+        cond &= instructionPurity(L, *it);
       }
-      if (++count > MAX_DATAFLOW_ITERATIONS) {
-        llvm::dbgs() << "Analysis of loop in "
-                     << L->getHeader()->getParent()->getName()
-                     << " did not terminate after " << MAX_DATAFLOW_ITERATIONS
-                     << "iterations\n";
-        /* Since we start the lattice at [false], we're safe just
-         * aborting anytime */
-        changed = false;
+      if (conds[BB] != cond) {
+        // llvm::dbgs() << " " << BB->getName() << ": " << cond << "\n";
+        conds[BB] = cond;
       }
-    } while(changed);
-    assert(count <= 2);
+    }
+#ifndef NDEBUG
+    /* Check that a second pass would not change anything */
+    for (llvm::BasicBlock *BB : rpo.blocks) {
+      PurityCondition cond = computeOut(L, conds, rpo, BB);
+      for (auto it = BB->rbegin(); ++it != BB->rend();)
+        cond &= instructionPurity(L, *it);
+      assert(conds.at(BB) == cond);
+    }
+#endif
     return conds;
   }
 
