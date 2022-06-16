@@ -75,6 +75,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -854,7 +855,46 @@ namespace {
     return true;
   }
 
+  struct RPO {
+    std::vector<llvm::BasicBlock *> blocks;
+    std::set<std::pair<const llvm::BasicBlock *, const llvm::BasicBlock *>> backedges;
+    RPO(std::size_t capacity) { blocks.reserve(capacity); }
+  };
+
+  void RPOVisit(llvm::Loop* L, RPO &rpo,
+                std::unordered_set<llvm::BasicBlock *> &visited,
+                std::unordered_map<llvm::BasicBlock *, unsigned> &poorder,
+                llvm::BasicBlock *BB) {
+    if (!visited.insert(BB).second) return;
+    for (llvm::BasicBlock *Succ : llvm::successors(BB)) {
+      if (!L->contains(Succ)) continue;
+      RPOVisit(L, rpo, visited, poorder, Succ);
+    }
+    poorder[BB] = rpo.blocks.size();
+    rpo.blocks.push_back(BB);
+  }
+
+  RPO getLoopRPO(llvm::Loop *L) {
+    RPO ret(L->getNumBlocks());
+    std::unordered_set<llvm::BasicBlock *> visited(L->getNumBlocks());
+    std::unordered_map<llvm::BasicBlock *, unsigned> poorder(L->getNumBlocks());
+    RPOVisit(L, ret, visited, poorder, L->getHeader());
+    std::reverse(ret.blocks.begin(), ret.blocks.end());
+    assert(ret.blocks.size() == L->getNumBlocks());
+    /* Compute backedges */
+    for (llvm::BasicBlock *BB : ret.blocks) {
+      unsigned BBi = poorder.at(BB);
+      for (llvm::BasicBlock *Succ : llvm::successors(BB)) {
+        if (!L->contains(Succ)) continue;
+        unsigned Succi = poorder.at(Succ);
+        if (Succi >= BBi) ret.backedges.emplace(BB, Succ);
+      }
+    }
+    return ret;
+  }
+
   PurityCondition getIn(const llvm::Loop *L, PurityConditions &conds,
+                        const RPO &rpo,
                         const llvm::BasicBlock *From,
                         const llvm::BasicBlock *To) {
     if (To == L->getHeader()) {
@@ -882,6 +922,7 @@ namespace {
       return true;
     }
     if (!L->contains(To)) return false;
+    if (rpo.backedges.count({From, To})) return false;
     PurityCondition in = conds[To].map([From, To](BinaryPredicate term) {
       maybeResolvePhi(term.rhs, From, To);
       maybeResolvePhi(term.lhs, From, To);
@@ -917,13 +958,13 @@ namespace {
   }
 
   PurityCondition computeOut(const llvm::Loop *L, PurityConditions &conds,
-                             const llvm::BasicBlock *BB) {
+                             const RPO &rpo, const llvm::BasicBlock *BB) {
     if (auto *branch = llvm::dyn_cast<llvm::BranchInst>(BB->getTerminator())) {
       if (branch->isConditional()) {
         llvm::BasicBlock *trueSucc = branch->getSuccessor(0);
         llvm::BasicBlock *falseSucc = branch->getSuccessor(1);
-        PurityCondition trueIn = getIn(L, conds, BB, trueSucc);
-        PurityCondition falseIn = getIn(L, conds, BB, falseSucc);
+        PurityCondition trueIn = getIn(L, conds, rpo, BB, trueSucc);
+        PurityCondition falseIn = getIn(L, conds, rpo, BB, falseSucc);
         if (trueIn == falseIn) return trueIn;
         // If the operands are in the loop, we can check them for
         // purity; if not, the condition should just be false. That way,
@@ -954,7 +995,7 @@ namespace {
     /* Generic implementation; no concern for branch conditions */
     PurityCondition cond(true);
     for (const llvm::BasicBlock *s : llvm::successors(BB)) {
-      cond &= getIn(L, conds, BB, s);
+      cond &= getIn(L, conds, rpo, BB, s);
     }
     return cond;
   }
@@ -1079,13 +1120,12 @@ namespace {
   }
 
   void debugPrintInstructionPCs(llvm::Loop *L, PurityConditions &conds) {
-    const auto &blocks = L->getBlocks();
+    RPO rpo = getLoopRPO(L);
     llvm::dbgs() << "Results of analysing " << L->getHeader()->getParent()->getName()
                  << ":" << *L;
     std::map<llvm::Instruction*,PurityCondition> iconds;
-    for (auto it = blocks.rbegin(); it != blocks.rend(); ++it) {
-      llvm::BasicBlock *BB = *it;
-      PurityCondition cond = computeOut(L, conds, BB);
+    for (llvm::BasicBlock *BB : rpo.blocks) {
+      PurityCondition cond = computeOut(L, conds, rpo, BB);
       iconds[BB->getTerminator()] = cond;
       for (auto it = BB->rbegin(); ++it != BB->rend();) {
         iconds[&*it] = cond &= instructionPurity(L, *it);
@@ -1093,7 +1133,7 @@ namespace {
     }
     llvm::formatted_raw_ostream os(llvm::errs());
     std::string indent(2, ' ');
-    for (llvm::BasicBlock *BB : blocks) {
+    for (llvm::BasicBlock *BB : rpo.blocks) {
       os << indent << BB->getName() << ":";
       os.PadToColumn(30+indent.size());
       os.changeColor(llvm::raw_ostream::YELLOW, false, false)
@@ -1116,18 +1156,26 @@ namespace {
 
   PurityConditions analyseLoop(llvm::Loop *L) {
     PurityConditions conds;
-    const auto &blocks = L->getBlocks();
+    RPO rpo = getLoopRPO(L);
     bool changed;
     unsigned count = 0;
     // llvm::dbgs() << "Analysing " << L->getHeader()->getParent()->getName()
     //              << ":" << *L;
     do {
       changed = false;
-      // Assume it's in reverse postorder, or some suitable order
-      for (auto it = blocks.rbegin(); it != blocks.rend(); ++it) {
+#ifndef NDEBUG
+      std::set<llvm::BasicBlock*> visited;
+#endif
+      for (auto it = rpo.blocks.rbegin(); it != rpo.blocks.rend(); ++it) {
         llvm::BasicBlock *BB = *it;
-        PurityCondition cond = computeOut(L, conds, BB);
-        // llvm::dbgs() << "  out of " << BB->getName() << ": " << cond << "\n";
+#ifndef NDEBUG
+        for (llvm::BasicBlock *S : llvm::successors(BB)) {
+          assert(visited.count(S) || L->getHeader() == S || !L->contains(S)
+                 || rpo.backedges.count({BB, S}));
+        }
+        visited.insert(BB);
+#endif
+        PurityCondition cond = computeOut(L, conds, rpo, BB);
         /* Skip the terminator */
         for (auto it = BB->rbegin(); ++it != BB->rend();) {
           cond &= instructionPurity(L, *it);
@@ -1148,6 +1196,7 @@ namespace {
         changed = false;
       }
     } while(changed);
+    assert(count <= 2);
     return conds;
   }
 
