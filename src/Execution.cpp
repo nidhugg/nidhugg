@@ -615,13 +615,12 @@ static GenericValue executeFCMP_ORD(GenericValue Src1, GenericValue Src2,
         (Src2.AggregateVal[_i].DoubleVal ==
         Src2.AggregateVal[_i].DoubleVal)));
     }
+  } else if (Ty->isFloatTy()) {
+    Dest.IntVal = APInt(1,(Src1.FloatVal == Src1.FloatVal &&
+                           Src2.FloatVal == Src2.FloatVal));
   } else {
-    if (Ty->isFloatTy())
-      Dest.IntVal = APInt(1,(Src1.FloatVal == Src1.FloatVal &&
-                             Src2.FloatVal == Src2.FloatVal));
-    else
-      Dest.IntVal = APInt(1,(Src1.DoubleVal == Src1.DoubleVal &&
-                             Src2.DoubleVal == Src2.DoubleVal));
+    Dest.IntVal = APInt(1,(Src1.DoubleVal == Src1.DoubleVal &&
+                           Src2.DoubleVal == Src2.DoubleVal));
   }
   return Dest;
 }
@@ -647,13 +646,12 @@ static GenericValue executeFCMP_UNO(GenericValue Src1, GenericValue Src2,
             (Src2.AggregateVal[_i].DoubleVal !=
              Src2.AggregateVal[_i].DoubleVal)));
       }
+  } else if (Ty->isFloatTy()) {
+    Dest.IntVal = APInt(1,(Src1.FloatVal != Src1.FloatVal ||
+                           Src2.FloatVal != Src2.FloatVal));
   } else {
-    if (Ty->isFloatTy())
-      Dest.IntVal = APInt(1,(Src1.FloatVal != Src1.FloatVal ||
-                             Src2.FloatVal != Src2.FloatVal));
-    else
-      Dest.IntVal = APInt(1,(Src1.DoubleVal != Src1.DoubleVal ||
-                             Src2.DoubleVal != Src2.DoubleVal));
+    Dest.IntVal = APInt(1,(Src1.DoubleVal != Src1.DoubleVal ||
+                           Src2.DoubleVal != Src2.DoubleVal));
   }
   return Dest;
 }
@@ -3441,11 +3439,9 @@ bool Interpreter::checkRefuse(Instruction &I){
     int nargs = 0;
     if(isLoadAwait(I, &ptr, &cond)) {
       kind = LOAD;
-    } else {
-      if(isXchgAwait(I, &ptr, &cond)) {
-        kind = XCHG;
-        nargs = 1;
-      }
+    } else if(isXchgAwait(I, &ptr, &cond)) {
+      kind = XCHG;
+      nargs = 1;
     }
     if(kind != NONE) {
       Option<SymAddrSize> ptr_sas = TryGetSymAddrSize(ptr,I.getOperand(nargs+2)->getType());
