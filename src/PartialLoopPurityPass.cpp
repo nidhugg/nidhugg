@@ -718,14 +718,12 @@ namespace {
   llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const BinaryPredicate &pred) {
     if (pred.is_true()) {
       os << "true";
+    } else if (pred.is_false()) {
+      os << "false";
     } else {
-      if (pred.is_false()) {
-        os << "false";
-      } else {
-        pred.lhs->printAsOperand(os);
-        os << " " << getPredicateName(pred.op) << " ";
-        pred.rhs->printAsOperand(os);
-      }
+      pred.lhs->printAsOperand(os);
+      os << " " << getPredicateName(pred.op) << " ";
+      pred.rhs->printAsOperand(os);
     }
     return os;
   }
