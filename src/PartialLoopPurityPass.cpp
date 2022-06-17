@@ -72,6 +72,7 @@
 
 #include <algorithm>
 #include <map>
+#include <set>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -251,8 +252,8 @@ namespace {
             const llvm::APInt &OR = llvm::cast<llvm::ConstantInt>(o.rhs)->getValue();
             if (check_predicate_satisfaction(OR, res.op, RR)) {
               underapprox = true;
-              return false; /* Possible to refine: we'd have to
-                             * exclude OR from res somehow */
+              return false; // Possible to refine: we'd have to
+                            // exclude OR from res somehow
             } else {
               return res;
             }
@@ -368,7 +369,6 @@ namespace {
     bool operator<(InsertionPoint other) const {
       return *this != other && *this <= other;
     }
-
   };
 
   llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const struct ConjunctionLoc &cond);
@@ -458,6 +458,7 @@ namespace {
 
     /* Earliest location that can support an insertion. */
     InsertionPoint insertion_point;
+
   private:
     struct LexicalCompare {
       auto tupleit(const BinaryPredicate &p) const {
@@ -477,8 +478,9 @@ namespace {
         BinaryPredicate m = c.meet(cond, underapprox);
         if (m == c) return;
         if (m == cond) continue;
-        if (underapprox) newset.push_back(c); /* Have to keep both */
-        else {
+        if (underapprox) {
+          newset.push_back(c); /* Have to keep both */
+        } else {
           // Start the loop over!
 #ifndef NDEBUG
           /* We're going to meet c with m again, so ensure that meet
@@ -619,7 +621,6 @@ namespace {
       }
     };
 
-
     void addCond(const Elem &cond) {
       if (cond.is_false()) return; /* Keep it normalised */
       std::vector<Elem> newset;
@@ -715,12 +716,16 @@ namespace {
   }
 
   llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const BinaryPredicate &pred) {
-    if (pred.is_true()) os << "true";
-    else if (pred.is_false()) os << "false";
-    else {
-      pred.lhs->printAsOperand(os);
-      os << " " << getPredicateName(pred.op) << " ";
-      pred.rhs->printAsOperand(os);
+    if (pred.is_true()) {
+      os << "true";
+    } else {
+      if (pred.is_false()) {
+        os << "false";
+      } else {
+        pred.lhs->printAsOperand(os);
+        os << " " << getPredicateName(pred.op) << " ";
+        pred.rhs->printAsOperand(os);
+      }
     }
     return os;
   }
@@ -731,8 +736,9 @@ namespace {
     return os;
   }
   llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const ConjunctionLoc &cond) {
-    if (!cond.has_conjuncts()) os << "true";
-    else {
+    if (!cond.has_conjuncts()) {
+      os << "true";
+    } else {
       for (auto it = cond.begin(); it != cond.end(); ++it) {
         if (it != cond.begin()) os << " && ";
         os << *it;
@@ -741,8 +747,9 @@ namespace {
     return os << cond.insertion_point;
   }
   llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const PurityCondition &cond) {
-    if (cond.is_false()) os << "false";
-    else {
+    if (cond.is_false()) {
+      os << "false";
+    } else {
       for (auto it = cond.begin(); it != cond.end(); ++it) {
         if (it != cond.begin()) os << " || ";
         os << *it;
@@ -1361,11 +1368,10 @@ namespace {
              llvm::CmpInst::getInversePredicate(term.op),
              term.lhs, term.rhs, "pp.term.negated", I);
           if (!Cond) Cond = TermCond;
-          else {
+          else
             Cond = llvm::BinaryOperator::Create
               (llvm::BinaryOperator::BinaryOps::Or, Cond, TermCond,
                "pp.conj.negated", I);
-          }
         }
       }
       llvm::Function *F_assume = L->getHeader()->getParent()->getParent()
