@@ -523,17 +523,15 @@ static llvm::GenericValue executeFCMP_OGT(llvm::GenericValue Src1,
   return Dest;
 }
 
-#define IMPLEMENT_UNORDERED(TY, X, Y)                                   \
-  if (TY->isFloatTy()) {                                                \
-    if (X.FloatVal != X.FloatVal || Y.FloatVal != Y.FloatVal) {         \
-      Dest.IntVal = llvm::APInt(1,true);                                \
-      return Dest;                                                      \
-    }                                                                   \
-  } else {                                                              \
-    if (X.DoubleVal != X.DoubleVal || Y.DoubleVal != Y.DoubleVal) {     \
-      Dest.IntVal = llvm::APInt(1,true);                                \
-      return Dest;                                                      \
-    }                                                                   \
+#define IMPLEMENT_UNORDERED(TY, X, Y)                                    \
+  if (TY->isFloatTy()) {                                                 \
+    if (X.FloatVal != X.FloatVal || Y.FloatVal != Y.FloatVal) {          \
+      Dest.IntVal = llvm::APInt(1,true);                                 \
+      return Dest;                                                       \
+    }                                                                    \
+  } else if (X.DoubleVal != X.DoubleVal || Y.DoubleVal != Y.DoubleVal) { \
+    Dest.IntVal = llvm::APInt(1,true);                                   \
+    return Dest;                                                         \
   }
 
 #define IMPLEMENT_VECTOR_UNORDERED(TY, X, Y, _FUNC)         \
@@ -628,14 +626,12 @@ static llvm::GenericValue executeFCMP_ORD(llvm::GenericValue Src1,
                                                      (Src2.AggregateVal[_i].DoubleVal ==
                                                       Src2.AggregateVal[_i].DoubleVal)));
     }
+  } else if (Ty->isFloatTy()) {
+    Dest.IntVal = llvm::APInt(1,(Src1.FloatVal == Src1.FloatVal &&
+                                 Src2.FloatVal == Src2.FloatVal));
   } else {
-    if (Ty->isFloatTy()) {
-      Dest.IntVal = llvm::APInt(1,(Src1.FloatVal == Src1.FloatVal &&
-                                   Src2.FloatVal == Src2.FloatVal));
-    } else {
-      Dest.IntVal = llvm::APInt(1,(Src1.DoubleVal == Src1.DoubleVal &&
-                                   Src2.DoubleVal == Src2.DoubleVal));
-    }
+    Dest.IntVal = llvm::APInt(1,(Src1.DoubleVal == Src1.DoubleVal &&
+                                 Src2.DoubleVal == Src2.DoubleVal));
   }
   return Dest;
 }
@@ -662,14 +658,12 @@ static llvm::GenericValue executeFCMP_UNO(llvm::GenericValue Src1,
                                                      (Src2.AggregateVal[_i].DoubleVal !=
                                                       Src2.AggregateVal[_i].DoubleVal)));
     }
+  } else if (Ty->isFloatTy()) {
+    Dest.IntVal = llvm::APInt(1,(Src1.FloatVal != Src1.FloatVal ||
+                                 Src2.FloatVal != Src2.FloatVal));
   } else {
-    if (Ty->isFloatTy()) {
-      Dest.IntVal = llvm::APInt(1,(Src1.FloatVal != Src1.FloatVal ||
-                                   Src2.FloatVal != Src2.FloatVal));
-    } else {
-      Dest.IntVal = llvm::APInt(1,(Src1.DoubleVal != Src1.DoubleVal ||
-                                   Src2.DoubleVal != Src2.DoubleVal));
-    }
+    Dest.IntVal = llvm::APInt(1,(Src1.DoubleVal != Src1.DoubleVal ||
+                                 Src2.DoubleVal != Src2.DoubleVal));
   }
   return Dest;
 }
@@ -1852,14 +1846,12 @@ llvm::GenericValue POWERInterpreter::executeBitCastInst(llvm::Value *SrcVal,
     } else if (DstTy->isIntegerTy()) {
       if (SrcTy->isFloatTy()) {
         Dest.IntVal = llvm::APInt::floatToBits(Src.FloatVal);
+      } else if (SrcTy->isDoubleTy()) {
+        Dest.IntVal = llvm::APInt::doubleToBits(Src.DoubleVal);
+      } else if (SrcTy->isIntegerTy()) {
+        Dest.IntVal = Src.IntVal;
       } else {
-        if (SrcTy->isDoubleTy()) {
-          Dest.IntVal = llvm::APInt::doubleToBits(Src.DoubleVal);
-        } else if (SrcTy->isIntegerTy()) {
-          Dest.IntVal = Src.IntVal;
-        } else {
-          llvm_unreachable("Invalid BitCast");
-        }
+        llvm_unreachable("Invalid BitCast");
       }
     } else if (DstTy->isFloatTy()) {
       if (SrcTy->isIntegerTy()) {
