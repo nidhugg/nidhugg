@@ -87,14 +87,15 @@ namespace {
 
   llvm::Value* getOrInsertFunction(llvm::Module &M, llvm::StringRef Name,
                                    llvm::FunctionType *T, AttributeList AttributeList) {
-    return M.getOrInsertFunction(std::move(Name),T,std::move(AttributeList))
+    auto ret = M.getOrInsertFunction(std::move(Name),T,std::move(AttributeList));
 #if LLVM_VERSION_MAJOR >= 9
       /* XXX: I will not work with some development versions of 9, I
        * should be replaced/complemented with a configure check.
        */
-      .getCallee()
+    return ret.getCallee();
+#else
+    return ret;
 #endif
-      ;
   }
 
   bool is_assume(llvm::CallInst *C) {
