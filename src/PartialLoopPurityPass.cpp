@@ -27,6 +27,7 @@
 #include "SpinAssumePass.h"
 #include "vecset.h"
 
+#include <boost/container/flat_map.hpp>
 #include <llvm/Analysis/CallGraph.h>
 #include <llvm/Analysis/LoopPass.h>
 #include <llvm/Analysis/ValueTracking.h>
@@ -92,6 +93,8 @@ namespace {
 
   /* Not reentrant */
   static const llvm::DominatorTree *DominatorTree;
+  static const llvm::Loop *Loop;
+  static const struct RPO *LoopRPO;
   static const std::unordered_map<llvm::Function *, bool> *may_inline;
   static bool inlining_needed = false;
 
@@ -861,39 +864,44 @@ namespace {
 
   struct RPO {
     std::vector<llvm::BasicBlock *> blocks;
-    std::set<std::pair<const llvm::BasicBlock *, const llvm::BasicBlock *>> backedges;
+    boost::container::flat_map<const llvm::BasicBlock *, std::size_t> block_indices;
+    bool is_backedge(const llvm::BasicBlock *From, const llvm::BasicBlock *To) const {
+      assert(block_indices.count(From) && block_indices.count(To));
+      return block_indices.at(From) >= block_indices.at(To);
+    }
     RPO(std::size_t capacity) { blocks.reserve(capacity); }
   };
 
   void RPOVisit(llvm::Loop* L, RPO &rpo,
                 std::unordered_set<llvm::BasicBlock *> &visited,
-                std::unordered_map<llvm::BasicBlock *, unsigned> &poorder,
+                decltype(RPO::block_indices)::sequence_type &poorder,
                 llvm::BasicBlock *BB) {
     if (!visited.insert(BB).second) return;
     for (llvm::BasicBlock *Succ : llvm::successors(BB)) {
       if (!L->contains(Succ)) continue;
       RPOVisit(L, rpo, visited, poorder, Succ);
     }
-    poorder[BB] = rpo.blocks.size();
     rpo.blocks.push_back(BB);
+    poorder.emplace_back(BB, L->getNumBlocks() - rpo.blocks.size());
   }
 
   RPO getLoopRPO(llvm::Loop *L) {
     RPO ret(L->getNumBlocks());
     std::unordered_set<llvm::BasicBlock *> visited(L->getNumBlocks());
-    std::unordered_map<llvm::BasicBlock *, unsigned> poorder(L->getNumBlocks());
+    decltype(RPO::block_indices)::sequence_type poorder;
+    poorder.reserve(L->getNumBlocks());
+
     RPOVisit(L, ret, visited, poorder, L->getHeader());
     std::reverse(ret.blocks.begin(), ret.blocks.end());
+    std::sort(poorder.begin(), poorder.end());
+    ret.block_indices.adopt_sequence
+      (boost::container::ordered_unique_range, std::move(poorder));
     assert(ret.blocks.size() == L->getNumBlocks());
-    /* Compute backedges */
-    for (llvm::BasicBlock *BB : ret.blocks) {
-      unsigned BBi = poorder.at(BB);
-      for (llvm::BasicBlock *Succ : llvm::successors(BB)) {
-        if (!L->contains(Succ)) continue;
-        unsigned Succi = poorder.at(Succ);
-        if (Succi >= BBi) ret.backedges.emplace(BB, Succ);
-      }
+#ifndef NDEBUG
+    for (std::size_t i = 0; i < ret.blocks.size(); ++i) {
+      assert(ret.block_indices.at(ret.blocks[i]) == i);
     }
+#endif
     return ret;
   }
 
@@ -926,7 +934,7 @@ namespace {
       return true;
     }
     if (!L->contains(To)) return false;
-    if (rpo.backedges.count({From, To})) return false;
+    if (rpo.is_backedge(From, To)) return false;
     PurityCondition in = conds[To].map([From, To](BinaryPredicate term) {
       maybeResolvePhi(term.rhs, From, To);
       maybeResolvePhi(term.lhs, From, To);
@@ -1124,12 +1132,11 @@ namespace {
   }
 
   void debugPrintInstructionPCs(llvm::Loop *L, PurityConditions &conds) {
-    RPO rpo = getLoopRPO(L);
     llvm::dbgs() << "Results of analysing " << L->getHeader()->getParent()->getName()
                  << ":" << *L;
     std::map<llvm::Instruction*,PurityCondition> iconds;
-    for (llvm::BasicBlock *BB : rpo.blocks) {
-      PurityCondition cond = computeOut(L, conds, rpo, BB);
+    for (llvm::BasicBlock *BB : LoopRPO->blocks) {
+      PurityCondition cond = computeOut(L, conds, *LoopRPO, BB);
       iconds[BB->getTerminator()] = cond;
       for (auto it = BB->rbegin(); ++it != BB->rend();) {
         iconds[&*it] = cond &= instructionPurity(L, *it);
@@ -1137,7 +1144,7 @@ namespace {
     }
     llvm::formatted_raw_ostream os(llvm::errs());
     std::string indent(2, ' ');
-    for (llvm::BasicBlock *BB : rpo.blocks) {
+    for (llvm::BasicBlock *BB : LoopRPO->blocks) {
       os << indent << BB->getName() << ":";
       os.PadToColumn(30+indent.size());
       os.changeColor(llvm::raw_ostream::YELLOW, false, false)
@@ -1160,7 +1167,7 @@ namespace {
 
   PurityConditions analyseLoop(llvm::Loop *L) {
     PurityConditions conds;
-    RPO rpo = getLoopRPO(L);
+    const RPO &rpo = *LoopRPO;
     // llvm::dbgs() << "Analysing " << L->getHeader()->getParent()->getName()
     //              << ":" << *L;
 #ifndef NDEBUG
@@ -1171,7 +1178,7 @@ namespace {
 #ifndef NDEBUG
       for (llvm::BasicBlock *S : llvm::successors(BB)) {
         assert(visited.count(S) || L->getHeader() == S || !L->contains(S)
-               || rpo.backedges.count({BB, S}));
+               || rpo.is_backedge(BB, S));
       }
       visited.insert(BB);
 #endif
@@ -1258,7 +1265,13 @@ namespace {
 
   bool recurseLoops(llvm::Loop *L, const std::function<bool(llvm::Loop*)> &f) {
     bool changed = false;
+    assert(!Loop && !LoopRPO);
+    Loop = L;
+    RPO rpo = getLoopRPO(L);
+    LoopRPO = &rpo;
     changed |= f(L);
+    Loop = nullptr;
+    LoopRPO = nullptr;
     for (auto it = L->begin(); it != L->end(); ++it) {
       changed |= recurseLoops(*it, f);
     }
