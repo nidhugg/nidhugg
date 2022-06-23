@@ -24,7 +24,7 @@ AX_CXX_COMPILE_STDCXX(14, [noext])
 AX_GIT_COMMIT
 
 # Checks for libraries
-AX_BOOST_BASE([1.64], [], [AC_MSG_FAILURE([Boost Required!])])
+AX_BOOST_BASE([1.65], [], [AC_MSG_FAILURE([Boost Required!])])
 AX_BOOST_UNIT_TEST_FRAMEWORK
 AX_BOOST_SYSTEM
 AX_LLVM(,[AC_MSG_FAILURE(LLVM is required.)])

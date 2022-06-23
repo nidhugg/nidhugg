@@ -42,7 +42,7 @@ Requirements
 
    7. Foreign Function Interface (libffi) library and headers.
 
-   8. Boost Unit Test Framework, version 1.64 or higher.
+   8. Boost Unit Test Framework, version 1.65 or higher.
 
    (9). pkg-config, for generating a fully-featured configure script,
         capable of autodetecting the flags needed for libffi.

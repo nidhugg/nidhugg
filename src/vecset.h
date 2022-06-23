@@ -133,12 +133,12 @@ public:
   const_iterator end() const { return vec.cend(); }
   const std::vector<T> &get_vector() const & { return vec; }
   std::vector<T> &&get_vector() && { return std::move(vec); }
-  bool operator==(const VecSet &s) const { return vec == s.vec; }
-  bool operator<(const VecSet &s) const { return vec < s.vec; }
-  bool operator>(const VecSet &s) const { return vec > s.vec; }
-  bool operator<=(const VecSet &s) const { return vec <= s.vec; }
-  bool operator!=(const VecSet &s) const { return vec != s.vec; }
-  bool operator>=(const VecSet &s) const { return vec >= s.vec; }
+  bool operator==(const VecSet &s) const { return seq_eq(vec, s.vec); }
+  bool operator<(const VecSet &s) const { return seq_lt(vec, s.vec); }
+  bool operator>(const VecSet &s) const { return seq_lt(s.vec, vec); }
+  bool operator<=(const VecSet &s) const { return !(*this > s); }
+  bool operator!=(const VecSet &s) const { return !(*this == s); }
+  bool operator>=(const VecSet &s) const { return !(*this < s); }
   /* Produces a string representation of the set with each element t
    * represented as f(t) without any new lines between the elements.
    */
@@ -152,6 +152,10 @@ private:
   std::vector<T> vec;
   /* Comparer */
   Compare lt = {};
+  /* Is a lexicographically less than b when elements are compared by Compare? */
+  static bool seq_lt(const std::vector<T> &a, const std::vector<T> &b);
+  /* Is a lexicographically equal to b when elements are compared by Compare? */
+  static bool seq_eq(const std::vector<T> &a, const std::vector<T> &b);
   /* Return the index of the least element in the set which is greater than or equal to t.
    * Return vec.size() if there is no such element in the set.
    */
