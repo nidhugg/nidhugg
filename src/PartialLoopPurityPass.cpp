@@ -28,6 +28,7 @@
 #include "vecset.h"
 
 #include <boost/container/flat_map.hpp>
+#include <llvm/ADT/SmallVector.h>
 #include <llvm/Analysis/CallGraph.h>
 #include <llvm/Analysis/LoopPass.h>
 #include <llvm/Analysis/ValueTracking.h>
@@ -304,6 +305,16 @@ namespace {
     }
   };
 
+  struct RPO {
+    std::vector<llvm::BasicBlock *> blocks;
+    boost::container::flat_map<const llvm::BasicBlock *, std::size_t> block_indices;
+    bool is_backedge(const llvm::BasicBlock *From, const llvm::BasicBlock *To) const {
+      assert(block_indices.count(From) && block_indices.count(To));
+      return block_indices.at(From) >= block_indices.at(To);
+    }
+    RPO(std::size_t capacity) { blocks.reserve(capacity); }
+  };
+
   /* Encodes a restriction on where an assume may be inserted. There is
    * no bottom value, instead, operator& (which is the only operation
    * that may return bottom) uses Option<InsertionPoint>. */
@@ -320,23 +331,48 @@ namespace {
     bool is_true() const { return *this; }
     bool is_false() const { return !*this; }
 
+    static bool isBefore(llvm::Instruction *I, llvm::Instruction *J) {
+      llvm::BasicBlock *IB = I->getParent(), *JB = J->getParent();
+      if (IB == JB) {
+        while(true) {
+          if (J == &*JB->begin()) return false;
+          J = J->getPrevNode();
+          if (I == J) return true;
+        }
+      } else {
+        std::size_t IBI = LoopRPO->block_indices.at(IB),
+          JBI = LoopRPO->block_indices.at(JB);
+        assert (IBI != JBI);
+        if (IBI > JBI) return false;
+        VecSet<std::size_t> predecessors;
+        while (true) {
+          for (llvm::BasicBlock *Pred : llvm::predecessors(JB)) {
+            if (Pred == IB) return true;
+            assert(LoopRPO->block_indices.count(Pred)); // Cannot exit loop
+            std::size_t PredI = LoopRPO->block_indices.at(Pred);
+            // if (it == LoopRPO->block_indices.end()) continue;
+            if (PredI >= IBI && PredI < JBI)
+              predecessors.insert(PredI);
+          }
+          if (predecessors.empty()) return false;
+          assert(predecessors.back() < JBI);
+          JBI = predecessors.back();
+          predecessors.pop_back();
+          assert(IBI < JBI);
+          JB = LoopRPO->blocks[JBI];
+        }
+        abort();
+      }
+    }
+
     Option<InsertionPoint> operator&(InsertionPoint other) const {
       InsertionPoint res;
       if (!earliest) res.earliest = other.earliest;
       else if (!other.earliest) res.earliest = earliest;
       else if (earliest == other.earliest) res.earliest = earliest;
-      else if (DominatorTree->dominates(earliest, other.earliest)) {
-        res.earliest = other.earliest;
-      } else if (DominatorTree->dominates(other.earliest, earliest)) {
-        res.earliest = earliest;
-      } else {
-        /* TODO: We have to find the least common denominator */
-        llvm::dbgs() << "Meeting insertion points general case not implemented:\n";
-        llvm::dbgs() << "    " << *earliest << "\n"
-                     << " and" << *other.earliest << "\n";
-        // assert(false);
-        return {}; // Underapproximating for now
-      }
+      else if (isBefore(earliest, other.earliest)) res.earliest = other.earliest;
+      else if (isBefore(other.earliest, earliest)) res.earliest = earliest;
+      else return {};
       return res;
     }
 
@@ -367,7 +403,7 @@ namespace {
       if (!earliest && other.earliest) return false;
       if (!other.earliest) return true;
       if (earliest == other.earliest) return true;
-      return DominatorTree->dominates(other.earliest, earliest);
+      return isBefore(other.earliest, earliest);
     }
     bool operator<(InsertionPoint other) const {
       return *this != other && *this <= other;
@@ -869,16 +905,6 @@ namespace {
     return true;
   }
 
-  struct RPO {
-    std::vector<llvm::BasicBlock *> blocks;
-    boost::container::flat_map<const llvm::BasicBlock *, std::size_t> block_indices;
-    bool is_backedge(const llvm::BasicBlock *From, const llvm::BasicBlock *To) const {
-      assert(block_indices.count(From) && block_indices.count(To));
-      return block_indices.at(From) >= block_indices.at(To);
-    }
-    RPO(std::size_t capacity) { blocks.reserve(capacity); }
-  };
-
   void RPOVisit(llvm::Loop* L, RPO &rpo,
                 std::unordered_set<llvm::BasicBlock *> &visited,
                 decltype(RPO::block_indices)::sequence_type &poorder,
@@ -1335,13 +1361,16 @@ namespace {
     InsertionPoint IPT(&*L->getHeader()->getFirstInsertionPt());
     if (!(IPT &= cond.insertion_point)) abort(); // Not possible
     for (const BinaryPredicate &term : cond) {
-      if (llvm::Instruction *LHS = maybeFindUserLocationOrNull
-          (llvm::dyn_cast_or_null<llvm::User>(term.lhs))) {
-        if (!(IPT &= LHS->getNextNode())) return nullptr;
-      }
-      if (llvm::Instruction *RHS = maybeFindUserLocationOrNull
-          (llvm::dyn_cast_or_null<llvm::User>(term.rhs))) {
-        if (!(IPT &= RHS->getNextNode())) return nullptr;
+      for (llvm::Value *Value : {term.lhs, term.rhs}) {
+        if (llvm::Instruction *Loc = maybeFindUserLocationOrNull
+            (llvm::dyn_cast_or_null<llvm::User>(Value))) {
+          if (!L->contains(Loc->getParent())) {
+            /* Must dominate header */
+          } else if (!(IPT &= Loc->getNextNode())) {
+            return nullptr;
+          }
+          llvm::dbgs() << "  IPT:" << IPT << "\n";
+        }
       }
     }
     assert(IPT.earliest);
@@ -1371,6 +1400,59 @@ namespace {
       }
     }
     return ret;
+  }
+
+  llvm::Value *constantZeroValue(llvm::Type *T) {
+    return llvm::Constant::getNullValue(T);
+    abort();
+  }
+
+  bool phiSameAs
+  (llvm::PHINode *PHI,
+   llvm::ArrayRef<std::pair<llvm::BasicBlock*,llvm::Value*>> Vals) {
+    assert(PHI->getNumIncomingValues() == Vals.size());
+    for (const auto &pair : Vals) {
+      if (PHI->getIncomingValueForBlock(pair.first) != pair.second) return false;
+    }
+    return true;
+  }
+
+  /* Make a value available further down in the loop DAG. If it does not
+   * dominate BB, insert PHI-nodes that supply its value if it was
+   * executed in the current pure loop iteration, and some arbitrary
+   * value otherwise. */
+  llvm::Value *bringDown(llvm::Value *V, llvm::BasicBlock *BB,
+                         const RPO &rpo, const llvm::DominatorTree &DT) {
+    llvm::Instruction *I = maybeFindValueLocation(V);
+    if (!I) return V; // No location
+    if (I->getParent() == BB) return I; // Already in BB
+    if (DT.dominates(I, BB)) return I; // No "bringing" required
+    std::size_t II = rpo.block_indices.at(I->getParent());
+    bool needPhi = false, allSame = true;
+    llvm::SmallVector<std::pair<llvm::BasicBlock*,llvm::Value*>, 4> prev;
+    for (llvm::BasicBlock *Pred : llvm::predecessors(BB)) {
+      llvm::Value *PV;
+      if (rpo.is_backedge(Pred, BB) || rpo.block_indices.at(Pred) < II) {
+        PV = constantZeroValue(V->getType());
+        needPhi = true;
+      } else {
+        PV = bringDown(V, Pred, rpo, DT);
+      }
+      prev.emplace_back(Pred, PV);
+    }
+    allSame = std::all_of(prev.begin(), prev.end(), [&](const auto &pair) {
+      return pair.second == prev[0].second;
+    });
+    if (allSame && !needPhi && prev.size()) return prev[0].second;
+    for (auto it = BB->begin();
+         it != BB->end() && llvm::isa<llvm::PHINode>(*it); ++it) {
+      if (phiSameAs(llvm::cast<llvm::PHINode>(&*it), prev)) return &*it;
+    }
+    llvm::PHINode *PHI = llvm::PHINode::Create
+      (V->getType(), prev.size(), V->getName() + ".in." + BB->getName(),
+       &*BB->getFirstInsertionPt());
+    for (const auto &pair : prev) PHI->addIncoming(pair.second, pair.first);
+    return PHI;
   }
 
   bool runOnLoop(llvm::Loop *L) {
@@ -1405,10 +1487,12 @@ namespace {
       llvm::Value *Cond = nullptr;
       for (const BinaryPredicate &term : conj) {
         if (PurityCondition(term) <= pathConds.at(I->getParent())) continue;
+        llvm::Value *LHS = bringDown(term.lhs, I->getParent(), *LoopRPO, *DominatorTree);
+        llvm::Value *RHS = bringDown(term.rhs, I->getParent(), *LoopRPO, *DominatorTree);
         llvm::Value *TermCond = llvm::ICmpInst::Create
           (getPredicateOpcode(term.op),
            llvm::CmpInst::getInversePredicate(term.op),
-           term.lhs, term.rhs, "pp.term.negated", I);
+           LHS, RHS, "pp.term.negated", I);
         if (!Cond) Cond = TermCond;
         else
           Cond = llvm::BinaryOperator::Create

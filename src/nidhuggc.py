@@ -15,11 +15,14 @@ import collections
 NIDHUGG=os.path.join(sys.path[0], 'nidhugg')
 CLANG='%%CLANG%%'
 CLANGXX='%%CLANGXX%%'
+GDB='gdb'
 
 Param = collections.namedtuple("Param",["name","help","param","transform"])
 
 nidhuggcparamslist = [
     Param("--help",'Prints this text.',False,False),
+    Param("--gdb",'Run nidhugg under GDB.',False,False),
+    Param("--transform-gdb",'Run nidhugg under GDB while doing module transformation.',False,False),
     Param('--verbose','Show commands being run.',False,False),
     Param('--version','Prints the nidhugg version.',False,False),
     Param('--c','Interpret input FILE as C code. (Compile with clang.)',False,False),
@@ -54,6 +57,10 @@ tmpdir=None
 # If we should print verbosely
 verbose=False
 
+# Whether we should run nidhugg under gdb
+gdb=False
+transform_gdb=False
+
 def init_tmpdir():
     global tmpdir
     if tmpdir == None:
@@ -68,7 +75,7 @@ def destroy_tmpdir():
 
 atexit.register(destroy_tmpdir)
 
-def run(cmd,ignoreret=False):
+def run(cmd, *, ignoreret=False):
     return_codes = [0, 42]
     cmdstr=''
     for s in cmd:
@@ -237,17 +244,19 @@ def transform(nidhuggcargs,transformargs,irfname):
     (fd,outputfname) = tempfile.mkstemp(suffix='.ll',dir=tmpdir)
     os.close(fd)
     cmd = [NIDHUGG]+transformargs+['-transform',outputfname,irfname]
+    if transform_gdb: cmd = [GDB,'--args'] + cmd
     run(cmd)
     return outputfname
 
 def run_nidhugg(nidhuggcargs,nidhuggargs,irfname):
     cmd = [NIDHUGG,irfname]+nidhuggargs
+    if gdb: cmd = [GDB,'--args'] + cmd
     return run(cmd)
 
 def main():
     try:
         global CLANG, CLANGXX, NIDHUGG
-        global verbose
+        global verbose, gdb, transform_gdb
         t0 = time.time()
         (nidhuggcargs,compilerargs,nidhuggargs) = get_args()
         transformargs=[]
@@ -258,6 +267,10 @@ def main():
                 exit(0)
             elif argname == '--verbose':
                 verbose = True
+            elif argname == '--gdb':
+                gdb = True
+            elif argname == '--transform-gdb':
+                transform_gdb = True
             elif argname == '--clang':
                 CLANG=argarg
             elif argname == '--clangxx':
