@@ -810,13 +810,6 @@ namespace {
     return llvm::dyn_cast<llvm::Instruction>(V);
   }
 
-  void maybeResolvePhi(llvm::Value *&V, const llvm::BasicBlock *From,
-                       const llvm::BasicBlock *To) {
-    llvm::PHINode *N = llvm::dyn_cast_or_null<llvm::PHINode>(V);
-    if (!N || N->getParent() != To) return;
-    V = N->getIncomingValueForBlock(From);
-  }
-
   BinaryPredicate collapseTautologies(const BinaryPredicate &cond) {
     if (cond.is_true() || cond.is_false()) return cond;
     if (cond.rhs == cond.lhs) {
@@ -975,9 +968,7 @@ namespace {
     }
     if (!L->contains(To)) return false;
     if (rpo.is_backedge(From, To)) return false;
-    PurityCondition in = conds[To].map([From, To](BinaryPredicate term) {
-      maybeResolvePhi(term.rhs, From, To);
-      maybeResolvePhi(term.lhs, From, To);
+    PurityCondition in = conds[To].map([](BinaryPredicate term) {
       term.normalise();
       return collapseTautologies(term);
     });
