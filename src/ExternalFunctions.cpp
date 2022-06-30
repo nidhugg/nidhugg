@@ -76,7 +76,7 @@
 #endif
 #endif
 
-using namespace llvm;
+using namespace llvm;  // NOLINT(build/namespaces)
 
 static ManagedStatic<sys::Mutex> FunctionsLock;
 

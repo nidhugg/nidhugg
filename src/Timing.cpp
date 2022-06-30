@@ -119,7 +119,8 @@ namespace Timing {
               << std::setw(12) << (E) << "\n"
     OUT("Name", "Count", "Inclusive", "Exclusive");
     for (result &r : vec) {
-      using namespace std::chrono;
+      using std::chrono::duration_cast;
+      using std::chrono::microseconds;
       OUT(r.c->name, r.count,
           duration_cast<microseconds>(r.inclusive).count(),
           duration_cast<microseconds>(r.exclusive).count());

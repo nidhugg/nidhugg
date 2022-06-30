@@ -77,7 +77,7 @@
 #include <llvm/Support/MathExtras.h>
 #include <algorithm>
 #include <cmath>
-using namespace llvm;
+using namespace llvm;  // NOLINT(build/namespaces)
 
 //===----------------------------------------------------------------------===//
 //                     Various Helper Functions

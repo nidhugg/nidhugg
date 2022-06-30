@@ -186,10 +186,9 @@ SrcLocVector SrcLocVectorBuilder::build() {
 }
 
 void SrcLocVectorBuilder::push_from(const llvm::MDNode *md) {
-  using namespace TraceUtil;
   int lineno;
   std::string file_name, dir_name;
-  if (!get_location(md, &lineno, &file_name, &dir_name)) {
+  if (!TraceUtil::get_location(md, &lineno, &file_name, &dir_name)) {
     vector.locations.emplace_back();
   } else {
     vector.locations.emplace_back(lineno, intern_string(std::move(file_name)),
