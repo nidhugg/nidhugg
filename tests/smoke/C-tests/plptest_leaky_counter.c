@@ -6,7 +6,7 @@
 atomic_int x;
 
 void *p(void *arg) {
-  x = (int)x; // just x = x, but silence warning
+  x = 3;
 
   return arg;
 }
@@ -16,12 +16,8 @@ int main() {
   pthread_create(&pt, NULL, p, NULL);
 
   int v, c = 0;
-  while(true) {
-    v = x;
-    if (v < 3) continue;
-
-    x++;
-    if (c++ > 3) break;
+  while((v = x) < 3) {
+    c++;
   }
   return v;
 }

@@ -946,23 +946,30 @@ namespace {
       /* Check for data leaks along the back edge */
       // llvm::dbgs() << "Checking " << From->getName() << "->" << To->getName()
       //              << " for escaping phis: \n";
-      for (const llvm::Instruction *I = &*To->begin();
-           I != To->getFirstNonPHI(); I = I->getNextNode()) {
+      for (const llvm::Instruction *I = &*To->begin(),
+             *End = To->getFirstNonPHI(); I != End; I = I->getNextNode()) {
         const llvm::PHINode *Phi = llvm::cast<llvm::PHINode>(I);
-        llvm::Value *V = Phi->getIncomingValueForBlock(From);
-        // llvm::dbgs() << "  "; Phi->printAsOperand(llvm::dbgs());
-        // llvm::dbgs() << ": "; V->printAsOperand(llvm::dbgs()); llvm::dbgs() << "\n";
-        if (llvm::Instruction *VI = maybeFindValueLocation(V)) {
-          if (L->contains(VI)) {
-            if (isPermissibleLeak(L, Phi, VI)) {
-              continue;
-            }
-            // llvm::dbgs() << "  leak: "; V->printAsOperand(llvm::dbgs());
-            // llvm::dbgs() << " through "; Phi->printAsOperand(llvm::dbgs());
-            // llvm::dbgs() << "\n";
-            return false; /* Leak */
+        llvm::Value *FromOutside = nullptr;
+        for (llvm::BasicBlock *Entering : llvm::predecessors(L->getHeader())) {
+          if (L->contains(Entering)) continue;
+          if (!FromOutside) {
+            FromOutside = Phi->getIncomingValueForBlock(Entering);
+            assert(FromOutside);
+          } else if (Phi->getIncomingValueForBlock(Entering) != FromOutside) {
+            FromOutside = nullptr;
+            break;
           }
         }
+
+        llvm::Value *V = Phi->getIncomingValueForBlock(From);
+        assert(V);
+        if (V == FromOutside || V == Phi) continue;
+
+        // llvm::dbgs() << "  "; Phi->printAsOperand(llvm::dbgs());
+        // llvm::dbgs() << ": "; V->printAsOperand(llvm::dbgs()); llvm::dbgs() << "\n";
+        llvm::Instruction *VI = maybeFindValueLocation(V);
+        if (!VI) return false;
+        if (!L->contains(VI) || !isPermissibleLeak(L, Phi, VI)) return false;
       }
       return true;
     }
