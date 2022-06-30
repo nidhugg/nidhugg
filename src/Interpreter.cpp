@@ -58,12 +58,13 @@
 #include <llvm/Module.h>
 #endif
 #include <cstring>
-using namespace llvm;
+using llvm::Interpreter;
+using llvm::GenericValue;
 
 /// create - Create a new interpreter object.  This can never fail.
 ///
 std::unique_ptr<Interpreter> Interpreter::
-create(Module *M, TSOPSOTraceBuilder &TB, const Configuration &C,
+create(llvm::Module *M, TSOPSOTraceBuilder &TB, const Configuration &C,
        std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
 #ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL

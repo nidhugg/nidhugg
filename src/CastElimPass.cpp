@@ -33,9 +33,9 @@ void CastElimPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
 
 namespace {
   llvm::Value *findSubstitute(llvm::CastInst &CI) {
-    using namespace llvm;
-    Value *src = CI.getOperand(0);
-    if (auto *csrc = dyn_cast<CastInst>(src)) { /* A->B->C cast */
+    using llvm::CastInst;
+    llvm::Value *src = CI.getOperand(0);
+    if (auto *csrc = llvm::dyn_cast<CastInst>(src)) { /* A->B->C cast */
       if (csrc->getSrcTy() == CI.getDestTy() /* A->B->A cast */
           && CI.getOpcode() == CastInst::Trunc
           && (csrc->getOpcode() == CastInst::SExt
