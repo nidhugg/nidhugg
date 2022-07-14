@@ -942,6 +942,8 @@ namespace {
       for (const llvm::Instruction *I = &*To->begin(),
              *End = To->getFirstNonPHI(); I != End; I = I->getNextNode()) {
         const llvm::PHINode *Phi = llvm::cast<llvm::PHINode>(I);
+        /* XXX: DANGER ZONE */
+        if (Phi->getName().startswith("plp_inner_mon")) continue;
         llvm::Value *FromOutside = nullptr;
         for (llvm::BasicBlock *Entering : llvm::predecessors(L->getHeader())) {
           if (L->contains(Entering)) continue;
@@ -1453,6 +1455,34 @@ namespace {
     return PHI;
   }
 
+  llvm::Value *getInnerLoopMonitor(llvm::Loop *L, llvm::BasicBlock *BB,
+                                   const RPO &rpo) {
+    llvm::Value *True = llvm::ConstantInt::getTrue(BB->getContext());
+    llvm::Value *False = llvm::ConstantInt::getFalse(BB->getContext());
+    if (BB == L->getHeader()) return True;
+    llvm::SmallVector<std::pair<llvm::BasicBlock*,llvm::Value*>, 4> prev;
+    for (llvm::BasicBlock *Pred : llvm::predecessors(BB)) {
+      llvm::Value *PV;
+      if (rpo.is_backedge(Pred, BB)) PV = False;
+      else PV = getInnerLoopMonitor(L, Pred, rpo);
+      prev.emplace_back(Pred, PV);
+    }
+    bool allSame = std::all_of(prev.begin(), prev.end(), [&](const auto &pair) {
+      return pair.second == prev[0].second;
+    });
+    if (allSame && prev.size()) return prev[0].second;
+    for (auto it = BB->begin();
+         it != BB->end() && llvm::isa<llvm::PHINode>(*it); ++it) {
+      if (phiSameAs(llvm::cast<llvm::PHINode>(&*it), prev)) return &*it;
+    }
+    llvm::PHINode *PHI = llvm::PHINode::Create
+      (True->getType(), prev.size(), "plp_inner_mon." + BB->getName(),
+       &*BB->getFirstInsertionPt());
+    // PHI->setMetadata("plp", llvm::MDString::get(BB->getContext(), "pure"));
+    for (const auto &pair : prev) PHI->addIncoming(pair.second, pair.first);
+    return PHI;
+  }
+
   bool runOnLoop(llvm::Loop *L) {
     // Debug::warn(("plp.code." + L->getHeader()->getParent()->getName()).str())
     //   << "Analysing " << L->getHeader()->getParent()->getName() << ":\n"
@@ -1475,13 +1505,21 @@ namespace {
     }
 
     auto pathConds = getPathConds(L, *LoopRPO);
-    for (const ConjunctionLoc &conj : headerCond) {
+    for (ConjunctionLoc conj : headerCond) {
       llvm::Instruction *I = findInsertionPoint(L, conj);
       if (!I) {
         // llvm::dbgs() << "Not elimiating loop purity: No valid insertion location found\n";
         continue;
       }
       //llvm::dbgs() << " Insertion point: " << *I << "\n";
+      llvm::Value *LoopMon = getInnerLoopMonitor(L, I->getParent(), *LoopRPO);
+      /* It's either the constant true, or a phi node */
+      if (llvm::isa<llvm::PHINode>(LoopMon)) {
+        conj &= BinaryPredicate(llvm::CmpInst::ICMP_EQ, LoopMon,
+                                llvm::ConstantInt::getTrue(I->getContext()));
+      } else {
+        assert(LoopMon == llvm::ConstantInt::getTrue(I->getContext()));
+      }
       llvm::Value *Cond = nullptr;
       for (const BinaryPredicate &term : conj) {
         if (PurityCondition(term) <= pathConds.at(I->getParent())) continue;
@@ -1497,7 +1535,7 @@ namespace {
             (llvm::BinaryOperator::BinaryOps::Or, Cond, TermCond,
              "pp.conj.negated", I);
       }
-      if (!Cond) Cond = llvm::ConstantInt::getTrue(L->getHeader()->getContext());
+      if (!Cond) Cond = llvm::ConstantInt::getTrue(I->getContext());
       llvm::Function *F_assume = L->getHeader()->getParent()->getParent()
         ->getFunction("__VERIFIER_assume");
       {
