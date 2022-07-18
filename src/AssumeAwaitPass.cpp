@@ -27,6 +27,7 @@
 #include <llvm/Analysis/LoopPass.h>
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Operator.h>
+#include <llvm/IR/Verifier.h>
 #if defined(HAVE_LLVM_IR_DOMINATORS_H)
 #include <llvm/IR/Dominators.h>
 #elif defined(HAVE_LLVM_ANALYSIS_DOMINATORS_H)
@@ -149,7 +150,7 @@ namespace {
     return v;
   }
 
-  llvm::ICmpInst *get_condition(llvm::Value *v, bool *negate) {
+  llvm::ICmpInst *get_condition(llvm::Value *v, bool *negate, llvm::Value **monitor) {
     if (auto *ret = llvm::dyn_cast<llvm::ICmpInst>(v)) {
       /* ret could be the condition we're looking for, but it could also
        * be a comparison of a truth value with a constant. Check for
@@ -161,7 +162,7 @@ namespace {
           llvm::Value *constant = ret->getOperand(1-otheri);
           if (is_false(constant)) negate2 ^= true;
           else if (!is_true(constant)) continue;
-          if (auto *ret2 = get_condition(other, &negate2)) {
+          if (auto *ret2 = get_condition(other, &negate2, monitor)) {
             *negate ^= negate2;
             return ret2;
           }
@@ -170,17 +171,40 @@ namespace {
       return ret;
     }
     if (auto *op = llvm::dyn_cast<llvm::ZExtOperator>(v))
-      return get_condition(op->getOperand(0), negate);
+      return get_condition(op->getOperand(0), negate, monitor);
     if (auto *op = llvm::dyn_cast<llvm::Instruction>(v)) {
       if (op->getOpcode() == llvm::Instruction::ZExt
           || op->getOpcode() == llvm::Instruction::SExt) {
-        return get_condition(op->getOperand(0), negate);
+        return get_condition(op->getOperand(0), negate, monitor);
       } else if(op->getOpcode() == llvm::Instruction::Xor) {
         if (is_true(op->getOperand(0)) || is_true(op->getOperand(1))) {
           *negate ^= true;
-          return get_condition(op->getOperand(is_true(op->getOperand(0)) ? 1 : 0), negate);
+          return get_condition(op->getOperand(is_true(op->getOperand(0)) ? 1 : 0),
+                               negate, monitor);
         }
       }
+    }
+    if (auto *op = llvm::dyn_cast<llvm::BinaryOperator>(v)) {
+      if (op->getOpcode() != llvm::BinaryOperator::Or) return nullptr;
+      if (*monitor) return nullptr;
+      llvm::Value *Other = op->getOperand(0);
+      auto *MonCand = llvm::dyn_cast<llvm::ICmpInst>(op->getOperand(1));
+      if (!MonCand
+          || MonCand->getOperand(1) != llvm::ConstantInt::getTrue(v->getContext())
+          || MonCand->getPredicate() != llvm::CmpInst::ICMP_NE) {
+        /* Try other way */
+        MonCand = llvm::dyn_cast<llvm::ICmpInst>(Other);
+        Other = op->getOperand(1);
+        if (!MonCand
+            || MonCand->getOperand(1) != llvm::ConstantInt::getTrue(v->getContext())
+            || MonCand->getPredicate() != llvm::CmpInst::ICMP_NE) {
+          return nullptr;
+        }
+      }
+      *monitor = MonCand->getOperand(0);
+      llvm::ICmpInst *res = get_condition(Other, negate, monitor);
+      if (!res) *monitor = nullptr;
+      return res;
     }
     return nullptr;
   }
@@ -250,6 +274,12 @@ namespace {
     return false;
   }
 
+  bool is_permissible_monitor(llvm::DominatorTree &DT, llvm::Instruction *Load, llvm::Value *Monitor) {
+    if (!Monitor) return true;
+    auto *MonI = llvm::cast<llvm::Instruction>(Monitor);
+    return DT.dominates(MonI, Load);
+  }
+
   bool is_safe_intermediary(llvm::Instruction *I) {
     return !I->mayHaveSideEffects();
   }
@@ -303,12 +333,13 @@ bool AssumeAwaitPass::runOnFunction(llvm::Function &F) {
   bool changed = false;
 
   for (llvm::BasicBlock &BB : F) {
-    for (auto it = BB.begin(), end = BB.end(); it != end;) {
+    for (llvm::Instruction *it = &*BB.begin(), *end = BB.getTerminator(); it != end;) {
       if (tryRewriteAssume(&F, &BB, &*it)) {
         changed = true;
-        it = (it->use_empty()) ? it->eraseFromParent() : std::next(it);
+        it = (it->use_empty()) ? &*it->eraseFromParent() : it->getNextNode();
+        assert(!llvm::verifyFunction(F, &llvm::dbgs()));
       } else {
-        ++it;
+        it = it->getNextNode();
       }
     }
   }
@@ -327,12 +358,18 @@ static llvm::FunctionType *getFunctionType(llvm::Type *fptr) {
   }
 }
 
+static llvm::Twine concat_if(const llvm::StringRef &first, const char *suffix) {
+  if (first.empty()) return "";
+  else return first + suffix;
+}
+
 bool AssumeAwaitPass::tryRewriteAssume(llvm::Function *F, llvm::BasicBlock *BB, llvm::Instruction *I) const {
   llvm::CallInst *Call = llvm::dyn_cast<llvm::CallInst>(I);
   if (!Call || !is_assume(Call)) return false;
   if (tryRewriteAssumeCmpXchg(F, BB, Call)) return true;
   bool negate = false;
-  llvm::ICmpInst *Cond = get_condition(Call->getArgOperand(0), &negate);
+  llvm::Value *Monitor = nullptr;
+  llvm::ICmpInst *Cond = get_condition(Call->getArgOperand(0), &negate, &Monitor);
   if (!Cond) return false;
   for (unsigned load_index = 0; load_index < 2; ++load_index) {
     llvm::Instruction *Load = is_permissible_load(Cond->getOperand(load_index),BB);
@@ -343,6 +380,7 @@ bool AssumeAwaitPass::tryRewriteAssume(llvm::Function *F, llvm::BasicBlock *BB, 
     if (negate) pred = llvm::CmpInst::getInversePredicate(pred);
     llvm::DominatorTree &DT = getAnalysis<llvm::LLVM_DOMINATOR_TREE_PASS>().getDomTree();
     if (!is_permissible_arg(DT, ArgVal, Load)) continue;
+    if (!is_permissible_monitor(DT, Load, Monitor)) continue;
     if (!is_safe_to_rewrite(Load, Call)) continue;
     AwaitCond::Op op = get_op(pred);
     if (op == AwaitCond::None) continue;
@@ -350,8 +388,28 @@ bool AssumeAwaitPass::tryRewriteAssume(llvm::Function *F, llvm::BasicBlock *BB, 
     if (!AwaitFunction) continue;
 
     /* Do the rewrite */
+    llvm::BasicBlock *First = BB, *Last, *NoAwaitBB, *AwaitBB;
+    llvm::PHINode *Phi;
+    if (Monitor) {
+      /* We have to split the block twice, and not replace the load but
+       * insert the await in another new block */
+      NoAwaitBB = BB->splitBasicBlock(Load, concat_if(BB->getName(), ".noawait"));
+      Last = NoAwaitBB->splitBasicBlock(Load->getNextNode(),
+                                        concat_if(BB->getName(), ".cont"));
+      AwaitBB = llvm::BasicBlock::Create
+        (Load->getContext(), concat_if(BB->getName(), ".await"), F, Last);
+      llvm::BranchInst::Create(Last, AwaitBB);
+      Phi = llvm::PHINode::Create(Load->getType(), 2,
+                                  concat_if(Load->getName(), ".merge"),
+                                  &*Last->getFirstInsertionPt());
+      Load->replaceAllUsesWith(Phi);
+      Phi->addIncoming(Load, NoAwaitBB);
+      llvm::BranchInst *BadBr = llvm::cast<llvm::BranchInst>(First->getTerminator());
+      llvm::BranchInst::Create(AwaitBB, NoAwaitBB, Monitor, First);
+      BadBr->eraseFromParent();
+    }
     llvm::FunctionType *AwaitFunctionType = getFunctionType(AwaitFunction->getType());
-    llvm::IntegerType *i8Ty = llvm::Type::getInt8Ty(F->getParent()->getContext());
+    llvm::IntegerType *i8Ty = llvm::Type::getInt8Ty(F->getContext());
     llvm::ConstantInt *COp = llvm::ConstantInt::get(i8Ty, op);
     llvm::ConstantInt *CMode = llvm::ConstantInt::get(i8Ty, get_mode(Load));
     llvm::Value *Address = Load->getOperand(0);
@@ -363,8 +421,13 @@ bool AssumeAwaitPass::tryRewriteAssume(llvm::Function *F, llvm::BasicBlock *BB, 
       llvm::AtomicRMWInst *RMW = llvm::cast<llvm::AtomicRMWInst>(Load);
       args = {Address, RMW->getValOperand(), COp, ArgVal, CMode};
     }
-    llvm::ReplaceInstWithInst(Load->getParent()->getInstList(), LI,
-                              llvm::CallInst::Create(AwaitFunctionType, AwaitFunction, args));
+    llvm::CallInst *Await = llvm::CallInst::Create(AwaitFunctionType, AwaitFunction, args);
+    if (!Monitor) {
+      llvm::ReplaceInstWithInst(Load->getParent()->getInstList(), LI, Await);
+    } else {
+      Await->insertBefore(AwaitBB->getTerminator());
+      Phi->addIncoming(Await, AwaitBB);
+    }
     return true;
   }
   return false;
