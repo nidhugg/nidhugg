@@ -85,6 +85,7 @@ unsigned AssumeAwaitPass::sizes[AssumeAwaitPass::no_sizes] = {8,16,32,64};
 
 namespace {
   llvm::cl::opt<bool> cl_no_assume_xchgawait("no-assume-xchgawait");
+  llvm::cl::opt<int> cl_asaw_dbgp("asaw-debug");
 
   llvm::Value* getOrInsertFunction(llvm::Module &M, llvm::StringRef Name,
                                    llvm::FunctionType *T, AttributeList AttributeList) {
@@ -423,10 +424,26 @@ bool AssumeAwaitPass::tryRewriteAssume(llvm::Function *F, llvm::BasicBlock *BB, 
     }
     llvm::CallInst *Await = llvm::CallInst::Create(AwaitFunctionType, AwaitFunction, args);
     if (!Monitor) {
+      if (cl_asaw_dbgp >= 1) {
+        Load->printAsOperand(llvm::dbgs() << "Replacing load ", false);
+        BB->printAsOperand(llvm::dbgs() << " in ", false);
+        llvm::dbgs()<< " with load-await\n";
+      }
       llvm::ReplaceInstWithInst(Load->getParent()->getInstList(), LI, Await);
     } else {
       Await->insertBefore(AwaitBB->getTerminator());
       Phi->addIncoming(Await, AwaitBB);
+      if (cl_asaw_dbgp >= 1) {
+        Load->printAsOperand(llvm::dbgs() << "Supplementing load ", false);
+        BB->printAsOperand(llvm::dbgs() << " in ", false);
+        llvm::dbgs()  << " with load-await\n";
+      }
+      if (cl_asaw_dbgp >= 2) {
+        First->print(llvm::dbgs());
+        AwaitBB->print(llvm::dbgs());
+        NoAwaitBB->print(llvm::dbgs());
+        Last->print(llvm::dbgs());
+      }
     }
     return true;
   }
@@ -473,6 +490,8 @@ bool AssumeAwaitPass::tryRewriteAssumeCmpXchg
       llvm::ConstantInt::get(i8Ty, AwaitCond::EQ), Expected,
       llvm::ConstantInt::get(i8Ty, get_mode(CmpXchg))},
       "", CmpXchg);
+  if (cl_asaw_dbgp >= 1)
+    llvm::dbgs() << "Replacing cmpxchg " << CmpXchg->getName() << " with xchg-await\n";
   CmpXchg->eraseFromParent();
   return true;
 }
