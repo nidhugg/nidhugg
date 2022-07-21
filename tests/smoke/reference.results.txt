@@ -101,10 +101,11 @@ plptest_fully_pure Forbid : 2
 plptest_risk_of_segfault Forbid : 2
 plptest_spinloop Forbid : 2
 plptest_br_cond_not Forbid : 1
-plptest_safestack_21_easy Forbid : 11
-plptest_safestack_21_inlined Forbid : 11
-plptest_safestack_21_inlined_xchg Forbid : 11
-plptest_safestack_21 Forbid : 11
+plptest_safestack_21_easier Forbid : 11
+plptest_safestack_21_easy Forbid : 12
+plptest_safestack_21_inlined Forbid : 12
+plptest_safestack_21_inlined_xchg Forbid : 12
+plptest_safestack_21 Forbid : 12
 plptest_burns_nobound Forbid : 9
 plptest_seqlock Forbid : 7
 plptest_seqlock_harder Forbid : 5
