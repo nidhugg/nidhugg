@@ -67,6 +67,7 @@
 #include <llvm/IR/CallSite.h>
 #endif
 #include <llvm/Pass.h>
+#include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/FormattedStream.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
@@ -89,6 +90,8 @@ typedef llvm::Instruction TerminatorInst;
 #endif
 
 namespace {
+  llvm::cl::opt<int> cl_plp_dbgp("plp-debug");
+
   const int MAX_CONJUNCTION_TERMS = 5;
   const int MAX_DISJUNCTION_TERMS = 10;
 
@@ -810,13 +813,6 @@ namespace {
     return llvm::dyn_cast<llvm::Instruction>(V);
   }
 
-  void maybeResolvePhi(llvm::Value *&V, const llvm::BasicBlock *From,
-                       const llvm::BasicBlock *To) {
-    llvm::PHINode *N = llvm::dyn_cast_or_null<llvm::PHINode>(V);
-    if (!N || N->getParent() != To) return;
-    V = N->getIncomingValueForBlock(From);
-  }
-
   BinaryPredicate collapseTautologies(const BinaryPredicate &cond) {
     if (cond.is_true() || cond.is_false()) return cond;
     if (cond.rhs == cond.lhs) {
@@ -944,11 +940,14 @@ namespace {
                         const llvm::BasicBlock *To) {
     if (To == L->getHeader()) {
       /* Check for data leaks along the back edge */
-      // llvm::dbgs() << "Checking " << From->getName() << "->" << To->getName()
-      //              << " for escaping phis: \n";
+      if (cl_plp_dbgp >= 4)
+        llvm::dbgs() << "Checking " << From->getName() << "->" << To->getName()
+                     << " for escaping phis: \n";
       for (const llvm::Instruction *I = &*To->begin(),
              *End = To->getFirstNonPHI(); I != End; I = I->getNextNode()) {
         const llvm::PHINode *Phi = llvm::cast<llvm::PHINode>(I);
+        /* XXX: DANGER ZONE */
+        if (Phi->getName().startswith("plp_inner_mon")) continue;
         llvm::Value *FromOutside = nullptr;
         for (llvm::BasicBlock *Entering : llvm::predecessors(L->getHeader())) {
           if (L->contains(Entering)) continue;
@@ -965,8 +964,8 @@ namespace {
         assert(V);
         if (V == FromOutside || V == Phi) continue;
 
-        // llvm::dbgs() << "  "; Phi->printAsOperand(llvm::dbgs());
-        // llvm::dbgs() << ": "; V->printAsOperand(llvm::dbgs()); llvm::dbgs() << "\n";
+        if (cl_plp_dbgp >= 4) { llvm::dbgs() << "  "; Phi->printAsOperand(llvm::dbgs()); }
+        if (cl_plp_dbgp >= 4) { llvm::dbgs() << ": "; V->printAsOperand(llvm::dbgs()); llvm::dbgs() << "\n"; }
         llvm::Instruction *VI = maybeFindValueLocation(V);
         if (!VI) return false;
         if (!L->contains(VI) || !isPermissibleLeak(L, Phi, VI)) return false;
@@ -974,13 +973,17 @@ namespace {
       return true;
     }
     if (!L->contains(To)) return false;
-    if (rpo.is_backedge(From, To)) return false;
-    PurityCondition in = conds[To].map([From, To](BinaryPredicate term) {
-      maybeResolvePhi(term.rhs, From, To);
-      maybeResolvePhi(term.lhs, From, To);
+    if (rpo.is_backedge(From, To)) {
+      if (cl_plp_dbgp >= 3)
+        llvm::dbgs() << "    backedge: " << From->getName() << " -> " << To->getName() << "\n";
+      return false;
+    }
+    if (cl_plp_dbgp >= 4) llvm::dbgs() << "    in from " << To->getName() << ": " << conds[To] << "\n";
+    PurityCondition in = conds[To].map([](BinaryPredicate term) {
       term.normalise();
       return collapseTautologies(term);
     });
+    if (cl_plp_dbgp >= 3) llvm::dbgs() << "    normalised: " << in << "\n";
     return in;
   }
 
@@ -1025,7 +1028,10 @@ namespace {
         BinaryPredicate brCond = getBranchCondition(branch->getCondition());
         if (!L->contains(trueSucc)) {
           assert(trueIn.is_false());
+          if (cl_plp_dbgp >= 3) llvm::dbgs() << "   trueSucc not in loop\n";
+          if (cl_plp_dbgp >= 3) llvm::dbgs() << "    falseIn: " << falseIn << "\n";
           if (falseIn.is_true()) return brCond.negate();
+          if (cl_plp_dbgp >= 3) llvm::dbgs() << "     (not true)\n";
           return falseIn & InsertionPoint(&*falseSucc->getFirstInsertionPt());
         }
         if (!L->contains(falseSucc)) {
@@ -1035,11 +1041,17 @@ namespace {
         }
         // if (trueIn.is_true()) return falseIn | brCond;
         // if (falseIn.is_true()) return trueIn | brCond.negate();
-        // llvm::dbgs() << "   lhs: " << (falseIn | brCond) << "\n";
-        // llvm::dbgs() << "    trueIn: " << trueIn << "\n";
-        // llvm::dbgs() << "    brCond.negate(): " << brCond.negate() << "\n";
-        // llvm::dbgs() << "   rhs: " << (trueIn | brCond.negate()) << "\n";
-        // assert(!(trueIn | brCond.negate()).is_false() || (trueIn.is_false() && brCond.is_false()));
+        if (cl_plp_dbgp >= 3) {
+          llvm::dbgs() << "    falseIn: " << falseIn << "\n";
+          llvm::dbgs() << "    brCond: " << brCond << "\n";
+          llvm::dbgs() << "   lhs: " <<
+            (falseIn | brCond)
+                       << "\n";
+          llvm::dbgs() << "    trueIn: " << trueIn << "\n";
+          // llvm::dbgs() << "    brCond.negate(): " << brCond.negate() << "\n";
+          llvm::dbgs() << "   rhs: " << (trueIn | brCond.negate()) << "\n";
+        }
+        assert(!(trueIn | brCond.negate()).is_false() || (trueIn.is_false() && brCond.is_true()));
         return (falseIn | brCond) & (trueIn | brCond.negate());
       }
     }
@@ -1367,6 +1379,15 @@ namespace {
                                         const ConjunctionLoc &cond) {
     InsertionPoint IPT(&*L->getHeader()->getFirstInsertionPt());
     if (!(IPT &= cond.insertion_point)) abort(); // Not possible
+    if (cl_plp_dbgp >= 3) {
+      llvm::dbgs() << "   RPO: ";
+      for (auto it = LoopRPO->blocks.begin(); it != LoopRPO->blocks.end(); ++it) {
+        if (it != LoopRPO->blocks.begin()) llvm::dbgs() << ", ";
+        llvm::dbgs() << (*it)->getName();
+      }
+      llvm::dbgs() << "\n";
+      llvm::dbgs() << "  IPT:" << IPT << "\n";
+    }
     for (const BinaryPredicate &term : cond) {
       for (llvm::Value *Value : {term.lhs, term.rhs}) {
         if (llvm::Instruction *Loc = maybeFindUserLocationOrNull
@@ -1376,7 +1397,7 @@ namespace {
           } else if (!(IPT &= Loc->getNextNode())) {
             return nullptr;
           }
-          llvm::dbgs() << "  IPT:" << IPT << "\n";
+          if (cl_plp_dbgp >= 3) llvm::dbgs() << "  IPT:" << IPT << "\n";
         }
       }
     }
@@ -1462,38 +1483,84 @@ namespace {
     return PHI;
   }
 
+  llvm::Value *getInnerLoopMonitor(llvm::Loop *L, llvm::BasicBlock *BB,
+                                   const RPO &rpo) {
+    llvm::Value *True = llvm::ConstantInt::getTrue(BB->getContext());
+    llvm::Value *False = llvm::ConstantInt::getFalse(BB->getContext());
+    if (BB == L->getHeader()) return True;
+    llvm::SmallVector<std::pair<llvm::BasicBlock*,llvm::Value*>, 4> prev;
+    for (llvm::BasicBlock *Pred : llvm::predecessors(BB)) {
+      llvm::Value *PV;
+      if (rpo.is_backedge(Pred, BB)) PV = False;
+      else PV = getInnerLoopMonitor(L, Pred, rpo);
+      prev.emplace_back(Pred, PV);
+    }
+    bool allSame = std::all_of(prev.begin(), prev.end(), [&](const auto &pair) {
+      return pair.second == prev[0].second;
+    });
+    if (allSame && prev.size()) return prev[0].second;
+    for (auto it = BB->begin();
+         it != BB->end() && llvm::isa<llvm::PHINode>(*it); ++it) {
+      if (phiSameAs(llvm::cast<llvm::PHINode>(&*it), prev)) return &*it;
+    }
+    llvm::PHINode *PHI = llvm::PHINode::Create
+      (True->getType(), prev.size(), "plp_inner_mon." + BB->getName(),
+       &*BB->getFirstInsertionPt());
+    // PHI->setMetadata("plp", llvm::MDString::get(BB->getContext(), "pure"));
+    for (const auto &pair : prev) PHI->addIncoming(pair.second, pair.first);
+    return PHI;
+  }
+
   bool runOnLoop(llvm::Loop *L) {
-    // Debug::warn(("plp.code." + L->getHeader()->getParent()->getName()).str())
-    //   << "Analysing " << L->getHeader()->getParent()->getName() << ":\n"
-    //   << *L->getHeader()->getParent();
+    if (cl_plp_dbgp >= 1)
+      Debug::warn(("plp.code." + L->getHeader()->getParent()->getName()).str())
+        << "Analysing " << L->getHeader()->getParent()->getName() << ":\n";
+      //<< *L->getHeader()->getParent();
     assert(!may_inline);
     assert(!inlining_needed);
     PurityConditions conditions = analyseLoop(L);
-    // debugPrintInstructionPCs(L, conditions);
+    if (cl_plp_dbgp >= 2) debugPrintInstructionPCs(L, conditions);
     PurityCondition headerCond = conditions[L->getHeader()];
     assert(!inlining_needed);
     if (headerCond.is_false()) {
-      // llvm::dbgs() << "Loop " << L->getHeader()->getParent()->getName() << ":"
-      //              << *L << " isn't pure\n";
+      if (cl_plp_dbgp >= 1)
+        llvm::dbgs() << "Loop " << L->getHeader()->getParent()->getName() << ":"
+                     << *L << " isn't pure\n";
       return false;
-    } else {
-      // llvm::dbgs() << "Partially pure loop found in "
-      //              << L->getHeader()->getParent()->getName() << "():\n";
+    } else if (cl_plp_dbgp >= 1) {
+      llvm::dbgs() << "Partially pure loop " << *L << " found in "
+                   << L->getHeader()->getParent()->getName() << "():\n";
       // L->print(llvm::dbgs(), 2);
-      // llvm::dbgs() << " Purity condition: " << headerCond << "\n";
+      llvm::dbgs() << " Purity condition: " << headerCond << "\n";
     }
 
     auto pathConds = getPathConds(L, *LoopRPO);
-    for (const ConjunctionLoc &conj : headerCond) {
+    for (ConjunctionLoc conj : headerCond) {
       llvm::Instruction *I = findInsertionPoint(L, conj);
       if (!I) {
-        // llvm::dbgs() << "Not elimiating loop purity: No valid insertion location found\n";
+        if (cl_plp_dbgp >= 1)
+          llvm::dbgs() << "Not elimiating loop purity: No valid insertion location found\n";
         continue;
       }
-      //llvm::dbgs() << " Insertion point: " << *I << "\n";
+      if (cl_plp_dbgp >= 1) llvm::dbgs() << " Insertion point: " << *I << "\n";
+      llvm::Value *LoopMon = getInnerLoopMonitor(L, I->getParent(), *LoopRPO);
+      /* It's either the constant true, or a phi node */
+      if (llvm::isa<llvm::PHINode>(LoopMon)) {
+        if (cl_plp_dbgp >= 3)
+          llvm::dbgs() << "  Inner loop monitor: %" << LoopMon->getName() << "\n";
+        conj &= BinaryPredicate(llvm::CmpInst::ICMP_EQ, LoopMon,
+                                llvm::ConstantInt::getTrue(I->getContext()));
+      } else {
+        assert(LoopMon == llvm::ConstantInt::getTrue(I->getContext()));
+      }
+      if (cl_plp_dbgp >= 3) llvm::dbgs() << "  Conjunction: " << conj << "\n";
       llvm::Value *Cond = nullptr;
       for (const BinaryPredicate &term : conj) {
-        if (PurityCondition(term) <= pathConds.at(I->getParent())) continue;
+        if (PurityCondition(term) <= pathConds.at(I->getParent())) {
+          if (cl_plp_dbgp >= 3)
+            llvm::dbgs() << "   Omitting term implied by PC: " << term << "\n";
+          continue;
+        }
         llvm::Value *LHS = bringDown(term.lhs, I->getParent(), *LoopRPO, *DominatorTree);
         llvm::Value *RHS = bringDown(term.rhs, I->getParent(), *LoopRPO, *DominatorTree);
         llvm::Value *TermCond = llvm::ICmpInst::Create
@@ -1506,7 +1573,7 @@ namespace {
             (llvm::BinaryOperator::BinaryOps::Or, Cond, TermCond,
              "pp.conj.negated", I);
       }
-      if (!Cond) Cond = llvm::ConstantInt::getTrue(L->getHeader()->getContext());
+      if (!Cond) Cond = llvm::ConstantInt::getTrue(I->getContext());
       llvm::Function *F_assume = L->getHeader()->getParent()->getParent()
         ->getFunction("__VERIFIER_assume");
       {
@@ -1519,9 +1586,10 @@ namespace {
       llvm::CallInst::Create(F_assume,{Cond},"",I);
     }
 
-    // llvm::dbgs() << "Rewritten:\n";
-    // llvm::dbgs() << *L->getHeader()->getParent();
-
+    if (cl_plp_dbgp >= 4) {
+      llvm::dbgs() << "Rewritten:\n";
+      llvm::dbgs() << *L->getHeader()->getParent();
+    }
     return true;
   }
 }  // namespace
