@@ -21,12 +21,12 @@ RUN \
       make \
       git
 
-ADD https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.1/llvm-15.0.1.src.tar.xz /
+ADD https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.1/llvm-project-15.0.1.src.tar.xz /
 
 RUN \
     /bin/bash -c \
     "cd / && \
-     tar xf llvm-15.0.1.src.tar.xz && \
+     tar xf llvm-project-15.0.1.src.tar.xz && \
      mkdir /build && \
      cd /build && \
      cmake -DCMAKE_INSTALL_PREFIX=/usr/local/ \
@@ -35,10 +35,10 @@ RUN \
            -DLLVM_LINK_LLVM_DYLIB=ON          \
            -DLLVM_OPTIMIZED_TABLEGEN=ON       \
            -DLLVM_ENABLE_ASSERTIONS=ON        \
-           /llvm-15.0.1.src/ &&                \
+           /llvm-project-15.0.1.src/ &&                \
      make -j6 &&                              \
      cmake -DCMAKE_INSTALL_PREFIX=/usr/local -P cmake_install.cmake && \
-     cd / && rm -r /build/ /llvm-15.0.1.src/ && \
+     cd / && rm -r /build/ /llvm-project-15.0.1.src/ && \
      strip /usr/local/lib/libLLVM-15.0.so /usr/local/bin/llvm-link"
 
 COPY . /nidhugg
