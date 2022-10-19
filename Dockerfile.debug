@@ -2,7 +2,7 @@ FROM ubuntu:20.04 as build
 
 RUN \
     apt-get update && \
-    echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections &&
+    echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections && \
     apt-get --no-install-recommends -y -q install \
       clang \
       libboost-dev \
