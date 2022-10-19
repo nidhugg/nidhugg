@@ -19,12 +19,12 @@ RUN \
       cmake \
       make
 
-ADD https://releases.llvm.org/6.0.1/llvm-6.0.1.src.tar.xz /
+ADD https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.1/llvm-15.0.1.src.tar.xz /
 
 RUN \
     /bin/bash -c \
     "cd / && \
-     tar xf llvm-6.0.1.src.tar.xz && \
+     tar xf llvm-15.0.1.src.tar.xz && \
      mkdir /build && \
      cd /build && \
      cmake -DCMAKE_INSTALL_PREFIX=/usr/local/ \
@@ -33,11 +33,11 @@ RUN \
            -DLLVM_LINK_LLVM_DYLIB=ON          \
            -DLLVM_OPTIMIZED_TABLEGEN=ON       \
            -DLLVM_ENABLE_ASSERTIONS=ON        \
-           /llvm-6.0.1.src/ &&                \
+           /llvm-15.0.1.src/ &&                \
      make -j6 &&                              \
      cmake -DCMAKE_INSTALL_PREFIX=/usr/local -P cmake_install.cmake && \
-     cd / && rm -r /build/ /llvm-6.0.1.src/ && \
-     strip /usr/local/lib/libLLVM-6.0.so /usr/local/bin/llvm-link"
+     cd / && rm -r /build/ /llvm-15.0.1.src/ && \
+     strip /usr/local/lib/libLLVM-15.0.so /usr/local/bin/llvm-link"
 
 COPY . /nidhugg
 
@@ -63,7 +63,7 @@ RUN \
       vim-tiny && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-COPY --from=build /usr/local/lib/libLLVM-6.0.so /usr/local/lib/
+COPY --from=build /usr/local/lib/libLLVM-15.0.so /usr/local/lib/
 COPY --from=build /usr/local/bin/llvm-link /usr/local/bin/
 COPY --from=build /usr/local/bin/nidhugg* /usr/local/bin/
 WORKDIR /root
