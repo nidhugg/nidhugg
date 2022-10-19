@@ -18,7 +18,8 @@ RUN \
       libz-dev \
       xz-utils \
       cmake \
-      make
+      make \
+      git
 
 ADD https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.1/llvm-15.0.1.src.tar.xz /
 
