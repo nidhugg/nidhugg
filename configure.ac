@@ -785,6 +785,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check how to call getAnalysis to get LoopInfo
 AC_MSG_CHECKING([how to get LoopInfo analysis])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/LoopPass.h>
 ]],[[
   llvm::LPPassManager *LPM = 0;
@@ -1017,6 +1018,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check if llvm::LoopInfo::erase exists
 AC_MSG_CHECKING([for llvm::LoopInfo::erase])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/LoopPass.h>
 ]],[[
   llvm::Loop * L = 0;
@@ -1031,6 +1033,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check if llvm::LoopInfo::markAsRemoved exists
 AC_MSG_CHECKING([for llvm::LoopInfo::markAsRemoved])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/LoopPass.h>
 ]],[[
   llvm::Loop * L = 0;

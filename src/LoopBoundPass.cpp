@@ -33,6 +33,7 @@
 #elif defined(HAVE_LLVM_INSTRUCTIONS_H)
 #include <llvm/Instructions.h>
 #endif
+#include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 
 namespace {
