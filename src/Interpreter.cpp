@@ -128,8 +128,7 @@ Interpreter::Interpreter(Module *M, TSOPSOTraceBuilder &TB,
 #else
       const DataLayout &DL = getDataLayout();
 #endif
-      size_t GVSize = (size_t)(DL.getTypeAllocSize
-                               (gv->getType()->getPointerElementType()));
+      size_t GVSize = (size_t)(DL.getTypeAllocSize(gv->getValueType()));
       void *GVPtr = getPointerToGlobal(gv);
       SymMBlock mb = SymMBlock::Global(++glbl_ctr);
       AllocatedMem.emplace(GVPtr, SymMBlockSize(std::move(mb), GVSize));

@@ -19,6 +19,7 @@
 
 #include "CheckModule.h"
 #include "Debug.h"
+#include "LLVMUtils.h"
 
 #include <llvm/ADT/StringSet.h>
 #if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
@@ -32,9 +33,9 @@
 #include <set>
 
 void CheckModule::check_functions(const llvm::Module *M){
-  check_pthread_create(M);
-  check_pthread_join(M);
-  check_pthread_self(M);
+  llvm::Type *PthreadTType = check_pthread_create(M);
+  check_pthread_join(M, PthreadTType);
+  check_pthread_self(M, PthreadTType);
   check_pthread_exit(M);
   check_pthread_mutex_init(M);
   check_pthread_mutex_lock(M);
@@ -78,7 +79,7 @@ static bool check_pthread_t(const llvm::Type *ty) {
   return ty->isIntegerTy() || ty->isPointerTy();
 }
 
-void CheckModule::check_pthread_create(const llvm::Module *M){
+llvm::Type *CheckModule::check_pthread_create(const llvm::Module *M){
   std::string _err;
   llvm::raw_string_ostream err(_err);
   llvm::Function *pthread_create = M->getFunction("pthread_create");
@@ -98,10 +99,11 @@ void CheckModule::check_pthread_create(const llvm::Module *M){
           << *pthread_create->arg_begin()->getType();
       throw CheckModuleError(err.str());
     }
-    llvm::Type *ty0e = static_cast<llvm::PointerType*>(pthread_create->arg_begin()->getType())->getPointerElementType();
-    if(!check_pthread_t(ty0e)){
+    auto *ty0 = static_cast<llvm::PointerType*>(pthread_create->arg_begin()->getType());
+    llvm::Type *PthreadTTy = LLVMUtils::getPthreadTType(ty0);
+    if(!check_pthread_t(PthreadTTy)){
       err << "First argument of pthread_create is pointer to invalid pthread_t type: "
-          << *ty0e;
+          << *PthreadTTy;
       throw CheckModuleError(err.str());
     }
     llvm::Type *vpty = llvm::Type::getInt8PtrTy(M->getContext());
@@ -122,10 +124,13 @@ void CheckModule::check_pthread_create(const llvm::Module *M){
           << ", should be " << *vpty;
       throw CheckModuleError(err.str());
     }
+    return PthreadTTy;
   }
+  return nullptr;
 }
 
-void CheckModule::check_pthread_join(const llvm::Module *M){
+void CheckModule::check_pthread_join(const llvm::Module *M,
+                                     llvm::Type *PthreadTTy){
   std::string _err;
   llvm::raw_string_ostream err(_err);
   llvm::Function *pthread_join = M->getFunction("pthread_join");
@@ -146,6 +151,12 @@ void CheckModule::check_pthread_join(const llvm::Module *M){
       arg0_ty = it->getType();
       arg1_ty = (++it)->getType();
     }
+    if(PthreadTTy && PthreadTTy != arg0_ty) {
+      err << "Type of first argument of pthread_join is inconsistent"
+          << "with pthread_create: "
+          << *arg0_ty << ", should be " << *PthreadTTy;
+      throw CheckModuleError(err.str());
+    }
     if(!check_pthread_t(arg0_ty)){
       err << "First argument of pthread_join is invalid pthread_t type: " << *arg0_ty;
       throw CheckModuleError(err.str());
@@ -160,14 +171,21 @@ void CheckModule::check_pthread_join(const llvm::Module *M){
   }
 }
 
-void CheckModule::check_pthread_self(const llvm::Module *M){
+void CheckModule::check_pthread_self(const llvm::Module *M,
+                                     llvm::Type *PthreadTTy){
   std::string _err;
   llvm::raw_string_ostream err(_err);
   llvm::Function *pthread_self = M->getFunction("pthread_self");
   if(pthread_self){
-    if(!check_pthread_t(pthread_self->getReturnType())){
+    auto RetTy = pthread_self->getReturnType();
+    if(PthreadTTy && PthreadTTy != RetTy) {
+      err << "pthread_self returns pthread_t type inconsistent with pthread_create: "
+          << *RetTy << ", should be " << *PthreadTTy;
+      throw CheckModuleError(err.str());
+    }
+    if(!check_pthread_t(RetTy)){
       err << "pthread_self returns invalid pthread_t type: "
-          << *pthread_self->getReturnType();
+          << *RetTy;
       throw CheckModuleError(err.str());
     }
     if(pthread_self->arg_size()){

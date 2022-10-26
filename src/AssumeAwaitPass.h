@@ -30,6 +30,7 @@
 namespace llvm {
   class CallInst;
   class BasicBlock;
+  class FunctionType;
 }
 
 /* The AssumeAwaitPass identifies calls to __VERIFIER_assume with simple
@@ -50,11 +51,11 @@ public:
 private:
   static const unsigned no_sizes = 4;
   static unsigned sizes[no_sizes];
-  llvm::Value *F_load_await[no_sizes];
-  llvm::Value *F_xchg_await[no_sizes];
+  std::pair<llvm::Value*,llvm::FunctionType*> F_load_await[no_sizes];
+  std::pair<llvm::Value*,llvm::FunctionType*> F_xchg_await[no_sizes];
   bool tryRewriteAssume(llvm::Function *F, llvm::BasicBlock *BB, llvm::Instruction *I) const;
   bool tryRewriteAssumeCmpXchg(llvm::Function *F, llvm::BasicBlock *BB, llvm::CallInst *I) const;
-  llvm::Value *getAwaitFunction(llvm::Instruction *Load) const;
+  std::pair<llvm::Value*,llvm::FunctionType*> getAwaitFunction(llvm::Instruction *Load) const;
 };
 
 #endif

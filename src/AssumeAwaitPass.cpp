@@ -308,22 +308,22 @@ bool AssumeAwaitPass::doInitialization(llvm::Module &M){
   for (unsigned i = 0; i < no_sizes; ++i) {
     std::string lname = "__VERIFIER_load_await_i" + std::to_string(sizes[i]);
     std::string xname = "__VERIFIER_xchg_await_i" + std::to_string(sizes[i]);
-    F_load_await[i] = M.getFunction(lname);
-    F_xchg_await[i] = M.getFunction(xname);
-    if(!F_load_await[i] || !F_xchg_await[i]){
-      llvm::FunctionType *loadAwaitTy, *xchgAwaitTy;
-      {
-        llvm::Type *i8Ty = llvm::Type::getInt8Ty(M.getContext());
-        llvm::Type *ixTy = llvm::IntegerType::get(M.getContext(),sizes[i]);
-        llvm::Type *ixPTy = llvm::PointerType::getUnqual(ixTy);
-        loadAwaitTy = llvm::FunctionType::get(ixTy,{ixPTy, i8Ty, ixTy, i8Ty},false);
-        xchgAwaitTy = llvm::FunctionType::get(ixTy,{ixPTy, ixTy, i8Ty, ixTy, i8Ty},false);
-      }
+    llvm::FunctionType *loadAwaitTy, *xchgAwaitTy;
+    {
+      llvm::Type *i8Ty = llvm::Type::getInt8Ty(M.getContext());
+      llvm::Type *ixTy = llvm::IntegerType::get(M.getContext(),sizes[i]);
+      llvm::Type *ixPTy = llvm::PointerType::getUnqual(ixTy);
+      loadAwaitTy = llvm::FunctionType::get(ixTy,{ixPTy, i8Ty, ixTy, i8Ty},false);
+      xchgAwaitTy = llvm::FunctionType::get(ixTy,{ixPTy, ixTy, i8Ty, ixTy, i8Ty},false);
+    }
+    F_load_await[i] = {M.getFunction(lname), loadAwaitTy};
+    F_xchg_await[i] = {M.getFunction(xname), xchgAwaitTy};
+    if(!std::get<0>(F_load_await[i]) || !std::get<0>(F_xchg_await[i])){
       AttributeList assumeAttrs =
         AttributeList::get(M.getContext(),AttributeList::FunctionIndex,
                            std::vector<llvm::Attribute::AttrKind>({llvm::Attribute::NoUnwind}));
-      F_load_await[i] = getOrInsertFunction(M,lname,loadAwaitTy,assumeAttrs);
-      F_xchg_await[i] = getOrInsertFunction(M,xname,xchgAwaitTy,assumeAttrs);
+      F_load_await[i] = {getOrInsertFunction(M,lname,loadAwaitTy,assumeAttrs), loadAwaitTy};
+      F_xchg_await[i] = {getOrInsertFunction(M,xname,xchgAwaitTy,assumeAttrs), xchgAwaitTy};
       modified_M = true;
     }
   }
@@ -346,17 +346,6 @@ bool AssumeAwaitPass::runOnFunction(llvm::Function &F) {
   }
 
   return changed;
-}
-
-static llvm::FunctionType *getFunctionType(llvm::Type *fptr) {
-  if (llvm::FunctionType *fty = llvm::dyn_cast<llvm::FunctionType>(fptr)) {
-    return fty;
-  } else if (llvm::PointerType *pty = llvm::dyn_cast<llvm::PointerType>(fptr)) {
-    return getFunctionType(pty->getPointerElementType());
-  } else {
-    llvm::dbgs() << fptr << "\n";
-    ::abort();
-  }
 }
 
 static llvm::Twine concat_if(const llvm::StringRef &first, const char *suffix) {
@@ -385,7 +374,9 @@ bool AssumeAwaitPass::tryRewriteAssume(llvm::Function *F, llvm::BasicBlock *BB, 
     if (!is_safe_to_rewrite(Load, Call)) continue;
     AwaitCond::Op op = get_op(pred);
     if (op == AwaitCond::None) continue;
-    llvm::Value *AwaitFunction = getAwaitFunction(Load);
+    llvm::Value *AwaitFunction;
+    llvm::FunctionType *AwaitFunctionType;
+    std::tie(AwaitFunction, AwaitFunctionType) = getAwaitFunction(Load);
     if (!AwaitFunction) continue;
 
     /* Do the rewrite */
@@ -409,7 +400,6 @@ bool AssumeAwaitPass::tryRewriteAssume(llvm::Function *F, llvm::BasicBlock *BB, 
       llvm::BranchInst::Create(AwaitBB, NoAwaitBB, Monitor, First);
       BadBr->eraseFromParent();
     }
-    llvm::FunctionType *AwaitFunctionType = getFunctionType(AwaitFunction->getType());
     llvm::IntegerType *i8Ty = llvm::Type::getInt8Ty(F->getContext());
     llvm::ConstantInt *COp = llvm::ConstantInt::get(i8Ty, op);
     llvm::ConstantInt *CMode = llvm::ConstantInt::get(i8Ty, get_mode(Load));
@@ -462,9 +452,10 @@ bool AssumeAwaitPass::tryRewriteAssumeCmpXchg
   if (!CmpXchg) return false;
   if (!is_safe_to_rewrite(CmpXchg, Call)) return false;
 
-  llvm::Value *AwaitFunction = getAwaitFunction(CmpXchg);
+  llvm::Value *AwaitFunction;
+  llvm::FunctionType *AwaitFunctionType;
+  std::tie(AwaitFunction, AwaitFunctionType) = getAwaitFunction(CmpXchg);
   if (!AwaitFunction) return false;
-  llvm::FunctionType *AwaitFunctionType = getFunctionType(AwaitFunction->getType());
 
   /* Do the rewrite */
   /* Step one; replace uses */
@@ -496,19 +487,20 @@ bool AssumeAwaitPass::tryRewriteAssumeCmpXchg
   return true;
 }
 
-llvm::Value *AssumeAwaitPass::getAwaitFunction(llvm::Instruction *Load) const {
+std::pair<llvm::Value*,llvm::FunctionType*>
+AssumeAwaitPass::getAwaitFunction(llvm::Instruction *Load) const {
   llvm::Type *t = Load->getType();
   if (llvm::isa<llvm::AtomicCmpXchgInst>(Load)) {
     t = llvm::cast<llvm::StructType>(t)->getStructElementType(0);
   }
-  if (!t->isIntegerTy()) return nullptr;
+  if (!t->isIntegerTy()) return {nullptr,nullptr};
   unsigned index;
   switch(t->getIntegerBitWidth()) {
   case 8:  index = 0; break;
   case 16: index = 1; break;
   case 32: index = 2; break;
   case 64: index = 3; break;
-  default: return nullptr;
+  default: return {nullptr,nullptr};
   }
   if (llvm::isa<llvm::LoadInst>(Load)) {
     return F_load_await[index];

@@ -21,6 +21,7 @@ libnidhugg_a_SOURCES = \
   FBVClock.cpp FBVClock.h \
   IID.h IID.tcc \
   Interpreter.cpp Interpreter.h \
+  LLVMUtils.cpp LLVMUtils.h \
   LoopBoundPass.cpp LoopBoundPass.h \
   MRef.cpp MRef.h \
   nregex.cpp nregex.h \
