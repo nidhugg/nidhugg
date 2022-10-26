@@ -22,8 +22,15 @@
 #ifndef __ASSUME_AWAIT_PASS_H__
 #define __ASSUME_AWAIT_PASS_H__
 
-#include <llvm/Analysis/LoopPass.h>
 #include <llvm/Pass.h>
+
+/* Avoid including huge header files, we just need a forward
+ * declarations
+ */
+namespace llvm {
+  class CallInst;
+  class BasicBlock;
+}
 
 /* The AssumeAwaitPass identifies calls to __VERIFIER_assume with simple
  * conditions and replaces them with

@@ -25,6 +25,13 @@
 #include <llvm/Analysis/LoopPass.h>
 #include <llvm/Pass.h>
 
+/* Avoid including huge header files, we just need a forward
+ * declarations
+ */
+namespace llvm {
+  class Instruction;
+}
+
 /* The DeclareAssumePass checks that __VERIFIER_assume is correctly
  * declared in the module. If they are incorrectly declared, an
  * error is raised. If they are not declared, then their (correct)
