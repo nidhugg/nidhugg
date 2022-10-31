@@ -47,6 +47,28 @@ jobs:
           build-args: LLVM_VERSION=${{ matrix.llvm }}
       - name: Run tests
         run: docker run --rm -t ${{ steps.build.outputs.digest }}
+  debug_llvms:
+    name: Test with custom-built LLVM ${{ matrix.llvm }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - llvm: "15.0.3"
+            ubuntu: 22
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build Nidhugg
+        id: build
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: false
+          file: ci/Dockerfile.debug_test${{ matrix.ubuntu }}
+          build-args: LLVM_VERSION=${{ matrix.llvm }}
+      - name: Run tests
+        run: docker run --rm -t ${{ steps.build.outputs.digest }}
   docker_image:
     name: Test the standard docker file
     runs-on: ubuntu-latest
