@@ -15,6 +15,7 @@ import collections
 NIDHUGG=os.path.join(sys.path[0], 'nidhugg')
 CLANG='%%CLANG%%'
 CLANGXX='%%CLANGXX%%'
+LLVMVERSION='%%LLVMVERSION%%'
 GDB='gdb'
 
 Param = collections.namedtuple("Param",["name","help","param","transform"])
@@ -229,15 +230,15 @@ def get_IR(nidhuggcargs,compilerargs):
     os.close(fd)
     if lang == 'C':
         cmd = [CLANG,'-o',outputfname,'-S','-emit-llvm','-g']
-        cmd.extend(compilerargs)
-        cmd.append(inputfname)
-        run(cmd)
     else:
         assert(lang == 'C++')
         cmd = [CLANGXX,'-o',outputfname,'-S','-emit-llvm','-g']
-        cmd.extend(compilerargs)
-        cmd.append(inputfname)
-        run(cmd)
+    if (int(LLVMVERSION.split(".")[0]) > 14):
+        # POWER and ARM backends can't handle opaque pointers
+        cmd.extend(['-Xclang','-no-opaque-pointers'])
+    cmd.extend(compilerargs)
+    cmd.append(inputfname)
+    run(cmd)
     return outputfname
 
 def transform(nidhuggcargs,transformargs,irfname):

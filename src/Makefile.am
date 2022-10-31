@@ -127,5 +127,6 @@ nidhuggc$(EXEEXT): $(srcdir)/nidhuggc.py
 	| sed 's|%%PYTHON%%|@PYTHON@|g' \
 	| sed 's|%%CLANG%%|@CLANG@|g' \
 	| sed 's|%%CLANGXX%%|@CLANGXX@|g' \
+	| sed 's|%%LLVMVERSION%%|@LLVMVERSION@|g' \
 	> nidhuggc
 	$(AM_V_at)chmod a+x nidhuggc

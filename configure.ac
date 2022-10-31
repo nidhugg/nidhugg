@@ -28,6 +28,7 @@ AX_BOOST_BASE([1.65], [], [AC_MSG_FAILURE([Boost Required!])])
 AX_BOOST_UNIT_TEST_FRAMEWORK
 AX_BOOST_SYSTEM
 AX_LLVM(,[AC_MSG_FAILURE(LLVM is required.)])
+AC_SUBST(LLVMVERSION)
 CXXFLAGS="`echo " $CXXFLAGS " | sed 's/ -fno-rtti / /' | sed 's/ -fno-exceptions / /'` --std=c++14 $BOOST_CPPFLAGS"
 LDFLAGS="$LDFLAGS $BOOST_LDFLAGS"
 AC_CHECK_LIB([dl], [dlopen],[],[AC_MSG_FAILURE([Could not find library libdl.])])
