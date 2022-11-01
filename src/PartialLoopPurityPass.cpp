@@ -30,6 +30,7 @@
 #include <boost/container/flat_map.hpp>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Analysis/CallGraph.h>
+#include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/LoopPass.h>
 #include <llvm/Analysis/ValueTracking.h>
 #if defined(HAVE_LLVM_IR_DOMINATORS_H)

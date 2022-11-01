@@ -25,6 +25,7 @@
 #include "vecset.h"
 
 #include <llvm/Pass.h>
+#include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/LoopPass.h>
 #if defined(HAVE_LLVM_IR_DOMINATORS_H)
 #include <llvm/IR/Dominators.h>

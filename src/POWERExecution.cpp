@@ -33,6 +33,7 @@
  */
 
 #include "Debug.h"
+#include "LLVMUtils.h"
 #include "POWERInterpreter.h"
 
 #include <llvm/ADT/APInt.h>
@@ -1051,7 +1052,7 @@ void POWERInterpreter::SwitchToNewBasicBlock(llvm::BasicBlock *Dest, ExecutionCo
 //===----------------------------------------------------------------------===//
 
 void POWERInterpreter::visitAllocaInst(llvm::AllocaInst &I) {
-  llvm::Type *Ty = I.getType()->getPointerElementType();  // Type to be allocated
+  llvm::Type *Ty = I.getAllocatedType();  // Type to be allocated
 
   // Get the number of elements being allocated by the array...
   unsigned NumElements =
@@ -2758,9 +2759,8 @@ std::shared_ptr<POWERInterpreter::FetchedInstruction> POWERInterpreter::fetch(ll
             store_count = 2;
             FI->Operands[0].IsAddrOf = 0;
             assert(I.getOperand(0)->getType()->isPointerTy());
-            llvm::Type *ty =
-              llvm::cast<llvm::PointerType>(I.getOperand(0)->getType())
-              ->getPointerElementType();
+            llvm::Type *ty = LLVMUtils::getPthreadTType
+              (llvm::cast<llvm::PointerType>(I.getOperand(0)->getType()));
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
             int pthread_t_sz = int(getDataLayout()->getTypeStoreSize(ty));
 #else

@@ -33,6 +33,7 @@
  */
 
 #include "Interpreter.h"
+#include "LLVMUtils.h"
 #include "Debug.h"
 
 #include <cstdint>
@@ -1052,7 +1053,7 @@ void Interpreter::SwitchToNewBasicBlock(BasicBlock *Dest, ExecutionContext &SF){
 void Interpreter::visitAllocaInst(AllocaInst &I) {
   ExecutionContext &SF = ECStack()->back();
 
-  Type *Ty = I.getType()->getPointerElementType();  // Type to be allocated
+  Type *Ty = I.getAllocatedType();  // Type to be allocated
 
   // Get the number of elements being allocated by the array...
   unsigned NumElements =
@@ -2401,8 +2402,7 @@ GenericValue Interpreter::getOperandValue(Value *V, ExecutionContext &SF) {
       if(GV->isThreadLocal()){
         auto it = Threads[CurrentThread].ThreadLocalValues.find(GV);
         if(it == Threads[CurrentThread].ThreadLocalValues.end()){
-          llvm::Type *ty = static_cast<llvm::PointerType*>(GV->getType())
-            ->getPointerElementType();
+          llvm::Type *ty = GV->getValueType();
           unsigned TypeSize = (size_t)TD.getTypeAllocSize(ty);
           void *Memory = malloc(TypeSize);
           GenericValue Result = PTOGV(Memory);
@@ -2443,8 +2443,8 @@ void Interpreter::callPthreadCreate(Function *F,
     int new_tid = Threads.size();
     GenericValue *Ptr = (GenericValue*)GVTOP(ArgVals[0]);
     if(Ptr){
-      Type *ity = static_cast<PointerType*>(F->arg_begin()->getType())
-        ->getPointerElementType();
+      Type *ity = LLVMUtils::getPthreadTType
+        (static_cast<PointerType*>(F->arg_begin()->getType()));
       if (!GetSymAddrSize(Ptr,ity)) return;
       GenericValue TIDVal = tid_to_pthread_t(ity, new_tid);
       /* XXX: No race detection on this access! */

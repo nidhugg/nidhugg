@@ -59,9 +59,9 @@ namespace CheckModule {
 
   /* Same check as check_functions, but only for individual functions.
    */
-  void check_pthread_create(const llvm::Module *M);
-  void check_pthread_join(const llvm::Module *M);
-  void check_pthread_self(const llvm::Module *M);
+  llvm::Type *check_pthread_create(const llvm::Module *M);
+  void check_pthread_join(const llvm::Module *M, llvm::Type *PthreadTTy);
+  void check_pthread_self(const llvm::Module *M, llvm::Type *PthreadTTy);
   void check_pthread_exit(const llvm::Module *M);
   void check_pthread_mutex_init(const llvm::Module *M);
   void check_pthread_mutex_lock(const llvm::Module *M);

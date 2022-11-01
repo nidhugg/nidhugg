@@ -36,9 +36,10 @@ Requirements
 
    5. Python version 3.0 or higher.
 
-   6. The LLVM library and headers, version 3.8 or higher. If you are
-      compiling the LLVM library from sources, see Compiling LLVM
-      below.
+   6. The LLVM library and headers, version 3.8 or higher. The ARM and
+      POWER memory models are not supported when using LLVM version 15
+      and higher. If you are compiling the LLVM library from sources,
+      see Compiling LLVM below.
 
    7. Foreign Function Interface (libffi) library and headers.
 

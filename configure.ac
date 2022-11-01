@@ -28,6 +28,7 @@ AX_BOOST_BASE([1.65], [], [AC_MSG_FAILURE([Boost Required!])])
 AX_BOOST_UNIT_TEST_FRAMEWORK
 AX_BOOST_SYSTEM
 AX_LLVM(,[AC_MSG_FAILURE(LLVM is required.)])
+AC_SUBST(LLVMVERSION)
 CXXFLAGS="`echo " $CXXFLAGS " | sed 's/ -fno-rtti / /' | sed 's/ -fno-exceptions / /'` --std=c++14 $BOOST_CPPFLAGS"
 LDFLAGS="$LDFLAGS $BOOST_LDFLAGS"
 AC_CHECK_LIB([dl], [dlopen],[],[AC_MSG_FAILURE([Could not find library libdl.])])
@@ -785,6 +786,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check how to call getAnalysis to get LoopInfo
 AC_MSG_CHECKING([how to get LoopInfo analysis])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/LoopPass.h>
 ]],[[
   llvm::LPPassManager *LPM = 0;
@@ -1017,6 +1019,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check if llvm::LoopInfo::erase exists
 AC_MSG_CHECKING([for llvm::LoopInfo::erase])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/LoopPass.h>
 ]],[[
   llvm::Loop * L = 0;
@@ -1031,6 +1034,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check if llvm::LoopInfo::markAsRemoved exists
 AC_MSG_CHECKING([for llvm::LoopInfo::markAsRemoved])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/LoopPass.h>
 ]],[[
   llvm::Loop * L = 0;

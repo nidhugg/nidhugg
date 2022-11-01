@@ -21,6 +21,7 @@ libnidhugg_a_SOURCES = \
   FBVClock.cpp FBVClock.h \
   IID.h IID.tcc \
   Interpreter.cpp Interpreter.h \
+  LLVMUtils.cpp LLVMUtils.h \
   LoopBoundPass.cpp LoopBoundPass.h \
   MRef.cpp MRef.h \
   nregex.cpp nregex.h \
@@ -126,5 +127,6 @@ nidhuggc$(EXEEXT): $(srcdir)/nidhuggc.py
 	| sed 's|%%PYTHON%%|@PYTHON@|g' \
 	| sed 's|%%CLANG%%|@CLANG@|g' \
 	| sed 's|%%CLANGXX%%|@CLANGXX@|g' \
+	| sed 's|%%LLVMVERSION%%|@LLVMVERSION@|g' \
 	> nidhuggc
 	$(AM_V_at)chmod a+x nidhuggc
