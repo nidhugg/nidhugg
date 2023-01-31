@@ -610,7 +610,7 @@ bool PSOTraceBuilder::full_memory_conflict(){
   }
   curnode().may_conflict = true;
 
-  /* See all pervious memory accesses */
+  /* See all previous memory accesses */
   VecSet<int> seen_accesses;
   for(auto it = mem.begin(); it != mem.end(); ++it){
     seen_accesses.insert(it->second.last_update);

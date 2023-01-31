@@ -179,7 +179,7 @@ private:
    * if it should be run strictly sequential.
    */
   Result run_rfsc_sequential();
-  /* Make sure memory does not accumulate indefinately in the module or
+  /* Make sure memory does not accumulate indefinitely in the module or
    * context. May destroy and reallocate both (invalidates all llvm
    * pointers derived from them). */
   void clear_memory_use(uint64_t trace_number,

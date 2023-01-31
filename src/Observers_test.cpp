@@ -813,7 +813,7 @@ declare i32 @pthread_join(i64, i8**)
   std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(module, conf));
   DPORDriver::Result res = driver->run();
 
-  /* We don't really need to check anything; the bug expreses itself as
+  /* We don't really need to check anything; the bug expresses itself as
    * an assertion failure. The test case could be made "stronger" by
    * having the incorrect witnes be from a different process and
    * disabled where it is scheduled, but this is enough for now.

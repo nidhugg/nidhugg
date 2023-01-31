@@ -37,7 +37,7 @@ namespace Debug {
   /* Returns a reference to an ostream for warnings. If warn(wid) is
    * called multiple times with the same warning identifier wid, then
    * a visible ostream is returned only the first time. On later
-   * calls, a dummy ostream is returned which will quitely swallow
+   * calls, a dummy ostream is returned which will quietly swallow
    * anything that is sent to it.
    */
   llvm::raw_ostream &warn(const std::string &wid);

@@ -74,7 +74,7 @@ bool RFSCTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
   }
   *dryrun = false;
   *alt = 0;
-  *aux = -1; /* No auxilliary threads in SC */
+  *aux = -1; /* No auxiliary threads in SC */
   if(replay){
     /* Are we done with the current Event? */
     if (0 <= prefix_idx && threads[curev().iid.get_pid()].last_event_index() <
@@ -451,7 +451,7 @@ bool RFSCTraceBuilder::full_memory_conflict(){
   if (!record_symbolic(SymEv::Fullmem())) return false;
   curev().may_conflict = true;
 
-  // /* See all pervious memory accesses */
+  // /* See all previous memory accesses */
   // for(auto it = mem.begin(); it != mem.end(); ++it){
   //   do_load(it->second);
   // }
@@ -757,7 +757,7 @@ void RFSCTraceBuilder::add_happens_after_thread(unsigned second, IPid thread){
  * any other item. The sequence is modified in place and an iterator to
  * the position beyond the last included element is returned.
  *
- * Assumes less is transitive and asymetric (a strict partial order)
+ * Assumes less is transitive and asymmetric (a strict partial order)
  */
 template< class It, class LessFn >
 static It frontier_filter(It first, It last, LessFn less){
@@ -834,7 +834,7 @@ void RFSCTraceBuilder::compute_vclocks(){
   }
 
   /* The top of our vector clock lattice, initial value of the below
-   * clock (excluding itself) for evey event */
+   * clock (excluding itself) for every event */
   VClock<IPid> top;
   for (unsigned i = 0; i < threads.size(); ++i)
     top[i] = threads[i].event_indices.size();
@@ -1324,7 +1324,7 @@ void RFSCTraceBuilder::compute_prefixes() {
         Timing::Guard analysis_timing_guard(try_read_from_context);
         assert(j != -1 && j > int(i) && is_store(i) && is_load(j)
                && is_store_when_reading_from(j, original_read_from));
-        /* Can only swap ajacent RMWs */
+        /* Can only swap adjacent RMWs */
         if (*prefix[j].read_from != int(i)) return;
         RFSCUnfoldingTree::NodePtr read_from
           = unfold_alternative(j, prefix[i].event->read_from);

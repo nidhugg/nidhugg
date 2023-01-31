@@ -124,7 +124,7 @@ void PSOInterpreter::runAux(int proc, int aux){
 
   std::memcpy(pso_threads[proc].aux_to_addr[aux],blk,ml.size);
 
-  /* Should we reenable the thread after awaiting buffer flush? */
+  /* Should we re-enable the thread after awaiting buffer flush? */
   switch(pso_threads[proc].awaiting_buffer_flush){
   case PSOThread::BFL_NO: // Do nothing
     break;

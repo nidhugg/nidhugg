@@ -258,7 +258,7 @@ protected:
      * if thread tid has not read this memory location.
      *
      * last_read_t is simply a wrapper around a vector, which expands
-     * the vector as necessary to accomodate accesses through
+     * the vector as necessary to accommodate accesses through
      * operator[].
      */
     struct last_read_t {

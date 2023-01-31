@@ -74,7 +74,7 @@ public:
   void add_edge(ExtID from, ExtID to);
 
   /* Clone this graph. This graph becomes read-only at this point, and must
-   * outlive the clone and any decendents of it.
+   * outlive the clone and any descendents of it.
    */
   SaturatedGraph clone() const {
     /* Not strictly necessary, but an assumption that informed the choice of

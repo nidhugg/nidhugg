@@ -1,5 +1,5 @@
 /* Copyright (C) 2014-2017 Carl Leonardsson,
- * Copytight (C) 2020 Magnus Lång
+ * Copyright (C) 2020 Magnus Lång
  *
  * This file is part of Nidhugg.
  *
@@ -72,7 +72,7 @@ bool TraceUtil::get_location(const llvm::MDNode *m,
   if(*fname == "" && *dname == ""){
     /* Failed to get file name and directory name.
      *
-     * This may be caused by misformed metadata. Perform a brute-force
+     * This may be caused by malformed metadata. Perform a brute-force
      * search through the metadata tree and try to find the names.
      */
     std::vector<const llvm::MDNode*> stack;

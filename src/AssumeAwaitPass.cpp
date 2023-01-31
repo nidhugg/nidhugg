@@ -243,7 +243,7 @@ namespace {
       return 0; /* Races are bugs */
     case llvm::AtomicOrdering::Acquire:
     case llvm::AtomicOrdering::AcquireRelease:
-      return 1; /* Release/Aquire */
+      return 1; /* Release/Acquire */
     case llvm::AtomicOrdering::SequentiallyConsistent:
       return 2;
     default:

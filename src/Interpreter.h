@@ -186,7 +186,7 @@ protected:
   /* Keeps temporary changes to memory which are performed during dry
    * runs. Instead of changing the actual memory, during dry runs all
    * memory stores collected in DryRunMem. This allows memory loads
-   * occuring later during the same dry run (e.g. a dry run of an
+   * occurring later during the same dry run (e.g. a dry run of an
    * atomic function call) to check for updates that would have been
    * visible if the event were executing for real.
    *
