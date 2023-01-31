@@ -41,7 +41,7 @@
 
 /*  === Thread Identification ===
  *
- * Througout this class, we will use the following convention for
+ * Throughout this class, we will use the following convention for
  * identifying threads:
  *
  * A thread is identified by a pair (proc,aux). For real threads, aux

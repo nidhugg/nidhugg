@@ -1263,7 +1263,7 @@ bool TSOTraceBuilder::full_memory_conflict(){
   }
   curev().may_conflict = true;
 
-  /* See all pervious memory accesses */
+  /* See all previous memory accesses */
   VecSet<int> seen_accesses;
   VecSet<std::pair<int,int>> seen_pairs;
   for(auto it = mem.begin(); it != mem.end(); ++it){
@@ -2203,7 +2203,7 @@ void TSOTraceBuilder::add_happens_after_thread(unsigned second, IPid thread){
  * any other item. The sequence is modified in place and an iterator to
  * the position beyond the last included element is returned.
  *
- * Assumes less is transitive and asymetric (a strict partial order)
+ * Assumes less is transitive and asymmetric (a strict partial order)
  */
 template< class It, class LessFn >
 static It frontier_filter(It first, It last, LessFn less){
@@ -2687,7 +2687,7 @@ void TSOTraceBuilder::race_detect_optimal
           if (child_sym != ve.sym) {
             /* This can happen due to observer effects. We must now make sure
              * ve.second->sym does not have any conflicts with any previous
-             * event in v; i.e. wether it actually is a weak initial of v.
+             * event in v; i.e. whether it actually is a weak initial of v.
              */
             for (auto pei = v.begin(); skip == NO && pei != vei; ++pei){
               const Branch &pe = *pei;

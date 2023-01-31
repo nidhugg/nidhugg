@@ -295,7 +295,7 @@ protected:
      */
     int sleep_branch_trace_count;
 
-    /* Pointer to the corresponing DecisionNode. */
+    /* Pointer to the corresponding DecisionNode. */
     std::shared_ptr<DecisionNode> decision_ptr;
 
     int get_decision_depth() const {
@@ -443,7 +443,8 @@ protected:
   void add_event_to_graph(SaturatedGraph &g, unsigned i) const;
   /* Access a SaturatedGraph from a DecisionNode.
    * This has the risk of mutating a graph which is accessed by
-   * multiple threads concurrently. therefore need to be under exclusive opreation.
+   * multiple threads concurrently, therefore needs to be under
+   * exclusive operation.
    */
   const SaturatedGraph &get_cached_graph(DecisionNode &decision);
   /* Checks whether an event is included in a vector clock. */
@@ -452,7 +453,7 @@ protected:
    * vector clocks.
    */
   bool can_rf_by_vclocks(int r, int ow, int w) const;
-  /* Assuming that r and w are RMW, that r immediately preceeds w in
+  /* Assuming that r and w are RMW, that r immediately precedes w in
    * coherence order, checks whether swapping r and w is possible
    * according to the vector clocks.
    */

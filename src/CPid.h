@@ -34,7 +34,7 @@
  * an integer sequence <p0.....pn> where p0 = 0, The first process of
  * a system has CPid <0>. The i:th process that is spawned by a
  * process with CPid <p0.....pn> has CPid <p0.....pn.i>. For
- * auxilliary processes, the CPid of the i:th auxilliary process of a
+ * auxiliary processes, the CPid of the i:th auxiliary process of a
  * real process with CPid <p0.....pn> is <p0.....pn/i>.
  */
 class CPid{
@@ -45,7 +45,7 @@ public:
   CPid(const std::vector<int> &pvec);
   /* Creates the CPid <p0.....pn> where pvec == [p0,...,pn]. */
   CPid(const std::initializer_list<int> &pvec);
-  /* Creates the (auxilliary) CPid <p0.....pn/i> where pvec == [p0,...,pn]. */
+  /* Creates the (auxiliary) CPid <p0.....pn/i> where pvec == [p0,...,pn]. */
   CPid(const std::vector<int> &pvec, int i);
   CPid(const CPid&) = default;
   CPid &operator=(const CPid&) = default;
@@ -68,7 +68,7 @@ public:
 
   /* Returns i where this CPid is <p0.....pn/i>.
    *
-   * Pre: is_auxilliary()
+   * Pre: is_auxiliary()
    */
   int get_aux_index() const;
 
@@ -87,7 +87,7 @@ private:
    * proc_seq is [p1,...,pn]. */
   std::vector<int> proc_seq;
   /* For the CPid of a real process, aux_idx == -1. For the CPid
-   * <p0.....pn/i> of an auxilliary process, aux_idx == i.
+   * <p0.....pn/i> of an auxiliary process, aux_idx == i.
    */
   int aux_idx;
 
@@ -109,7 +109,7 @@ inline llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const CPid &c){
  * as well as its predecessor <p0.....pn/(i-1)> if i>0.
  *
  * The purpose of such a system is typically to easily compute the
- * CPid of the next process (auxilliary or real) that is spawned.
+ * CPid of the next process (auxiliary or real) that is spawned.
  */
 class CPidSystem{
 public:
@@ -124,7 +124,7 @@ public:
    * Pre: c is in this set.
    */
   CPid spawn(const CPid &c);
-  /* Create a new (meaning not in this set) auxilliary process child
+  /* Create a new (meaning not in this set) auxiliary process child
    * for c, add it to this set and return it.
    *
    * Pre: c is in this set.
@@ -138,7 +138,7 @@ private:
    *
    * For each CPid cpids[i], we have that real_children[i]
    * (resp. aux_children[i]) contains the identifiers of all real
-   * (resp. auxilliary) process children of cpids[i] in this set,
+   * (resp. auxiliary) process children of cpids[i] in this set,
    * ordered increasingly.
    *
    * For each CPid cpids[i], except <0>, we have that parent[i] is the

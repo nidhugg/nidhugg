@@ -128,7 +128,7 @@ private:
    * ancestor should not be explored. */
   std::atomic_bool pruned_subtree;
 
-  /* Wether the graph cache has been initialised */
+  /* Whether the graph cache has been initialised. */
   std::atomic_bool cache_initialised;
 
   // The following fields are held by a parent to be accessed by every child.
