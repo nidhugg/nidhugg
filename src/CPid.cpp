@@ -154,3 +154,9 @@ CPid CPidSystem::new_aux(const CPid &c){
   identifiers[c2] = c2_id;
   return c2;
 }
+
+int CPidSystem::get_index(const CPid &c) const{
+  return identifiers.at(c);
+}
+
+const CPid CPid::canary = CPid({0,-1});

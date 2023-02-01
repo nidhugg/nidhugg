@@ -56,10 +56,11 @@ bool SymEv::is_compatible_with(SymEv other) const {
   case STORE: case UNOBS_STORE:
     if (arg.addr != other.arg.addr) return false;
     break;
-  case SPAWN: case JOIN:
   case NONDET:
     if (arg.num != other.arg.num) return false;
     break;
+  case SPAWN: case JOIN:
+      /* XXX: We ignore mismatches here */
   case FULLMEM:
   case NONE:
     break;

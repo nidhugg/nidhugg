@@ -318,14 +318,16 @@ protected:
    */
   class Branch{
   public:
-    Branch (IPid pid, int alt = 0, sym_ty sym = {})
-      : sym(std::move(sym)), pid(pid), alt(alt), size(1) {}
+    Branch (CPid pid, int alt = 0, sym_ty sym = {})
+      : sym(std::move(sym)), pid(std::move(pid)), alt(alt), size(1) {}
+    Branch (Branch &&base, sym_ty sym)
+      : sym(std::move(sym)), pid(std::move(base.pid)), alt(base.alt), size(base.size) {}
     Branch (const Branch &base, sym_ty sym)
       : sym(std::move(sym)), pid(base.pid), alt(base.alt), size(base.size) {}
     /* Symbolic representation of the globally visible operation of this event.
      */
     sym_ty sym;
-    IPid pid;
+    CPid pid;
     /* Some instructions may execute in several alternative ways
      * nondeterministically. (E.g. malloc may succeed or fail
      * nondeterministically if Configuration::malloy_may_fail is set.)
@@ -599,15 +601,26 @@ protected:
 
   /* Pretty-prints the iid of prefix[pos]. */
   std::string iid_string(std::size_t pos) const;
+  /* Pretty-prints the iid <pid, index>. */
+  std::string iid_string(IPid p, int index) const;
   /* Pretty-prints the iid <branch.pid, index>. */
   std::string iid_string(const Branch &branch, int index) const;
+  typedef std::map<CPid,int> IIDMap;
+  /* Computes a mapping between IPid and current local clock value
+   * (index) of that process after executing the prefix [0,event).
+   */
+  IIDMap iid_map_at(int event) const;
+  /* Plays an iid_map forward by one event. */
+  void iid_map_step(IIDMap &iid_map, const Branch &event) const;
+  /* Reverses an iid_map by one event. */
+  void iid_map_step_rev(IIDMap &iid_map, const Branch &event) const;
   /* Pretty prints the wakeup tree subtree rooted at <branch,node>
    * into the buffer lines starting at line line.
    * iid_map needs to be an iid_map at <branch,node>. It is restored to
    * the value it had when calling the function before returning.
    */
   void wut_string_add_node(std::vector<std::string> &lines,
-                           std::vector<int> &iid_map,
+                           IIDMap &iid_map,
                            unsigned line, Branch branch,
                            WakeupTreeRef<Branch> node) const;
 #ifndef NDEBUG
@@ -659,14 +672,6 @@ protected:
    * mutex.
    */
   Event reconstruct_blocked_event(const Race &race) const;
-  /* Computes a mapping between IPid and current local clock value
-   * (index) of that process after executing the prefix [0,event).
-   */
-  std::vector<int> iid_map_at(int event) const;
-  /* Plays an iid_map forward by one event. */
-  void iid_map_step(std::vector<int> &iid_map, const Branch &event) const;
-  /* Reverses an iid_map by one event. */
-  void iid_map_step_rev(std::vector<int> &iid_map, const Branch &event) const;
   /* Add clocks and branches.
    *
    * All elements e in seen should either be indices into prefix, or

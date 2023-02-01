@@ -82,6 +82,9 @@ public:
   bool operator>(const CPid &c) const { return compare(c) > 0; }
   bool operator>=(const CPid &c) const { return compare(c) >= 0; }
 
+  /* A guard value that will never appear as a valid CPid */
+  static const CPid canary;
+
 private:
   /* For a CPid <p0.p1.....pn> or <p0.p1.....pn/i>, the vector
    * proc_seq is [p1,...,pn]. */
@@ -130,6 +133,9 @@ public:
    * Pre: c is in this set.
    */
   CPid new_aux(const CPid &c);
+
+  /* Get the index in creation order */
+  int get_index(const CPid &c) const;
 
 private:
   /* Each CPid in the set is identified by a natural number: its index
