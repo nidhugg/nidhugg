@@ -32,7 +32,7 @@ static void *u(void *arg) {
     pthread_create(&vt, NULL, v, NULL);
     atomic_load(&x);
     pthread_join(vt, NULL);
-    z = 1; /* With changes to the await preceeding some loads */
+    z = 1; /* With changes to the await preceding some loads */
     atomic_load(&w);
     /* Ending with an unblock of the initial await */
     z = 42;

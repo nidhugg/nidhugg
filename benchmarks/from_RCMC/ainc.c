@@ -1,4 +1,4 @@
-/* This benchmark is adpated from RCMC */
+/* This benchmark is adapted from RCMC */
 
 
 #include <assert.h>

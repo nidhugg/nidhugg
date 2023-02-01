@@ -17,7 +17,7 @@ static void *test(void *arg) {
     int a = x;
     bool did_z = false;
     int b;
-    /* Can only incement z once per iteration of the outer loop, and
+    /* Can only increment z once per iteration of the outer loop, and
      * only exit once b != 0
      */
     while(!(b = y)) {

@@ -17,7 +17,7 @@
 ****************************************************************************/
 
 /*
-  Modifications are made to remove non-standard libary dependencies by Yihao from
+  Modifications are made to remove non-standard library dependencies by Yihao from
   VSL of University of Delaware.
 */
 #include <pthread.h>

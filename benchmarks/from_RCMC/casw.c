@@ -1,4 +1,4 @@
-/* This benchmark is adpated from RCMC */
+/* This benchmark is adapted from RCMC */
 
 #include <assert.h>
 #include <stdint.h>
@@ -17,9 +17,8 @@ void *thread_n(void *arg)
 {
 	int r = 0, val = *((int *) arg);
 
-	atomic_compare_exchange_strong_explicit(&x, &r, 1, 
-											memory_order_seq_cst,
-											memory_order_seq_cst);
+	atomic_compare_exchange_strong_explicit(&x, &r, 1, memory_order_seq_cst,
+						memory_order_seq_cst);
 	atomic_store_explicit(&x, val + 3, memory_order_seq_cst);
 	
 	return NULL;
