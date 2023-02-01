@@ -377,9 +377,10 @@ void RFSCTraceBuilder::debug_print() const {
 
 bool RFSCTraceBuilder::spawn(){
   curev().may_conflict = true;
-  if (!record_symbolic(SymEv::Spawn(threads.size() - 1))) return false;
   IPid parent_ipid = curev().iid.get_pid();
-  CPid child_cpid = CPS.spawn(threads[parent_ipid].cpid);
+  const CPid &parent_cpid = threads[parent_ipid].cpid;
+  if (!record_symbolic(SymEv::Spawn(CPS.spawn_peek(parent_cpid)))) return false;
+  CPid child_cpid = CPS.spawn(parent_cpid);
   threads.push_back(Thread(child_cpid,prefix_idx));
   return true;
 }
@@ -468,7 +469,7 @@ bool RFSCTraceBuilder::fence(){
 }
 
 bool RFSCTraceBuilder::join(int tgt_proc){
-  if (!record_symbolic(SymEv::Join(tgt_proc))) return false;
+  if (!record_symbolic(SymEv::Join(threads[tgt_proc].cpid))) return false;
   curev().may_conflict = true;
   add_happens_after_thread(prefix_idx, tgt_proc);
   return true;

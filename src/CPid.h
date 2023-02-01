@@ -121,6 +121,9 @@ public:
   CPidSystem(const CPidSystem&) = default;
   CPidSystem &operator=(const CPidSystem&) = default;
 
+  /* Return the child id that would be created, if c spawned a new child
+   * now */
+  CPid spawn_peek(const CPid &c) const;
   /* Spawn a new (meaning not in this set) real process child for c,
    * add it to this set and return it.
    *

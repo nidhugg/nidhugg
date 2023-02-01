@@ -22,6 +22,14 @@
 
 #include <sstream>
 
+SymEv::~SymEv() {
+  if (arg3_is_data()) {
+    arg3.d.~data();
+  } else if (has_cpid()) {
+    arg3.cpid.~CPid();
+  }
+}
+
 bool SymEv::is_compatible_with(SymEv other) const {
   if (kind != other.kind
       && !(kind == STORE && other.kind == UNOBS_STORE)
@@ -30,8 +38,8 @@ bool SymEv::is_compatible_with(SymEv other) const {
     return false;
   if (kind == RMW) {
     if (arg2.rmw_kind != other.arg2.rmw_kind) return false;
-    if (_expected) { /* Optimal-DPOR erases data in the wakeup tree */
-      assert(other._expected);
+    if (arg3.d._expected) { /* Optimal-DPOR erases data in the wakeup tree */
+      assert(other.arg3.d._expected);
       // We need stable addresses
       // if (memcmp(_expected.get(), other._expected.get(), arg.addr.size) != 0)
       //   return false;
@@ -40,8 +48,8 @@ bool SymEv::is_compatible_with(SymEv other) const {
   switch(kind) {
   case LOAD_AWAIT: case XCHG_AWAIT:
     if (arg2.await_op != other.arg2.await_op) return false;
-    if (_expected) {
-      assert(other._expected);
+    if (arg3.d._expected) {
+      assert(other.arg3.d._expected);
       // We need stable addresses
       // if (memcmp(_expected.get(), other._expected.get(), arg.addr.size) != 0)
       //   return false;
@@ -60,7 +68,8 @@ bool SymEv::is_compatible_with(SymEv other) const {
     if (arg.num != other.arg.num) return false;
     break;
   case SPAWN: case JOIN:
-      /* XXX: We ignore mismatches here */
+    if (arg3.cpid != other.arg3.cpid) return false;
+    break;
   case FULLMEM:
   case NONE:
     break;
@@ -96,9 +105,9 @@ std::string SymEv::to_string(std::function<std::string(int)> pid_str) const {
     case LOAD_AWAIT:
       return "LoadAwait(" + arg.addr.to_string(pid_str) + ", "
         + AwaitCond::name(arg2.await_op) + " "
-        + block_to_string(_expected, arg.addr.size) + ")";
+        + block_to_string(arg3.d._expected, arg.addr.size) + ")";
     case STORE:    return "Store("   + arg.addr.to_string(pid_str)
-        + "," + block_to_string(_written, arg.addr.size) + ")";
+        + "," + block_to_string(arg3.d._written, arg.addr.size) + ")";
     case FULLMEM:  return "Fullmem()";
 
     case M_INIT:   return "MInit("   + arg.addr.to_string(pid_str) + ")";
@@ -116,28 +125,28 @@ std::string SymEv::to_string(std::function<std::string(int)> pid_str) const {
     case C_AWAKE:  return "CAwake("  + arg.addr.to_string(pid_str) + ")";
     case C_DELETE: return "CDelete(" + arg.addr.to_string(pid_str) + ")";
 
-    case SPAWN: return "Spawn(" + pid_str(arg.num) + ")";
-    case JOIN:  return "Join("  + pid_str(arg.num) + ")";
+    case SPAWN: return "Spawn(" + arg3.cpid.to_string() + ")";
+    case JOIN:  return "Join("  + arg3.cpid.to_string() + ")";
 
     case UNOBS_STORE: return "UnobsStore(" + arg.addr.to_string(pid_str)
-        + "," + block_to_string(_written, arg.addr.size) + ")";
+        + "," + block_to_string(arg3.d._written, arg.addr.size) + ")";
 
     case RMW: return "Rmw(" + arg.addr.to_string(pid_str)
-        + "," + block_to_string(_written, arg.addr.size)
+        + "," + block_to_string(arg3.d._written, arg.addr.size)
         + "," + RmwAction::name(arg2.rmw_kind)
-        + " " + block_to_string(_expected, arg.addr.size) + ")";
+        + " " + block_to_string(arg3.d._expected, arg.addr.size) + ")";
     case XCHG_AWAIT: return "XchgAwait(" + arg.addr.to_string(pid_str)
-        + "," + block_to_string(_written, arg.addr.size) + ", "
+        + "," + block_to_string(arg3.d._written, arg.addr.size) + ", "
         + AwaitCond::name(arg2.await_op) + " "
-        + block_to_string(_expected, arg.addr.size)+ ")";
+        + block_to_string(arg3.d._expected, arg.addr.size)+ ")";
     case CMPXHG: return "CmpXhg("
         + arg.addr.to_string(pid_str)
-        + "," + block_to_string(_expected, arg.addr.size)
-        + "," + block_to_string(_written, arg.addr.size) + ")";
+        + "," + block_to_string(arg3.d._expected, arg.addr.size)
+        + "," + block_to_string(arg3.d._written, arg.addr.size) + ")";
     case CMPXHGFAIL: return "CmpXhgFail("
         + arg.addr.to_string(pid_str)
-        + "," + block_to_string(_expected, arg.addr.size)
-        + "," + block_to_string(_written, arg.addr.size) + ")";
+        + "," + block_to_string(arg3.d._expected, arg.addr.size)
+        + "," + block_to_string(arg3.d._written, arg.addr.size) + ")";
     }
     abort();
 }
@@ -162,7 +171,6 @@ bool SymEv::has_addr() const {
 
 bool SymEv::has_num() const {
   switch(kind) {
-  case SPAWN: case JOIN:
   case NONDET:
     return true;
   case NONE:
@@ -174,6 +182,7 @@ bool SymEv::has_num() const {
   case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
   case UNOBS_STORE:
   case RMW: case XCHG_AWAIT: case CMPXHG: case CMPXHGFAIL:
+  case SPAWN: case JOIN:
     return false;
   }
   abort();
@@ -183,7 +192,8 @@ bool SymEv::has_data() const {
   switch(kind) {
   case STORE: case UNOBS_STORE:
   case RMW: case XCHG_AWAIT: case CMPXHG: case CMPXHGFAIL:
-    return (bool)_written;
+    assert(arg3_is_data());
+    return (bool)arg3.d._written;
   case NONE:
   case SPAWN: case JOIN:
   case NONDET:
@@ -201,7 +211,8 @@ bool SymEv::has_data() const {
 bool SymEv::has_expected() const {
   switch(kind) {
   case CMPXHG: case CMPXHGFAIL:
-    return (bool)_written;
+    assert(arg3_is_data());
+    return (bool)arg3.d._written;
   case NONE:
   case SPAWN: case JOIN:
   case NONDET:
@@ -218,6 +229,27 @@ bool SymEv::has_expected() const {
   abort();
 }
 
+bool SymEv::arg3_is_data() const {
+  switch(kind) {
+  case STORE: case UNOBS_STORE:
+  case RMW: case XCHG_AWAIT: case CMPXHG: case CMPXHGFAIL:
+  case LOAD_AWAIT:
+    return true;
+  case NONE:
+  case SPAWN: case JOIN:
+  case NONDET:
+  case C_WAIT: case C_AWAKE:
+  case FULLMEM:
+  case LOAD:
+  case M_INIT: case M_LOCK: case M_UNLOCK: case M_DELETE:
+  case M_TRYLOCK: case M_TRYLOCK_FAIL:
+  case C_INIT: case C_SIGNAL: case C_BRDCST: case C_DELETE:
+    assert(!has_cond() && !has_expected() && !has_rmwaction() && !has_data());
+    return false;
+  }
+  abort();
+}
+
 bool SymEv::operator==(const SymEv &s) const{
   if (kind != s.kind) return false;
   if (has_addr() && addr() != s.addr()) return false;
@@ -226,8 +258,10 @@ bool SymEv::operator==(const SymEv &s) const{
 }
 
 void SymEv::purge_data() {
-  _written.reset();
-  _expected.reset();
+  if (arg3_is_data()) {
+    arg3.d._written.reset();
+    arg3.d._expected.reset();
+  }
 }
 
 void SymEv::set_observed(bool observed) {

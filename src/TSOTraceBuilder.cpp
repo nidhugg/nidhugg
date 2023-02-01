@@ -661,9 +661,10 @@ void TSOTraceBuilder::debug_print() const {
 
 bool TSOTraceBuilder::spawn(){
   curev().may_conflict = true;
-  if (!record_symbolic(SymEv::Spawn(threads.size() / 2))) return false;
   IPid parent_ipid = curev().iid.get_pid();
-  CPid child_cpid = CPS.spawn(threads[parent_ipid].cpid);
+  const CPid &parent_cpid = threads[parent_ipid].cpid;
+  if (!record_symbolic(SymEv::Spawn(CPS.spawn_peek(parent_cpid)))) return false;
+  CPid child_cpid = CPS.spawn(parent_cpid);
   assert(CPS.get_index(child_cpid) == threads.size());
   /* TODO: First event of thread happens before parents spawn */
   threads.push_back(Thread(child_cpid,prefix_idx));
@@ -1381,7 +1382,7 @@ bool TSOTraceBuilder::fence(){
 }
 
 bool TSOTraceBuilder::join(int tgt_proc){
-  if (!record_symbolic(SymEv::Join(tgt_proc))) return false;
+  if (!record_symbolic(SymEv::Join(threads[tgt_proc*2].cpid))) return false;
   if(dryrun) return true;
   curev().may_conflict = true;
   assert(threads[tgt_proc*2].store_buffer.empty());
@@ -1869,7 +1870,7 @@ TSOTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep,
       } else {
         return obs_wake_res::BLOCK;
       }
-    } else if (do_events_conflict(p, sym, s.pid, *s.sym)){
+    } else if (do_events_conflict(threads[p].cpid, sym, threads[s.pid].cpid, *s.sym)){
       unordered_vector_delete(sleep.sleep, i);
     } else {
       ++i;
@@ -2429,12 +2430,8 @@ bool TSOTraceBuilder::do_events_conflict(int i, int j) const{
 
 bool TSOTraceBuilder::do_events_conflict
 (const Event &fst, const Event &snd) const{
-  return do_events_conflict(fst.iid.get_pid(), fst.sym,
-                            snd.iid.get_pid(), snd.sym);
-}
-
-static bool symev_has_pid(const SymEv &e) {
-  return e.kind == SymEv::SPAWN || e.kind == SymEv::JOIN;
+  return do_events_conflict(threads[fst.iid.get_pid()].cpid, fst.sym,
+                            threads[snd.iid.get_pid()].cpid, snd.sym);
 }
 
 static bool symev_is_load(const SymEv &e) {
@@ -2447,8 +2444,8 @@ static bool symev_is_unobs_store(const SymEv &e) {
 }
 
 bool TSOTraceBuilder::do_symevs_conflict
-(IPid fst_pid, const SymEv &fst,
- IPid snd_pid, const SymEv &snd) const {
+(const CPid &fst_pid, const SymEv &fst,
+ const CPid &snd_pid, const SymEv &snd) const {
   if (fst.kind == SymEv::NONDET || snd.kind == SymEv::NONDET) return false;
   if (fst.kind == SymEv::FULLMEM || snd.kind == SymEv::FULLMEM) return true;
   if (symev_is_load(fst) && symev_is_load(snd)) return false;
@@ -2474,11 +2471,11 @@ bool TSOTraceBuilder::do_symevs_conflict
 }
 
 bool TSOTraceBuilder::do_events_conflict
-(IPid fst_pid, const sym_ty &fst,
- IPid snd_pid, const sym_ty &snd) const{
+(const CPid &fst_pid, const sym_ty &fst,
+ const CPid &snd_pid, const sym_ty &snd) const{
   if (fst_pid == snd_pid) return true;
   for (const SymEv &fe : fst) {
-    if (symev_has_pid(fe) && fe.num() == (snd_pid / 2)) return true;
+    if (fe.has_cpid() && fe.cpid() == snd_pid) return true;
     for (const SymEv &se : snd) {
       if (do_symevs_conflict(fst_pid, fe, snd_pid, se)) {
         return true;
@@ -2486,22 +2483,22 @@ bool TSOTraceBuilder::do_events_conflict
     }
   }
   for (const SymEv &se : snd) {
-    if (symev_has_pid(se) && se.num() == (fst_pid / 2)) return true;
+    if (se.has_cpid() && se.cpid() == fst_pid) return true;
   }
   return false;
 }
 
 bool TSOTraceBuilder::is_observed_conflict
 (const Event &fst, const Event &snd, const Event &thd) const{
-  return is_observed_conflict(fst.iid.get_pid(), fst.sym,
-                              snd.iid.get_pid(), snd.sym,
-                              thd.iid.get_pid(), thd.sym);
+  return is_observed_conflict(threads[fst.iid.get_pid()].cpid, fst.sym,
+                              threads[snd.iid.get_pid()].cpid, snd.sym,
+                              threads[thd.iid.get_pid()].cpid, thd.sym);
 }
 
 bool TSOTraceBuilder::is_observed_conflict
-(IPid fst_pid, const sym_ty &fst,
- IPid snd_pid, const sym_ty &snd,
- IPid thd_pid, const sym_ty &thd) const{
+(const CPid &fst_pid, const sym_ty &fst,
+ const CPid &snd_pid, const sym_ty &snd,
+ const CPid &thd_pid, const sym_ty &thd) const{
   if (fst_pid == snd_pid) return false;
   for (const SymEv &fe : fst) {
     if (fe.kind != SymEv::UNOBS_STORE) continue;
@@ -2519,9 +2516,9 @@ bool TSOTraceBuilder::is_observed_conflict
 }
 
 bool TSOTraceBuilder::is_observed_conflict
-(IPid fst_pid, const SymEv &fst,
- IPid snd_pid, const SymEv &snd,
- IPid thd_pid, const SymEv &thd) const {
+(const CPid &fst_pid, const SymEv &fst,
+ const CPid &snd_pid, const SymEv &snd,
+ const CPid &thd_pid, const SymEv &thd) const {
   assert(fst_pid != snd_pid);
   assert(fst.kind == SymEv::UNOBS_STORE);
   assert(snd.kind == SymEv::STORE);
@@ -2705,8 +2702,8 @@ void TSOTraceBuilder::race_detect_optimal
              */
             for (auto pei = v.begin(); skip == NO && pei != vei; ++pei){
               const Branch &pe = *pei;
-              if (do_events_conflict(CPS.get_index(ve.pid), ve.sym,
-                                     CPS.get_index(pe.pid), pe.sym)){
+              if (do_events_conflict(ve.pid, ve.sym,
+                                     pe.pid, pe.sym)){
                 skip = NEXT;
               }
             }
@@ -2760,8 +2757,8 @@ void TSOTraceBuilder::race_detect_optimal
           break;
         }
 
-        if (do_events_conflict(CPS.get_index(ve.pid), ve.sym,
-                               CPS.get_index(child_it.branch().pid), child_sym)) {
+        if (do_events_conflict(ve.pid, ve.sym,
+                               child_it.branch().pid, child_sym)) {
           /* This branch is incompatible, try the next */
           skip = NEXT;
         }
@@ -3058,7 +3055,8 @@ void TSOTraceBuilder::wakeup(Access::Type type, SymAddr ml){
       if (!threads[p].sleeping) continue;
       assert(threads[p].sleep_sym);
       assert(bool(wakeup_set.count(p))
-             == do_events_conflict(pid, ev, p, *threads[p].sleep_sym));
+             == do_events_conflict(threads[pid].cpid, ev,
+                                   threads[p].cpid, *threads[p].sleep_sym));
     }
   }
 #endif

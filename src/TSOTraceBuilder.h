@@ -646,10 +646,10 @@ protected:
   bool do_events_conflict(int i, int j) const;
   bool do_events_conflict(const Event &fst, const Event &snd) const;
   /* Check if two symbolic events conflict. */
-  bool do_events_conflict(IPid fst_pid, const sym_ty &fst,
-                          IPid snd_pid, const sym_ty &snd) const;
-  bool do_symevs_conflict(IPid fst_pid, const SymEv &fst,
-                          IPid snd_pid, const SymEv &snd) const;
+  bool do_events_conflict(const CPid &fst_pid, const sym_ty &fst,
+                          const CPid &snd_pid, const sym_ty &snd) const;
+  bool do_symevs_conflict(const CPid &fst_pid, const SymEv &fst,
+                          const CPid &snd_pid, const SymEv &snd) const;
   /* Check if events fst and snd are in an observed race with thd as an
    * observer.
    */
@@ -658,12 +658,12 @@ protected:
   /* Check if two symbolic events are in an observed race with a third
    * as an observer.
    */
-  bool is_observed_conflict(IPid fst_pid, const sym_ty &fst,
-                            IPid snd_pid, const sym_ty &snd,
-                            IPid thd_pid, const sym_ty &thd) const;
-  bool is_observed_conflict(IPid fst_pid, const SymEv &fst,
-                            IPid snd_pid, const SymEv &snd,
-                            IPid thd_pid, const SymEv &thd) const;
+  bool is_observed_conflict(const CPid &fst_pid, const sym_ty &fst,
+                            const CPid &snd_pid, const sym_ty &snd,
+                            const CPid &thd_pid, const sym_ty &thd) const;
+  bool is_observed_conflict(const CPid &fst_pid, const SymEv &fst,
+                            const CPid &snd_pid, const SymEv &snd,
+                            const CPid &thd_pid, const SymEv &thd) const;
   /* Reconstruct the above-vector clock of a blocked event with IID
    * iid. */
   VClock<IPid> reconstruct_blocked_clock(IID<IPid> iid) const;
