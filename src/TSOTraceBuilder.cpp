@@ -651,14 +651,15 @@ void TSOTraceBuilder::debug_print() const {
 }
 
 bool TSOTraceBuilder::spawn(){
+  curev().may_conflict = true;
+  if (!record_symbolic(SymEv::Spawn(threads.size() / 2))) return false;
   IPid parent_ipid = curev().iid.get_pid();
   CPid child_cpid = CPS.spawn(threads[parent_ipid].cpid);
   /* TODO: First event of thread happens before parents spawn */
   threads.push_back(Thread(child_cpid,prefix_idx));
   threads.push_back(Thread(CPS.new_aux(child_cpid),prefix_idx));
   threads.back().available = false; // Empty store buffer
-  curev().may_conflict = true;
-  return record_symbolic(SymEv::Spawn(threads.size() / 2 - 1));
+  return true;
 }
 
 bool TSOTraceBuilder::store(const SymData &sd){
@@ -2398,7 +2399,10 @@ bool TSOTraceBuilder::record_symbolic(SymEv event){
     assert(sym_idx < curev().sym.size());
     SymEv &last = curev().sym[sym_idx++];
     if (!last.is_compatible_with(event)) {
-      auto pid_str = [this](IPid p) { return threads[p].cpid.to_string(); };
+      auto pid_str = [this](IPid p) {
+        return p*2 >= threads.size() ? std::to_string(p)
+            : threads[p*2].cpid.to_string();
+      };
       nondeterminism_error("Event with effect " + last.to_string(pid_str)
                            + " became " + event.to_string(pid_str)
                            + " when replayed");

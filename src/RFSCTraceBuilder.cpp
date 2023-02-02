@@ -376,11 +376,12 @@ void RFSCTraceBuilder::debug_print() const {
 }
 
 bool RFSCTraceBuilder::spawn(){
+  curev().may_conflict = true;
+  if (!record_symbolic(SymEv::Spawn(threads.size() - 1))) return false;
   IPid parent_ipid = curev().iid.get_pid();
   CPid child_cpid = CPS.spawn(threads[parent_ipid].cpid);
   threads.push_back(Thread(child_cpid,prefix_idx));
-  curev().may_conflict = true;
-  return record_symbolic(SymEv::Spawn(threads.size() - 1));
+  return true;
 }
 
 bool RFSCTraceBuilder::store(const SymData &sd){
@@ -936,7 +937,10 @@ bool RFSCTraceBuilder::record_symbolic(SymEv event){
     SymEv &last = curev().sym;
     assert(!seen_effect);
     if (!last.is_compatible_with(event)) {
-      auto pid_str = [this](IPid p) { return threads[p].cpid.to_string(); };
+      auto pid_str = [this](IPid p) {
+          return p >= threads.size() ? std::to_string(p)
+              : threads[p].cpid.to_string();
+      };
       nondeterminism_error("Event with effect " + last.to_string(pid_str)
                            + " became " + event.to_string(pid_str)
                            + " when replayed");
