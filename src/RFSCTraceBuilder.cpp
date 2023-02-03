@@ -449,8 +449,8 @@ bool RFSCTraceBuilder::compare_exchange
 bool RFSCTraceBuilder::full_memory_conflict(){
   invalid_input_error("RFSC does not support black-box functions with memory effects");
   return false;
-  if (!record_symbolic(SymEv::Fullmem())) return false;
   curev().may_conflict = true;
+  if (!record_symbolic(SymEv::Fullmem())) return false;
 
   // /* See all previous memory accesses */
   // for(auto it = mem.begin(); it != mem.end(); ++it){
@@ -468,17 +468,17 @@ bool RFSCTraceBuilder::fence(){
 }
 
 bool RFSCTraceBuilder::join(int tgt_proc){
-  if (!record_symbolic(SymEv::Join(tgt_proc))) return false;
   curev().may_conflict = true;
+  if (!record_symbolic(SymEv::Join(tgt_proc))) return false;
   add_happens_after_thread(prefix_idx, tgt_proc);
   return true;
 }
 
 bool RFSCTraceBuilder::mutex_lock(const SymAddrSize &ml){
+  curev().may_conflict = true;
   if (!record_symbolic(SymEv::MLock(ml))) return false;
 
   Mutex &mutex = mutexes[ml.addr];
-  curev().may_conflict = true;
   curev().read_from = mutex.last_access;
 
   mutex.last_lock = mutex.last_access = prefix_idx;
@@ -503,10 +503,10 @@ bool RFSCTraceBuilder::mutex_lock_fail(const SymAddrSize &ml){
 
 bool RFSCTraceBuilder::mutex_trylock(const SymAddrSize &ml){
   Mutex &mutex = mutexes[ml.addr];
+  curev().may_conflict = true;
   if (!record_symbolic(mutex.locked ? SymEv::MTryLockFail(ml) : SymEv::MTryLock(ml)))
     return false;
   curev().read_from = mutex.last_access;
-  curev().may_conflict = true;
 
   mutex.last_access = prefix_idx;
   if(!mutex.locked){ // Mutex is free
@@ -517,10 +517,10 @@ bool RFSCTraceBuilder::mutex_trylock(const SymAddrSize &ml){
 }
 
 bool RFSCTraceBuilder::mutex_unlock(const SymAddrSize &ml){
+  curev().may_conflict = true;
   if (!record_symbolic(SymEv::MUnlock(ml))) return false;
   Mutex &mutex = mutexes[ml.addr];
   curev().read_from = mutex.last_access;
-  curev().may_conflict = true;
   assert(0 <= mutex.last_access);
 
   mutex.last_access = prefix_idx;
@@ -532,19 +532,19 @@ bool RFSCTraceBuilder::mutex_unlock(const SymAddrSize &ml){
 }
 
 bool RFSCTraceBuilder::mutex_init(const SymAddrSize &ml){
+  curev().may_conflict = true;
   if (!record_symbolic(SymEv::MInit(ml))) return false;
   assert(mutexes.count(ml.addr) == 0);
   curev().read_from = -1;
-  curev().may_conflict = true;
   mutexes[ml.addr] = Mutex(prefix_idx);
   return true;
 }
 
 bool RFSCTraceBuilder::mutex_destroy(const SymAddrSize &ml){
+  curev().may_conflict = true;
   if (!record_symbolic(SymEv::MDelete(ml))) return false;
   Mutex &mutex = mutexes[ml.addr];
   curev().read_from = mutex.last_access;
-  curev().may_conflict = true;
 
   mutex.last_access = prefix_idx;
   mutex.locked = false;
@@ -552,6 +552,7 @@ bool RFSCTraceBuilder::mutex_destroy(const SymAddrSize &ml){
 }
 
 bool RFSCTraceBuilder::cond_init(const SymAddrSize &ml){
+  curev().may_conflict = true;
   invalid_input_error("RFSC does not support condition variables");
   return false;
   if (!record_symbolic(SymEv::CInit(ml))) return false;
@@ -559,16 +560,15 @@ bool RFSCTraceBuilder::cond_init(const SymAddrSize &ml){
     pthreads_error("Condition variable initiated twice.");
     return false;
   }
-  curev().may_conflict = true;
   cond_vars[ml.addr] = CondVar(prefix_idx);
   return true;
 }
 
 bool RFSCTraceBuilder::cond_signal(const SymAddrSize &ml){
+  curev().may_conflict = true;
   invalid_input_error("RFSC does not support condition variables");
   return false;
   if (!record_symbolic(SymEv::CSignal(ml))) return false;
-  curev().may_conflict = true;
 
   auto it = cond_vars.find(ml.addr);
   if(it == cond_vars.end()){
@@ -603,10 +603,10 @@ bool RFSCTraceBuilder::cond_signal(const SymAddrSize &ml){
 }
 
 bool RFSCTraceBuilder::cond_broadcast(const SymAddrSize &ml){
+  curev().may_conflict = true;
   invalid_input_error("RFSC does not support condition variables");
   return false;
   if (!record_symbolic(SymEv::CBrdcst(ml))) return false;
-  curev().may_conflict = true;
 
   auto it = cond_vars.find(ml.addr);
   if(it == cond_vars.end()){
@@ -628,6 +628,7 @@ bool RFSCTraceBuilder::cond_broadcast(const SymAddrSize &ml){
 }
 
 bool RFSCTraceBuilder::cond_wait(const SymAddrSize &cond_ml, const SymAddrSize &mutex_ml){
+  curev().may_conflict = true;
   invalid_input_error("RFSC does not support condition variables");
   return false;
   {
@@ -649,7 +650,6 @@ bool RFSCTraceBuilder::cond_wait(const SymAddrSize &cond_ml, const SymAddrSize &
 
   if (!mutex_unlock(mutex_ml)) return false;
   if (!record_symbolic(SymEv::CWait(cond_ml))) return false;
-  curev().may_conflict = true;
 
   IPid pid = curev().iid.get_pid();
 
@@ -665,6 +665,7 @@ bool RFSCTraceBuilder::cond_wait(const SymAddrSize &cond_ml, const SymAddrSize &
 }
 
 bool RFSCTraceBuilder::cond_awake(const SymAddrSize &cond_ml, const SymAddrSize &mutex_ml){
+  curev().may_conflict = true;
   invalid_input_error("RFSC does not support condition variables");
   return false;
   assert(cond_vars.count(cond_ml.addr));
@@ -673,18 +674,17 @@ bool RFSCTraceBuilder::cond_awake(const SymAddrSize &cond_ml, const SymAddrSize 
 
   if (!mutex_lock(mutex_ml)) return false;
   if (!record_symbolic(SymEv::CAwake(cond_ml))) return false;
-  curev().may_conflict = true;
 
   return true;
 }
 
 int RFSCTraceBuilder::cond_destroy(const SymAddrSize &ml){
+  curev().may_conflict = true;
   invalid_input_error("RFSC does not support condition variables");
   return false;
   const int err = (EBUSY == 1) ? 2 : 1; // Chose an error value different from EBUSY
   if (!record_symbolic(SymEv::CDelete(ml))) return err;
 
-  curev().may_conflict = true;
 
   auto it = cond_vars.find(ml.addr);
   if(it == cond_vars.end()){
@@ -699,9 +699,9 @@ int RFSCTraceBuilder::cond_destroy(const SymAddrSize &ml){
 }
 
 bool RFSCTraceBuilder::register_alternatives(int alt_count){
+  curev().may_conflict = true;
   invalid_input_error("RFSC does not support nondeterministic events");
   return false;
-  curev().may_conflict = true;
   if (!record_symbolic(SymEv::Nondet(alt_count))) return false;
   // if(curev().alt == 0) {
   //   for(int i = curev().alt+1; i < alt_count; ++i){
