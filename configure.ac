@@ -31,7 +31,7 @@ AX_LLVM(,[AC_MSG_FAILURE(LLVM is required.)])
 AC_SUBST(LLVMVERSION)
 CXXFLAGS="`echo " $CXXFLAGS " | sed 's/ -fno-rtti / /' | sed 's/ -fno-exceptions / /'` --std=c++14 $BOOST_CPPFLAGS"
 LDFLAGS="$LDFLAGS $BOOST_LDFLAGS"
-AC_CHECK_LIB([dl], [dlopen],[],[AC_MSG_FAILURE([Could not find library libdl.])])
+AC_SEARCH_LIBS([dlopen], [dl],[],[AC_MSG_FAILURE([Could not find library libdl.])])
 ifdef([PKG_CHECK_MODULES],[
   PKG_CHECK_MODULES([FFI], [libffi], [
     AC_DEFINE([HAVE_LIBFFI], [1], [Define to 1 if we have libffi])
