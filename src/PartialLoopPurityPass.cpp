@@ -1540,7 +1540,7 @@ namespace {
       llvm::Instruction *I = findInsertionPoint(L, conj);
       if (!I) {
         if (cl_plp_dbgp >= 1)
-          llvm::dbgs() << "Not elimiating loop purity: No valid insertion location found\n";
+          llvm::dbgs() << "Not eliminating loop purity: No valid insertion location found\n";
         continue;
       }
       if (cl_plp_dbgp >= 1) llvm::dbgs() << " Insertion point: " << *I << "\n";

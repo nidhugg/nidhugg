@@ -224,7 +224,7 @@ class RFSCDecisionTree final {
 public:
   RFSCDecisionTree(std::unique_ptr<RFSCScheduler> scheduler)
     : scheduler(std::move(scheduler)) {
-    // Initiallize the work_queue with a "root"-node
+    // Initialize the work_queue with a "root"-node
     this->scheduler->enqueue(std::make_shared<DecisionNode>());
   }
 

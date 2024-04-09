@@ -1000,7 +1000,7 @@ namespace PATB_impl{
       }
     }
 
-    /* Add brances, update relations */
+    /* Add branches, update relations */
     parameters.reserve(parameters.size() + last - first + 1);
     for(int i = first; i <= last; ++i){
       parameters.push_back(B);
@@ -1094,7 +1094,7 @@ namespace PATB_impl{
       }
     }
 
-    /* Add brances, update relations */
+    /* Add branches, update relations */
     parameters.reserve(parameters.size() + last - first + 1);
     for(int i = last; first <= i; --i){
       parameters.push_back(B);
@@ -2289,7 +2289,7 @@ namespace PATB_impl{
       default:
         throw std::logic_error("POWERARMTraceBuilder: Unknown type of parameter choice in locked branch.");
       }
-      // Add brances to get_evt(prefix[i]).new_branches except for branches[0]
+      // Add branches to get_evt(prefix[i]).new_branches except for branches[0]
       union_except_one(get_evt(prefix[i]).new_branches,branches);
       get_evt(prefix[i]).cur_branch = B;
     }
