@@ -295,8 +295,12 @@ namespace gen {
     const std::size_t alloc_size = capacity * sizeof(limb_type*)
       + bitmap_size * sizeof(bitmap_uint);
     limb_type **new_start = static_cast<limb_type **>(operator new(alloc_size));
+#if __cplusplus == 201703L
+    std::uninitialized_copy(start, start+old_capacity, new_start);
+#else
     std::copy(start, start+old_capacity,
               std::raw_storage_iterator<limb_type**, limb_type*>(new_start));
+#endif
     return new_start;
   }
   template<typename T, std::size_t limb_size>
@@ -336,8 +340,12 @@ namespace gen {
       bitmap_uint *new_bitmap = reinterpret_cast<bitmap_uint*>(new_last);
       const size_type old_bitmap_uints = bitmap_size(old_capacity);
       /* Copy bitmap from old root, clear new bits */
+#if __cplusplus == 201703L
+    std::uninitialized_copy(bitmap, bitmap+old_bitmap_uints, new_bitmap);
+#else
       std::copy(bitmap, bitmap+old_bitmap_uints,
                 std::raw_storage_iterator<bitmap_uint*, bitmap_uint>(new_bitmap));
+#endif
       for (size_type i = old_bitmap_uints; i < bitmap_uints; ++i) {
         new_bitmap[i] = 0;
       }

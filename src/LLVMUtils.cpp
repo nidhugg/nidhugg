@@ -37,11 +37,13 @@ namespace {
 
 namespace LLVMUtils {
   llvm::Type* getPthreadTType(llvm::PointerType *PthreadTPtr) {
+    //TODO: which pointers are opaque?
 #if LLVM_VERSION_MAJOR > 14
-    if (PthreadTPtr->isOpaque())
+    if(PthreadTPtr->isOpaque())
       return getLLVMType<pthread_t>()(PthreadTPtr->getContext());
-    else
+    else return PthreadTPtr->getNonOpaquePointerElementType();
+#else
+     return PthreadTPtr->getPointerElementType();
 #endif
-      return PthreadTPtr->getPointerElementType();
   }
 }

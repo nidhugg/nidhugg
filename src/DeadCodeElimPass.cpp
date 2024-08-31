@@ -43,8 +43,8 @@ namespace {
     size_t old_size;
     do {
       old_size = use.size();
-      auto &BBL = F.getBasicBlockList();
-      for (auto BBI = BBL.rbegin(); BBI != BBL.rend(); ++BBI) {
+      //TODO: Find a better solution to replace the reverse iterator
+      for (auto BBI = --F.end(); ; --BBI) {
         assert(BBI->rbegin()->isTerminator());
         assert(unsafeToDelete(*BBI->rbegin()));
         for (auto it = BBI->rbegin(); it != BBI->rend(); ++it) {
@@ -53,6 +53,7 @@ namespace {
             use.insert(I.op_begin(), I.op_end());
           }
         }
+	if(BBI == F.begin()) break;
       }
     } while(use.size() != old_size);
     return use;
@@ -63,8 +64,8 @@ bool DeadCodeElimPass::runOnFunction(llvm::Function &F) {
   size_t deleted = 0;
   UseSet use = computeUseSets(F);
 
-  auto &BBL = F.getBasicBlockList();
-  for (auto BBI = BBL.rbegin(); BBI != BBL.rend(); ++BBI) {
+  //TODO: Find a better solution to replace the reverse iterator
+  for (auto BBI = --F.end(); ; --BBI) {
     for (auto it = BBI->end(); it != BBI->begin();) {
       llvm::Instruction &I = *--it;
       if (!(unsafeToDelete(I) || use.count(&I))) {
@@ -72,6 +73,7 @@ bool DeadCodeElimPass::runOnFunction(llvm::Function &F) {
         ++deleted;
       }
     }
+    if(BBI == F.begin()) break;
   }
 
   return deleted != 0;

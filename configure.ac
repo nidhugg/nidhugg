@@ -18,9 +18,6 @@ AM_PROG_AR
 
 AC_LANG([C++])
 
-# Checks for C++14
-AX_CXX_COMPILE_STDCXX(14, [noext])
-
 AX_GIT_COMMIT
 
 # Checks for libraries
@@ -29,7 +26,8 @@ AX_BOOST_UNIT_TEST_FRAMEWORK
 AX_BOOST_SYSTEM
 AX_LLVM(,[AC_MSG_FAILURE(LLVM is required.)])
 AC_SUBST(LLVMVERSION)
-CXXFLAGS="`echo " $CXXFLAGS " | sed 's/ -fno-rtti / /' | sed 's/ -fno-exceptions / /'` --std=c++14 $BOOST_CPPFLAGS"
+
+CXXFLAGS="`echo " $CXXFLAGS " | sed 's/ -fno-rtti / /' | sed 's/ -fno-exceptions / /'` $BOOST_CPPFLAGS"
 LDFLAGS="$LDFLAGS $BOOST_LDFLAGS"
 AC_SEARCH_LIBS([dlopen], [dl],[],[AC_MSG_FAILURE([Could not find library libdl.])])
 ifdef([PKG_CHECK_MODULES],[

@@ -87,7 +87,9 @@ namespace Transform {
     llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
     llvm::initializeCore(Registry);
     llvm::initializeScalarOpts(Registry);
+#if LLVM_VERSION_MAJOR < 16
     llvm::initializeObjCARCOpts(Registry);
+#endif
     llvm::initializeVectorization(Registry);
     llvm::initializeIPO(Registry);
     llvm::initializeAnalysis(Registry);
@@ -96,7 +98,9 @@ namespace Transform {
 #endif
     llvm::initializeTransformUtils(Registry);
     llvm::initializeInstCombine(Registry);
+#if LLVM_VERSION_MAJOR < 16
     llvm::initializeInstrumentation(Registry);
+#endif
     llvm::initializeTarget(Registry);
 
 #ifdef LLVM_PASSMANAGER_TEMPLATE
