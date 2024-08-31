@@ -11,7 +11,7 @@
 
 // shared variables
 volatile int x;
-volatile args[N+1];
+volatile int args[N+1];
 
 void *thread_writer(void *unused)
 {
