@@ -30,7 +30,7 @@ AX_BOOST_SYSTEM
 AX_LLVM(,[AC_MSG_FAILURE(LLVM is required.)])
 AC_SUBST(LLVMVERSION)
 
-if test "$(printf '%s\n' '15' $(echo $LLVMVERSION | cut -c 1,2) | sort -V | head -n 1)" = '15'; then
+if test "$(printf '%s\n' '16' $(echo $LLVMVERSION | cut -c 1,2) | sort -V | head -n 1)" = '16'; then
   # Checks for C++17 for LLVM 16 or later
   AX_CXX_COMPILE_STDCXX(17, [noext])
   CXXSTD="--std=c++17"
