@@ -51,8 +51,7 @@ namespace {
 bool CastElimPass::runOnFunction(llvm::Function &F) {
   size_t eliminated = 0;
 
-  auto &BBL = F.getBasicBlockList();
-  for (auto BBI = BBL.begin(); BBI != BBL.end(); ++BBI) {
+  for (auto BBI = F.begin(); BBI != F.end(); ++BBI) {
     for (auto it = BBI->begin(), end = std::prev(BBI->end()); it != end; ++it) {
       if (auto *CI = llvm::dyn_cast<llvm::CastInst>(it)) {
         if (llvm::Value *S = findSubstitute(*CI)) {
