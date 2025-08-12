@@ -36,7 +36,7 @@ jobs:
             ubuntu: 16
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Build Nidhugg
         id: build
         uses: docker/build-push-action@v6
@@ -58,7 +58,7 @@ jobs:
             ubuntu: 22
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Build Nidhugg
         id: build
         uses: docker/build-push-action@v6
@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Build Docker Image
         id: build
         uses: docker/build-push-action@v6
@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       # This build in particular is slow, so enable caching for this one. All
       # our temp layers do not fit in github CI cache, so we have to be
       # selective.
