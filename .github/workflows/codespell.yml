@@ -8,4 +8,4 @@ jobs:
     - uses: codespell-project/actions-codespell@v2
       with:
         path: src
-        ignore_words_list: aci,curev,datas,olt,ot,pevent,te
+        ignore_words_list: aci,curev,datas,indx,olt,ot,pevent,te
