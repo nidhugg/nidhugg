@@ -2092,9 +2092,9 @@ void Interpreter::visitExtractElementInst(ExtractElementInst &I) {
   GenericValue Dest;
 
   Type *Ty = I.getType();
-  const unsigned indx = unsigned(Src2.IntVal.getZExtValue());
+  const unsigned index = unsigned(Src2.IntVal.getZExtValue());
 
-  if(Src1.AggregateVal.size() > indx) {
+  if(Src1.AggregateVal.size() > index) {
     switch (Ty->getTypeID()) {
     default:
       dbgs() << "Unhandled destination type for extractelement instruction: "
@@ -2102,13 +2102,13 @@ void Interpreter::visitExtractElementInst(ExtractElementInst &I) {
       llvm_unreachable(0);
       break;
     case Type::IntegerTyID:
-      Dest.IntVal = Src1.AggregateVal[indx].IntVal;
+      Dest.IntVal = Src1.AggregateVal[index].IntVal;
       break;
     case Type::FloatTyID:
-      Dest.FloatVal = Src1.AggregateVal[indx].FloatVal;
+      Dest.FloatVal = Src1.AggregateVal[index].FloatVal;
       break;
     case Type::DoubleTyID:
-      Dest.DoubleVal = Src1.AggregateVal[indx].DoubleVal;
+      Dest.DoubleVal = Src1.AggregateVal[index].DoubleVal;
       break;
     }
   } else {
@@ -2132,22 +2132,22 @@ void Interpreter::visitInsertElementInst(InsertElementInst &I) {
 
   Type *TyContained = Ty->getContainedType(0);
 
-  const unsigned indx = unsigned(Src3.IntVal.getZExtValue());
+  const unsigned index = unsigned(Src3.IntVal.getZExtValue());
   Dest.AggregateVal = Src1.AggregateVal;
 
-  if(Src1.AggregateVal.size() <= indx)
+  if(Src1.AggregateVal.size() <= index)
       llvm_unreachable("Invalid index in insertelement instruction");
   switch (TyContained->getTypeID()) {
     default:
       llvm_unreachable("Unhandled dest type for insertelement instruction");
     case Type::IntegerTyID:
-      Dest.AggregateVal[indx].IntVal = Src2.IntVal;
+      Dest.AggregateVal[index].IntVal = Src2.IntVal;
       break;
     case Type::FloatTyID:
-      Dest.AggregateVal[indx].FloatVal = Src2.FloatVal;
+      Dest.AggregateVal[index].FloatVal = Src2.FloatVal;
       break;
     case Type::DoubleTyID:
-      Dest.AggregateVal[indx].DoubleVal = Src2.DoubleVal;
+      Dest.AggregateVal[index].DoubleVal = Src2.DoubleVal;
       break;
   }
   SetValue(&I, Dest, SF);

@@ -1957,9 +1957,9 @@ void POWERInterpreter::visitExtractElementInst(llvm::ExtractElementInst &I) {
   llvm::GenericValue Dest;
 
   llvm::Type *Ty = I.getType();
-  const unsigned indx = unsigned(Src2.IntVal.getZExtValue());
+  const unsigned index = unsigned(Src2.IntVal.getZExtValue());
 
-  if(Src1.AggregateVal.size() > indx) {
+  if(Src1.AggregateVal.size() > index) {
     switch (Ty->getTypeID()) {
     default:
       llvm::dbgs() << "Unhandled destination type for extractelement instruction: "
@@ -1967,13 +1967,13 @@ void POWERInterpreter::visitExtractElementInst(llvm::ExtractElementInst &I) {
       llvm_unreachable(nullptr);
       break;
     case llvm::Type::IntegerTyID:
-      Dest.IntVal = Src1.AggregateVal[indx].IntVal;
+      Dest.IntVal = Src1.AggregateVal[index].IntVal;
       break;
     case llvm::Type::FloatTyID:
-      Dest.FloatVal = Src1.AggregateVal[indx].FloatVal;
+      Dest.FloatVal = Src1.AggregateVal[index].FloatVal;
       break;
     case llvm::Type::DoubleTyID:
-      Dest.DoubleVal = Src1.AggregateVal[indx].DoubleVal;
+      Dest.DoubleVal = Src1.AggregateVal[index].DoubleVal;
       break;
     }
   } else {
@@ -1996,22 +1996,22 @@ void POWERInterpreter::visitInsertElementInst(llvm::InsertElementInst &I) {
 
   llvm::Type *TyContained = Ty->getContainedType(0);
 
-  const unsigned indx = unsigned(Src3.IntVal.getZExtValue());
+  const unsigned index = unsigned(Src3.IntVal.getZExtValue());
   Dest.AggregateVal = Src1.AggregateVal;
 
-  if(Src1.AggregateVal.size() <= indx)
+  if(Src1.AggregateVal.size() <= index)
     llvm_unreachable("Invalid index in insertelement instruction");
   switch (TyContained->getTypeID()) {
   default:
     llvm_unreachable("Unhandled dest type for insertelement instruction");
   case llvm::Type::IntegerTyID:
-    Dest.AggregateVal[indx].IntVal = Src2.IntVal;
+    Dest.AggregateVal[index].IntVal = Src2.IntVal;
     break;
   case llvm::Type::FloatTyID:
-    Dest.AggregateVal[indx].FloatVal = Src2.FloatVal;
+    Dest.AggregateVal[index].FloatVal = Src2.FloatVal;
     break;
   case llvm::Type::DoubleTyID:
-    Dest.AggregateVal[indx].DoubleVal = Src2.DoubleVal;
+    Dest.AggregateVal[index].DoubleVal = Src2.DoubleVal;
     break;
   }
   setCurInstrValue(Dest);
