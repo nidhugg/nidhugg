@@ -1,4 +1,4 @@
-FROM ubuntu:18.04 as build
+FROM ubuntu:18.04 AS build
 
 RUN \
     apt-get update && \

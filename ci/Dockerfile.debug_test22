@@ -1,4 +1,4 @@
-FROM ubuntu:22.04 as build
+FROM ubuntu:22.04 AS build
 ARG LLVM_VERSION=15.0.3
 
 # COPY ci/install_deps.sh /ci/
@@ -57,4 +57,5 @@ RUN \
       || (cat config.log; false)) && \
      make -Csrc -j`nproc` all unittest"
 
+SHELL ["/bin/bash", "-c"]
 CMD make -C /nidhugg -j3 test
