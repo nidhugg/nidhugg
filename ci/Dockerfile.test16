@@ -1,4 +1,4 @@
-FROM ubuntu:16.04 as build
+FROM ubuntu:16.04 AS build
 ARG LLVM_VERSION=5.0.2
 ARG DOWNLOAD_BOOST=1.65.1
 
@@ -37,4 +37,5 @@ RUN \
      make -Csrc -j`nproc` all unittest"
 
 ENV LD_LIBRARY_PATH=/opt/boost/lib/
+SHELL ["/bin/bash", "-c"]
 CMD make -C /nidhugg -j3 test

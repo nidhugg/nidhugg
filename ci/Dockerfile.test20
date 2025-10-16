@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 as build
+FROM ubuntu:20.04 AS build
 ARG LLVM_VERSION=13.0.0
 
 COPY ci/install_deps.sh /ci/
@@ -36,4 +36,5 @@ RUN \
       ./configure --prefix=/usr/local/ --with-llvm=/opt/clang+llvm-$LLVM_VERSION || (cat config.log; false)) && \
      make -Csrc -j`nproc` all unittest"
 
+SHELL ["/bin/bash", "-c"]
 CMD make -C /nidhugg -j3 test
