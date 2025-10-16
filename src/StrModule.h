@@ -26,11 +26,7 @@
 
 #include <string>
 
-#if defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
-#elif defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#endif
 
 namespace StrModule {
 

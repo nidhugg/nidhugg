@@ -28,16 +28,8 @@
 #include "Transform.h"
 #include "llvm/IR/LLVMContext.h"
 
-#if defined(HAVE_LLVM_ANALYSIS_VERIFIER_H)
-#include <llvm/Analysis/Verifier.h>
-#elif defined(HAVE_LLVM_IR_VERIFIER_H)
-#include <llvm/IR/Verifier.h>
-#endif
-#if defined(HAVE_LLVM_PASSMANAGER_H)
-#include <llvm/PassManager.h>
-#elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
 #include <llvm/IR/PassManager.h>
-#endif
+#include <llvm/IR/Verifier.h>
 #if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H) && defined(LLVM_PASSMANAGER_TEMPLATE)
 #include <llvm/IR/LegacyPassManager.h>
 #endif

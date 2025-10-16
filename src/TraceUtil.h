@@ -32,11 +32,8 @@
 #include <string>
 
 #include "Trace.h"
-#if defined(HAVE_LLVM_IR_METADATA_H)
+
 #include <llvm/IR/Metadata.h>
-#elif defined(HAVE_LLVM_METADATA_H)
-#include <llvm/Metadata.h>
-#endif
 
 namespace TraceUtil {
   /* Attempt to find the directory, file name and line number

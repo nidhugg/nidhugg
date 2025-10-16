@@ -24,11 +24,7 @@
 #include "StrModule.h"
 #include "Transform.h"
 
-#if defined(HAVE_LLVM_ANALYSIS_VERIFIER_H)
-#include <llvm/Analysis/Verifier.h>
-#elif defined(HAVE_LLVM_IR_VERIFIER_H)
 #include <llvm/IR/Verifier.h>
-#endif
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
 

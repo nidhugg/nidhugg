@@ -24,23 +24,11 @@
 #include <memory>
 #include <stdexcept>
 
-#if defined(HAVE_LLVM_IR_CONSTANTS_H)
 #include <llvm/IR/Constants.h>
-#elif defined(HAVE_LLVM_CONSTANTS_H)
-#include <llvm/Constants.h>
-#endif
-#if defined(HAVE_LLVM_IR_INSTRUCTIONS_H)
 #include <llvm/IR/Instructions.h>
-#elif defined(HAVE_LLVM_INSTRUCTIONS_H)
-#include <llvm/Instructions.h>
-#endif
+#include <llvm/Linker/Linker.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
-#if defined(HAVE_LLVM_LINKER_H)
-#include <llvm/Linker.h>
-#elif defined(HAVE_LLVM_LINKER_LINKER_H)
-#include <llvm/Linker/Linker.h>
-#endif
 
 void AddLibPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
 }

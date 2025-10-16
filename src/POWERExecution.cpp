@@ -39,36 +39,12 @@
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/Statistic.h>
 #include <llvm/CodeGen/IntrinsicLowering.h>
-#if defined(HAVE_LLVM_IR_CONSTANTS_H)
 #include <llvm/IR/Constants.h>
-#elif defined(HAVE_LLVM_CONSTANTS_H)
-#include <llvm/Constants.h>
-#endif
-#if defined(HAVE_LLVM_IR_DERIVEDTYPES_H)
 #include <llvm/IR/DerivedTypes.h>
-#elif defined(HAVE_LLVM_DERIVEDTYPES_H)
-#include <llvm/DerivedTypes.h>
-#endif
-#if defined(HAVE_LLVM_SUPPORT_GETELEMENTPTRTYPEITERATOR_H)
-#include <llvm/Support/GetElementPtrTypeIterator.h>
-#elif defined(HAVE_LLVM_IR_GETELEMENTPTRTYPEITERATOR_H)
 #include <llvm/IR/GetElementPtrTypeIterator.h>
-#endif
-#if defined(HAVE_LLVM_IR_INLINEASM_H)
 #include <llvm/IR/InlineAsm.h>
-#elif defined(HAVE_LLVM_INLINEASM_H)
-#include <llvm/InlineAsm.h>
-#endif
-#if defined(HAVE_LLVM_IR_INSTRUCTIONS_H)
 #include <llvm/IR/Instructions.h>
-#elif defined(HAVE_LLVM_INSTRUCTIONS_H)
-#include <llvm/Instructions.h>
-#endif
-#if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
-#elif defined(HAVE_LLVM_LLVMCONTEXT_H)
-#include <llvm/LLVMContext.h>
-#endif
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/ErrorHandling.h>

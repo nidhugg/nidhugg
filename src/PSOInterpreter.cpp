@@ -20,11 +20,7 @@
 #include "Debug.h"
 #include "PSOInterpreter.h"
 
-#if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
-#elif defined(HAVE_LLVM_LLVMCONTEXT_H)
-#include <llvm/LLVMContext.h>
-#endif
 
 #include <utility>
 
