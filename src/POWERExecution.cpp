@@ -2645,7 +2645,13 @@ void POWERInterpreter::registerOperand(int proc, FetchedInstruction &FI, int idx
       llvm::Type *ty =
         FI.I.getOperand(idx)->getType();
       assert(ty->isPointerTy());
+#if LLVM_VERSION_MAJOR > 15
+      if(ty->isOpaquePointerTy()){
+	ty = llvm::PointerType::get(llvm::cast<llvm::PointerType>(ty)->getContext(), 0);
+      } else ty = llvm::cast<llvm::PointerType>(ty)->getNonOpaquePointerElementType();
+#else
       ty = llvm::cast<llvm::PointerType>(ty)->getPointerElementType();
+#endif
       TB.register_addr({proc,FI.EventIndex},FI.Operands[idx].IsAddrOf,
                        GetMRef(addr,ty));
     }
