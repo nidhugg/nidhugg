@@ -76,7 +76,7 @@ if [ -n "$DOWNLOAD_BOOST" ]; then
         BOOST_VER_UNDERSCORED=`echo "$DOWNLOAD_BOOST" | tr . _`
         BOOST_DIR=boost_$BOOST_VER_UNDERSCORED
         BOOST_FILE=$BOOST_DIR.tar.gz
-        BOOST_URL=https://boostorg.jfrog.io/artifactory/main/release/$DOWNLOAD_BOOST/source/$BOOST_FILE
+        BOOST_URL=https://archives.boost.io/release/$DOWNLOAD_BOOST/source/$BOOST_FILE
         mkdir -p /opt/boost
 
         echo "Downloading Boost"
