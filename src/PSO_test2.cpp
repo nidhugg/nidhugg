@@ -18,14 +18,15 @@
  */
 
 #include <config.h>
+
+#include <cstdint>
+
 #ifdef HAVE_BOOST_UNIT_TEST_FRAMEWORK
+#include <boost/test/unit_test.hpp>
 
 #include "DPORDriver.h"
 #include "DPORDriver_test.h"
 #include "StrModule.h"
-
-#include <boost/test/unit_test.hpp>
-#include <cstdint>
 
 BOOST_AUTO_TEST_SUITE(PSO_test)
 

@@ -19,6 +19,19 @@
 
 #include "DPORDriver.h"
 
+#include <llvm/IRReader/IRReader.h>
+#include <llvm/Support/DynamicLibrary.h>
+#include <llvm/Support/Host.h>
+#include <llvm/Support/MemoryBuffer.h>
+#include <llvm/Support/SourceMgr.h>
+
+#include <cfloat>
+#include <fstream>
+#include <iomanip>
+#include <queue>
+#include <stdexcept>
+#include <thread>
+
 #include "CheckModule.h"
 #include "Debug.h"
 #include "Interpreter.h"
@@ -32,19 +45,6 @@
 #include "RFSCTraceBuilder.h"
 #include "RFSCUnfoldingTree.h"
 #include "Cpubind.h"
-
-#include <cfloat>
-#include <fstream>
-#include <iomanip>
-#include <queue>
-#include <stdexcept>
-#include <thread>
-
-#include <llvm/IRReader/IRReader.h>
-#include <llvm/Support/DynamicLibrary.h>
-#include <llvm/Support/Host.h>
-#include <llvm/Support/MemoryBuffer.h>
-#include <llvm/Support/SourceMgr.h>
 
 namespace {
   const char ESC_char = 27;

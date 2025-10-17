@@ -17,8 +17,6 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#include <config.h>
-
 #include "CastElimPass.h"
 
 #include <llvm/ADT/SmallPtrSet.h>

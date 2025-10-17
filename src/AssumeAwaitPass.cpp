@@ -17,11 +17,11 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#include <config.h>
+#include "AssumeAwaitPass.h"
 
-#include <string>
-#include <utility>
-#include <vector>
+#include "AwaitCond.h"
+#include "Debug.h"
+#include "SpinAssumePass.h"
 
 #include <llvm/Config/llvm-config.h>
 #include <llvm/Analysis/LoopPass.h>
@@ -58,11 +58,8 @@
 #include <llvm/Support/Debug.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
-// #include "CheckModule.h"
-#include "AssumeAwaitPass.h"
-#include "SpinAssumePass.h"
-#include "AwaitCond.h"
-#include "Debug.h"
+#include <string>
+#include <vector>
 
 #ifdef LLVM_HAS_ATTRIBUTELIST
 typedef llvm::AttributeList AttributeList;

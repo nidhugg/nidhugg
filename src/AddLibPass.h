@@ -22,11 +22,11 @@
 #ifndef __ADD_LIB_PASS_H__
 #define __ADD_LIB_PASS_H__
 
-#include <string>
-#include <vector>
-
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
+
+#include <string>
+#include <vector>
 
 /* AddLibPass adds source code definitions for some library functions
  * to the module.
