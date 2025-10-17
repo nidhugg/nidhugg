@@ -21,6 +21,7 @@
 #ifndef __GEN_HASH_H__
 #define __GEN_HASH_H__
 
+#include <cstdint>
 #include <functional>
 
 namespace gen {
