@@ -27,31 +27,11 @@
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/LoopPass.h>
-#if defined(HAVE_LLVM_IR_DOMINATORS_H)
 #include <llvm/IR/Dominators.h>
-#elif defined(HAVE_LLVM_ANALYSIS_DOMINATORS_H)
-#include <llvm/Analysis/Dominators.h>
-#endif
-#if defined(HAVE_LLVM_IR_FUNCTION_H)
 #include <llvm/IR/Function.h>
-#elif defined(HAVE_LLVM_FUNCTION_H)
-#include <llvm/Function.h>
-#endif
-#if defined(HAVE_LLVM_IR_INSTRUCTIONS_H)
 #include <llvm/IR/Instructions.h>
-#elif defined(HAVE_LLVM_INSTRUCTIONS_H)
-#include <llvm/Instructions.h>
-#endif
-#if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
-#elif defined(HAVE_LLVM_LLVMCONTEXT_H)
-#include <llvm/LLVMContext.h>
-#endif
-#if defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
-#elif defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#endif
 #if defined(HAVE_LLVM_SUPPORT_CALLSITE_H)
 #include <llvm/Support/CallSite.h>
 #elif defined(HAVE_LLVM_IR_CALLSITE_H)

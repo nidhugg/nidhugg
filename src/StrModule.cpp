@@ -21,29 +21,19 @@
 #include "nregex.h"
 #include "StrModule.h"
 
-#if defined(HAVE_LLVM_ASSEMBLY_PRINTMODULEPASS_H)
-#include <llvm/Assembly/PrintModulePass.h>
-#elif defined(HAVE_LLVM_IR_IRPRINTINGPASSES_H)
 #include <llvm/IR/IRPrintingPasses.h>
-#endif
-#include <llvm/IRReader/IRReader.h>
-#if defined(HAVE_LLVM_PASSMANAGER_H)
-#include <llvm/PassManager.h>
-#elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
 #include <llvm/IR/PassManager.h>
-#endif
+#include <llvm/IRReader/IRReader.h>
 #if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H) && defined(LLVM_PASSMANAGER_TEMPLATE)
 #include <llvm/IR/LegacyPassManager.h>
 #endif
+#include <llvm/Support/ErrorOr.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/SourceMgr.h>
 #if defined(HAVE_LLVM_SUPPORT_SYSTEM_ERROR_H)
 #include <llvm/Support/system_error.h>
-#endif
-#if defined(HAVE_LLVM_SUPPORT_ERROROR_H)
-#include <llvm/Support/ErrorOr.h>
 #endif
 #include <llvm/Pass.h>
 

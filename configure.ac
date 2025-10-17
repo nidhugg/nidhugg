@@ -248,13 +248,32 @@ AC_CHECK_HEADERS([ \
   llvm/CodeGen/IntrinsicLowering.h \
   llvm/ExecutionEngine/ExecutionEngine.h \
   llvm/ExecutionEngine/GenericValue.h \
+  llvm/IR/Constants.h \
+  llvm/IR/DataLayout.h \
+  llvm/IR/DebugInfo.h \
+  llvm/IR/DerivedTypes.h \
+  llvm/IR/Dominators.h \
+  llvm/IR/Function.h \
+  llvm/IR/GetElementPtrTypeIterator.h \
+  llvm/IR/InlineAsm.h \
+  llvm/IR/Instructions.h \
+  llvm/IR/InstVisitor.h \
+  llvm/IR/IRPrintingPasses.h \
+  llvm/IR/LLVMContext.h \
+  llvm/IR/Metadata.h \
+  llvm/IR/Module.h \
+  llvm/IR/PassManager.h \
+  llvm/IR/Type.h \
+  llvm/IR/Verifier.h \
   llvm/IRReader/IRReader.h \
+  llvm/Linker/Linker.h \
   llvm/Pass.h \
   llvm/Support/CommandLine.h \
   llvm/Support/DataTypes.h \
   llvm/Support/Debug.h \
   llvm/Support/DynamicLibrary.h \
   llvm/Support/ErrorHandling.h \
+  llvm/Support/ErrorOr.h \
   llvm/Support/FileSystem.h \
   llvm/Support/Host.h \
   llvm/Support/ManagedStatic.h \
@@ -267,26 +286,7 @@ AC_CHECK_HEADERS([ \
   llvm/Transforms/Utils/Cloning.h
 ],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 
-AC_CHECK_HEADERS_ALT([llvm/Constants.h llvm/IR/Constants.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/DataLayout.h llvm/IR/DataLayout.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/DebugInfo.h llvm/Analysis/DebugInfo.h llvm/IR/DebugInfo.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/DerivedTypes.h llvm/IR/DerivedTypes.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/IR/Dominators.h llvm/Analysis/Dominators.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/Function.h llvm/IR/Function.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/Support/GetElementPtrTypeIterator.h llvm/IR/GetElementPtrTypeIterator.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/InlineAsm.h llvm/IR/InlineAsm.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/Instructions.h llvm/IR/Instructions.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/InstVisitor.h llvm/IR/InstVisitor.h llvm/Support/InstVisitor.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/Linker.h llvm/Linker/Linker.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/LLVMContext.h llvm/IR/LLVMContext.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/Metadata.h llvm/IR/Metadata.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/Module.h llvm/IR/Module.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/PassManager.h llvm/IR/PassManager.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/Type.h llvm/IR/Type.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/Assembly/PrintModulePass.h llvm/IR/IRPrintingPasses.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/Analysis/Verifier.h llvm/IR/Verifier.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],AC_INCLUDES_DEFAULT[])
 AC_CHECK_HEADERS_ALT([llvm/Support/Dwarf.h llvm/BinaryFormat/Dwarf.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],AC_INCLUDES_DEFAULT[])
-AC_CHECK_HEADERS_ALT([llvm/Support/ErrorOr.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS([llvm/Support/system_error.h],[],[],[AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS([llvm/Transforms/Utils.h],[],[],[AC_INCLUDES_DEFAULT]) # llvm >= 7
 
@@ -303,20 +303,12 @@ AC_CHECK_HEADERS([ \
 ## Check which method in llvm::Module returns the data layout string
 AC_MSG_CHECKING([for llvm::Module::getDataLayoutStr])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#elif defined(HAVE_LLVM_IR_MODULE_H)
-#include <llvm/IR/Module.h>
-#endif
-#if defined(HAVE_LLVM_LLVMCONTEXT_H)
-#include <llvm/LLVMContext.h>
-#elif defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
-#endif
+#include <llvm/IR/Module.h>
 ]],[[
-          llvm::Module *M = 0;
-          std::string s = M->getDataLayoutStr();
-        ]])],
+  llvm::Module *M = 0;
+  std::string s = M->getDataLayoutStr();
+]])],
         [AC_DEFINE([LLVM_MODULE_GET_DATA_LAYOUT_STRING],[getDataLayoutStr],
             [The name of the method in llvm::Module which returns the data layout string.])
          AC_MSG_RESULT([getDataLayoutStr])
@@ -329,16 +321,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check the signature of llvm::Module::materializeAllPermanently
 AC_MSG_CHECKING([for llvm::Module::MaterializeAllPermanently])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#elif defined(HAVE_LLVM_IR_MODULE_H)
-#include <llvm/IR/Module.h>
-#endif
-#if defined(HAVE_LLVM_LLVMCONTEXT_H)
-#include <llvm/LLVMContext.h>
-#elif defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
-#endif
+#include <llvm/IR/Module.h>
 ]],[[
   llvm::Module *M = 0;
   std::error_code ec = M->materializeAllPermanently();
@@ -349,11 +333,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
            ],
            [
    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
 #elif defined(HAVE_LLVM_IR_MODULE_H)
-#include <llvm/IR/Module.h>
-#endif
 ]],[[
   llvm::Module *M = 0;
   std::string *s = 0;
@@ -368,11 +348,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
    AC_MSG_CHECKING([the signature of llvm::Module::materializeAll])
    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <llvm/Support/Error.h>
-#if defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#elif defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
-#endif
 ]],[[
   llvm::Module *M = 0;
   llvm::Error Err = M->materializeAll();
@@ -386,11 +362,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check if AtomicOrdering is an enum class
 AC_MSG_CHECKING([whether AtomicOrdering is an enum class])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_INSTRUCTIONS_H)
-#include <llvm/Instructions.h>
-#elif defined(HAVE_LLVM_IR_INSTRUCTIONS_H)
 #include <llvm/IR/Instructions.h>
-#endif
 ]],[[
   llvm::AtomicOrdering o = llvm::SequentiallyConsistent;
 ]])],
@@ -405,11 +377,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check if AtomicCmpXchg has separate success and failure orderings
 AC_MSG_CHECKING([for success/failure orderings of llvm::AtomicCmpXchgInst])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_INSTRUCTIONS_H)
-#include <llvm/Instructions.h>
-#elif defined(HAVE_LLVM_IR_INSTRUCTIONS_H)
 #include <llvm/IR/Instructions.h>
-#endif
 ]],[[
   llvm::AtomicCmpXchgInst *I = nullptr;
   I->getSuccessOrdering();
@@ -423,11 +391,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check if DominatorTrees should be generated by a wrapper pass
 AC_MSG_CHECKING([for llvm::DominatorTreeWrapperPass])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_IR_DOMINATORS_H)
 #include <llvm/IR/Dominators.h>
-#elif defined(HAVE_LLVM_ANALYSIS_DOMINATORS_H)
-#include <llvm/Analysis/Dominators.h>
-#endif
 ]],[[
   return llvm::DominatorTreeWrapperPass::ID;
 ]])],
@@ -447,8 +411,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <llvm/Support/system_error.h>
 ]],[[
   llvm::OwningPtr<llvm::MemoryBuffer> buf;
-  llvm::error_code ec =
-    llvm::MemoryBuffer::getFile("",buf);
+  llvm::error_code ec = llvm::MemoryBuffer::getFile("",buf);
 ]])],
            [AC_DEFINE([LLVM_MEMORY_BUFFER_GET_FILE_OWNINGPTR_ARG],[1],
             [Define if llvm::MemoryBuffer::getFile takes an OwningPtr as an output argument.])
@@ -459,11 +422,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check the signature of createPrintModulePass
 AC_MSG_CHECKING([signature of llvm::createPrintModulePass])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_ASSEMBLY_PRINTMODULEPASS_H)
-#include <llvm/Assembly/PrintModulePass.h>
-#elif defined(HAVE_LLVM_IR_IRPRINTINGPASSES_H)
 #include <llvm/IR/IRPrintingPasses.h>
-#endif
 ]],[[
   createPrintModulePass((llvm::raw_ostream*)0);
 ]])],
@@ -520,14 +479,10 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check the signature of llvm::ParseIR
 AC_MSG_CHECKING([for llvm::ParseIR])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/IR/LLVMContext.h>
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/SourceMgr.h>
-#if defined(HAVE_LLVM_LLVMCONTEXT_H)
-#include <llvm/LLVMContext.h>
-#elif defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
-#include <llvm/IR/LLVMContext.h>
-#endif
 ]],[[
   llvm::SMDiagnostic err;
   llvm::LLVMContext ctx;
@@ -545,8 +500,7 @@ AC_MSG_CHECKING([for return type of llvm::MemoryBuffer::getMemBuffer])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <llvm/Support/MemoryBuffer.h>
 ]],[[
-  llvm::MemoryBuffer *b =
-    llvm::MemoryBuffer::getMemBuffer("");
+  llvm::MemoryBuffer *b = llvm::MemoryBuffer::getMemBuffer("");
 ]])],
         [AC_DEFINE([LLVM_GETMEMBUFFER_RET_PTR],[1],
          [Define if llvm::MemoryBuffer::getMemBuffer returns a pointer.])
@@ -589,37 +543,29 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check whether llvm::ParseIR takes ownership of its buffer
 AC_MSG_CHECKING([whether llvm::ParseIR takes ownership of buffer])
 AC_RUN_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/Support/MemoryBuffer.h>
-#include <llvm/IRReader/IRReader.h>
-#include <llvm/Support/SourceMgr.h>
-#if defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#elif defined(HAVE_LLVM_IR_MODULE_H)
-#include <llvm/IR/Module.h>
-#endif
-#if defined(HAVE_LLVM_LLVMCONTEXT_H)
-#include <llvm/LLVMContext.h>
-#elif defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
-#endif
+#include <llvm/IR/Module.h>
+#include <llvm/IRReader/IRReader.h>
+#include <llvm/Support/MemoryBuffer.h>
+#include <llvm/Support/SourceMgr.h>
 ]],[[
-    llvm::Module *mod;
-    llvm::SMDiagnostic err;
-    llvm::MemoryBuffer *buf =
+  llvm::Module *mod;
+  llvm::SMDiagnostic err;
+  llvm::MemoryBuffer *buf =
 #ifdef LLVM_GETMEMBUFFER_RET_PTR
-      llvm::MemoryBuffer::getMemBuffer("","",false);
+    llvm::MemoryBuffer::getMemBuffer("","",false);
 #else
-      llvm::MemoryBuffer::getMemBuffer("","",false).release();
+    llvm::MemoryBuffer::getMemBuffer("","",false).release();
 #endif
-    llvm::LLVMContext ctx;
+  llvm::LLVMContext ctx;
 #ifdef LLVM_PARSE_IR_MEMBUF_PTR
-    mod = llvm::ParseIR(buf,err,ctx);
+  mod = llvm::ParseIR(buf,err,ctx);
 #else
-    mod = llvm::parseIR(buf->getMemBufferRef(),err,ctx).release();
+  mod = llvm::parseIR(buf->getMemBufferRef(),err,ctx).release();
 #endif
-    delete buf;
-    delete mod;
-    return 0;
+  delete buf;
+  delete mod;
+  return 0;
 ]])],
         [AC_MSG_RESULT([no])],
         [AC_DEFINE([LLVM_PARSE_IR_TAKES_OWNERSHIP],[1],
@@ -645,11 +591,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check whether llvm::MDNode::getOperand returns an llvm::Value
 AC_MSG_CHECKING([for llvm::MDNode::getOperand return type])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_IR_METADATA_H)
 #include <llvm/IR/Metadata.h>
-#elif defined(HAVE_LLVM_METADATA_H)
-#include <llvm/Metadata.h>
-#endif
 ]],[[
   llvm::MDNode *n = 0;
   llvm::Value *v = n->getOperand(0);
@@ -665,12 +607,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check the metadata version number for LLVM
 AC_MSG_CHECKING([the LLVM metadata version number])
 AC_RUN_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_IR_METADATA_H)
-#include <llvm/IR/Metadata.h>
-#elif defined(HAVE_LLVM_METADATA_H)
-#include <llvm/Metadata.h>
-#endif
 #include <iostream>
+#include <llvm/IR/Metadata.h>
 ]],[[
   std::cout << llvm::DEBUG_METADATA_VERSION << std::endl;
 ]])],
@@ -689,36 +627,18 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[
 ## Check if llvm.dbg.declare should take two arguments (or three)
 AC_MSG_CHECKING([for number of arguments to llvm.dbg.declare])
 AC_RUN_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_ASSEMBLY_PRINTMODULEPASS_H)
-#include <llvm/Assembly/PrintModulePass.h>
-#elif defined(HAVE_LLVM_IR_IRPRINTINGPASSES_H)
 #include <llvm/IR/IRPrintingPasses.h>
-#endif
-#if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
-#elif defined(HAVE_LLVM_LLVMCONTEXT_H)
-#include <llvm/LLVMContext.h>
-#endif
-#include <llvm/IRReader/IRReader.h>
-#if defined(HAVE_LLVM_PASSMANAGER_H)
-#include <llvm/PassManager.h>
-#elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
+#include <llvm/IR/Module.h>
 #include <llvm/IR/PassManager.h>
-#endif
+#include <llvm/IRReader/IRReader.h>
+#include <llvm/Support/ErrorOr.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/SourceMgr.h>
 #if defined(HAVE_LLVM_SUPPORT_SYSTEM_ERROR_H)
 #include <llvm/Support/system_error.h>
-#endif
-#if defined(HAVE_LLVM_SUPPORT_ERROROR_H)
-#include <llvm/Support/ErrorOr.h>
-#endif
-#if defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#elif defined(HAVE_LLVM_IR_MODULE_H)
-#include <llvm/IR/Module.h>
 #endif
 ]],[[
 #ifdef LLVM_METADATA_IS_VALUE
@@ -800,11 +720,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Checking if llvm::PassManager requires a template argument
 AC_MSG_CHECKING([if llvm::PassManager requires a template argument])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_PASSMANAGER_H)
-#include <llvm/PassManager.h>
-#elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
 #include <llvm/IR/PassManager.h>
-#endif
 ]],[[
   llvm::PassManager PM;
 ]])],
@@ -817,13 +733,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Checking if an llvm::DILocation is an llvm::MDNode
 AC_MSG_CHECKING([if an llvm::DILocation is an llvm::MDNode])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_DEBUGINFO_H)
-#include <llvm/DebugInfo.h>
-#elif defined(HAVE_LLVM_IR_DEBUGINFO_H)
 #include <llvm/IR/DebugInfo.h>
-#elif defined(HAVE_LLVM_ANALYSIS_DEBUGINFO_H)
-#include <llvm/Analysis/DebugInfo.h>
-#endif
 ]],[[
   llvm::MDNode *m = 0;
   llvm::DILocation *l = static_cast<llvm::DILocation*>(m);
@@ -836,13 +746,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Checking if llvm::DILocation::getLineNumber is a method.
 AC_MSG_CHECKING([if llvm::DILocation::getLineNumber is a method.])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_DEBUGINFO_H)
-#include <llvm/DebugInfo.h>
-#elif defined(HAVE_LLVM_IR_DEBUGINFO_H)
 #include <llvm/IR/DebugInfo.h>
-#elif defined(HAVE_LLVM_ANALYSIS_DEBUGINFO_H)
-#include <llvm/Analysis/DebugInfo.h>
-#endif
 ]],[[
   llvm::DILocation *l;
   l->getLineNumber();
@@ -881,36 +785,18 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check if loads in assembly should explicitly state their return type
 AC_MSG_CHECKING([if assembly loads explicitly state their return type])
 AC_RUN_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_ASSEMBLY_PRINTMODULEPASS_H)
-#include <llvm/Assembly/PrintModulePass.h>
-#elif defined(HAVE_LLVM_IR_IRPRINTINGPASSES_H)
 #include <llvm/IR/IRPrintingPasses.h>
-#endif
-#if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
-#elif defined(HAVE_LLVM_LLVMCONTEXT_H)
-#include <llvm/LLVMContext.h>
-#endif
-#include <llvm/IRReader/IRReader.h>
-#if defined(HAVE_LLVM_PASSMANAGER_H)
-#include <llvm/PassManager.h>
-#elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
+#include <llvm/IR/Module.h>
 #include <llvm/IR/PassManager.h>
-#endif
+#include <llvm/IRReader/IRReader.h>
+#include <llvm/Support/ErrorOr.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/SourceMgr.h>
 #if defined(HAVE_LLVM_SUPPORT_SYSTEM_ERROR_H)
 #include <llvm/Support/system_error.h>
-#endif
-#if defined(HAVE_LLVM_SUPPORT_ERROROR_H)
-#include <llvm/Support/ErrorOr.h>
-#endif
-#if defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#elif defined(HAVE_LLVM_IR_MODULE_H)
-#include <llvm/IR/Module.h>
 #endif
 ]],[[
   std::string src = R"(
@@ -943,11 +829,7 @@ define i8* @p(i8* %arg){
 
 AC_MSG_CHECKING([for llvm::Linker constructor parameter type])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_LINKER_H)
-#include <llvm/Linker.h>
-#elif defined(HAVE_LLVM_LINKER_LINKER_H)
 #include <llvm/Linker/Linker.h>
-#endif
 ]],[[
   llvm::Module *M = 0;
   llvm::Linker lnk(M);
@@ -960,16 +842,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check the signature of Linker::linkInModule
 AC_MSG_CHECKING([the signature of Linker::linkInModule])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#elif defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
-#endif
-#if defined(HAVE_LLVM_LINKER_H)
-#include <llvm/Linker.h>
-#elif defined(HAVE_LLVM_LINKER_LINKER_H)
 #include <llvm/Linker/Linker.h>
-#endif
 ]],[[
   llvm::Linker *lnk = 0;
   bool b = lnk->linkInModule((llvm::Module*)0);
@@ -983,16 +857,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 
 if test "x$LLVM_LINKER_LINKINMODULE_PTR_BOOL" != 'xyes'; then
    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#elif defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
-#endif
-#if defined(HAVE_LLVM_LINKER_H)
-#include <llvm/Linker.h>
-#elif defined(HAVE_LLVM_LINKER_LINKER_H)
 #include <llvm/Linker/Linker.h>
-#endif
 ]],[[
   llvm::Linker *lnk = 0;
   bool b = lnk->linkInModule(std::unique_ptr<llvm::Module>((llvm::Module*)0));
@@ -1049,16 +915,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check if initializeIPA exists
 AC_MSG_CHECKING([for llvm::initializeIPA])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_ANALYSIS_VERIFIER_H)
-#include <llvm/Analysis/Verifier.h>
-#elif defined(HAVE_LLVM_IR_VERIFIER_H)
-#include <llvm/IR/Verifier.h>
-#endif
-#if defined(HAVE_LLVM_PASSMANAGER_H)
-#include <llvm/PassManager.h>
-#elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
 #include <llvm/IR/PassManager.h>
-#endif
+#include <llvm/IR/Verifier.h>
 #if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H) && defined(LLVM_PASSMANAGER_TEMPLATE)
 #include <llvm/IR/LegacyPassManager.h>
 #endif
@@ -1103,11 +961,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check whether llvm:gep_type_iterator uses the new API
 AC_MSG_CHECKING([whether llvm:gep_type_iterator uses the new API])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_SUPPORT_GETELEMENTPTRTYPEITERATOR_H)
-#include <llvm/Support/GetElementPtrTypeIterator.h>
-#elif defined(HAVE_LLVM_IR_GETELEMENTPTRTYPEITERATOR_H)
 #include <llvm/IR/GetElementPtrTypeIterator.h>
-#endif
 ]],[[
   llvm::gep_type_iterator *I = 0;
   llvm::StructType *STy = I->getStructTypeOrNull();
@@ -1120,11 +974,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check whether functions use llvm::AttributeList
 AC_MSG_CHECKING([whether functions use llvm::AttributeList])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
-#elif defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#endif
 ]],[[
   llvm::Module *M = nullptr;
   llvm::AttributeList assumeAttrs =
@@ -1139,11 +989,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check whether llvm::SwitchInst::CaseIt needs dereference
 AC_MSG_CHECKING([whether llvm::SwitchInst::CaseIt needs dereference])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_IR_INSTRUCTIONS_H)
 #include <llvm/IR/Instructions.h>
-#elif defined(HAVE_LLVM_INSTRUCTIONS_H)
-#include <llvm/Instructions.h>
-#endif
 ]],[[
   llvm::SwitchInst::CaseIt *i = nullptr;
   (*i)->getCaseValue();
@@ -1156,11 +1002,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check whether the llvm::TerminatorInst class exists (LLVM<8)
 AC_MSG_CHECKING([for llvm::TerminatorInst])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_IR_INSTRUCTIONS_H)
 #include <llvm/IR/Instructions.h>
-#elif defined(HAVE_LLVM_INSTRUCTIONS_H)
-#include <llvm/Instructions.h>
-#endif
 ]],[[
   llvm::TerminatorInst *I = nullptr;
 ]])],
@@ -1172,11 +1014,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check whether the class llvm::CallBase exists (LLVM>=7)
 AC_MSG_CHECKING([for class llvm::CallBase])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_IR_INSTRUCTIONS_H)
 #include <llvm/IR/Instructions.h>
-#elif defined(HAVE_LLVM_INSTRUCTIONS_H)
-#include <llvm/Instructions.h>
-#endif
 ]],[[
   llvm::CallInst *CI = nullptr;
   llvm::CallBase *CB = CI;
@@ -1190,11 +1028,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check whether we have TypeIDs for scalable vector types (LLVM>=11)
 AC_MSG_CHECKING([for llvm vector TypeIDs])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_IR_INSTRUCTIONS_H)
 #include <llvm/IR/Instructions.h>
-#elif defined(HAVE_LLVM_INSTRUCTIONS_H)
-#include <llvm/Instructions.h>
-#endif
 ]],[[
   llvm::Type *T = nullptr;
   bool isVector = T->getTypeID() == llvm::Type::VectorTyID;

@@ -19,11 +19,7 @@
 
 #include <config.h>
 
-#if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
-#elif defined(HAVE_LLVM_LLVMCONTEXT_H)
-#include <llvm/LLVMContext.h>
-#endif
 
 #ifndef __GLOBAL_CONTEXT_H__
 #define __GLOBAL_CONTEXT_H__
