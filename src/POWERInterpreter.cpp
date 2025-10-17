@@ -90,7 +90,6 @@ create(llvm::Module *M, POWERARMTraceBuilder &TB, const Configuration &conf,
 //
 POWERInterpreter::POWERInterpreter(llvm::Module *M, POWERARMTraceBuilder &TB, const Configuration &conf)
   : DPORInterpreter(M), TD(M), conf(conf), TB(TB) {
-
   Threads.emplace_back(CPid());
   CurrentThread = 0;
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));

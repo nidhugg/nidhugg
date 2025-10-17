@@ -42,11 +42,13 @@ namespace Timing {
 
 #else /* defined(NO_TIMING) */
 
+// C headers
+#include <pthread.h>
+// C++ headers
 #include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <memory>
-#include <pthread.h>
 #include <string>
 
 namespace Timing {

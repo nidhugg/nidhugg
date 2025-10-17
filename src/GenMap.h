@@ -21,17 +21,19 @@
 #ifndef __GEN_MAP_H__
 #define __GEN_MAP_H__
 
-#include "GenHash.h"
-
 #ifndef NDEBUG
 /* For reference-count */
 #  include <atomic>
 #  include <memory>
 #endif
 #include <cstdint>
+#include <cstdlib>
 #include <functional>
+#include <stdexcept>
 #include <tuple>
 #include <utility>
+
+#include "GenHash.h"
 
 namespace gen {
 

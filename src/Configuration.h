@@ -22,14 +22,14 @@
 #ifndef __CONFIGURATION_H__
 #define __CONFIGURATION_H__
 
-#include "vecset.h"
-#include "SatSolver.h"
-#include "Option.h"
-
 #include <memory>
 #include <set>
 #include <string>
 #include <vector>
+
+#include "vecset.h"
+#include "SatSolver.h"
+#include "Option.h"
 
 /* A Configuration object keeps track of all configuration options
  * that should be used during a program analysis. The configuration

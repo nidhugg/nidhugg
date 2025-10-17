@@ -19,14 +19,14 @@
 
 #include <config.h>
 
-#ifdef HAVE_BOOST_UNIT_TEST_FRAMEWORK
-#include <boost/test/unit_test.hpp>
-
 #include "GenMap.h"
 
 #include <random>
 #include <set>
 #include <functional>
+
+#ifdef HAVE_BOOST_UNIT_TEST_FRAMEWORK
+#include <boost/test/unit_test.hpp>
 
 namespace {
   /* This checks for double free, and lets us check for leaks with valgrind */

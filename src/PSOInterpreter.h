@@ -21,13 +21,13 @@
 #ifndef __PSO_INTERPRETER_H__
 #define __PSO_INTERPRETER_H__
 
-#include "Interpreter.h"
-#include "PSOTraceBuilder.h"
-
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "Interpreter.h"
+#include "PSOTraceBuilder.h"
 
 /* A PSOInterpreter is an interpreter running under the PSO
  * semantics. The execution should be guided by scheduling from a

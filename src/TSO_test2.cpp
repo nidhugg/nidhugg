@@ -24,8 +24,9 @@
 #include "DPORDriver_test.h"
 #include "StrModule.h"
 
-#include <boost/test/unit_test.hpp>
 #include <cstdint>
+
+#include <boost/test/unit_test.hpp>
 
 BOOST_AUTO_TEST_SUITE(TSO_test)
 

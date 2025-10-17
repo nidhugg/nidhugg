@@ -22,9 +22,9 @@
 #ifndef __DET_CHECK_TRACE_BUILDER_H__
 #define __DET_CHECK_TRACE_BUILDER_H__
 
-#include "TraceBuilder.h"
-
 #include <vector>
+
+#include "TraceBuilder.h"
 
 /* A DetCheckTraceBuilder is an abstract TraceBuilder which adds some
  * functionality for detecting and reporting thread-wise

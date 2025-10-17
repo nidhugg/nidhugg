@@ -18,18 +18,18 @@
  */
 
 #include <config.h>
+
 #ifdef HAVE_BOOST_UNIT_TEST_FRAMEWORK
+#include <llvm/Support/Debug.h>
+
+#include <sstream>
+
+#include <boost/test/unit_test.hpp>
 
 #include "vecset.h"
 
 #include "DPORDriver.h"
 #include "StrModule.h"
-
-#include <llvm/Support/Debug.h>
-
-#include <boost/test/unit_test.hpp>
-
-#include <sstream>
 
 BOOST_AUTO_TEST_SUITE(DryRun_test)
 
