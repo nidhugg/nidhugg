@@ -28,12 +28,6 @@ jobs:
             ubuntu: 18
           - llvm: "5.0.2"
             ubuntu: 16
-          - llvm: "4.0.0"
-            ubuntu: 16
-          - llvm: "3.9.1"
-            ubuntu: 16
-          - llvm: "3.8.1"
-            ubuntu: 16
     steps:
       - name: Checkout code
         uses: actions/checkout@v5

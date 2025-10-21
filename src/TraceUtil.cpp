@@ -20,20 +20,16 @@
 
 #include "TraceUtil.h"
 
+#include <llvm/BinaryFormat/Dwarf.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DebugInfo.h>
+#include <llvm/IR/Type.h>
+
 #include <fstream>
 #include <locale>
 #include <set>
 #include <utility>
 #include <vector>
-
-#include <llvm/IR/Constants.h>
-#include <llvm/IR/DebugInfo.h>
-#include <llvm/IR/Type.h>
-#if defined(HAVE_LLVM_SUPPORT_DWARF_H)
-#include <llvm/Support/Dwarf.h>
-#elif defined(HAVE_LLVM_BINARYFORMAT_DWARF_H)
-#include <llvm/BinaryFormat/Dwarf.h>
-#endif
 
 bool TraceUtil::get_location(const llvm::MDNode *m,
                              int *lineno,

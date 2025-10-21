@@ -245,6 +245,7 @@ AC_CHECK_HEADERS([ \
   llvm/ADT/SmallString.h \
   llvm/ADT/Statistic.h \
   llvm/Analysis/LoopPass.h \
+  llvm/BinaryFormat/Dwarf.h \
   llvm/CodeGen/IntrinsicLowering.h \
   llvm/ExecutionEngine/ExecutionEngine.h \
   llvm/ExecutionEngine/GenericValue.h \
@@ -286,7 +287,6 @@ AC_CHECK_HEADERS([ \
   llvm/Transforms/Utils/Cloning.h
 ],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 
-AC_CHECK_HEADERS_ALT([llvm/Support/Dwarf.h llvm/BinaryFormat/Dwarf.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],AC_INCLUDES_DEFAULT[])
 AC_CHECK_HEADERS([llvm/Support/system_error.h],[],[],[AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS([llvm/Transforms/Utils.h],[],[],[AC_INCLUDES_DEFAULT]) # llvm >= 7
 
@@ -575,11 +575,7 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[
 ## Check if llvm::LLVMDebugVersion is defined
 AC_MSG_CHECKING([for LLVMDebugVersion])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_SUPPORT_DWARF_H)
-#include <llvm/Support/Dwarf.h>
-#elif defined(HAVE_LLVM_BINARYFORMAT_DWARF_H)
 #include <llvm/BinaryFormat/Dwarf.h>
-#endif
 ]],[[
   unsigned dbg = llvm::LLVMDebugVersion;
 ]])],

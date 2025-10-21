@@ -28,12 +28,12 @@
 #ifndef __TRACE_UTIL_H__
 #define __TRACE_UTIL_H__
 
+#include <llvm/IR/Metadata.h>
+
 #include <map>
 #include <string>
 
 #include "Trace.h"
-
-#include <llvm/IR/Metadata.h>
 
 namespace TraceUtil {
   /* Attempt to find the directory, file name and line number
