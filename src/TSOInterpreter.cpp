@@ -38,18 +38,6 @@ TSOInterpreter::~TSOInterpreter(){
 std::unique_ptr<TSOInterpreter> TSOInterpreter::
 create(llvm::Module *M, TSOTraceBuilder &TB, const Configuration &conf,
        std::string *ErrorStr){
-#ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
-  if(std::error_code EC = M->materializeAllPermanently()){
-    // We got an error, just return 0
-    if(ErrorStr) *ErrorStr = EC.message();
-    return 0;
-  }
-#elif defined LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_BOOL_STRPTR
-  if (M->MaterializeAllPermanently(ErrorStr)){
-    // We got an error, just return 0
-    return 0;
-  }
-#elif defined LLVM_MODULE_MATERIALIZE_LLVM_ALL_ERROR
   if (llvm::Error Err = M->materializeAll()) {
     std::string Msg;
     handleAllErrors(std::move(Err), [&](llvm::ErrorInfoBase &EIB) {
@@ -60,13 +48,6 @@ create(llvm::Module *M, TSOTraceBuilder &TB, const Configuration &conf,
     // We got an error, just return 0
     return nullptr;
   }
-#else
-  if(std::error_code EC = M->materializeAll()){
-    // We got an error, just return 0
-    if(ErrorStr) *ErrorStr = EC.message();
-    return 0;
-  }
-#endif
 
   return std::unique_ptr<TSOInterpreter>(new TSOInterpreter(M,TB,conf));
 }

@@ -61,18 +61,6 @@ std::unique_ptr<Interpreter> Interpreter::
 create(llvm::Module *M, TSOPSOTraceBuilder &TB, const Configuration &C,
        std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
-#ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
-  if(std::error_code EC = M->materializeAllPermanently()){
-    // We got an error, just return 0
-    if(ErrStr) *ErrStr = EC.message();
-    return 0;
-  }
-#elif defined LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_BOOL_STRPTR
-  if (M->MaterializeAllPermanently(ErrStr)){
-    // We got an error, just return 0
-    return 0;
-  }
-#elif defined LLVM_MODULE_MATERIALIZE_LLVM_ALL_ERROR
   if (Error Err = M->materializeAll()) {
     std::string Msg;
     handleAllErrors(std::move(Err), [&](ErrorInfoBase &EIB) {
@@ -83,13 +71,6 @@ create(llvm::Module *M, TSOPSOTraceBuilder &TB, const Configuration &C,
     // We got an error, just return 0
     return nullptr;
   }
-#else
-  if(std::error_code EC = M->materializeAll()){
-    // We got an error, just return 0
-    if(ErrStr) *ErrStr = EC.message();
-    return 0;
-  }
-#endif
 
   return std::unique_ptr<Interpreter>(new Interpreter(M,TB,C));
 }

@@ -300,47 +300,6 @@ AC_CHECK_HEADERS([ \
 
 # Check various functions in LLVM
 
-## Check the signature of llvm::Module::materializeAllPermanently
-AC_MSG_CHECKING([for llvm::Module::MaterializeAllPermanently])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
-]],[[
-  llvm::Module *M = 0;
-  std::error_code ec = M->materializeAllPermanently();
-]])],
-           [AC_DEFINE([LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL],[1],
-            [Define if Module::materializeAllPermanently accepts zero arguments and returns an error_code.])
-            AC_MSG_RESULT([(bool) -> error_code])
-           ],
-           [
-   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#elif defined(HAVE_LLVM_IR_MODULE_H)
-]],[[
-  llvm::Module *M = 0;
-  std::string *s = 0;
-  bool b = M->MaterializeAllPermanently(s);
-]])],
-           [AC_DEFINE([LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_BOOL_STRPTR],[1],
-            [Define if Module::MaterializeAllPermanenty has signature std::string* -> bool])
-            AC_MSG_RESULT([string* -> bool])],
-           [
-   AC_MSG_RESULT([use materializeAll instead])
-   ## Check the signature of llvm::Module::materializeAll
-   AC_MSG_CHECKING([the signature of llvm::Module::materializeAll])
-   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/Support/Error.h>
-#include <llvm/IR/Module.h>
-]],[[
-  llvm::Module *M = 0;
-  llvm::Error Err = M->materializeAll();
-]])],
-           [AC_DEFINE([LLVM_MODULE_MATERIALIZE_LLVM_ALL_ERROR],[1],
-            [Define if Module::materializeAll has signature () -> llvm::Error])
-            AC_MSG_RESULT([() -> llvm::Error])],
-           [AC_MSG_RESULT([() -> llvm::error_code])])
-])])
-
 ## Check if AtomicOrdering is an enum class
 AC_MSG_CHECKING([whether AtomicOrdering is an enum class])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -648,7 +607,7 @@ declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
 #ifdef LLVM_GETMEMBUFFER_RET_PTR
     llvm::MemoryBuffer::getMemBuffer(src,"",false);
 #else
-  llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
+    llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
 #endif
   llvm::LLVMContext ctx;
 #ifdef LLVM_PARSE_IR_MEMBUF_PTR
