@@ -19,6 +19,7 @@
 
 #include "SExpr.h"
 
+#include <cassert>
 #include <cstdint>
 
 

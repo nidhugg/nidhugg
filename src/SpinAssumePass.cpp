@@ -17,12 +17,7 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#include <config.h>
-
 #include "SpinAssumePass.h"
-
-#include "CheckModule.h"
-#include "vecset.h"
 
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopInfo.h>
@@ -40,6 +35,9 @@
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
 #include <vector>
+
+#include "CheckModule.h"
+#include "vecset.h"
 
 #ifdef LLVM_HAS_ATTRIBUTELIST
 typedef llvm::AttributeList AttributeList;

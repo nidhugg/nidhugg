@@ -36,7 +36,6 @@
 #include "LLVMUtils.h"
 #include "Debug.h"
 
-#include <cstdint>
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/SmallString.h>
 #include <llvm/ADT/Statistic.h>
@@ -52,7 +51,9 @@
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/Host.h>
 #include <llvm/Support/MathExtras.h>
+
 #include <algorithm>
+#include <cstdint>
 #include <cmath>
 
 using namespace llvm;  // NOLINT(build/namespaces)

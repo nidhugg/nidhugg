@@ -17,17 +17,8 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#include <config.h>
-
 #include "PartialLoopPurityPass.h"
 
-#include "CheckModule.h"
-#include "Debug.h"
-#include "Option.h"
-#include "SpinAssumePass.h"
-#include "vecset.h"
-
-#include <boost/container/flat_map.hpp>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Analysis/CallGraph.h>
 #include <llvm/Analysis/LoopInfo.h>
@@ -63,6 +54,14 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+
+#include <boost/container/flat_map.hpp>
+
+#include "CheckModule.h"
+#include "Debug.h"
+#include "Option.h"
+#include "SpinAssumePass.h"
+#include "vecset.h"
 
 #ifdef LLVM_HAS_TERMINATORINST
 typedef llvm::TerminatorInst TerminatorInst;

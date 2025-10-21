@@ -37,19 +37,6 @@
 #ifndef __POWER_INTERPRETER_H__
 #define __POWER_INTERPRETER_H__
 
-#include "Configuration.h"
-#include "CPid.h"
-#include "POWERARMTraceBuilder.h"
-#include "vecset.h"
-#include "DPORInterpreter.h"
-#include "AnyCallInst.h"
-
-#include <map>
-#include <memory>
-#include <string>
-#include <utility>
-#include <vector>
-
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/IR/DataLayout.h>
@@ -58,6 +45,19 @@
 #include <llvm/Support/DataTypes.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>
+
+#include <map>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "Configuration.h"
+#include "CPid.h"
+#include "POWERARMTraceBuilder.h"
+#include "vecset.h"
+#include "DPORInterpreter.h"
+#include "AnyCallInst.h"
 
 namespace llvm{
   class IntrinsicLowering;

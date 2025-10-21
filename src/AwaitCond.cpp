@@ -19,12 +19,12 @@
 
 #include "AwaitCond.h"
 
-#include <climits>
-#include <cstring>
-
 /* One of these contains llvm::sys::IsBigEndianHost */
 #include <llvm/Support/Host.h>          /* On llvm < 11 */
 #include <llvm/Support/SwapByteOrder.h> /* On llvm >= 11 */
+
+#include <climits>
+#include <cstring>
 
 namespace {
   int apcmp(const void *lhsv, const void *rhsv, std::size_t count) {

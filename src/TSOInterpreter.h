@@ -21,13 +21,13 @@
 #ifndef __TSO_INTERPRETER_H__
 #define __TSO_INTERPRETER_H__
 
-#include "Interpreter.h"
-#include "TSOTraceBuilder.h"
-
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "Interpreter.h"
+#include "TSOTraceBuilder.h"
 
 /* A TSOInterpreter is an interpreter running under the TSO
  * semantics. The execution should be guided by scheduling from a
