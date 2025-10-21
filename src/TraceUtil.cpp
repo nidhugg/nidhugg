@@ -26,23 +26,9 @@
 #include <utility>
 #include <vector>
 
-#if defined(HAVE_LLVM_DEBUGINFO_H)
-#include <llvm/DebugInfo.h>
-#elif defined(HAVE_LLVM_IR_DEBUGINFO_H)
-#include <llvm/IR/DebugInfo.h>
-#elif defined(HAVE_LLVM_ANALYSIS_DEBUGINFO_H)
-#include <llvm/Analysis/DebugInfo.h>
-#endif
-#if defined(HAVE_LLVM_IR_TYPE_H)
-#include <llvm/IR/Type.h>
-#elif defined(HAVE_LLVM_TYPE_H)
-#include <llvm/Type.h>
-#endif
-#if defined(HAVE_LLVM_IR_CONSTANTS_H)
 #include <llvm/IR/Constants.h>
-#elif defined(HAVE_LLVM_CONSTANTS_H)
-#include <llvm/Constants.h>
-#endif
+#include <llvm/IR/DebugInfo.h>
+#include <llvm/IR/Type.h>
 #if defined(HAVE_LLVM_SUPPORT_DWARF_H)
 #include <llvm/Support/Dwarf.h>
 #elif defined(HAVE_LLVM_BINARYFORMAT_DWARF_H)

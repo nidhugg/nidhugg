@@ -39,11 +39,8 @@
 #include <llvm/CodeGen/IntrinsicLowering.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Module.h>
-#if defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
-#elif defined(HAVE_LLVM_LLVMCONTEXT_H)
-#include <llvm/LLVMContext.h>
-#endif
+
 #include <cstring>
 
 /// Create a new interpreter object.

@@ -1,11 +1,7 @@
 
 #include "LLVMUtils.h"
 
-#if defined(HAVE_LLVM_IR_DERIVEDTYPES_H)
 #include <llvm/IR/DerivedTypes.h>
-#elif defined(HAVE_LLVM_DERIVEDTYPES_H)
-#include <llvm/DerivedTypes.h>
-#endif
 
 namespace {
 #if LLVM_VERSION_MAJOR > 14
