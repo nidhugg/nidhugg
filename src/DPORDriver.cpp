@@ -125,7 +125,7 @@ parse(ParseOptions opts, llvm::LLVMContext &context){
   if (opts == PARSE_AND_CHECK) {
     CheckModule::check_functions(mod.get());
   }
-  if(mod->LLVM_MODULE_GET_DATA_LAYOUT_STRING().empty()){
+  if(mod->getDataLayoutStr().empty()){
     if(llvm::sys::IsLittleEndianHost){
       mod->setDataLayout("e");
     }else{

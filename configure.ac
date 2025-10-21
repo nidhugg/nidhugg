@@ -300,24 +300,6 @@ AC_CHECK_HEADERS([ \
 
 # Check various functions in LLVM
 
-## Check which method in llvm::Module returns the data layout string
-AC_MSG_CHECKING([for llvm::Module::getDataLayoutStr])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
-]],[[
-  llvm::Module *M = 0;
-  std::string s = M->getDataLayoutStr();
-]])],
-        [AC_DEFINE([LLVM_MODULE_GET_DATA_LAYOUT_STRING],[getDataLayoutStr],
-            [The name of the method in llvm::Module which returns the data layout string.])
-         AC_MSG_RESULT([getDataLayoutStr])
-        ],
-        [AC_DEFINE([LLVM_MODULE_GET_DATA_LAYOUT_STRING],[getDataLayout],
-            [The name of the method in llvm::Module which returns the data layout string.])
-         AC_MSG_RESULT([getDataLayout])
-        ])
-
 ## Check the signature of llvm::Module::materializeAllPermanently
 AC_MSG_CHECKING([for llvm::Module::MaterializeAllPermanently])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
