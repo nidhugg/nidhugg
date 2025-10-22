@@ -300,21 +300,6 @@ AC_CHECK_HEADERS([ \
 
 # Check various functions in LLVM
 
-## Check if AtomicOrdering is an enum class
-AC_MSG_CHECKING([whether AtomicOrdering is an enum class])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/Instructions.h>
-]],[[
-  llvm::AtomicOrdering o = llvm::SequentiallyConsistent;
-]])],
-           [AC_DEFINE([LLVM_ATOMIC_ORDERING_SCOPE],[llvm],
-            [The scope name for AtomicOrdering enumerators])
-            AC_MSG_RESULT([no])
-           ],
-           [AC_DEFINE([LLVM_ATOMIC_ORDERING_SCOPE],[llvm::AtomicOrdering],
-            [The scope name for AtomicOrdering enumerators])
-            AC_MSG_RESULT([yes])])
-
 ## Check if AtomicCmpXchg has separate success and failure orderings
 AC_MSG_CHECKING([for success/failure orderings of llvm::AtomicCmpXchgInst])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
