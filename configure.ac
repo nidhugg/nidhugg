@@ -300,18 +300,6 @@ AC_CHECK_HEADERS([ \
 
 # Check various functions in LLVM
 
-## Check the signature of createPrintModulePass
-AC_MSG_CHECKING([signature of llvm::createPrintModulePass])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/IRPrintingPasses.h>
-]],[[
-  createPrintModulePass((llvm::raw_ostream*)0);
-]])],
-           [AC_DEFINE([LLVM_CREATE_PRINT_MODULE_PASS_PTR_ARG],[1],
-            [Define if llvm::createPrintModulePass takes a pointer argument.])
-            AC_MSG_RESULT([Takes pointer to raw_ostream])],
-           [AC_MSG_RESULT([Takes reference to raw_ostream])])
-
 ## Check if the value F_None in llvm::sys::fs::OpenFlags exists
 AC_MSG_CHECKING([for llvm::sys::fs::OpenFlags (F_None)])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

@@ -123,11 +123,7 @@ namespace StrModule {
       throw std::logic_error("Failed to write transformed module to file "+outfile+": "+errs.message());
     }
 #endif
-#ifdef LLVM_CREATE_PRINT_MODULE_PASS_PTR_ARG
-    PM.add(llvm::createPrintModulePass(os,true));
-#else
     PM.add(llvm::createPrintModulePass(*os));
-#endif
     PM.run(*mod);
   }
 
@@ -139,15 +135,9 @@ namespace StrModule {
     llvm::PassManager PM;
 #endif
     llvm::raw_ostream *os = new llvm::raw_string_ostream(s);
-#ifdef LLVM_CREATE_PRINT_MODULE_PASS_PTR_ARG
-    PM.add(llvm::createPrintModulePass(os,true));
-#else
     PM.add(llvm::createPrintModulePass(*os));
-#endif
     PM.run(*mod);
-#ifndef LLVM_CREATE_PRINT_MODULE_PASS_PTR_ARG
     delete os;
-#endif
     return s;
   }
 
