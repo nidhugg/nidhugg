@@ -55,7 +55,7 @@ typedef llvm::Instruction TerminatorInst;
 
 void AssumeAwaitPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
   AU.setPreservesCFG();
-  AU.addRequired<llvm::LLVM_DOMINATOR_TREE_PASS>();
+  AU.addRequired<llvm::DominatorTreeWrapperPass>();
 }
 
 unsigned AssumeAwaitPass::sizes[AssumeAwaitPass::no_sizes] = {8,16,32,64};
@@ -345,7 +345,7 @@ bool AssumeAwaitPass::tryRewriteAssume(llvm::Function *F, llvm::BasicBlock *BB, 
     llvm::CmpInst::Predicate pred = Cond->getPredicate();
     if (load_index == 1) pred = llvm::CmpInst::getSwappedPredicate(pred);
     if (negate) pred = llvm::CmpInst::getInversePredicate(pred);
-    llvm::DominatorTree &DT = getAnalysis<llvm::LLVM_DOMINATOR_TREE_PASS>().getDomTree();
+    llvm::DominatorTree &DT = getAnalysis<llvm::DominatorTreeWrapperPass>().getDomTree();
     if (!is_permissible_arg(DT, ArgVal, Load)) continue;
     if (!is_permissible_monitor(DT, Load, Monitor)) continue;
     if (!is_safe_to_rewrite(Load, Call)) continue;

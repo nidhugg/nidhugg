@@ -52,7 +52,7 @@ typedef llvm::Instruction TerminatorInst;
 #endif
 
 void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
-  AU.addRequired<llvm::LLVM_DOMINATOR_TREE_PASS>();
+  AU.addRequired<llvm::DominatorTreeWrapperPass>();
   AU.addRequired<DeclareAssumePass>();
   AU.addPreserved<DeclareAssumePass>();
 }
