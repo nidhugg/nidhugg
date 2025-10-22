@@ -17,8 +17,6 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#include "GlobalContext.h"
-#include "nregex.h"
 #include "StrModule.h"
 
 #include <llvm/IR/IRPrintingPasses.h>
@@ -40,25 +38,20 @@
 #include <memory>
 #include <stdexcept>
 
+#include "GlobalContext.h"
+#include "nregex.h"
+
 namespace StrModule {
 
   llvm::Module *read_module(std::string infile, llvm::LLVMContext &context){
     llvm::Module *mod;
     llvm::SMDiagnostic err;
-#ifdef LLVM_MEMORY_BUFFER_GET_FILE_OWNINGPTR_ARG
-    llvm::OwningPtr<llvm::MemoryBuffer> buf;
-    if(llvm::error_code ec = llvm::MemoryBuffer::getFile(infile,buf)){
-      throw std::logic_error("Failed to read file "+infile+": "+ec.message());
-    }
-    llvm::MemoryBuffer *mbp = buf.take();
-#else
     llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer> > buf =
       llvm::MemoryBuffer::getFile(infile);
     if(std::error_code ec = buf.getError()){
       throw std::logic_error("Failed to read file "+infile+": "+ec.message());
     }
     llvm::MemoryBuffer *mbp = buf.get().release();
-#endif
 #ifdef LLVM_PARSE_IR_MEMBUF_PTR
     mod = llvm::ParseIR(mbp,err,context);
 #else

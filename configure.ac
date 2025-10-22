@@ -300,22 +300,6 @@ AC_CHECK_HEADERS([ \
 
 # Check various functions in LLVM
 
-## Check the signature of MemoryBuffer::getFile
-AC_MSG_CHECKING([signature of llvm::MemoryBuffer::getFile])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/ADT/OwningPtr.h>
-#include <llvm/Support/MemoryBuffer.h>
-#include <llvm/Support/system_error.h>
-]],[[
-  llvm::OwningPtr<llvm::MemoryBuffer> buf;
-  llvm::error_code ec = llvm::MemoryBuffer::getFile("",buf);
-]])],
-           [AC_DEFINE([LLVM_MEMORY_BUFFER_GET_FILE_OWNINGPTR_ARG],[1],
-            [Define if llvm::MemoryBuffer::getFile takes an OwningPtr as an output argument.])
-            AC_MSG_RESULT([OwningPtr output argument])
-           ],
-           [AC_MSG_RESULT([Returns unique_ptr.])])
-
 ## Check the signature of createPrintModulePass
 AC_MSG_CHECKING([signature of llvm::createPrintModulePass])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
