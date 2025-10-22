@@ -102,16 +102,16 @@ namespace StrModule {
 #else
     std::error_code errs;
 #endif
-#ifdef HAVE_LLVM_SYS_FS_OPENFLAGS
+//#ifdef HAVE_LLVM_SYS_FS_OPENFLAGS
     llvm::raw_ostream *os = new llvm::raw_fd_ostream(outfile.c_str(),errs,
-#  ifdef LLVM_SYS_FS_OPENFLAGS_PREFIX_OF
+//#  ifdef LLVM_SYS_FS_OPENFLAGS_PREFIX_OF
                                                      llvm::sys::fs::OF_None);
-#  else
-                                                     llvm::sys::fs::F_None);
-#  endif
-#else
-    llvm::raw_ostream *os = new llvm::raw_fd_ostream(outfile.c_str(),errs,0);
-#endif
+//#  else
+//                                                     llvm::sys::fs::F_None);
+//#  endif
+//#else
+//    llvm::raw_ostream *os = new llvm::raw_fd_ostream(outfile.c_str(),errs,0);
+//#endif
 #ifdef LLVM_RAW_FD_OSTREAM_ERR_STR
     if(errs.size()){
       delete os;

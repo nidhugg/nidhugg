@@ -300,32 +300,6 @@ AC_CHECK_HEADERS([ \
 
 # Check various functions in LLVM
 
-## Check if the value F_None in llvm::sys::fs::OpenFlags exists
-AC_MSG_CHECKING([for llvm::sys::fs::OpenFlags (F_None)])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/Support/FileSystem.h>
-]],[[
-  llvm::sys::fs::OpenFlags f = llvm::sys::fs::F_None;
-  return f;
-]])],
-           [AC_DEFINE([HAVE_LLVM_SYS_FS_OPENFLAGS],[1],
-            [Define if the type llvm::sys::fs::OpenFlags exists.])
-            AC_MSG_RESULT([yes])],
-           [AC_MSG_RESULT([no])
-           AC_MSG_CHECKING([for llvm::sys::fs::OpenFlags (OF_None)])
-           AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/Support/FileSystem.h>
-]],[[
-  llvm::sys::fs::OpenFlags f = llvm::sys::fs::OF_None;
-  return f;
-]])],
-                             [AC_DEFINE([HAVE_LLVM_SYS_FS_OPENFLAGS],[1],
-                              [Define if the type llvm::sys::fs::OpenFlags exists.])
-                              AC_DEFINE([LLVM_SYS_FS_OPENFLAGS_PREFIX_OF],[1],
-                              [Define if the values in the enum llvm::sys::fs::OpenFlags have the names OF_*.])
-                              AC_MSG_RESULT([yes])],
-                             [AC_MSG_RESULT([no])])])
-
 ## Check if Mutexes use the method "lock" or "acquire"
 AC_MSG_CHECKING([for llvm::sys::Mutex::lock])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
