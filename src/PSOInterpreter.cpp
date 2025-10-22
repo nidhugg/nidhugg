@@ -157,13 +157,9 @@ bool PSOInterpreter::isFence(llvm::Instruction &I){
   }else if(llvm::isa<llvm::FenceInst>(I)){
     return static_cast<llvm::FenceInst&>(I).getOrdering() == llvm::AtomicOrdering::SequentiallyConsistent;
   }else if(llvm::isa<llvm::AtomicCmpXchgInst>(I)){
-#ifdef LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING
     llvm::AtomicOrdering succ = static_cast<llvm::AtomicCmpXchgInst&>(I).getSuccessOrdering();
     llvm::AtomicOrdering fail = static_cast<llvm::AtomicCmpXchgInst&>(I).getFailureOrdering();
     if(succ != llvm::AtomicOrdering::SequentiallyConsistent || fail != llvm::AtomicOrdering::SequentiallyConsistent){
-#else
-    if(static_cast<llvm::AtomicCmpXchgInst&>(I).getOrdering() != llvm::AtomicOrdering::SequentiallyConsistent){
-#endif
       Debug::warn("PSOInterpreter::isFence::cmpxchg") << "WARNING: Non-sequentially consistent CMPXCHG instruction interpreted as sequentially consistent.\n";
     }
     return true;

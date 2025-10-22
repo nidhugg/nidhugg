@@ -1204,7 +1204,6 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
   SymData::block_type expected = SymData::alloc_block(Ptr_sas->size);
   StoreValueToMemory(CmpVal,static_cast<GenericValue*>((void*)expected.get()),Ty);
 
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
   // Return a tuple (oldval,success)
   Result.AggregateVal.resize(2);
   if(DryRun && DryRunMem.size()){
@@ -1213,24 +1212,13 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
     LoadValueFromMemory(Result.AggregateVal[0], Ptr, Ty);
   }
   GenericValue CmpRes = executeICMP_EQ(Result.AggregateVal[0],CmpVal,Ty);
-#else
-  // Return only the old value oldval
-  if(DryRun && DryRunMem.size()){
-    DryRunLoadValueFromMemory(Result, Ptr, *Ptr_sas, Ty);
-  }else{
-    LoadValueFromMemory(Result, Ptr, Ty);
-  }
-  GenericValue CmpRes = executeICMP_EQ(Result,CmpVal,Ty);
-#endif
   SymData sd = GetSymData(*Ptr_sas,Ty,NewVal);
   if(!TB.compare_exchange(sd, expected, CmpRes.IntVal.getBoolValue())){
     abort();
     return;
   }
   if(CmpRes.IntVal.getBoolValue()){
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
     Result.AggregateVal[1].IntVal = 1;
-#endif
     SetValue(&I, Result, SF);
     if(DryRun){
       DryRunMem.emplace_back(std::move(sd));
@@ -1239,10 +1227,8 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
     StoreValueToMemory(NewVal,Ptr,Ty);
     CheckAwaitWakeup(NewVal, Ptr, *Ptr_sas);
   }else{
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
     Result.AggregateVal[1].IntVal = 0;
-#endif
-    SetValue(&I,Result,SF);
+    SetValue(&I, Result, SF);
   }
 }
 

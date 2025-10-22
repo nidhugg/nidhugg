@@ -1028,13 +1028,7 @@ define i8* @w(i8* %arg){
 define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @r, i8* null)
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @w, i8* null)
-)"
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
-R"(  cmpxchg i32* @x, i32 1, i32 2 seq_cst seq_cst)"
-#else
-R"(  cmpxchg i32* @x, i32 1, i32 2 seq_cst)"
-#endif
-R"(
+  cmpxchg i32* @x, i32 1, i32 2 seq_cst seq_cst
   ret i32 0
 }
 
@@ -1068,13 +1062,7 @@ define i8* @r(i8* %arg){
 }
 
 define i8* @cas(i8* %arg){
-)"
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
-R"(  cmpxchg i32* @x, i32 1, i32 2 seq_cst seq_cst)"
-#else
-R"(  cmpxchg i32* @x, i32 1, i32 2 seq_cst)"
-#endif
-R"(
+  cmpxchg i32* @x, i32 1, i32 2 seq_cst seq_cst
   ret i8* null
 }
 
@@ -1111,13 +1099,7 @@ BOOST_AUTO_TEST_CASE(CASw2){
 @x = global i32 0, align 4
 
 define i8* @t(i8* %arg){
-)"
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
-R"(  cmpxchg i32* @x, i32 0, i32 1 seq_cst seq_cst)"
-#else
-R"(  cmpxchg i32* @x, i32 0, i32 1 seq_cst)"
-#endif
-R"(
+  cmpxchg i32* @x, i32 0, i32 1 seq_cst seq_cst
   store i32 1, i32* @x, align 4
   ret i8* null
 }
@@ -1153,13 +1135,7 @@ BOOST_AUTO_TEST_CASE(CASw4){
 @x = global i32 0, align 4
 
 define i8* @t(i8* %arg){
-)"
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
-R"(  cmpxchg i32* @x, i32 0, i32 1 seq_cst seq_cst)"
-#else
-R"(  cmpxchg i32* @x, i32 0, i32 1 seq_cst)"
-#endif
-R"(
+  cmpxchg i32* @x, i32 0, i32 1 seq_cst seq_cst
   store i32 1, i32* @x, align 4
   ret i8* null
 }

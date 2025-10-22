@@ -174,13 +174,7 @@ define i8* @w(i8* %arg){
 define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @r, i8* null)
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @w, i8* null)
-)"
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
-R"(  cmpxchg i32* @x, i32 1, i32 2 seq_cst seq_cst)"
-#else
-R"(  cmpxchg i32* @x, i32 1, i32 2 seq_cst)"
-#endif
-R"(
+  cmpxchg i32* @x, i32 1, i32 2 seq_cst seq_cst
   ret i32 0
 }
 
@@ -222,13 +216,7 @@ define i8* @r(i8* %arg){
 }
 
 define i8* @cas(i8* %arg){
-)"
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
-R"(  cmpxchg i32* @x, i32 1, i32 2 seq_cst seq_cst)"
-#else
-R"(  cmpxchg i32* @x, i32 1, i32 2 seq_cst)"
-#endif
-R"(
+  cmpxchg i32* @x, i32 1, i32 2 seq_cst seq_cst
   ret i8* null
 }
 
