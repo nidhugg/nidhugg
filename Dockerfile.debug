@@ -1,4 +1,4 @@
-FROM ubuntu:18.04 AS build
+FROM ubuntu:22.04 AS build
 
 RUN \
     apt-get update && \
@@ -17,27 +17,31 @@ RUN \
       libz-dev \
       xz-utils \
       cmake \
-      make
+      make \
+      ninja-build
 
-ADD https://releases.llvm.org/6.0.1/llvm-6.0.1.src.tar.xz /
+ADD https://github.com/llvm/llvm-project/releases/download/llvmorg-14.0.6/llvm-14.0.6.src.tar.xz /
 
+# We have to add -DLLVM_INCLUDE_BENCHMARKS=OFF to workaround an issue in
+# llvm14. Hopefully, we can get rid of that when bumping llvm again.
 RUN \
     /bin/bash -c \
     "cd / && \
-     tar xf llvm-6.0.1.src.tar.xz && \
-     mkdir /build && \
-     cd /build && \
+     tar xf llvm-14.0.6.src.tar.xz && \
      cmake -DCMAKE_INSTALL_PREFIX=/usr/local/ \
            -DCMAKE_BUILD_TYPE=MinSizeRel      \
            -DLLVM_TARGETS_TO_BUILD=""         \
+           -DLLVM_INCLUDE_BENCHMARKS=OFF      \
            -DLLVM_LINK_LLVM_DYLIB=ON          \
-           -DLLVM_OPTIMIZED_TABLEGEN=ON       \
            -DLLVM_ENABLE_ASSERTIONS=ON        \
-           /llvm-6.0.1.src/ &&                \
-     make -j6 &&                              \
-     cmake -DCMAKE_INSTALL_PREFIX=/usr/local -P cmake_install.cmake && \
-     cd / && rm -r /build/ /llvm-6.0.1.src/ && \
-     strip /usr/local/lib/libLLVM-6.0.so /usr/local/bin/llvm-link"
+           -DCMAKE_INSTALL_PREFIX=/usr/local  \
+           -GNinja                            \
+           -S /llvm-14.0.6.src                \
+           -B /build                       && \
+     cmake --build /build && \
+     cmake --install /build && \
+     rm -r /build/ /llvm-14.0.6.src/ && \
+     strip /usr/local/lib/libLLVM-14.0.6.so /usr/local/bin/llvm-link"
 
 COPY . /nidhugg
 
@@ -47,23 +51,23 @@ RUN \
     autoreconf --install && \
     ./configure --prefix=/usr/local/ --enable-asserts CXXFLAGS='-Og -g' \
                 LDFLAGS='-g -Wl,-rpath=/usr/local/lib/' && \
-    make -Csrc -j6 nidhugg unittest && \
+    make -Csrc -j$(nproc) nidhugg unittest && \
     make install && \
     install src/unittest /usr/local/bin/nidhugg-unittest && \
     strip /usr/local/bin/nidhugg-unittest"
 
-FROM ubuntu:18.04
+FROM ubuntu:22.04
 RUN \
     apt-get update && \
     apt-get --no-install-recommends -y install \
       clang \
-      libboost-system1.65.1 \
-      libboost-test1.65.1 \
+      libboost-system1.74.0 \
+      libboost-test1.74.0 \
       python3 \
       vim-tiny && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-COPY --from=build /usr/local/lib/libLLVM-6.0.so /usr/local/lib/
+COPY --from=build /usr/local/lib/libLLVM-14*.so /usr/local/lib/
 COPY --from=build /usr/local/bin/llvm-link /usr/local/bin/
 COPY --from=build /usr/local/bin/nidhugg* /usr/local/bin/
 WORKDIR /root
