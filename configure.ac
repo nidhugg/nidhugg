@@ -416,20 +416,6 @@ declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
    [Define if llvm.dbg.declare takes two arguments (rather than three).])],
   [AC_MSG_RESULT(3)])
 
-## Check how to call getAnalysis to get LoopInfo
-AC_MSG_CHECKING([how to get LoopInfo analysis])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/Analysis/LoopInfo.h>
-#include <llvm/Analysis/LoopPass.h>
-]],[[
-  llvm::LPPassManager *LPM = 0;
-  LPM->getAnalysis<llvm::LoopInfo>();
-]])],
-        [AC_MSG_RESULT([llvm::LoopInfo])
-         AC_DEFINE([LLVM_GET_ANALYSIS_LOOP_INFO],[1],
-         [Define if LPPassManager::getAnalysis<LoopInfo> can be called.])],
-        [AC_MSG_RESULT([llvm::LoopInfoWrapperPass])])
-
 ## Check whether we have TypeIDs for scalable vector types (LLVM>=11)
 AC_MSG_CHECKING([for llvm vector TypeIDs])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
