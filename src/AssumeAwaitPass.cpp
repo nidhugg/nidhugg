@@ -41,13 +41,7 @@
 #include <string>
 #include <vector>
 
-#ifdef LLVM_HAS_TERMINATORINST
-typedef llvm::TerminatorInst TerminatorInst;
-#else
-typedef llvm::Instruction TerminatorInst;
-#endif
-
-void AssumeAwaitPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
+void AssumeAwaitPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const {
   AU.setPreservesCFG();
   AU.addRequired<llvm::DominatorTreeWrapperPass>();
 }

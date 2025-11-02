@@ -58,12 +58,6 @@
 #include "SpinAssumePass.h"
 #include "vecset.h"
 
-#ifdef LLVM_HAS_TERMINATORINST
-typedef llvm::TerminatorInst TerminatorInst;
-#else
-typedef llvm::Instruction TerminatorInst;
-#endif
-
 namespace {
   llvm::cl::opt<int> cl_plp_dbgp("plp-debug");
 

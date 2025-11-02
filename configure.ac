@@ -808,18 +808,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])])
 
-## Check whether the llvm::TerminatorInst class exists (LLVM<8)
-AC_MSG_CHECKING([for llvm::TerminatorInst])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/Instructions.h>
-]],[[
-  llvm::TerminatorInst *I = nullptr;
-]])],
-        [AC_DEFINE([LLVM_HAS_TERMINATORINST],[1],
-         [Define if llvm::TerminatorInst exists.])
-         AC_MSG_RESULT([yes])],
-        [AC_MSG_RESULT([no])])
-
 ## Check whether we have TypeIDs for scalable vector types (LLVM>=11)
 AC_MSG_CHECKING([for llvm vector TypeIDs])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
