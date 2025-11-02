@@ -483,11 +483,7 @@ protected:  // Helper functions
    */
   Option<SymAddrSize> GetSymAddrSize(void *Ptr, Type *Ty) {
     if (Option<SymAddr> addr = GetSymAddr(Ptr)) {
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-      return {{*addr,getDataLayout()->getTypeStoreSize(Ty)}};
-#else
       return {{*addr,getDataLayout().getTypeStoreSize(Ty)}};
-#endif
     } else {
       return nullptr;
     }
@@ -495,11 +491,7 @@ protected:  // Helper functions
 
   Option<SymAddrSize> TryGetSymAddrSize(void *Ptr, Type *Ty){
     if (Option<SymAddr> addr = TryGetSymAddr(Ptr)) {
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-      return {{*addr,getDataLayout()->getTypeStoreSize(Ty)}};
-#else
       return {{*addr,getDataLayout().getTypeStoreSize(Ty)}};
-#endif
     } else {
       return nullptr;
     }
@@ -518,11 +510,7 @@ protected:  // Helper functions
    * that of Ty.
    */
   SymData GetSymData(SymAddrSize Ptr, Type *Ty, const GenericValue &Val){
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-    uint64_t alloc_size = getDataLayout()->getTypeAllocSize(Ty);
-#else
     uint64_t alloc_size = getDataLayout().getTypeAllocSize(Ty);
-#endif
     SymData B(Ptr,alloc_size);
     StoreValueToMemory(Val,static_cast<GenericValue*>(B.get_block()),Ty);
     return B;

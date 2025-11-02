@@ -3009,12 +3009,7 @@ void Interpreter::callLoadAwait(Function *F,
   AwaitCond::Op op(static_cast<AwaitCond::Op>(op_int));
    /* Should be arg2 type, but if well-formed is same as return type */
   Type *Ty = F->getReturnType();
-  SymData::block_type operand = SymData::alloc_block
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-    (getDataLayout()->getTypeStoreSize(Ty));
-#else
-    (getDataLayout().getTypeStoreSize(Ty));
-#endif
+  SymData::block_type operand = SymData::alloc_block(getDataLayout().getTypeStoreSize(Ty));
   StoreValueToMemory(ArgVals[2],
                      static_cast<GenericValue*>((void*)operand.get()),Ty);
 
@@ -3040,12 +3035,7 @@ void Interpreter::callLoadAwait(Function *F,
   AwaitCond::Op op(static_cast<AwaitCond::Op>(op_int));
    /* Should be arg2 type, but if well-formed is same as return type */
   Type *Ty = F->getReturnType();
-  std::size_t Ty_size =
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-    getDataLayout()->getTypeStoreSize(Ty);
-#else
-    getDataLayout().getTypeStoreSize(Ty);
-#endif
+  std::size_t Ty_size = getDataLayout().getTypeStoreSize(Ty);
   SymData::block_type operand = SymData::alloc_block(Ty_size);
   StoreValueToMemory(ArgVals[3],
                      static_cast<GenericValue*>((void*)operand.get()),Ty);
@@ -3346,12 +3336,7 @@ bool Interpreter::isAnyAwait(Instruction &I, GenericValue **ptr, AwaitCond *cond
   AwaitCond::Op op(static_cast<AwaitCond::Op>(op_int));
 
   Type *Ty = args[nargs+2]->getType();
-  SymData::block_type operand = SymData::alloc_block
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-    (getDataLayout()->getTypeStoreSize(Ty));
-#else
-    (getDataLayout().getTypeStoreSize(Ty));
-#endif
+  SymData::block_type operand = SymData::alloc_block(getDataLayout().getTypeStoreSize(Ty));
   StoreValueToMemory(getOperandValue(args[nargs+2],ECStack()->back()),
                      static_cast<GenericValue*>((void*)operand.get()),Ty);
 

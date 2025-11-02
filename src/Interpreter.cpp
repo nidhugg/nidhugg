@@ -86,9 +86,6 @@ Interpreter::Interpreter(Module *M, TSOPSOTraceBuilder &TB,
   CurrentThread = 0;
   AtomicFunctionCall = -1;
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-  setDataLayout(&TD);
-#endif
   // Initialize the "backend"
   initializeExecutionEngine();
   initializeExternalFunctions();
@@ -98,11 +95,7 @@ Interpreter::Interpreter(Module *M, TSOPSOTraceBuilder &TB,
   int glbl_ctr = 0;
   for (auto git = M->global_begin(); git != M->global_end(); ++git) {
     if (GlobalVariable *gv = dyn_cast<GlobalVariable>(&*git)) {
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-      const DataLayout &DL = *getDataLayout();
-#else
       const DataLayout &DL = getDataLayout();
-#endif
       size_t GVSize = (size_t)(DL.getTypeAllocSize(gv->getValueType()));
       void *GVPtr = getPointerToGlobal(gv);
       SymMBlock mb = SymMBlock::Global(++glbl_ctr);

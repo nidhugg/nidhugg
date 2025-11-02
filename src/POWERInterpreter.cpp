@@ -71,9 +71,7 @@ POWERInterpreter::POWERInterpreter(llvm::Module *M, POWERARMTraceBuilder &TB, co
   Threads.emplace_back(CPid());
   CurrentThread = 0;
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-  setDataLayout(&TD);
-#endif
+
   // Initialize the "backend"
   initializeExecutionEngine();
   emitGlobals();

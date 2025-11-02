@@ -2737,11 +2737,7 @@ std::shared_ptr<POWERInterpreter::FetchedInstruction> POWERInterpreter::fetch(ll
             assert(I.getOperand(0)->getType()->isPointerTy());
             llvm::Type *ty = LLVMUtils::getPthreadTType
               (llvm::cast<llvm::PointerType>(I.getOperand(0)->getType()));
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-            int pthread_t_sz = int(getDataLayout()->getTypeStoreSize(ty));
-#else
             int pthread_t_sz = int(getDataLayout().getTypeStoreSize(ty));
-#endif
             MRef addr(0,pthread_t_sz);
             MBlock data(addr,pthread_t_sz);
             MBlock data1({0,1},1);

@@ -298,11 +298,7 @@ GenericValue Interpreter::callExternalFunction(Function *F,
   FunctionsLock->LLVM_SYS_MUTEX_UNLOCK_FN();
 
   GenericValue Result;
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-  const llvm::DataLayout *DL = getDataLayout();
-#else
   const llvm::DataLayout *DL = &getDataLayout();
-#endif
   if (RawFn != 0 && ffiInvoke(RawFn, F, ArgVals, DL, Result)){
     return Result;
   }
@@ -403,11 +399,7 @@ GenericValue lle_X_sprintf(FunctionType *FT,
       case 'u': case 'o':
       case 'x': case 'X':
         if (HowLong >= 1) {
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-          unsigned ptr_size = TheInterpreter->getDataLayout()->getPointerSizeInBits();
-#else
           unsigned ptr_size = TheInterpreter->getDataLayout().getPointerSizeInBits();
-#endif
           if (HowLong == 1 &&
               ptr_size == 64 &&
               sizeof(long) < sizeof(int64_t)) {

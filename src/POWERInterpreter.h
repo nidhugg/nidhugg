@@ -426,29 +426,17 @@ private:  // Helper functions
    * the current data layout.
    */
   MRef GetMRef(void *Ptr, llvm::Type *Ty){
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-    return {Ptr,int(getDataLayout()->getTypeStoreSize(Ty))};
-#else
     return {Ptr,int(getDataLayout().getTypeStoreSize(Ty))};
-#endif
   }
   ConstMRef GetConstMRef(void const *Ptr, llvm::Type *Ty){
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-    return {Ptr,int(getDataLayout()->getTypeStoreSize(Ty))};
-#else
     return {Ptr,int(getDataLayout().getTypeStoreSize(Ty))};
-#endif
   }
   /* Get an MBlock associated with the location Ptr, and holding the
    * value Val of type Ty. The size of the memory location will be
    * that of Ty.
    */
   MBlock GetMBlock(void *Ptr, llvm::Type *Ty, const llvm::GenericValue &Val){
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-    uint64_t alloc_size = getDataLayout()->getTypeAllocSize(Ty);
-#else
     uint64_t alloc_size = getDataLayout().getTypeAllocSize(Ty);
-#endif
     MBlock B(GetMRef(Ptr,Ty),alloc_size);
     StoreValueToMemory(Val,static_cast<llvm::GenericValue*>(B.get_block()),Ty);
     return B;
