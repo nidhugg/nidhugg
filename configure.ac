@@ -331,56 +331,6 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[
    AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER_STR],["0"],
              [The LLVM metadata version number.])])
 
-## Check if llvm.dbg.declare should take two arguments (or three)
-AC_MSG_CHECKING([for number of arguments to llvm.dbg.declare])
-AC_RUN_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/IRPrintingPasses.h>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/PassManager.h>
-#include <llvm/IRReader/IRReader.h>
-#include <llvm/Support/ErrorOr.h>
-#include <llvm/Support/FileSystem.h>
-#include <llvm/Support/MemoryBuffer.h>
-#include <llvm/Support/raw_ostream.h>
-#include <llvm/Support/SourceMgr.h>
-]],[[
-#ifdef LLVM_METADATA_IS_VALUE
-  std::string src = R"(
-define i8* @p(i8* %arg){
-  call void @llvm.dbg.declare(metadata !{i8* %arg}, metadata !0)
-  ret i8* null
-}
-declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
-!llvm.module.flags = !{!1}
-!0 = metadata !{i32 0}
-!1 = !{i32 2, !"Debug Info Version", i32 )" LLVM_METADATA_VERSION_NUMBER_STR R"(}
-)";
-#else
-  std::string src = R"(
-define i8* @p(i8* %arg){
-  call void @llvm.dbg.declare(metadata i8* %arg, metadata !0)
-  ret i8* null
-}
-declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
-!llvm.module.flags = !{!1}
-!0 = !{i32 0}
-!1 = !{i32 2, !"Debug Info Version", i32 )" LLVM_METADATA_VERSION_NUMBER_STR R"(}
-)";
-#endif
-  llvm::Module *mod;
-  llvm::SMDiagnostic err;
-  llvm::MemoryBuffer *buf =
-    llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
-  llvm::LLVMContext ctx;
-  mod = llvm::parseIR(buf->getMemBufferRef(),err,ctx).release();
-  if(!mod) return 1;
-]])],
-  [AC_MSG_RESULT(2)
-   AC_DEFINE([LLVM_DBG_DECLARE_TWO_ARGS],[1],
-   [Define if llvm.dbg.declare takes two arguments (rather than three).])],
-  [AC_MSG_RESULT(3)])
-
 ## Check whether we have TypeIDs for scalable vector types (LLVM>=11)
 AC_MSG_CHECKING([for llvm vector TypeIDs])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

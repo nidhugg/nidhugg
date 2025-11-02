@@ -124,13 +124,8 @@ BOOST_AUTO_TEST_CASE(Intrinsic_2){
    * would cause crashes.
    */
   Configuration conf = DPORDriver_test::get_sc_conf();
-#ifdef LLVM_DBG_DECLARE_TWO_ARGS
-  std::string declarecall = "call void @llvm.dbg.declare(metadata i8* %arg, metadata !0)";
-  std::string declaredeclare = "declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone";
-#else
   std::string declarecall = "call void @llvm.dbg.declare(metadata i8* %arg, metadata !0, metadata !0)";
   std::string declaredeclare = "declare void @llvm.dbg.declare(metadata, metadata, metadata) nounwind readnone";
-#endif
   std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
@@ -1023,13 +1018,8 @@ declare i32 @pthread_mutex_unlock(i32*) nounwind
 
 BOOST_AUTO_TEST_CASE(Intrinsic_first){
   Configuration conf = DPORDriver_test::get_sc_conf();
-#ifdef LLVM_DBG_DECLARE_TWO_ARGS
-  std::string declarecall = "call void @llvm.dbg.declare(metadata i8* %arg, metadata !1)";
-  std::string declaredeclare = "declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone";
-#else
   std::string declarecall = "call void @llvm.dbg.declare(metadata i8* %arg, metadata !1, metadata !1)";
   std::string declaredeclare = "declare void @llvm.dbg.declare(metadata, metadata, metadata) nounwind readnone";
-#endif
   std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
