@@ -44,12 +44,7 @@ cl_program_arguments;
 
 static Timing::Context global_timing_context("global");
 
-#ifdef LLVM_CL_VERSIONPRINTER_TAKES_RAW_OSTREAM
 void print_version(llvm::raw_ostream &out){
-#else
-void print_version(){
-  auto &out = std::cout;
-#endif
   out << PACKAGE_STRING
             << " ("
 #ifdef GIT_COMMIT

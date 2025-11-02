@@ -550,19 +550,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [Define if llvm::DILocation::getLineNumber is a method.])],
         [AC_MSG_RESULT([no])])
 
-## Checking if llvm::cl::getRegisteredOptions takes an argument
-AC_MSG_CHECKING([if llvm::cl::getRegisteredOptions takes an argument.])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/Support/CommandLine.h>
-]],[[
-  llvm::StringMap<llvm::cl::Option*> opts;
-  llvm::cl::getRegisteredOptions(opts);
-]])],
-        [AC_MSG_RESULT([yes])
-         AC_DEFINE([LLVM_CL_GETREGISTEREDOPTIONS_TAKES_ARGUMENT],[1],
-         [Define if llvm::cl::getRegisteredOptions takes an argument.])],
-        [AC_MSG_RESULT([no])])
-
 ## Checking if llvm::cl::VersionPrinterTy takes a llvm::raw_ostream
 AC_MSG_CHECKING([if llvm::cl::VersionPrinterTy takes a llvm::raw_ostream.])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
