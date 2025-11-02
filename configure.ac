@@ -216,11 +216,12 @@ else
 fi
 
 AC_CHECK_HEADERS([ \
+  inttypes.h \
+  regex.h \
+  stdint.h \
   stdlib.h \
   sys/types.h \
   sys/stat.h \
-  inttypes.h \
-  stdint.h \
   algorithm \
   cassert \
   cctype \
@@ -235,7 +236,6 @@ AC_CHECK_HEADERS([ \
   map \
   ostream \
   random \
-  regex.h \
   set \
   sstream \
   stdexcept \
@@ -319,17 +319,17 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[
 ]],[[
   std::cout << llvm::DEBUG_METADATA_VERSION << std::endl;
 ]])],
-  [VN=`./conftest$EXEEXT`
-   AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER],[$VN],
-             [The LLVM metadata version number.])
-   AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER_STR],["$VN"],
-             [The LLVM metadata version number.])
-  ],
-  [AC_MSG_RESULT(0)
-   AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER],[0],
-             [The LLVM metadata version number.])
-   AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER_STR],["0"],
-             [The LLVM metadata version number.])])
+        [VN=`./conftest$EXEEXT`
+         AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER],[$VN],
+                   [The LLVM metadata version number.])
+         AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER_STR],["$VN"],
+                   [The LLVM metadata version number.])
+        ],
+        [AC_MSG_RESULT(0)
+         AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER],[0],
+                   [The LLVM metadata version number.])
+         AC_DEFINE_UNQUOTED([LLVM_METADATA_VERSION_NUMBER_STR],["0"],
+                   [The LLVM metadata version number.])])
 
 ## Check whether we have TypeIDs for scalable vector types (LLVM>=11)
 AC_MSG_CHECKING([for llvm vector TypeIDs])
