@@ -19,26 +19,22 @@
 
 #include "Transform.h"
 
+#include <llvm/InitializePasses.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/PassManager.h>
-#include <llvm/IR/Verifier.h>
 #include <llvm/IR/LegacyPassManager.h>
-#include <llvm/InitializePasses.h>
-#ifdef HAVE_LLVM_TRANSFORMS_UTILS_H
-#  include <llvm/Transforms/Utils.h>
-#else
-#  include <llvm/Transforms/Scalar.h>
-#endif
+#include <llvm/IR/Verifier.h>
+#include <llvm/Transforms/Utils.h>
 
 #include <stdexcept>
 
 #include "AddLibPass.h"
-#include "LoopBoundPass.h"
-#include "SpinAssumePass.h"
-#include "DeadCodeElimPass.h"
-#include "CastElimPass.h"
-#include "PartialLoopPurityPass.h"
 #include "AssumeAwaitPass.h"
+#include "CastElimPass.h"
+#include "DeadCodeElimPass.h"
+#include "LoopBoundPass.h"
+#include "PartialLoopPurityPass.h"
+#include "SpinAssumePass.h"
 #include "StrModule.h"
 
 namespace Transform {

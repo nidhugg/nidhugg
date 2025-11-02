@@ -284,12 +284,12 @@ AC_CHECK_HEADERS([ \
   llvm/Support/Mutex.h \
   llvm/Support/raw_ostream.h \
   llvm/Support/SourceMgr.h \
+  llvm/Transforms/Utils.h \
   llvm/Transforms/Utils/BasicBlockUtils.h \
   llvm/Transforms/Utils/Cloning.h
 ],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 
 AC_CHECK_HEADERS([llvm/Support/system_error.h],[],[],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS([llvm/Transforms/Utils.h],[],[],[AC_INCLUDES_DEFAULT]) # llvm >= 7
 
 AC_CHECK_HEADERS([ffi.h],[],[
   AC_CHECK_HEADERS([ffi/ffi.h],[],[AC_MSG_FAILURE([Could not find header ffi.h.])],[AC_INCLUDES_DEFAULT])
