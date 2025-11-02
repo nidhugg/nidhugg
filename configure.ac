@@ -430,41 +430,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [Define if LPPassManager::getAnalysis<LoopInfo> can be called.])],
         [AC_MSG_RESULT([llvm::LoopInfoWrapperPass])])
 
-
-## Check if loads in assembly should explicitly state their return type
-AC_MSG_CHECKING([if assembly loads explicitly state their return type])
-AC_RUN_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/IRPrintingPasses.h>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/PassManager.h>
-#include <llvm/IRReader/IRReader.h>
-#include <llvm/Support/ErrorOr.h>
-#include <llvm/Support/FileSystem.h>
-#include <llvm/Support/MemoryBuffer.h>
-#include <llvm/Support/raw_ostream.h>
-#include <llvm/Support/SourceMgr.h>
-]],[[
-  std::string src = R"(
-@x = global i32 0, align 4
-define i8* @p(i8* %arg){
-  load i32* @x, align 4
-  ret i8* null
-}
-)";
-  llvm::Module *mod;
-  llvm::SMDiagnostic err;
-  llvm::MemoryBuffer *buf =
-    llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
-  llvm::LLVMContext ctx;
-  mod = llvm::parseIR(buf->getMemBufferRef(),err,ctx).release();
-  if(!mod) return 1;
-]])],
-  [AC_MSG_RESULT(no)],
-  [AC_MSG_RESULT(yes)
-   AC_DEFINE([LLVM_ASM_LOAD_EXPLICIT_TYPE],[1],
-   [Define if assembly loads should explicitly state their return type.])])
-
 ## Check whether we have TypeIDs for scalable vector types (LLVM>=11)
 AC_MSG_CHECKING([for llvm vector TypeIDs])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

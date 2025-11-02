@@ -94,25 +94,6 @@ namespace StrModule {
   }
 
   std::string portasm(std::string s){
-#ifndef LLVM_ASM_LOAD_EXPLICIT_TYPE
-    {
-      /* Remove explicit return types for loads: Replace loads of the
-       * form
-       *
-       * load rettype, rettype* addr
-       *
-       * with loads of the form
-       *
-       * load rettype* addr
-       */
-      s = nregex::regex_replace(s,"load *((atomic)?) [^,]*,","load $1 ");
-    }
-    {
-      /* Remove explicit return types for getelementptr.*/
-      s = nregex::regex_replace(s,"getelementptr *((inbounds)?) *[^,(]*,","getelementptr $1 ");
-      s = nregex::regex_replace(s,"getelementptr *\\([^,]*,","getelementptr (");
-    }
-#endif
     return s;
   }
 }  // namespace StrModule
