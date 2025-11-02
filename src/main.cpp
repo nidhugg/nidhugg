@@ -74,13 +74,8 @@ int main(int argc, char *argv[]){
       {"version"};
     visible_options.insert(Configuration::commandline_opts().begin(),
                            Configuration::commandline_opts().end());
-#ifdef LLVM_CL_GETREGISTEREDOPTIONS_TAKES_ARGUMENT
-    llvm::StringMap<llvm::cl::Option*> opts;
-    llvm::cl::getRegisteredOptions(opts);
-#else
     llvm::StringMap<llvm::cl::Option*> &opts =
       llvm::cl::getRegisteredOptions();
-#endif
     for(auto it = opts.begin(); it != opts.end(); ++it){
       if(visible_options.count(it->getKey()) == 0){
         it->getValue()->setHiddenFlag(llvm::cl::Hidden);
