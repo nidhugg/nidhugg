@@ -289,8 +289,6 @@ AC_CHECK_HEADERS([ \
   llvm/Transforms/Utils/Cloning.h
 ],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 
-AC_CHECK_HEADERS([llvm/Support/system_error.h],[],[],[AC_INCLUDES_DEFAULT])
-
 AC_CHECK_HEADERS([ffi.h],[],[
   AC_CHECK_HEADERS([ffi/ffi.h],[],[AC_MSG_FAILURE([Could not find header ffi.h.])],[AC_INCLUDES_DEFAULT])
 ],[AC_INCLUDES_DEFAULT])
@@ -439,9 +437,6 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/SourceMgr.h>
-#if defined(HAVE_LLVM_SUPPORT_SYSTEM_ERROR_H)
-#include <llvm/Support/system_error.h>
-#endif
 ]],[[
 #ifdef LLVM_METADATA_IS_VALUE
   std::string src = R"(
@@ -524,9 +519,6 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/SourceMgr.h>
-#if defined(HAVE_LLVM_SUPPORT_SYSTEM_ERROR_H)
-#include <llvm/Support/system_error.h>
-#endif
 ]],[[
   std::string src = R"(
 @x = global i32 0, align 4

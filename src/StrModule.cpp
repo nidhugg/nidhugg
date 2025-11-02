@@ -21,17 +21,14 @@
 
 #include <llvm/IR/IRPrintingPasses.h>
 #include <llvm/IR/PassManager.h>
-#include <llvm/IRReader/IRReader.h>
 #include <llvm/IR/LegacyPassManager.h>
+#include <llvm/IRReader/IRReader.h>
+#include <llvm/Pass.h>
 #include <llvm/Support/ErrorOr.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/SourceMgr.h>
-#if defined(HAVE_LLVM_SUPPORT_SYSTEM_ERROR_H)
-#include <llvm/Support/system_error.h>
-#endif
-#include <llvm/Pass.h>
 
 #include <memory>
 #include <stdexcept>
