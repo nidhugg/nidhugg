@@ -17,17 +17,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#include "AddLibPass.h"
-#include "LoopBoundPass.h"
-#include "SpinAssumePass.h"
-#include "DeadCodeElimPass.h"
-#include "CastElimPass.h"
-#include "PartialLoopPurityPass.h"
-#include "AssumeAwaitPass.h"
-#include "StrModule.h"
 #include "Transform.h"
-#include "llvm/IR/LLVMContext.h"
 
+#include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/PassManager.h>
 #include <llvm/IR/Verifier.h>
 #if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H) && defined(LLVM_PASSMANAGER_TEMPLATE)
@@ -41,6 +33,15 @@
 #endif
 
 #include <stdexcept>
+
+#include "AddLibPass.h"
+#include "LoopBoundPass.h"
+#include "SpinAssumePass.h"
+#include "DeadCodeElimPass.h"
+#include "CastElimPass.h"
+#include "PartialLoopPurityPass.h"
+#include "AssumeAwaitPass.h"
+#include "StrModule.h"
 
 namespace Transform {
 
@@ -83,9 +84,6 @@ namespace Transform {
     llvm::initializeVectorization(Registry);
     llvm::initializeIPO(Registry);
     llvm::initializeAnalysis(Registry);
-#ifdef HAVE_LLVM_INITIALIZE_IPA
-    llvm::initializeIPA(Registry);
-#endif
     llvm::initializeTransformUtils(Registry);
     llvm::initializeInstCombine(Registry);
     llvm::initializeInstrumentation(Registry);

@@ -607,22 +607,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
    [Define if llvm::LoopInfo::markAsRemoved exists])],
   [AC_MSG_RESULT([no])])
 
-## Check if initializeIPA exists
-AC_MSG_CHECKING([for llvm::initializeIPA])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/PassManager.h>
-#include <llvm/IR/Verifier.h>
-#if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H) && defined(LLVM_PASSMANAGER_TEMPLATE)
-#include <llvm/IR/LegacyPassManager.h>
-#endif
-]],[[
-  void (*f)(llvm::PassRegistry&) = llvm::initializeIPA;
-]])],
-  [AC_MSG_RESULT([yes])
-   AC_DEFINE([HAVE_LLVM_INITIALIZE_IPA],[1],
-   [Define if llvm::initializeIPA exists])],
-  [AC_MSG_RESULT([no])])
-
 ## Check whether we have TypeIDs for scalable vector types (LLVM>=11)
 AC_MSG_CHECKING([for llvm vector TypeIDs])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
