@@ -31,18 +31,15 @@
  * conditions and replaces them with
  */
 class AssumeAwaitPass final : public llvm::FunctionPass {
-public:
+ public:
   static char ID;
   AssumeAwaitPass() : llvm::FunctionPass(ID) {}
   bool doInitialization(llvm::Module &M) override;
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
   bool runOnFunction(llvm::Function &F) override;
-#ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
   llvm::StringRef getPassName() const override { return "AssumeAwaitPass"; }
-#else
-  const char *getPassName() const override { return "AssumeAwaitPass"; }
-#endif
-private:
+
+ private:
   static const unsigned no_sizes = 4;
   static unsigned sizes[no_sizes];
   std::pair<llvm::Value*,llvm::FunctionType*> F_load_await[no_sizes];

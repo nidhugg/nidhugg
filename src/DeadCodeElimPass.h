@@ -30,17 +30,14 @@
  * undefined behaviour and memory accesses.
  */
 class DeadCodeElimPass final : public llvm::FunctionPass{
-public:
+ public:
   static char ID;
   DeadCodeElimPass() : llvm::FunctionPass(ID) {}
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
   bool runOnFunction(llvm::Function &F) override;
-#ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
   llvm::StringRef getPassName() const override { return "DeadCodeElimPass"; }
-#else
-  const char *getPassName() const override { return "DeadCodeElimPass"; }
-#endif
-private:
+
+ private:
 };
 
 #endif

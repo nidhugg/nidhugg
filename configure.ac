@@ -767,21 +767,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
    [Define if llvm::initializeIPA exists])],
   [AC_MSG_RESULT([no])])
 
-## Check whether Pass::getPassName() returns a StringRef
-AC_MSG_CHECKING([whether Pass::getPassName() returns a StringRef])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/Pass.h>
-]],[[
-  class MyPass : public llvm::Pass {
-  public:
-    virtual llvm::StringRef getPassName() const { return "MyPass"; };
-  };
-]])],
-        [AC_DEFINE([LLVM_PASS_GETPASSNAME_IS_STRINGREF],[1],
-         [Define if Pass::getPassName() returns a StringRef.])
-         AC_MSG_RESULT([yes])],
-        [AC_MSG_RESULT([no])])
-
 ## Check whether llvm::cl::values needs a sentinel
 AC_MSG_CHECKING([whether whether llvm::cl::values needs a sentinel])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
