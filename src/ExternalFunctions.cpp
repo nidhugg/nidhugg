@@ -270,14 +270,14 @@ GenericValue Interpreter::callExternalFunction(Function *F,
                                      const std::vector<GenericValue> &ArgVals) {
   TheInterpreter = this;
 
-  FunctionsLock->LLVM_SYS_MUTEX_LOCK_FN();
+  FunctionsLock->lock();
 
   // Do a lookup to see if the function is in our cache... this should just be a
   // deferred annotation!
   std::map<const Function *, ExFunc>::iterator FI = ExportedFunctions->find(F);
   if (ExFunc Fn = (FI == ExportedFunctions->end()) ? lookupFunction(F)
                                                    : FI->second) {
-    FunctionsLock->LLVM_SYS_MUTEX_UNLOCK_FN();
+    FunctionsLock->unlock();
     return Fn(F->getFunctionType(), ArgVals);
   }
 
@@ -295,7 +295,7 @@ GenericValue Interpreter::callExternalFunction(Function *F,
     RawFn = RF->second;
   }
 
-  FunctionsLock->LLVM_SYS_MUTEX_UNLOCK_FN();
+  FunctionsLock->unlock();
 
   GenericValue Result;
   const llvm::DataLayout *DL = &getDataLayout();
