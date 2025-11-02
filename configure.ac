@@ -318,30 +318,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [The name of the unlocking method of llvm::sys::mutex.])
          AC_MSG_RESULT([acquire])])
 
-## Check whether llvm::ParseIR takes ownership of its buffer
-AC_MSG_CHECKING([whether llvm::ParseIR takes ownership of buffer])
-AC_RUN_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IRReader/IRReader.h>
-#include <llvm/Support/MemoryBuffer.h>
-#include <llvm/Support/SourceMgr.h>
-]],[[
-  llvm::Module *mod;
-  llvm::SMDiagnostic err;
-  llvm::MemoryBuffer *buf =
-    llvm::MemoryBuffer::getMemBuffer("","",false).release();
-  llvm::LLVMContext ctx;
-  mod = llvm::parseIR(buf->getMemBufferRef(),err,ctx).release();
-  delete buf;
-  delete mod;
-  return 0;
-]])],
-        [AC_MSG_RESULT([no])],
-        [AC_DEFINE([LLVM_PARSE_IR_TAKES_OWNERSHIP],[1],
-         [Define if llvm::ParseIR takes ownership of its buffer.])
-         AC_MSG_RESULT([yes])])
-
 ## Check if llvm::LLVMDebugVersion is defined
 AC_MSG_CHECKING([for LLVMDebugVersion])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

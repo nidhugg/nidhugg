@@ -48,9 +48,7 @@ namespace StrModule {
     }
     llvm::MemoryBuffer *mbp = buf.get().release();
     mod = llvm::parseIR(mbp->getMemBufferRef(),err,context).release();
-#ifndef LLVM_PARSE_IR_TAKES_OWNERSHIP
     delete mbp;
-#endif
     if(!mod){
       err.print("",llvm::errs());
       throw std::logic_error("Failed to parse assembly.");
@@ -64,9 +62,7 @@ namespace StrModule {
     llvm::MemoryBuffer *buf =
       llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
     mod = llvm::parseIR(buf->getMemBufferRef(),err,context).release();
-#ifndef LLVM_PARSE_IR_TAKES_OWNERSHIP
     delete buf;
-#endif
     if(!mod){
       err.print("",llvm::errs());
       throw std::logic_error("Failed to parse assembly.");
