@@ -43,11 +43,7 @@ cl_pack("cpubind-pack", llvm::cl::NotHidden, llvm::cl::init(HWLOC_OBJ_CORE),
 #endif
                         ,clEnumValN(HWLOC_OBJ_NUMANODE,"numanode","NUMA Node")
                         ,clEnumValN(HWLOC_OBJ_PACKAGE,"package","Package")
-                        ,clEnumValN(HWLOC_OBJ_MACHINE,"machine","Machine (maximum spread)")
-#ifdef LLVM_CL_VALUES_USES_SENTINEL
-                        ,clEnumValEnd
-#endif
-                        ));
+                        ,clEnumValN(HWLOC_OBJ_MACHINE,"machine","Machine (maximum spread)")));
 
   std::string bitmap_to_string(hwloc_bitmap_t bitmap) {
     std::string str;

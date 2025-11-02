@@ -767,21 +767,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
    [Define if llvm::initializeIPA exists])],
   [AC_MSG_RESULT([no])])
 
-## Check whether llvm::cl::values needs a sentinel
-AC_MSG_CHECKING([whether whether llvm::cl::values needs a sentinel])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/Support/CommandLine.h>
-]],[[
-  enum Unit{
-    UNIT
-  };
-  auto v = llvm::cl::values(clEnumVal(UNIT,"The only option"),clEnumValEnd);
-]])],
-        [AC_DEFINE([LLVM_CL_VALUES_USES_SENTINEL],[1],
-         [Define if llvm::cl::values needs a sentinel.])
-         AC_MSG_RESULT([yes])],
-        [AC_MSG_RESULT([no])])
-
 ## Check whether llvm:gep_type_iterator uses the new API
 AC_MSG_CHECKING([whether llvm:gep_type_iterator uses the new API])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
