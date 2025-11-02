@@ -318,13 +318,8 @@ public:
   void visitBitCastInst(llvm::BitCastInst &I);
   void visitSelectInst(llvm::SelectInst &I);
 
-
   virtual void visitAnyCallInst(AnyCallInst CI);
-#ifdef LLVM_HAS_CALLBASE
   virtual void visitCallBase(llvm::CallBase &CB) { visitAnyCallInst(CB); }
-#else
-  virtual void visitCallSite(llvm::CallSite CS) { visitAnyCallInst(CS); }
-#endif
   void visitUnreachableInst(llvm::UnreachableInst &I);
 
   void visitShl(llvm::BinaryOperator &I);

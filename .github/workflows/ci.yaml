@@ -22,8 +22,6 @@ jobs:
             ubuntu: 18
           - llvm: "8.0.0"
             ubuntu: 18
-          - llvm: "7.0.1"
-            ubuntu: 18
     steps:
       - name: Checkout code
         uses: actions/checkout@v5

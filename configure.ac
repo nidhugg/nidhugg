@@ -850,20 +850,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])])
 
-## Check whether the class llvm::CallBase exists (LLVM>=7)
-AC_MSG_CHECKING([for class llvm::CallBase])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/Instructions.h>
-]],[[
-  llvm::CallInst *CI = nullptr;
-  llvm::CallBase *CB = CI;
-]])],
-        [AC_DEFINE([LLVM_HAS_CALLBASE],[1],
-         [Define if llvm::CallBase exists.])
-         AC_MSG_RESULT([yes])],
-        [AC_MSG_RESULT([no])
-         AC_CHECK_HEADERS_ALT([llvm/Support/CallSite.h llvm/IR/CallSite.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])])
-
 ## Check whether we have TypeIDs for scalable vector types (LLVM>=11)
 AC_MSG_CHECKING([for llvm vector TypeIDs])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

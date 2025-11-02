@@ -353,11 +353,7 @@ public:
   virtual void visitSelectInst(SelectInst &I);
 
   virtual void visitAnyCallInst(AnyCallInst CI);
-#ifdef LLVM_HAS_CALLBASE
   virtual void visitCallBase(CallBase &CB) { visitAnyCallInst(&CB); }
-#else
-  virtual void visitCallSite(CallSite CS) { visitAnyCallInst(CS); }
-#endif
   virtual void visitUnreachableInst(UnreachableInst &I);
 
   virtual void visitShl(BinaryOperator &I);
