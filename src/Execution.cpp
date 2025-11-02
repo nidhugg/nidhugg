@@ -964,11 +964,7 @@ void Interpreter::visitSwitchInst(SwitchInst &I) {
   // Check to see if any of the cases match...
   BasicBlock *Dest = 0;
   for (SwitchInst::CaseIt i = I.case_begin(), e = I.case_end(); i != e; ++i) {
-#ifdef LLVM_SWITCHINST_CASEIT_NEEDS_DEREFERENCE
     auto &v = *i;
-#else
-    auto &v = i;
-#endif
     GenericValue CaseVal = getOperandValue(v.getCaseValue(), SF);
     if (executeICMP_EQ(CondVal, CaseVal, ElTy).IntVal != 0) {
       Dest = cast<BasicBlock>(v.getCaseSuccessor());

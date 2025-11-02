@@ -663,19 +663,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
    [Define if llvm::initializeIPA exists])],
   [AC_MSG_RESULT([no])])
 
-## Check whether llvm::SwitchInst::CaseIt needs dereference
-AC_MSG_CHECKING([whether llvm::SwitchInst::CaseIt needs dereference])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/Instructions.h>
-]],[[
-  llvm::SwitchInst::CaseIt *i = nullptr;
-  (*i)->getCaseValue();
-]])],
-        [AC_DEFINE([LLVM_SWITCHINST_CASEIT_NEEDS_DEREFERENCE],[1],
-         [Define if llvm::SwitchInst::CaseIt should be dereferenced.])
-         AC_MSG_RESULT([yes])],
-        [AC_MSG_RESULT([no])])
-
 ## Check whether we have TypeIDs for scalable vector types (LLVM>=11)
 AC_MSG_CHECKING([for llvm vector TypeIDs])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

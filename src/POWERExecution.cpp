@@ -976,11 +976,7 @@ void POWERInterpreter::visitSwitchInst(llvm::SwitchInst &I) {
   const unsigned nc = I.getNumCases();
   llvm::SwitchInst::CaseIt cit = I.case_begin();
   for(unsigned i = 0; i < nc; ++i, ++cit){
-#ifdef LLVM_SWITCHINST_CASEIT_NEEDS_DEREFERENCE
     auto &cv = *cit;
-#else
-    auto &cv = cit;
-#endif
     llvm::GenericValue CaseVal = getOperandValue(2*i+2);
     if(CaseVal.AggregateVal.size()){
       assert(CaseVal.AggregateVal.size() == 1);
