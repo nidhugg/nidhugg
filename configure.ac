@@ -492,19 +492,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [Define if LPPassManager::getAnalysis<LoopInfo> can be called.])],
         [AC_MSG_RESULT([llvm::LoopInfoWrapperPass])])
 
-## Checking if llvm::DILocation::getLineNumber is a method.
-AC_MSG_CHECKING([if llvm::DILocation::getLineNumber is a method.])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/DebugInfo.h>
-]],[[
-  llvm::DILocation *l;
-  l->getLineNumber();
-]])],
-        [AC_MSG_RESULT([yes])
-         AC_DEFINE([LLVM_DILOCATION_HAS_GETLINENUMBER],[1],
-         [Define if llvm::DILocation::getLineNumber is a method.])],
-        [AC_MSG_RESULT([no])])
-
 
 ## Check if loads in assembly should explicitly state their return type
 AC_MSG_CHECKING([if assembly loads explicitly state their return type])

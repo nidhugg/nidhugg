@@ -39,11 +39,7 @@ bool TraceUtil::get_location(const llvm::MDNode *m,
     return false;
   }
   const llvm::DILocation &loc = static_cast<const llvm::DILocation&>(*m);
-#ifdef LLVM_DILOCATION_HAS_GETLINENUMBER
-  *lineno = loc.getLineNumber();
-#else
   *lineno = loc.getLine();
-#endif
   *fname = std::string(loc.getFilename());
   *dname = std::string(loc.getDirectory());
 #if defined(LLVM_MDNODE_OPERAND_IS_VALUE) /* Otherwise, disable fallback and hope that the C compiler produces well-formed metadata. */
