@@ -311,22 +311,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [Define if llvm::LLVMDebugVersion is defined.])],
         [AC_MSG_RESULT([no])])
 
-## Check whether llvm::MDNode::getOperand returns an llvm::Value
-AC_MSG_CHECKING([for llvm::MDNode::getOperand return type])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/Metadata.h>
-]],[[
-  llvm::MDNode *n = 0;
-  llvm::Value *v = n->getOperand(0);
-]])],
-        [AC_MSG_RESULT([llvm::Value])
-         AC_DEFINE([LLVM_MDNODE_OPERAND_IS_VALUE],[1],
-         [Define if llvm::MDNode::getOperand returns llvm::Value*.])
-         AC_DEFINE([LLVM_METADATA_IS_VALUE],[1],
-         [Define if llvm considers metadata to be a value.])
-        ],
-        [AC_MSG_RESULT([llvm::MDOperand])])
-
 ## Check the metadata version number for LLVM
 AC_MSG_CHECKING([the LLVM metadata version number])
 AC_RUN_IFELSE([AC_LANG_PROGRAM([[

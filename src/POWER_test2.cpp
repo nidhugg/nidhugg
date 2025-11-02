@@ -1738,15 +1738,6 @@ BOOST_AUTO_TEST_CASE(Intrinsic_return){
    */
   Configuration conf = DPORDriver_test::get_power_conf();
 
-#ifdef LLVM_METADATA_IS_VALUE
-  std::string declarecall = "call void @llvm.dbg.declare(metadata !{i32 %id}, metadata !0)";
-  std::string declaredeclare = R"(
-declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
-!llvm.module.flags = !{!1}
-!0 = metadata !{i32 0}
-!1 = metadata !{i32 2, metadata !"Debug Info Version", i32 )" LLVM_METADATA_VERSION_NUMBER_STR R"(}
-)";
-#else
 #ifdef LLVM_DBG_DECLARE_TWO_ARGS
   std::string declarecall = "call void @llvm.dbg.declare(metadata i32 %id, metadata !0)";
   std::string declaredeclare = R"(
@@ -1763,7 +1754,6 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) nounwind readnone
 !0 = !{i32 0}
 !1 = !{i32 2, !"Debug Info Version", i32 )" LLVM_METADATA_VERSION_NUMBER_STR R"(}
 )";
-#endif
 #endif
 
   DPORDriver *driver =

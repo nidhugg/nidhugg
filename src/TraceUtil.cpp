@@ -42,60 +42,6 @@ bool TraceUtil::get_location(const llvm::MDNode *m,
   *lineno = loc.getLine();
   *fname = std::string(loc.getFilename());
   *dname = std::string(loc.getDirectory());
-#if defined(LLVM_MDNODE_OPERAND_IS_VALUE) /* Otherwise, disable fallback and hope that the C compiler produces well-formed metadata. */
-  if(*fname == "" && *dname == ""){
-    /* Failed to get file name and directory name.
-     *
-     * This may be caused by malformed metadata. Perform a brute-force
-     * search through the metadata tree and try to find the names.
-     */
-    std::vector<const llvm::MDNode*> stack;
-    std::set<const llvm::MDNode*> visited;
-    stack.push_back(m);
-    visited.insert(m);
-#ifdef HAVE_LLVM_LLVMDEBUGVERSION
-    llvm::APInt tag_file_type(32,llvm::LLVMDebugVersion | llvm::dwarf::DW_TAG_file_type);
-#else
-    llvm::APInt tag_file_type(32,llvm::dwarf::DW_TAG_file_type);
-#endif
-    while(stack.size()){
-      const llvm::MDNode *n = stack.back();
-      stack.pop_back();
-      llvm::Value *tag = n->getOperand(0);
-      if(tag->getType()->isIntegerTy(32)){
-        const llvm::ConstantInt *tag_i =
-          llvm::dyn_cast<llvm::ConstantInt>(tag);
-        if(tag_i->getValue() == tag_file_type){
-          if(n->getNumOperands() >= 3 &&
-             (n->getOperand(1) && llvm::dyn_cast<llvm::MDString>(n->getOperand(1))) &&
-             (n->getOperand(2) && llvm::dyn_cast<llvm::MDString>(n->getOperand(2)))){
-            *fname = llvm::dyn_cast<llvm::MDString>(n->getOperand(1))->getString();
-            *dname = llvm::dyn_cast<llvm::MDString>(n->getOperand(2))->getString();
-          }else if(n->getNumOperands() >= 2 &&
-                   n->getOperand(1) && llvm::dyn_cast<llvm::MDNode>(n->getOperand(1))){
-            const llvm::MDNode *n2 = llvm::dyn_cast<llvm::MDNode>(n->getOperand(1));
-            if(n2->getNumOperands() == 2 &&
-               n2->getOperand(0) && llvm::dyn_cast<llvm::MDString>(n2->getOperand(0)) &&
-               n2->getOperand(1) && llvm::dyn_cast<llvm::MDString>(n2->getOperand(1))){
-              *fname = llvm::dyn_cast<llvm::MDString>(n2->getOperand(0))->getString();
-              *dname = llvm::dyn_cast<llvm::MDString>(n2->getOperand(1))->getString();
-            }
-          }
-          break;
-        }else{
-          for(unsigned i = 1; i < n->getNumOperands(); ++i){
-            if(n->getOperand(i)){
-              const llvm::MDNode *n2 = llvm::dyn_cast<llvm::MDNode>(n->getOperand(i));
-              if(n2 && visited.count(n2) == 0){
-                stack.push_back(n2);
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-#endif
   return (*lineno >= 0) && fname->size() && dname->size();
 }
 
