@@ -62,11 +62,7 @@ namespace StrModule {
     llvm::Module *mod;
     llvm::SMDiagnostic err;
     llvm::MemoryBuffer *buf =
-#ifdef LLVM_GETMEMBUFFER_RET_PTR
-      llvm::MemoryBuffer::getMemBuffer(src,"",false);
-#else
       llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
-#endif
     mod = llvm::parseIR(buf->getMemBufferRef(),err,context).release();
 #ifndef LLVM_PARSE_IR_TAKES_OWNERSHIP
     delete buf;

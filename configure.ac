@@ -318,18 +318,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [The name of the unlocking method of llvm::sys::mutex.])
          AC_MSG_RESULT([acquire])])
 
-## Check the return type of llvm::MemoryBuffer::getMemBuffer
-AC_MSG_CHECKING([for return type of llvm::MemoryBuffer::getMemBuffer])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/Support/MemoryBuffer.h>
-]],[[
-  llvm::MemoryBuffer *b = llvm::MemoryBuffer::getMemBuffer("");
-]])],
-        [AC_DEFINE([LLVM_GETMEMBUFFER_RET_PTR],[1],
-         [Define if llvm::MemoryBuffer::getMemBuffer returns a pointer.])
-         AC_MSG_RESULT([llvm::MemoryBuffer*])],
-        [AC_MSG_RESULT([std::unique_ptr<llvm::MemoryBuffer>])])
-
 ## Check the type of the error reporting argument for llvm::raw_fd_ostream
 AC_MSG_CHECKING([for error reporting in llvm::raw_fd_ostream])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -360,11 +348,7 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[
   llvm::Module *mod;
   llvm::SMDiagnostic err;
   llvm::MemoryBuffer *buf =
-#ifdef LLVM_GETMEMBUFFER_RET_PTR
-    llvm::MemoryBuffer::getMemBuffer("","",false);
-#else
     llvm::MemoryBuffer::getMemBuffer("","",false).release();
-#endif
   llvm::LLVMContext ctx;
   mod = llvm::parseIR(buf->getMemBufferRef(),err,ctx).release();
   delete buf;
@@ -464,11 +448,7 @@ declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
   llvm::Module *mod;
   llvm::SMDiagnostic err;
   llvm::MemoryBuffer *buf =
-#ifdef LLVM_GETMEMBUFFER_RET_PTR
-    llvm::MemoryBuffer::getMemBuffer(src,"",false);
-#else
     llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
-#endif
   llvm::LLVMContext ctx;
   mod = llvm::parseIR(buf->getMemBufferRef(),err,ctx).release();
   if(!mod) return 1;
@@ -517,11 +497,7 @@ define i8* @p(i8* %arg){
   llvm::Module *mod;
   llvm::SMDiagnostic err;
   llvm::MemoryBuffer *buf =
-#ifdef LLVM_GETMEMBUFFER_RET_PTR
-    llvm::MemoryBuffer::getMemBuffer(src,"",false);
-#else
-  llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
-#endif
+    llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
   llvm::LLVMContext ctx;
   mod = llvm::parseIR(buf->getMemBufferRef(),err,ctx).release();
   if(!mod) return 1;
