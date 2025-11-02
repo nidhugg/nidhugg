@@ -724,19 +724,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
    [Define if llvm::initializeIPA exists])],
   [AC_MSG_RESULT([no])])
 
-## Check whether llvm:gep_type_iterator uses the new API
-AC_MSG_CHECKING([whether llvm:gep_type_iterator uses the new API])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/GetElementPtrTypeIterator.h>
-]],[[
-  llvm::gep_type_iterator *I = 0;
-  llvm::StructType *STy = I->getStructTypeOrNull();
-]])],
-        [AC_DEFINE([LLVM_NEW_GEP_TYPE_ITERATOR_API],[1],
-         [Define if llvm:gep_type_iterator uses the new API.])
-         AC_MSG_RESULT([yes])],
-        [AC_MSG_RESULT([no])])
-
 ## Check whether llvm::SwitchInst::CaseIt needs dereference
 AC_MSG_CHECKING([whether llvm::SwitchInst::CaseIt needs dereference])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

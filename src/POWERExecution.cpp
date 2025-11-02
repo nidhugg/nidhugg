@@ -1066,11 +1066,7 @@ llvm::GenericValue POWERInterpreter::executeGEPOperation(llvm::Value *PtrVal,
   uint64_t Total = 0;
 
   for (unsigned i = 1; I != E; ++I, ++i) {
-#ifdef LLVM_NEW_GEP_TYPE_ITERATOR_API
     if (llvm::StructType *STy = I.getStructTypeOrNull()) {
-#else
-    if (llvm::StructType *STy = llvm::dyn_cast<llvm::StructType>(*I)) {
-#endif
       const llvm::StructLayout *SLO = TD.getStructLayout(STy);
 
       const llvm::ConstantInt *CPU = llvm::cast<llvm::ConstantInt>(I.getOperand());
@@ -1092,13 +1088,7 @@ llvm::GenericValue POWERInterpreter::executeGEPOperation(llvm::Value *PtrVal,
         assert(BitWidth == 64 && "Invalid index type for getelementptr");
         Idx = (int64_t)IdxGV.IntVal.getZExtValue();
       }
-      Total += TD.getTypeAllocSize
-#ifdef LLVM_NEW_GEP_TYPE_ITERATOR_API
-        (I.getIndexedType()
-#else
-        (llvm::cast<llvm::SequentialType>(*I)->getElementType()
-#endif
-         )*Idx;
+      Total += TD.getTypeAllocSize(I.getIndexedType())*Idx;
     }
   }
 
