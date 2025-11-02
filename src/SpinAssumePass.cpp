@@ -34,12 +34,6 @@
 #include "CheckModule.h"
 #include "vecset.h"
 
-#ifdef LLVM_HAS_ATTRIBUTELIST
-typedef llvm::AttributeList AttributeList;
-#else
-typedef llvm::AttributeSet AttributeList;
-#endif
-
 #ifdef LLVM_HAS_TERMINATORINST
 typedef llvm::TerminatorInst TerminatorInst;
 #else
@@ -63,8 +57,8 @@ bool DeclareAssumePass::runOnModule(llvm::Module &M){
       llvm::Type *i1Ty = llvm::Type::getInt1Ty(M.getContext());
       assumeTy = llvm::FunctionType::get(voidTy,{i1Ty},false);
     }
-    AttributeList assumeAttrs =
-      AttributeList::get(M.getContext(),AttributeList::FunctionIndex,
+    llvm::AttributeList assumeAttrs =
+      llvm::AttributeList::get(M.getContext(), llvm::AttributeList::FunctionIndex,
                               std::vector<llvm::Attribute::AttrKind>({llvm::Attribute::NoUnwind}));
     M.getOrInsertFunction("__VERIFIER_assume",assumeTy,assumeAttrs);
     modified_M = true;

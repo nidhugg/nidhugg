@@ -795,21 +795,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])])
 
-## Check whether functions use llvm::AttributeList
-AC_MSG_CHECKING([whether functions use llvm::AttributeList])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/Module.h>
-]],[[
-  llvm::Module *M = nullptr;
-  llvm::AttributeList assumeAttrs =
-    llvm::AttributeList::get(M->getContext(),llvm::AttributeList::FunctionIndex,
-                             std::vector<llvm::Attribute::AttrKind>({llvm::Attribute::NoUnwind}));
-]])],
-        [AC_DEFINE([LLVM_HAS_ATTRIBUTELIST],[1],
-         [Define if llvm::AttributeList exists.])
-         AC_MSG_RESULT([yes])],
-        [AC_MSG_RESULT([no])])
-
 ## Check whether llvm::SwitchInst::CaseIt needs dereference
 AC_MSG_CHECKING([whether llvm::SwitchInst::CaseIt needs dereference])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

@@ -41,12 +41,6 @@
 #include <string>
 #include <vector>
 
-#ifdef LLVM_HAS_ATTRIBUTELIST
-typedef llvm::AttributeList AttributeList;
-#else
-typedef llvm::AttributeSet AttributeList;
-#endif
-
 #ifdef LLVM_HAS_TERMINATORINST
 typedef llvm::TerminatorInst TerminatorInst;
 #else
@@ -65,7 +59,7 @@ namespace {
   llvm::cl::opt<int> cl_asaw_dbgp("asaw-debug");
 
   llvm::Value* getOrInsertFunction(llvm::Module &M, llvm::StringRef Name,
-                                   llvm::FunctionType *T, AttributeList AttributeList) {
+                                   llvm::FunctionType *T, llvm::AttributeList AttributeList) {
     auto ret = M.getOrInsertFunction(std::move(Name),T,std::move(AttributeList));
 #if LLVM_VERSION_MAJOR >= 9
       /* XXX: I will not work with some development versions of 9, I
@@ -296,8 +290,8 @@ bool AssumeAwaitPass::doInitialization(llvm::Module &M){
     F_load_await[i] = {M.getFunction(lname), loadAwaitTy};
     F_xchg_await[i] = {M.getFunction(xname), xchgAwaitTy};
     if(!std::get<0>(F_load_await[i]) || !std::get<0>(F_xchg_await[i])){
-      AttributeList assumeAttrs =
-        AttributeList::get(M.getContext(),AttributeList::FunctionIndex,
+      llvm::AttributeList assumeAttrs =
+        llvm::AttributeList::get(M.getContext(), llvm::AttributeList::FunctionIndex,
                            std::vector<llvm::Attribute::AttrKind>({llvm::Attribute::NoUnwind}));
       F_load_await[i] = {getOrInsertFunction(M,lname,loadAwaitTy,assumeAttrs), loadAwaitTy};
       F_xchg_await[i] = {getOrInsertFunction(M,xname,xchgAwaitTy,assumeAttrs), xchgAwaitTy};
