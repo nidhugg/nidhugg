@@ -349,21 +349,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([string])],
         [AC_MSG_RESULT([error_code])])
 
-## Check whether an ExecutionEngine takes a Module pointer or a Module unique_ptr
-AC_MSG_CHECKING([for unique_ptr<Module> in ExecutionEngine])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-]],[[
-  class EE : public llvm::ExecutionEngine {
-  public:
-    EE(llvm::Module *M) : llvm::ExecutionEngine(std::unique_ptr<llvm::Module>(M)) {};
-  };
-]])],
-        [AC_DEFINE([LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR],[1],
-         [Define if llvm::ExecutionEngine takes a unique_ptr to its Module.])
-         AC_MSG_RESULT([yes])],
-        [AC_MSG_RESULT([no])])
-
 ## Check whether llvm::ParseIR takes ownership of its buffer
 AC_MSG_CHECKING([whether llvm::ParseIR takes ownership of buffer])
 AC_RUN_IFELSE([AC_LANG_PROGRAM([[

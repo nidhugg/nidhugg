@@ -113,12 +113,10 @@ Interpreter::~Interpreter() {
    * we are done with it.
    */
   assert(Modules.size() == 1);
-#ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
   /* First release all modules. */
   for(auto it = Modules.begin(); it != Modules.end(); ++it){
     it->release();
   }
-#endif
   Modules.clear();
   for(void *ptr : AllocatedMemHeap){
     free(ptr);

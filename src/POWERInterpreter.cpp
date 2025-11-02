@@ -95,12 +95,10 @@ POWERInterpreter::~POWERInterpreter() {
    * we are done with it.
    */
   assert(Modules.size() == 1);
-#ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
   /* First release all modules. */
   for(auto it = Modules.begin(); it != Modules.end(); ++it){
     it->release();
   }
-#endif
   Modules.clear();
   for(unsigned i = 0; i < Threads.size(); ++i){
     delete Threads[i].status;
