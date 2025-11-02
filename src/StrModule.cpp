@@ -76,24 +76,13 @@ namespace StrModule {
 
   void write_module(llvm::Module *mod, std::string outfile){
     llvm::legacy::PassManager PM;
-#ifdef LLVM_RAW_FD_OSTREAM_ERR_STR
-    std::string errs;
-#else
     std::error_code errs;
-#endif
     llvm::raw_ostream *os = new llvm::raw_fd_ostream(outfile.c_str(), errs,
                                                      llvm::sys::fs::OF_None);
-#ifdef LLVM_RAW_FD_OSTREAM_ERR_STR
-    if(errs.size()){
-      delete os;
-      throw std::logic_error("Failed to write transformed module to file "+outfile+": "+errs);
-    }
-#else
     if(errs){
       delete os;
       throw std::logic_error("Failed to write transformed module to file "+outfile+": "+errs.message());
     }
-#endif
     PM.add(llvm::createPrintModulePass(*os));
     PM.run(*mod);
   }

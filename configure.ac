@@ -318,24 +318,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [The name of the unlocking method of llvm::sys::mutex.])
          AC_MSG_RESULT([acquire])])
 
-## Check the type of the error reporting argument for llvm::raw_fd_ostream
-AC_MSG_CHECKING([for error reporting in llvm::raw_fd_ostream])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/Support/raw_ostream.h>
-#include <llvm/Support/FileSystem.h>
-]],[[
-  std::string errs;
-#ifdef HAVE_LLVM_SYS_FS_OPENFLAGS
-  llvm::raw_fd_ostream("foo",errs,llvm::sys::fs::F_None);
-#else
-  llvm::raw_fd_ostream("foo",errs,0);
-#endif
-]])],
-        [AC_DEFINE([LLVM_RAW_FD_OSTREAM_ERR_STR],[1],
-         [Define if llvm::raw_fd_ostream reports errors through a string reference.])
-         AC_MSG_RESULT([string])],
-        [AC_MSG_RESULT([error_code])])
-
 ## Check whether llvm::ParseIR takes ownership of its buffer
 AC_MSG_CHECKING([whether llvm::ParseIR takes ownership of buffer])
 AC_RUN_IFELSE([AC_LANG_PROGRAM([[
