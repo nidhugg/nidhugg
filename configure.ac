@@ -666,18 +666,6 @@ define i8* @p(i8* %arg){
    AC_DEFINE([LLVM_ASM_LOAD_EXPLICIT_TYPE],[1],
    [Define if assembly loads should explicitly state their return type.])])
 
-AC_MSG_CHECKING([for llvm::Linker constructor parameter type])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/Linker/Linker.h>
-]],[[
-  llvm::Module *M = 0;
-  llvm::Linker lnk(M);
-]])],
-  [AC_MSG_RESULT(llvm::Module*)],
-  [AC_MSG_RESULT(llvm::Module&)
-   AC_DEFINE([LLVM_LINKER_CTOR_PARAM_MODULE_REFERENCE],[1],
-   [Define if llvm::Linker constructor takes a Module reference (not pointer).])])
-
 ## Check the signature of Linker::linkInModule
 AC_MSG_CHECKING([the signature of Linker::linkInModule])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

@@ -18,17 +18,18 @@
  */
 
 #include "AddLibPass.h"
-#include "Debug.h"
-#include "StrModule.h"
-
-#include <memory>
-#include <stdexcept>
 
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/Linker/Linker.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
+
+#include <memory>
+#include <stdexcept>
+
+#include "Debug.h"
+#include "StrModule.h"
 
 void AddLibPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
 }
@@ -47,11 +48,7 @@ bool AddLibPass::optAddFunction(llvm::Module &M,
       return false;
     }
   }
-#ifdef LLVM_LINKER_CTOR_PARAM_MODULE_REFERENCE
   llvm::Linker lnk(M);
-#else
-  llvm::Linker lnk(&M);
-#endif
   std::string err;
   bool added_def = false;
   for(auto it = srces.begin(); !added_def && it != srces.end(); ++it){
