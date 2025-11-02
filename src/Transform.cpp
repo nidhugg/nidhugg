@@ -22,9 +22,7 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/PassManager.h>
 #include <llvm/IR/Verifier.h>
-#if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H) && defined(LLVM_PASSMANAGER_TEMPLATE)
 #include <llvm/IR/LegacyPassManager.h>
-#endif
 #include <llvm/InitializePasses.h>
 #ifdef HAVE_LLVM_TRANSFORMS_UTILS_H
 #  include <llvm/Transforms/Utils.h>
@@ -89,11 +87,7 @@ namespace Transform {
     llvm::initializeInstrumentation(Registry);
     llvm::initializeTarget(Registry);
 
-#ifdef LLVM_PASSMANAGER_TEMPLATE
     using PassManager = llvm::legacy::PassManager;
-#else
-    using PassManager = llvm::PassManager;
-#endif
     PassManager PM;
     /* Run some safe simplifications that both improve applicability
      * of our passes, and speed up model checking.

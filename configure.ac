@@ -261,6 +261,7 @@ AC_CHECK_HEADERS([ \
   llvm/IR/InstVisitor.h \
   llvm/IR/IRPrintingPasses.h \
   llvm/IR/LLVMContext.h \
+  llvm/IR/LegacyPassManager.h \
   llvm/IR/Metadata.h \
   llvm/IR/Module.h \
   llvm/IR/PassManager.h \
@@ -495,19 +496,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_DEFINE([LLVM_GET_ANALYSIS_LOOP_INFO],[1],
          [Define if LPPassManager::getAnalysis<LoopInfo> can be called.])],
         [AC_MSG_RESULT([llvm::LoopInfoWrapperPass])])
-
-## Checking if llvm::PassManager requires a template argument
-AC_MSG_CHECKING([if llvm::PassManager requires a template argument])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/PassManager.h>
-]],[[
-  llvm::PassManager PM;
-]])],
-        [AC_MSG_RESULT([no])],
-        [AC_MSG_RESULT([yes])
-         AC_DEFINE([LLVM_PASSMANAGER_TEMPLATE],[1],
-         [Define if llvm::PassManager requires a template argument.])
-         AC_CHECK_HEADERS([llvm/IR/LegacyPassManager.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])])
 
 ## Checking if an llvm::DILocation is an llvm::MDNode
 AC_MSG_CHECKING([if an llvm::DILocation is an llvm::MDNode])

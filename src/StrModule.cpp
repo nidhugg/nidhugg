@@ -22,9 +22,7 @@
 #include <llvm/IR/IRPrintingPasses.h>
 #include <llvm/IR/PassManager.h>
 #include <llvm/IRReader/IRReader.h>
-#if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H) && defined(LLVM_PASSMANAGER_TEMPLATE)
 #include <llvm/IR/LegacyPassManager.h>
-#endif
 #include <llvm/Support/ErrorOr.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/MemoryBuffer.h>
@@ -84,11 +82,7 @@ namespace StrModule {
   }
 
   void write_module(llvm::Module *mod, std::string outfile){
-#ifdef LLVM_PASSMANAGER_TEMPLATE
     llvm::legacy::PassManager PM;
-#else
-    llvm::PassManager PM;
-#endif
 #ifdef LLVM_RAW_FD_OSTREAM_ERR_STR
     std::string errs;
 #else
@@ -113,11 +107,7 @@ namespace StrModule {
 
   std::string write_module_str(llvm::Module *mod){
     std::string s;
-#ifdef LLVM_PASSMANAGER_TEMPLATE
     llvm::legacy::PassManager PM;
-#else
-    llvm::PassManager PM;
-#endif
     llvm::raw_ostream *os = new llvm::raw_string_ostream(s);
     PM.add(llvm::createPrintModulePass(*os));
     PM.run(*mod);

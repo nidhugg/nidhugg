@@ -22,12 +22,12 @@
 #ifndef __TRANSFORM_H__
 #define __TRANSFORM_H__
 
-#include "Configuration.h"
+#include <llvm/IR/Module.h>
 
 #include <algorithm>
 #include <string>
 
-#include <llvm/IR/Module.h>
+#include "Configuration.h"
 
 namespace Transform {
 
