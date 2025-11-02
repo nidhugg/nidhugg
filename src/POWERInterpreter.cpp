@@ -119,15 +119,9 @@ void POWERInterpreter::runAtExitHandlers () {
 
 /// run - Start execution with the specified function and arguments.
 ///
-#ifdef LLVM_EXECUTION_ENGINE_RUN_FUNCTION_VECTOR
-llvm::GenericValue
-POWERInterpreter::runFunction(llvm::Function *F,
-                              const std::vector<llvm::GenericValue> &ArgValues) {
-#else
 llvm::GenericValue
 POWERInterpreter::runFunction(llvm::Function *F,
                               llvm::ArrayRef<llvm::GenericValue> ArgValues) {
-#endif
   assert (F && "Function *F was null at entry to run()");
 
   if (Blocked) return llvm::GenericValue();

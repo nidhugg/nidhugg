@@ -255,13 +255,8 @@ public:
 
   /// run - Start execution with the specified function and arguments.
   ///
-#ifdef LLVM_EXECUTION_ENGINE_RUN_FUNCTION_VECTOR
-  llvm::GenericValue runFunction(llvm::Function *F,
-                                 const std::vector<llvm::GenericValue> &ArgValues);
-#else
   llvm::GenericValue runFunction(llvm::Function *F,
                                  llvm::ArrayRef<llvm::GenericValue> ArgValues);
-#endif
 
   void *getPointerToNamedFunction(const std::string &Name,
                                   bool AbortOnFailure = true) {
