@@ -778,13 +778,8 @@ BOOST_AUTO_TEST_CASE(Intrinsic){
    * affect which IIDs correspond to which real instructions.
    */
   Configuration conf = DPORDriver_test::get_tso_conf();
-#ifdef LLVM_DBG_DECLARE_TWO_ARGS
-  std::string declarecall = "call void @llvm.dbg.declare(metadata i8** %_arg, metadata !0)";
-  std::string declaredeclare = "declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone";
-#else
   std::string declarecall = "call void @llvm.dbg.declare(metadata i8** %_arg, metadata !0, metadata !0)";
   std::string declaredeclare = "declare void @llvm.dbg.declare(metadata, metadata, metadata) nounwind readnone";
-#endif
   std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
