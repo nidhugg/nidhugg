@@ -38,11 +38,7 @@ bool TraceUtil::get_location(const llvm::MDNode *m,
   if(!m){
     return false;
   }
-#ifdef LLVM_DILOCATION_IS_MDNODE
   const llvm::DILocation &loc = static_cast<const llvm::DILocation&>(*m);
-#else
-  llvm::DILocation loc(m);
-#endif
 #ifdef LLVM_DILOCATION_HAS_GETLINENUMBER
   *lineno = loc.getLineNumber();
 #else

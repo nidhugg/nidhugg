@@ -497,19 +497,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [Define if LPPassManager::getAnalysis<LoopInfo> can be called.])],
         [AC_MSG_RESULT([llvm::LoopInfoWrapperPass])])
 
-## Checking if an llvm::DILocation is an llvm::MDNode
-AC_MSG_CHECKING([if an llvm::DILocation is an llvm::MDNode])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/DebugInfo.h>
-]],[[
-  llvm::MDNode *m = 0;
-  llvm::DILocation *l = static_cast<llvm::DILocation*>(m);
-]])],
-        [AC_MSG_RESULT([yes])
-         AC_DEFINE([LLVM_DILOCATION_IS_MDNODE],[1],
-         [Define if an llvm::DILocation is an MDNode.])],
-        [AC_MSG_RESULT([no])])
-
 ## Checking if llvm::DILocation::getLineNumber is a method.
 AC_MSG_CHECKING([if llvm::DILocation::getLineNumber is a method.])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
