@@ -52,11 +52,7 @@ namespace StrModule {
       throw std::logic_error("Failed to read file "+infile+": "+ec.message());
     }
     llvm::MemoryBuffer *mbp = buf.get().release();
-#ifdef LLVM_PARSE_IR_MEMBUF_PTR
-    mod = llvm::ParseIR(mbp,err,context);
-#else
     mod = llvm::parseIR(mbp->getMemBufferRef(),err,context).release();
-#endif
 #ifndef LLVM_PARSE_IR_TAKES_OWNERSHIP
     delete mbp;
 #endif
@@ -76,11 +72,7 @@ namespace StrModule {
 #else
       llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
 #endif
-#ifdef LLVM_PARSE_IR_MEMBUF_PTR
-    mod = llvm::ParseIR(buf,err,context);
-#else
     mod = llvm::parseIR(buf->getMemBufferRef(),err,context).release();
-#endif
 #ifndef LLVM_PARSE_IR_TAKES_OWNERSHIP
     delete buf;
 #endif

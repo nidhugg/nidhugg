@@ -319,25 +319,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [The name of the unlocking method of llvm::sys::mutex.])
          AC_MSG_RESULT([acquire])])
 
-## Check the signature of llvm::ParseIR
-AC_MSG_CHECKING([for llvm::ParseIR])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IRReader/IRReader.h>
-#include <llvm/Support/MemoryBuffer.h>
-#include <llvm/Support/SourceMgr.h>
-]],[[
-  llvm::SMDiagnostic err;
-  llvm::LLVMContext ctx;
-  llvm::ParseIR((llvm::MemoryBuffer*)0,
-                err,
-                ctx);
-]])],
-        [AC_DEFINE([LLVM_PARSE_IR_MEMBUF_PTR],[1],
-         [Define if llvm::ParseIR takes a MemoryBuffer pointer as argument.])
-         AC_MSG_RESULT([takes MemoryBuffer*])],
-        [AC_MSG_RESULT([takes MemoryBufferRef])])
-
 ## Check the return type of llvm::MemoryBuffer::getMemBuffer
 AC_MSG_CHECKING([for return type of llvm::MemoryBuffer::getMemBuffer])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -401,11 +382,7 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[
     llvm::MemoryBuffer::getMemBuffer("","",false).release();
 #endif
   llvm::LLVMContext ctx;
-#ifdef LLVM_PARSE_IR_MEMBUF_PTR
-  mod = llvm::ParseIR(buf,err,ctx);
-#else
   mod = llvm::parseIR(buf->getMemBufferRef(),err,ctx).release();
-#endif
   delete buf;
   delete mod;
   return 0;
@@ -512,11 +489,7 @@ declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
     llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
 #endif
   llvm::LLVMContext ctx;
-#ifdef LLVM_PARSE_IR_MEMBUF_PTR
-  mod = llvm::ParseIR(buf,err,ctx);
-#else
   mod = llvm::parseIR(buf->getMemBufferRef(),err,ctx).release();
-#endif
   if(!mod) return 1;
 ]])],
   [AC_MSG_RESULT(2)
@@ -636,11 +609,7 @@ define i8* @p(i8* %arg){
   llvm::MemoryBuffer::getMemBuffer(src,"",false).release();
 #endif
   llvm::LLVMContext ctx;
-#ifdef LLVM_PARSE_IR_MEMBUF_PTR
-  mod = llvm::ParseIR(buf,err,ctx);
-#else
   mod = llvm::parseIR(buf->getMemBufferRef(),err,ctx).release();
-#endif
   if(!mod) return 1;
 ]])],
   [AC_MSG_RESULT(no)],
