@@ -648,36 +648,6 @@ define i8* @p(i8* %arg){
    AC_DEFINE([LLVM_ASM_LOAD_EXPLICIT_TYPE],[1],
    [Define if assembly loads should explicitly state their return type.])])
 
-## Check the signature of Linker::linkInModule
-AC_MSG_CHECKING([the signature of Linker::linkInModule])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/Module.h>
-#include <llvm/Linker/Linker.h>
-]],[[
-  llvm::Linker *lnk = 0;
-  bool b = lnk->linkInModule((llvm::Module*)0);
-]])],
-        [AC_MSG_RESULT([Module* -> bool])
-         AC_DEFINE([LLVM_LINKER_LINKINMODULE_PTR_BOOL],[1],
-         [Define if llvm::Linker::linkInModule has signature Module* -> bool])
-         LLVM_LINKER_LINKINMODULE_PTR_BOOL='yes'
-        ],
-        [LLVM_LINKER_LINKINMODULE_PTR_BOOL='no'])
-
-if test "x$LLVM_LINKER_LINKINMODULE_PTR_BOOL" != 'xyes'; then
-   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/IR/Module.h>
-#include <llvm/Linker/Linker.h>
-]],[[
-  llvm::Linker *lnk = 0;
-  bool b = lnk->linkInModule(std::unique_ptr<llvm::Module>((llvm::Module*)0));
-]])],
-      [AC_MSG_RESULT([std::unique_ptr<llvm::Module> -> bool])
-       AC_DEFINE([LLVM_LINKER_LINKINMODULE_UNIQUEPTR_BOOL],[1],
-       [Define if llvm::Linker::linkInModule has signature std::unique_ptr<Module> -> bool])],
-      [AC_MSG_RESULT([(Module*,unsigned,string*) -> bool])])
-fi
-
 ## Check if llvm::LoopInfo::erase exists
 AC_MSG_CHECKING([for llvm::LoopInfo::erase])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

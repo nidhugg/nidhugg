@@ -58,23 +58,11 @@ bool AddLibPass::optAddFunction(llvm::Module &M,
     M2->setDataLayout(M.getDataLayout());
 
     if(!tgtTy || M2->getFunction(name)->getType() == tgtTy){
-#ifdef LLVM_LINKER_LINKINMODULE_PTR_BOOL
-      if(lnk.linkInModule(M2)){
-#elif defined LLVM_LINKER_LINKINMODULE_UNIQUEPTR_BOOL
       if(lnk.linkInModule(std::unique_ptr<llvm::Module>(M2))){
-#else
-      if(lnk.linkInModule(M2,llvm::Linker::DestroySource,&err)){
-#endif
-#ifndef LLVM_LINKER_LINKINMODULE_UNIQUEPTR_BOOL
-        delete M2;
-#endif
         throw std::logic_error("Failed to link in library code: "+err);
       }
       added_def = true;
     }
-#ifndef LLVM_LINKER_LINKINMODULE_UNIQUEPTR_BOOL
-    delete M2;
-#endif
   }
   if(!added_def){
     Debug::warn("AddLibPass:"+name)
