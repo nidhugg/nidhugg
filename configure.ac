@@ -552,36 +552,6 @@ define i8* @p(i8* %arg){
    AC_DEFINE([LLVM_ASM_LOAD_EXPLICIT_TYPE],[1],
    [Define if assembly loads should explicitly state their return type.])])
 
-## Check if llvm::LoopInfo::erase exists
-AC_MSG_CHECKING([for llvm::LoopInfo::erase])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/Analysis/LoopInfo.h>
-#include <llvm/Analysis/LoopPass.h>
-]],[[
-  llvm::Loop * L = 0;
-  llvm::LoopInfo *LI = 0;
-  LI->erase(L);
-]])],
-  [AC_MSG_RESULT([yes])
-   AC_DEFINE([HAVE_LLVM_LOOPINFO_ERASE],[1],
-   [Define if llvm::LoopInfo::erase exists])],
-  [AC_MSG_RESULT([no])])
-
-## Check if llvm::LoopInfo::markAsRemoved exists
-AC_MSG_CHECKING([for llvm::LoopInfo::markAsRemoved])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/Analysis/LoopInfo.h>
-#include <llvm/Analysis/LoopPass.h>
-]],[[
-  llvm::Loop * L = 0;
-  llvm::LoopInfo *LI = 0;
-  LI->markAsRemoved(L);
-]])],
-  [AC_MSG_RESULT([yes])
-   AC_DEFINE([HAVE_LLVM_LOOPINFO_MARK_AS_REMOVED],[1],
-   [Define if llvm::LoopInfo::markAsRemoved exists])],
-  [AC_MSG_RESULT([no])])
-
 ## Check whether we have TypeIDs for scalable vector types (LLVM>=11)
 AC_MSG_CHECKING([for llvm vector TypeIDs])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
