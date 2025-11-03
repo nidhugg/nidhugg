@@ -1,5 +1,5 @@
 /* Copyright (C) 2018
- * This benchmark is part of SWSC
+ * This benchmark is part of Nidhugg.
  */
 
 /* Adapted from: https://raw.githubusercontent.com/sosy-lab/sv-benchmarks/master/c/pthread-complex/workstealqueue_mutex_true-unreach-call.c */

@@ -1,5 +1,5 @@
 /* Copyright (C) 2018
- * This benchmark is part of SWSC
+ * This benchmark is part of Nidhugg.
  */
 
 /* Adapted from: 
@@ -13,7 +13,7 @@
 #include <stdatomic.h>
 #include <pthread.h>
 
-#define LOOP 2
+#define LOOP 3
 
 atomic_int flag0;
 atomic_int flag1;

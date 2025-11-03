@@ -1,5 +1,5 @@
 /* Copyright (C) 2018
- * This benchmark is part of SWSC
+ * This benchmark is part of Nidhugg.
  */
 
 /* Get inspiration from the Control-flow benchmark in Fig 8 in the journal JACM 2017

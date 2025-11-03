@@ -1,6 +1,6 @@
 // -*- c -*-
 /* Copyright (C) 2018 Magnus Lång and Tuan Phong Ngo
- * This benchmark is part of SWSC
+ * This test program is part of Nidhugg.
  */
 
 /* CDSChecker example

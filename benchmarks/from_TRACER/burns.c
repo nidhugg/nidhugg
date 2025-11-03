@@ -1,5 +1,5 @@
 /* Copyright (C) 2018
- * This benchmark is part of SWSC
+ * This benchmark is part of Nidhugg.
  */
 
 /* Adapted from: 
@@ -15,7 +15,7 @@
 #include <pthread.h>
 
 #define LOOP 10
-#define N 2
+#define N 3
 
 // shared variables
 atomic_int flags[N];

@@ -1,5 +1,5 @@
 /* Copyright (C) 2018
- * This benchmark is part of SWSC
+ * This benchmark is part of Nidhugg.
  */
 
 /* Get inspiration from the Ariline example in Tables 1 and 2 in the PLDI 2015 paper:
