@@ -14,7 +14,7 @@ if [ -n "$LLVM_VERSION" ]; then
             echo "Error: LLVM versions 3.* to 7.* are no longer supported by Nidhugg"
             exit 1
             ;;
-        [8-9].*|10.*|14.0.0|15.0.5)
+        [8-9].*|10.*|14.0.0|15.0.[56])
             LLVM_UBUNTU_VER=18.04
             ;;
         11.*|12.*|13.*)
