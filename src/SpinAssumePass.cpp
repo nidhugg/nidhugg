@@ -27,11 +27,6 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
-#if defined(HAVE_LLVM_SUPPORT_CALLSITE_H)
-#include <llvm/Support/CallSite.h>
-#elif defined(HAVE_LLVM_IR_CALLSITE_H)
-#include <llvm/IR/CallSite.h>
-#endif
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
 #include <vector>
@@ -39,20 +34,8 @@
 #include "CheckModule.h"
 #include "vecset.h"
 
-#ifdef LLVM_HAS_ATTRIBUTELIST
-typedef llvm::AttributeList AttributeList;
-#else
-typedef llvm::AttributeSet AttributeList;
-#endif
-
-#ifdef LLVM_HAS_TERMINATORINST
-typedef llvm::TerminatorInst TerminatorInst;
-#else
-typedef llvm::Instruction TerminatorInst;
-#endif
-
-void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
-  AU.addRequired<llvm::LLVM_DOMINATOR_TREE_PASS>();
+void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &AU) const {
+  AU.addRequired<llvm::DominatorTreeWrapperPass>();
   AU.addRequired<DeclareAssumePass>();
   AU.addPreserved<DeclareAssumePass>();
 }
@@ -68,8 +51,8 @@ bool DeclareAssumePass::runOnModule(llvm::Module &M){
       llvm::Type *i1Ty = llvm::Type::getInt1Ty(M.getContext());
       assumeTy = llvm::FunctionType::get(voidTy,{i1Ty},false);
     }
-    AttributeList assumeAttrs =
-      AttributeList::get(M.getContext(),AttributeList::FunctionIndex,
+    llvm::AttributeList assumeAttrs =
+      llvm::AttributeList::get(M.getContext(), llvm::AttributeList::FunctionIndex,
                               std::vector<llvm::Attribute::AttrKind>({llvm::Attribute::NoUnwind}));
     M.getOrInsertFunction("__VERIFIER_assume",assumeTy,assumeAttrs);
     modified_M = true;
@@ -114,7 +97,7 @@ void SpinAssumePass::remove_disconnected(llvm::Loop *l){
       // Search for basic blocks without in-loop successors
       // Simultaneously collect blocks with in-loop predecessors
       for(auto it = l->block_begin(); done && it != l->block_end(); ++it){
-        TerminatorInst *T = (*it)->getTerminator();
+        llvm::Instruction *T = (*it)->getTerminator();
         bool has_loop_successor = false;
         for(unsigned i = 0; i < T->getNumSuccessors(); ++i){
           if(l->contains(T->getSuccessor(i))){
@@ -144,7 +127,7 @@ bool SpinAssumePass::assumify_loop(llvm::Loop *l,llvm::LPPassManager &LPM){
   if(!EB) return false; // Too complicated loop
   llvm::BranchInst *BI;
   {
-    TerminatorInst *EI = EB->getTerminator();
+    llvm::Instruction *EI = EB->getTerminator();
     assert(EI);
     BI = llvm::dyn_cast<llvm::BranchInst>(EI);
   }
@@ -193,14 +176,8 @@ bool SpinAssumePass::runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM){
   bool modified = false;
   if(is_spin(L)){
     if(assumify_loop(L,LPM)){
-#ifdef HAVE_LLVM_LOOPINFO_ERASE
       LPM.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().erase(L);
       LPM.markLoopAsDeleted(*L);
-#elif defined(HAVE_LLVM_LOOPINFO_MARK_AS_REMOVED)
-      LPM.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().markAsRemoved(L);
-#else
-      LPM.deleteLoopFromQueue(L);
-#endif
       modified = true;
     }
   }

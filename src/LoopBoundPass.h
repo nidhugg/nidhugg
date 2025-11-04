@@ -28,7 +28,7 @@
 #include "Debug.h"
 
 class LoopBoundPass : public llvm::LoopPass{
-public:
+ public:
   static char ID;
   LoopBoundPass(int depth) : llvm::LoopPass(ID), unroll_depth(depth) {
     if(unroll_depth < 0){
@@ -39,12 +39,9 @@ public:
   }
   virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
   virtual bool runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM);
-#ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
   virtual llvm::StringRef getPassName() const { return "LoopBoundingPass"; }
-#else
-  virtual const char *getPassName() const { return "LoopBoundingPass"; }
-#endif
-protected:
+
+ protected:
   int unroll_depth;
 };
 

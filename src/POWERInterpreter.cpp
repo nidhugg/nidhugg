@@ -49,18 +49,6 @@ std::unique_ptr<POWERInterpreter> POWERInterpreter::
 create(llvm::Module *M, POWERARMTraceBuilder &TB, const Configuration &conf,
        std::string *ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
-#ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
-  if(std::error_code EC = M->materializeAllPermanently()){
-    // We got an error, just return 0
-    if(ErrStr) *ErrStr = EC.message();
-    return 0;
-  }
-#elif defined LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_BOOL_STRPTR
-  if (M->MaterializeAllPermanently(ErrStr)){
-    // We got an error, just return 0
-    return 0;
-  }
-#elif defined LLVM_MODULE_MATERIALIZE_LLVM_ALL_ERROR
   if (llvm::Error Err = M->materializeAll()) {
     std::string Msg;
     handleAllErrors(std::move(Err), [&](llvm::ErrorInfoBase &EIB) {
@@ -71,13 +59,6 @@ create(llvm::Module *M, POWERARMTraceBuilder &TB, const Configuration &conf,
     // We got an error, just return 0
     return nullptr;
   }
-#else
-  if(std::error_code EC = M->materializeAll()){
-    // We got an error, just return 0
-    if(ErrStr) *ErrStr = EC.message();
-    return 0;
-  }
-#endif
 
   return std::unique_ptr<POWERInterpreter>(new POWERInterpreter(M,TB,conf));
 }
@@ -90,9 +71,7 @@ POWERInterpreter::POWERInterpreter(llvm::Module *M, POWERARMTraceBuilder &TB, co
   Threads.emplace_back(CPid());
   CurrentThread = 0;
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-  setDataLayout(&TD);
-#endif
+
   // Initialize the "backend"
   initializeExecutionEngine();
   emitGlobals();
@@ -116,12 +95,10 @@ POWERInterpreter::~POWERInterpreter() {
    * we are done with it.
    */
   assert(Modules.size() == 1);
-#ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
   /* First release all modules. */
   for(auto it = Modules.begin(); it != Modules.end(); ++it){
     it->release();
   }
-#endif
   Modules.clear();
   for(unsigned i = 0; i < Threads.size(); ++i){
     delete Threads[i].status;
@@ -140,15 +117,9 @@ void POWERInterpreter::runAtExitHandlers () {
 
 /// run - Start execution with the specified function and arguments.
 ///
-#ifdef LLVM_EXECUTION_ENGINE_RUN_FUNCTION_VECTOR
-llvm::GenericValue
-POWERInterpreter::runFunction(llvm::Function *F,
-                              const std::vector<llvm::GenericValue> &ArgValues) {
-#else
 llvm::GenericValue
 POWERInterpreter::runFunction(llvm::Function *F,
                               llvm::ArrayRef<llvm::GenericValue> ArgValues) {
-#endif
   assert (F && "Function *F was null at entry to run()");
 
   if (Blocked) return llvm::GenericValue();

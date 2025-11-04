@@ -22,11 +22,11 @@
 
 #include <config.h>
 
-#include "GlobalContext.h"
+#include <llvm/IR/Module.h>
 
 #include <string>
 
-#include <llvm/IR/Module.h>
+#include "GlobalContext.h"
 
 namespace StrModule {
 

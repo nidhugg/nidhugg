@@ -77,11 +77,7 @@ cl_memory_model(llvm::cl::NotHidden, llvm::cl::init(Configuration::MM_UNDEF),
                                  clEnumValN(Configuration::ARM,"arm","The ARM model"),
                                  clEnumValN(Configuration::POWER,"power","The POWER model"),
                                  clEnumValN(Configuration::PSO,"pso","Partial Store Order"),
-                                 clEnumValN(Configuration::TSO,"tso","Total Store Order")
-#ifdef LLVM_CL_VALUES_USES_SENTINEL
-                                ,clEnumValEnd
-#endif
-                                 ));
+                                 clEnumValN(Configuration::TSO,"tso","Total Store Order")));
 
 static llvm::cl::opt<bool> cl_c11("c11",llvm::cl::Hidden,
                                   llvm::cl::desc("Only consider c11 atomic accesses."));
@@ -90,13 +86,8 @@ static llvm::cl::opt<bool> cl_c11("c11",llvm::cl::Hidden,
 static llvm::cl::opt<Configuration::SatSolverEnum>
 cl_sat(llvm::cl::NotHidden, llvm::cl::init(Configuration::SMTLIB),
        llvm::cl::desc("Select SAT solver"),
-       llvm::cl::values(clEnumValN(Configuration::SMTLIB,"smtlib","External SMTLib process")
-#  ifdef LLVM_CL_VALUES_USES_SENTINEL
-                       ,clEnumValEnd
-#  endif
-                                 ));
+       llvm::cl::values(clEnumValN(Configuration::SMTLIB, "smtlib", "External SMTLib process")));
 #endif
-
 
 static llvm::cl::opt<Configuration::DPORAlgorithm>
 cl_dpor_algorithm(llvm::cl::NotHidden, llvm::cl::init(Configuration::SOURCE),
@@ -104,11 +95,7 @@ cl_dpor_algorithm(llvm::cl::NotHidden, llvm::cl::init(Configuration::SOURCE),
                   llvm::cl::values(clEnumValN(Configuration::SOURCE,"source","Source-DPOR (default)"),
                                    clEnumValN(Configuration::OPTIMAL,"optimal","Optimal-DPOR"),
                                    clEnumValN(Configuration::OBSERVERS,"observers","Optimal-DPOR with Observers"),
-                                   clEnumValN(Configuration::READS_FROM,"rf","Optimal Reads-From-centric SMC")
-#ifdef LLVM_CL_VALUES_USES_SENTINEL
-                                  ,clEnumValEnd
-#endif
-                                 ));
+                                   clEnumValN(Configuration::READS_FROM,"rf","Optimal Reads-From-centric SMC")));
 
 static llvm::cl::opt<bool> cl_check_robustness("check-robustness",llvm::cl::NotHidden,
                                                llvm::cl::desc("Check for robustness as a correctness criterion."));
@@ -137,11 +124,7 @@ static llvm::cl::opt<Tristate> cl_transform_assume_await
  llvm::cl::values(clEnumValN(Tristate::TRUE,"assume-await","Force-enable the assume to await pass in module transformation"),
                   clEnumValN(Tristate::FALSE,"no-assume-await","Disable the assume to await pass in module transformation"),
                   clEnumValN(Tristate::DEFAULT,"default-assume-await","Enable the assume to await pass in module"
-                             " transformation\nif the current mode supports await-statements")
-#ifdef LLVM_CL_VALUES_USES_SENTINEL
-                  ,clEnumValEnd
-#endif
-                  ));
+                             " transformation\nif the current mode supports await-statements")));
 
 static llvm::cl::opt<bool> cl_transform_no_dead_code_elim
 ("no-dead-code-elim",llvm::cl::NotHidden,llvm::cl::cat(cl_transformation_cat),
@@ -199,11 +182,7 @@ static llvm::cl::opt<Configuration::ExplorationScheduler> cl_exploration_schedul
  llvm::cl::values(clEnumValN(Configuration::PRIOQUEUE,"prioqueue",
                              "A single priority queue"),
                   clEnumValN(Configuration::WORKSTEALING,"workstealing",
-                             "A workstealing scheduler (default)")
-#ifdef LLVM_CL_VALUES_USES_SENTINEL
-                  ,clEnumValEnd
-#endif
-                  ));
+                             "A workstealing scheduler (default)")));
 
 const std::set<std::string> &Configuration::commandline_opts(){
   static std::set<std::string> opts = {

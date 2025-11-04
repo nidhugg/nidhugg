@@ -17,30 +17,25 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#include "AddLibPass.h"
-#include "LoopBoundPass.h"
-#include "SpinAssumePass.h"
-#include "DeadCodeElimPass.h"
-#include "CastElimPass.h"
-#include "PartialLoopPurityPass.h"
-#include "AssumeAwaitPass.h"
-#include "StrModule.h"
 #include "Transform.h"
-#include "llvm/IR/LLVMContext.h"
 
-#include <llvm/IR/PassManager.h>
-#include <llvm/IR/Verifier.h>
-#if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H) && defined(LLVM_PASSMANAGER_TEMPLATE)
-#include <llvm/IR/LegacyPassManager.h>
-#endif
 #include <llvm/InitializePasses.h>
-#ifdef HAVE_LLVM_TRANSFORMS_UTILS_H
-#  include <llvm/Transforms/Utils.h>
-#else
-#  include <llvm/Transforms/Scalar.h>
-#endif
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/PassManager.h>
+#include <llvm/IR/LegacyPassManager.h>
+#include <llvm/IR/Verifier.h>
+#include <llvm/Transforms/Utils.h>
 
 #include <stdexcept>
+
+#include "AddLibPass.h"
+#include "AssumeAwaitPass.h"
+#include "CastElimPass.h"
+#include "DeadCodeElimPass.h"
+#include "LoopBoundPass.h"
+#include "PartialLoopPurityPass.h"
+#include "SpinAssumePass.h"
+#include "StrModule.h"
 
 namespace Transform {
 
@@ -83,19 +78,12 @@ namespace Transform {
     llvm::initializeVectorization(Registry);
     llvm::initializeIPO(Registry);
     llvm::initializeAnalysis(Registry);
-#ifdef HAVE_LLVM_INITIALIZE_IPA
-    llvm::initializeIPA(Registry);
-#endif
     llvm::initializeTransformUtils(Registry);
     llvm::initializeInstCombine(Registry);
     llvm::initializeInstrumentation(Registry);
     llvm::initializeTarget(Registry);
 
-#ifdef LLVM_PASSMANAGER_TEMPLATE
     using PassManager = llvm::legacy::PassManager;
-#else
-    using PassManager = llvm::PassManager;
-#endif
     PassManager PM;
     /* Run some safe simplifications that both improve applicability
      * of our passes, and speed up model checking.

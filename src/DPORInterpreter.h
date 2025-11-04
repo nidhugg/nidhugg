@@ -31,15 +31,11 @@ class DPORInterpreter : public llvm::ExecutionEngine {
   /* True if we have executed a false assume statement.
    */
   bool AssumeBlocked;
-protected:
+ protected:
   void setAssumeBlocked(bool value) { AssumeBlocked = value; }
-public:
+ public:
   DPORInterpreter(llvm::Module *M)
-#ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
   : llvm::ExecutionEngine(std::unique_ptr<llvm::Module>(M))
-#else
-  : llvm::ExecutionEngine(M)
-#endif
   {
     AssumeBlocked = false;
   }

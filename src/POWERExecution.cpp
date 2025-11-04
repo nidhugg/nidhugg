@@ -976,11 +976,7 @@ void POWERInterpreter::visitSwitchInst(llvm::SwitchInst &I) {
   const unsigned nc = I.getNumCases();
   llvm::SwitchInst::CaseIt cit = I.case_begin();
   for(unsigned i = 0; i < nc; ++i, ++cit){
-#ifdef LLVM_SWITCHINST_CASEIT_NEEDS_DEREFERENCE
     auto &cv = *cit;
-#else
-    auto &cv = cit;
-#endif
     llvm::GenericValue CaseVal = getOperandValue(2*i+2);
     if(CaseVal.AggregateVal.size()){
       assert(CaseVal.AggregateVal.size() == 1);
@@ -1066,11 +1062,7 @@ llvm::GenericValue POWERInterpreter::executeGEPOperation(llvm::Value *PtrVal,
   uint64_t Total = 0;
 
   for (unsigned i = 1; I != E; ++I, ++i) {
-#ifdef LLVM_NEW_GEP_TYPE_ITERATOR_API
     if (llvm::StructType *STy = I.getStructTypeOrNull()) {
-#else
-    if (llvm::StructType *STy = llvm::dyn_cast<llvm::StructType>(*I)) {
-#endif
       const llvm::StructLayout *SLO = TD.getStructLayout(STy);
 
       const llvm::ConstantInt *CPU = llvm::cast<llvm::ConstantInt>(I.getOperand());
@@ -1092,13 +1084,7 @@ llvm::GenericValue POWERInterpreter::executeGEPOperation(llvm::Value *PtrVal,
         assert(BitWidth == 64 && "Invalid index type for getelementptr");
         Idx = (int64_t)IdxGV.IntVal.getZExtValue();
       }
-      Total += TD.getTypeAllocSize
-#ifdef LLVM_NEW_GEP_TYPE_ITERATOR_API
-        (I.getIndexedType()
-#else
-        (llvm::cast<llvm::SequentialType>(*I)->getElementType()
-#endif
-         )*Idx;
+      Total += TD.getTypeAllocSize(I.getIndexedType())*Idx;
     }
   }
 
@@ -2737,11 +2723,7 @@ std::shared_ptr<POWERInterpreter::FetchedInstruction> POWERInterpreter::fetch(ll
             assert(I.getOperand(0)->getType()->isPointerTy());
             llvm::Type *ty = LLVMUtils::getPthreadTType
               (llvm::cast<llvm::PointerType>(I.getOperand(0)->getType()));
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-            int pthread_t_sz = int(getDataLayout()->getTypeStoreSize(ty));
-#else
             int pthread_t_sz = int(getDataLayout().getTypeStoreSize(ty));
-#endif
             MRef addr(0,pthread_t_sz);
             MBlock data(addr,pthread_t_sz);
             MBlock data1({0,1},1);

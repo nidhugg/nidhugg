@@ -241,17 +241,8 @@ define internal void @mcs_spin_unlock(%mcs_spinlock*) unnamed_addr {
 
 ; <label>:5:                                      ; preds = %1
   %6 = ptrtoint %mcs_spinlock* %0 to i64
-)"
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
-R"(
   %7 = cmpxchg i64* bitcast (%mcs_spinlock** @lock to i64*), i64 %6, i64 0 release monotonic
-  %8 = extractvalue { i64, i1 } %7, 0)"
-#else
-R"(
-  %7 = cmpxchg i64* bitcast (%mcs_spinlock** @lock to i64*), i64 %6, i64 0 release
-  %8 = add i64 %7, 0)"
-#endif
-R"(
+  %8 = extractvalue { i64, i1 } %7, 0
   %9 = inttoptr i64 %8 to %mcs_spinlock*
   %10 = icmp eq %mcs_spinlock* %9, %0
   br i1 %10, label %18, label %11

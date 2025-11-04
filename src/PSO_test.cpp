@@ -1209,14 +1209,8 @@ BOOST_AUTO_TEST_CASE(CMPXCHG_1){
 @y = global i32 0, align 4
 
 define i8* @p1(i8* %arg){)"
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
 R"(
-  cmpxchg volatile i32* @y, i32 0, i32 1 seq_cst seq_cst)"
-#else
-R"(
-  cmpxchg volatile i32* @y, i32 0, i32 1 seq_cst)"
-#endif
-R"(
+  cmpxchg volatile i32* @y, i32 0, i32 1 seq_cst seq_cst
   %x = load i32, i32* @x, align 4
   %xcmp = icmp eq i32 %x, 0
   br i1 %xcmp, label %cs, label %exit
@@ -1241,14 +1235,8 @@ exit:
 
 define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null))"
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
 R"(
-  cmpxchg volatile i32* @x, i32 0, i32 1 seq_cst seq_cst)"
-#else
-R"(
-  cmpxchg volatile i32* @x, i32 0, i32 1 seq_cst)"
-#endif
-R"(
+  cmpxchg volatile i32* @x, i32 0, i32 1 seq_cst seq_cst
   %y = load i32, i32* @y, align 4
   %ycmp = icmp eq i32 %y, 0
   br i1 %ycmp, label %cs, label %exit
@@ -1306,14 +1294,8 @@ BOOST_AUTO_TEST_CASE(CMPXCHG_2){
 
 define i8* @p1(i8* %arg){
   store i32 1, i32* @y, align 4)"
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
 R"(
-  cmpxchg volatile i32* @f1, i32 0, i32 1 seq_cst seq_cst)"
-#else
-R"(
-  cmpxchg volatile i32* @f1, i32 0, i32 1 seq_cst)"
-#endif
-R"(
+  cmpxchg volatile i32* @f1, i32 0, i32 1 seq_cst seq_cst
   %x = load i32, i32* @x, align 4
   %xcmp = icmp eq i32 %x, 0
   br i1 %xcmp, label %cs, label %exit
@@ -1339,14 +1321,8 @@ exit:
 define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null)
   store i32 1, i32* @x, align 4)"
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
 R"(
-  cmpxchg volatile i32* @f0, i32 0, i32 1 seq_cst seq_cst)"
-#else
-R"(
-  cmpxchg volatile i32* @f0, i32 0, i32 1 seq_cst)"
-#endif
-R"(
+  cmpxchg volatile i32* @f0, i32 0, i32 1 seq_cst seq_cst
   %y = load i32, i32* @y, align 4
   %ycmp = icmp eq i32 %y, 0
   br i1 %ycmp, label %cs, label %exit
@@ -1400,16 +1376,9 @@ BOOST_AUTO_TEST_CASE(CMPXCHG_3){
 @l = global i32 0, align 4
 
 define i8* @p1(i8* %arg){)"
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
 R"(
   %old = cmpxchg volatile i32* @l, i32 0, i32 1 seq_cst seq_cst
-  %ocmp = extractvalue {i32,i1} %old, 1)"
-#else
-R"(
-  %old = cmpxchg volatile i32* @l, i32 0, i32 1 seq_cst
-  %ocmp = icmp eq i32 %old, 0)"
-#endif
-R"(
+  %ocmp = extractvalue {i32,i1} %old, 1
   br i1 %ocmp, label %cs, label %exit
 cs:
   store i32 1, i32* @c, align 4
@@ -1422,16 +1391,9 @@ exit:
 
 define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null))"
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
 R"(
   %old = cmpxchg volatile i32* @l, i32 0, i32 1 seq_cst seq_cst
-  %ocmp = extractvalue {i32,i1} %old, 1)"
-#else
-R"(
-  %old = cmpxchg volatile i32* @l, i32 0, i32 1 seq_cst
-  %ocmp = icmp eq i32 %old, 0)"
-#endif
-R"(
+  %ocmp = extractvalue {i32,i1} %old, 1
   br i1 %ocmp, label %cs, label %exit
 cs:
   %c = load i32, i32* @c, align 4
@@ -1467,16 +1429,9 @@ BOOST_AUTO_TEST_CASE(CMPXCHG_4){
 @l = global i32 0, align 4
 
 define i8* @p1(i8* %arg){)"
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
 R"(
   %old = cmpxchg volatile i32* @l, i32 0, i32 1 seq_cst seq_cst
-  %ocmp = extractvalue {i32,i1} %old, 1)"
-#else
-R"(
-  %old = cmpxchg volatile i32* @l, i32 0, i32 1 seq_cst
-  %ocmp = icmp eq i32 %old, 0)"
-#endif
-R"(
+  %ocmp = extractvalue {i32,i1} %old, 1
   br i1 %ocmp, label %cs, label %exit
 cs:
   store i32 1, i32* @c, align 4
@@ -1490,16 +1445,9 @@ exit:
 
 define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null))"
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
 R"(
   %old = cmpxchg volatile i32* @l, i32 0, i32 1 seq_cst seq_cst
-  %ocmp = extractvalue {i32,i1} %old, 1)"
-#else
-R"(
-  %old = cmpxchg volatile i32* @l, i32 0, i32 1 seq_cst
-  %ocmp = icmp eq i32 %old, 0)"
-#endif
-R"(
+  %ocmp = extractvalue {i32,i1} %old, 1
   br i1 %ocmp, label %cs, label %exit
 cs:
   %c = load i32, i32* @c, align 4
@@ -1535,16 +1483,9 @@ BOOST_AUTO_TEST_CASE(CMPXCHG_5){
 @l = global i32 0, align 4
 
 define i8* @p1(i8* %arg){)"
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
 R"(
   %old = cmpxchg volatile i32* @l, i32 0, i32 1 seq_cst seq_cst
-  %ocmp = extractvalue {i32,i1} %old, 1)"
-#else
-R"(
-  %old = cmpxchg volatile i32* @l, i32 0, i32 1 seq_cst
-  %ocmp = icmp eq i32 %old, 0)"
-#endif
-R"(
+  %ocmp = extractvalue {i32,i1} %old, 1
   br i1 %ocmp, label %cs, label %exit
 cs:
   store i32 1, i32* @c, align 4
@@ -1559,16 +1500,9 @@ exit:
 
 define i32 @main(){
   call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)* @p1, i8* null))"
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
 R"(
   %old = cmpxchg volatile i32* @l, i32 0, i32 1 seq_cst seq_cst
-  %ocmp = extractvalue {i32,i1} %old, 1)"
-#else
-R"(
-  %old = cmpxchg volatile i32* @l, i32 0, i32 1 seq_cst
-  %ocmp = icmp eq i32 %old, 0)"
-#endif
-R"(
+  %ocmp = extractvalue {i32,i1} %old, 1
   br i1 %ocmp, label %cs, label %exit
 cs:
   %c = load i32, i32* @c, align 4

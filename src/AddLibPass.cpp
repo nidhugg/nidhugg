@@ -18,17 +18,18 @@
  */
 
 #include "AddLibPass.h"
-#include "Debug.h"
-#include "StrModule.h"
-
-#include <memory>
-#include <stdexcept>
 
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/Linker/Linker.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
+
+#include <memory>
+#include <stdexcept>
+
+#include "Debug.h"
+#include "StrModule.h"
 
 void AddLibPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
 }
@@ -47,11 +48,7 @@ bool AddLibPass::optAddFunction(llvm::Module &M,
       return false;
     }
   }
-#ifdef LLVM_LINKER_CTOR_PARAM_MODULE_REFERENCE
   llvm::Linker lnk(M);
-#else
-  llvm::Linker lnk(&M);
-#endif
   std::string err;
   bool added_def = false;
   for(auto it = srces.begin(); !added_def && it != srces.end(); ++it){
@@ -61,23 +58,11 @@ bool AddLibPass::optAddFunction(llvm::Module &M,
     M2->setDataLayout(M.getDataLayout());
 
     if(!tgtTy || M2->getFunction(name)->getType() == tgtTy){
-#ifdef LLVM_LINKER_LINKINMODULE_PTR_BOOL
-      if(lnk.linkInModule(M2)){
-#elif defined LLVM_LINKER_LINKINMODULE_UNIQUEPTR_BOOL
       if(lnk.linkInModule(std::unique_ptr<llvm::Module>(M2))){
-#else
-      if(lnk.linkInModule(M2,llvm::Linker::DestroySource,&err)){
-#endif
-#ifndef LLVM_LINKER_LINKINMODULE_UNIQUEPTR_BOOL
-        delete M2;
-#endif
         throw std::logic_error("Failed to link in library code: "+err);
       }
       added_def = true;
     }
-#ifndef LLVM_LINKER_LINKINMODULE_UNIQUEPTR_BOOL
-    delete M2;
-#endif
   }
   if(!added_def){
     Debug::warn("AddLibPass:"+name)

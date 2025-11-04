@@ -255,13 +255,8 @@ public:
 
   /// run - Start execution with the specified function and arguments.
   ///
-#ifdef LLVM_EXECUTION_ENGINE_RUN_FUNCTION_VECTOR
-  llvm::GenericValue runFunction(llvm::Function *F,
-                                 const std::vector<llvm::GenericValue> &ArgValues);
-#else
   llvm::GenericValue runFunction(llvm::Function *F,
                                  llvm::ArrayRef<llvm::GenericValue> ArgValues);
-#endif
 
   void *getPointerToNamedFunction(const std::string &Name,
                                   bool AbortOnFailure = true) {
@@ -318,13 +313,8 @@ public:
   void visitBitCastInst(llvm::BitCastInst &I);
   void visitSelectInst(llvm::SelectInst &I);
 
-
   virtual void visitAnyCallInst(AnyCallInst CI);
-#ifdef LLVM_HAS_CALLBASE
   virtual void visitCallBase(llvm::CallBase &CB) { visitAnyCallInst(CB); }
-#else
-  virtual void visitCallSite(llvm::CallSite CS) { visitAnyCallInst(CS); }
-#endif
   void visitUnreachableInst(llvm::UnreachableInst &I);
 
   void visitShl(llvm::BinaryOperator &I);
@@ -431,29 +421,17 @@ private:  // Helper functions
    * the current data layout.
    */
   MRef GetMRef(void *Ptr, llvm::Type *Ty){
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-    return {Ptr,int(getDataLayout()->getTypeStoreSize(Ty))};
-#else
     return {Ptr,int(getDataLayout().getTypeStoreSize(Ty))};
-#endif
   }
   ConstMRef GetConstMRef(void const *Ptr, llvm::Type *Ty){
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-    return {Ptr,int(getDataLayout()->getTypeStoreSize(Ty))};
-#else
     return {Ptr,int(getDataLayout().getTypeStoreSize(Ty))};
-#endif
   }
   /* Get an MBlock associated with the location Ptr, and holding the
    * value Val of type Ty. The size of the memory location will be
    * that of Ty.
    */
   MBlock GetMBlock(void *Ptr, llvm::Type *Ty, const llvm::GenericValue &Val){
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-    uint64_t alloc_size = getDataLayout()->getTypeAllocSize(Ty);
-#else
     uint64_t alloc_size = getDataLayout().getTypeAllocSize(Ty);
-#endif
     MBlock B(GetMRef(Ptr,Ty),alloc_size);
     StoreValueToMemory(Val,static_cast<llvm::GenericValue*>(B.get_block()),Ty);
     return B;

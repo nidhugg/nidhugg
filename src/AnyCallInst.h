@@ -21,21 +21,14 @@
 #define __ANYCALLINST_H__
 
 #include <llvm/IR/Instructions.h>
-#if defined(HAVE_LLVM_SUPPORT_CALLSITE_H)
-#include <llvm/Support/CallSite.h>
-#elif defined(HAVE_LLVM_IR_CALLSITE_H)
-#include <llvm/IR/CallSite.h>
-#endif
 
 #include <cassert>
 
-/* Because older llvms do not have the llvm::CallBase base class, but instead
+/* Because llvms < 8.0.0 do not have the llvm::CallBase base class, but instead
  * have a helper type llvm::CallSite that wraps any instruction type that is a
  * call, we need a consistent way of handling them. We introduce our own wrapper
  * type, AnyCallInst, with an interface as close to llvm::CallBase as possible.
  */
-
-#ifdef LLVM_HAS_CALLBASE
 
 class AnyCallInst {
   llvm::CallBase *CB;
@@ -55,27 +48,5 @@ class AnyCallInst {
   auto arg_end() { return CB->arg_end(); }
   auto arg_size() { return CB->arg_size(); }
 };
-
-#else /* #ifdef LLVM_HAS_CALLBASE */
-
-class AnyCallInst {
-  llvm::CallSite CS;
-
- public:
-  AnyCallInst() {}
-  AnyCallInst(llvm::CallSite CS) : CS(CS) {}
-
-  operator bool() const { return (bool)CS; }
-  bool operator==(std::nullptr_t) { return !CS.getInstruction(); }
-  llvm::Instruction* operator &() { return CS.getInstruction(); }
-  const llvm::Instruction* operator &() const { return CS.getInstruction(); }
-  llvm::Function *getCalledFunction() const { return CS.getCalledFunction(); }
-  llvm::Value *getCalledOperand() const { return CS.getCalledValue(); }
-  auto arg_begin() { return CS.arg_begin(); }
-  auto arg_end() { return CS.arg_end(); }
-  auto arg_size() { return CS.arg_size(); }
-};
-
-#endif /* ! #ifdef LLVM_HAS_CALLBASE */
 
 #endif // __ANYCALLINST_H__

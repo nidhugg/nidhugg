@@ -270,14 +270,14 @@ GenericValue Interpreter::callExternalFunction(Function *F,
                                      const std::vector<GenericValue> &ArgVals) {
   TheInterpreter = this;
 
-  FunctionsLock->LLVM_SYS_MUTEX_LOCK_FN();
+  FunctionsLock->lock();
 
   // Do a lookup to see if the function is in our cache... this should just be a
   // deferred annotation!
   std::map<const Function *, ExFunc>::iterator FI = ExportedFunctions->find(F);
   if (ExFunc Fn = (FI == ExportedFunctions->end()) ? lookupFunction(F)
                                                    : FI->second) {
-    FunctionsLock->LLVM_SYS_MUTEX_UNLOCK_FN();
+    FunctionsLock->unlock();
     return Fn(F->getFunctionType(), ArgVals);
   }
 
@@ -295,14 +295,10 @@ GenericValue Interpreter::callExternalFunction(Function *F,
     RawFn = RF->second;
   }
 
-  FunctionsLock->LLVM_SYS_MUTEX_UNLOCK_FN();
+  FunctionsLock->unlock();
 
   GenericValue Result;
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-  const llvm::DataLayout *DL = getDataLayout();
-#else
   const llvm::DataLayout *DL = &getDataLayout();
-#endif
   if (RawFn != 0 && ffiInvoke(RawFn, F, ArgVals, DL, Result)){
     return Result;
   }
@@ -403,11 +399,7 @@ GenericValue lle_X_sprintf(FunctionType *FT,
       case 'u': case 'o':
       case 'x': case 'X':
         if (HowLong >= 1) {
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-          unsigned ptr_size = TheInterpreter->getDataLayout()->getPointerSizeInBits();
-#else
           unsigned ptr_size = TheInterpreter->getDataLayout().getPointerSizeInBits();
-#endif
           if (HowLong == 1 &&
               ptr_size == 64 &&
               sizeof(long) < sizeof(int64_t)) {

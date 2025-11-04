@@ -124,51 +124,8 @@ BOOST_AUTO_TEST_CASE(Intrinsic_2){
    * would cause crashes.
    */
   Configuration conf = DPORDriver_test::get_sc_conf();
-#ifdef LLVM_METADATA_IS_VALUE
-  std::string module = StrModule::portasm(R"(
-@x = global i32 0, align 4
-
-define i8* @p(i8* %arg){
-  call void @llvm.dbg.declare(metadata !{i8* %arg}, metadata !0)
-  store i32 1, i32* @x, align 4
-  call void @llvm.dbg.declare(metadata !{i8* %arg}, metadata !0)
-  store i32 2, i32* @x, align 4
-  call void @llvm.dbg.declare(metadata !{i8* %arg}, metadata !0)
-  store i32 3, i32* @x, align 4
-  call void @llvm.dbg.declare(metadata !{i8* %arg}, metadata !0)
-  ret i8* null
-}
-
-define i32 @main(){
-  %T0 = alloca i64
-  %T1 = alloca i64
-  call i32 @pthread_create(i64* %T0, %attr_t* null, i8*(i8*)*@p, i8*null)
-  call i32 @pthread_create(i64* %T1, %attr_t* null, i8*(i8*)*@p, i8*null)
-  call i8* @p(i8* null)
-  %T0val = load i64, i64* %T0
-  %T1val = load i64, i64* %T1
-  call i32 @pthread_join(i64 %T0val,i8** null)
-  call i32 @pthread_join(i64 %T1val,i8** null)
-  ret i32 0
-}
-
-%attr_t = type { i64, [48 x i8] }
-declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone
-declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-declare i32 @pthread_join(i64,i8**) nounwind
-
-!llvm.module.flags = !{!1}
-!0 = metadata !{i32 0}
-!1 = metadata !{i32 2, metadata !"Debug Info Version", i32 )" LLVM_METADATA_VERSION_NUMBER_STR R"(}
-)");
-#else
-#ifdef LLVM_DBG_DECLARE_TWO_ARGS
-  std::string declarecall = "call void @llvm.dbg.declare(metadata i8* %arg, metadata !0)";
-  std::string declaredeclare = "declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone";
-#else
   std::string declarecall = "call void @llvm.dbg.declare(metadata i8* %arg, metadata !0, metadata !0)";
   std::string declaredeclare = "declare void @llvm.dbg.declare(metadata, metadata, metadata) nounwind readnone";
-#endif
   std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
@@ -205,7 +162,6 @@ declare i32 @pthread_join(i64,i8**) nounwind
 !0 = !{i32 0}
 !1 = !{i32 2, !"Debug Info Version", i32 )" LLVM_METADATA_VERSION_NUMBER_STR R"(}
 )");
-#endif
   DPORDriver *driver = DPORDriver::parseIR(module, conf);
   DPORDriver::Result res = driver->run();
   delete driver;
@@ -1062,38 +1018,8 @@ declare i32 @pthread_mutex_unlock(i32*) nounwind
 
 BOOST_AUTO_TEST_CASE(Intrinsic_first){
   Configuration conf = DPORDriver_test::get_sc_conf();
-#ifdef LLVM_METADATA_IS_VALUE
-  std::string module = StrModule::portasm(R"(
-@x = global i32 0, align 4
-
-define i8* @p0(i8* %arg){
-  tail call void @llvm.dbg.value(metadata !{i8* %arg}, i64 0, metadata !1)
-  store i32 1, i32* @x, align 4
-  ret i8* null
-}
-
-define i32 @main(){
-  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)*@p0, i8* null)
-  call i32 @pthread_create(i64* null, %attr_t* null, i8*(i8*)*@p0, i8* null)
-  ret i32 0
-}
-
-declare void @llvm.dbg.value(metadata, i64, metadata) #1
-%attr_t = type {i64, [48 x i8]}
-declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
-
-!llvm.module.flags = !{!2}
-!1 = metadata !{i32 0}
-!2 = metadata !{i32 2, metadata !"Debug Info Version", i32 )" LLVM_METADATA_VERSION_NUMBER_STR R"(}
-)");
-#else
-#ifdef LLVM_DBG_DECLARE_TWO_ARGS
-  std::string declarecall = "call void @llvm.dbg.declare(metadata i8* %arg, metadata !1)";
-  std::string declaredeclare = "declare void @llvm.dbg.declare(metadata, metadata) nounwind readnone";
-#else
   std::string declarecall = "call void @llvm.dbg.declare(metadata i8* %arg, metadata !1, metadata !1)";
   std::string declaredeclare = "declare void @llvm.dbg.declare(metadata, metadata, metadata) nounwind readnone";
-#endif
   std::string module = StrModule::portasm(R"(
 @x = global i32 0, align 4
 
@@ -1117,7 +1043,6 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*) nounwind
 !1 = !{i32 0}
 !2 = !{i32 2, !"Debug Info Version", i32 )" LLVM_METADATA_VERSION_NUMBER_STR R"(}
 )");
-#endif
 
   DPORDriver *driver = DPORDriver::parseIR(module, conf);
   DPORDriver::Result res = driver->run();

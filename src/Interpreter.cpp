@@ -61,18 +61,6 @@ std::unique_ptr<Interpreter> Interpreter::
 create(llvm::Module *M, TSOPSOTraceBuilder &TB, const Configuration &C,
        std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
-#ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
-  if(std::error_code EC = M->materializeAllPermanently()){
-    // We got an error, just return 0
-    if(ErrStr) *ErrStr = EC.message();
-    return 0;
-  }
-#elif defined LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_BOOL_STRPTR
-  if (M->MaterializeAllPermanently(ErrStr)){
-    // We got an error, just return 0
-    return 0;
-  }
-#elif defined LLVM_MODULE_MATERIALIZE_LLVM_ALL_ERROR
   if (Error Err = M->materializeAll()) {
     std::string Msg;
     handleAllErrors(std::move(Err), [&](ErrorInfoBase &EIB) {
@@ -83,13 +71,6 @@ create(llvm::Module *M, TSOPSOTraceBuilder &TB, const Configuration &C,
     // We got an error, just return 0
     return nullptr;
   }
-#else
-  if(std::error_code EC = M->materializeAll()){
-    // We got an error, just return 0
-    if(ErrStr) *ErrStr = EC.message();
-    return 0;
-  }
-#endif
 
   return std::unique_ptr<Interpreter>(new Interpreter(M,TB,C));
 }
@@ -105,9 +86,6 @@ Interpreter::Interpreter(Module *M, TSOPSOTraceBuilder &TB,
   CurrentThread = 0;
   AtomicFunctionCall = -1;
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-  setDataLayout(&TD);
-#endif
   // Initialize the "backend"
   initializeExecutionEngine();
   initializeExternalFunctions();
@@ -117,11 +95,7 @@ Interpreter::Interpreter(Module *M, TSOPSOTraceBuilder &TB,
   int glbl_ctr = 0;
   for (auto git = M->global_begin(); git != M->global_end(); ++git) {
     if (GlobalVariable *gv = dyn_cast<GlobalVariable>(&*git)) {
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-      const DataLayout &DL = *getDataLayout();
-#else
       const DataLayout &DL = getDataLayout();
-#endif
       size_t GVSize = (size_t)(DL.getTypeAllocSize(gv->getValueType()));
       void *GVPtr = getPointerToGlobal(gv);
       SymMBlock mb = SymMBlock::Global(++glbl_ctr);
@@ -139,12 +113,10 @@ Interpreter::~Interpreter() {
    * we are done with it.
    */
   assert(Modules.size() == 1);
-#ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
   /* First release all modules. */
   for(auto it = Modules.begin(); it != Modules.end(); ++it){
     it->release();
   }
-#endif
   Modules.clear();
   for(void *ptr : AllocatedMemHeap){
     free(ptr);
@@ -164,15 +136,9 @@ void Interpreter::runAtExitHandlers () {
 
 /// run - Start execution with the specified function and arguments.
 ///
-#ifdef LLVM_EXECUTION_ENGINE_RUN_FUNCTION_VECTOR
-GenericValue
-Interpreter::runFunction(Function *F,
-                         const std::vector<GenericValue> &ArgValues) {
-#else
 GenericValue
 Interpreter::runFunction(Function *F,
                          ArrayRef<GenericValue> ArgValues) {
-#endif
   assert (F && "Function *F was null at entry to run()");
 
   if (Blocked) {

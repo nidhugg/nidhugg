@@ -964,11 +964,7 @@ void Interpreter::visitSwitchInst(SwitchInst &I) {
   // Check to see if any of the cases match...
   BasicBlock *Dest = 0;
   for (SwitchInst::CaseIt i = I.case_begin(), e = I.case_end(); i != e; ++i) {
-#ifdef LLVM_SWITCHINST_CASEIT_NEEDS_DEREFERENCE
     auto &v = *i;
-#else
-    auto &v = i;
-#endif
     GenericValue CaseVal = getOperandValue(v.getCaseValue(), SF);
     if (executeICMP_EQ(CondVal, CaseVal, ElTy).IntVal != 0) {
       Dest = cast<BasicBlock>(v.getCaseSuccessor());
@@ -1067,11 +1063,7 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
   uint64_t Total = 0;
 
   for (; I != E; ++I) {
-#ifdef LLVM_NEW_GEP_TYPE_ITERATOR_API
     if (StructType *STy = I.getStructTypeOrNull()) {
-#else
-    if (StructType *STy = dyn_cast<StructType>(*I)) {
-#endif
       const StructLayout *SLO = TD.getStructLayout(STy);
 
       const ConstantInt *CPU = cast<ConstantInt>(I.getOperand());
@@ -1091,13 +1083,7 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
         assert(BitWidth == 64 && "Invalid index type for getelementptr");
         Idx = (int64_t)IdxGV.IntVal.getZExtValue();
       }
-      Total += TD.getTypeAllocSize
-#ifdef LLVM_NEW_GEP_TYPE_ITERATOR_API
-        (I.getIndexedType()
-#else
-        (cast<SequentialType>(*I)->getElementType()
-#endif
-         )*Idx;
+      Total += TD.getTypeAllocSize(I.getIndexedType())*Idx;
     }
   }
 
@@ -1204,7 +1190,6 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
   SymData::block_type expected = SymData::alloc_block(Ptr_sas->size);
   StoreValueToMemory(CmpVal,static_cast<GenericValue*>((void*)expected.get()),Ty);
 
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
   // Return a tuple (oldval,success)
   Result.AggregateVal.resize(2);
   if(DryRun && DryRunMem.size()){
@@ -1213,24 +1198,13 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
     LoadValueFromMemory(Result.AggregateVal[0], Ptr, Ty);
   }
   GenericValue CmpRes = executeICMP_EQ(Result.AggregateVal[0],CmpVal,Ty);
-#else
-  // Return only the old value oldval
-  if(DryRun && DryRunMem.size()){
-    DryRunLoadValueFromMemory(Result, Ptr, *Ptr_sas, Ty);
-  }else{
-    LoadValueFromMemory(Result, Ptr, Ty);
-  }
-  GenericValue CmpRes = executeICMP_EQ(Result,CmpVal,Ty);
-#endif
   SymData sd = GetSymData(*Ptr_sas,Ty,NewVal);
   if(!TB.compare_exchange(sd, expected, CmpRes.IntVal.getBoolValue())){
     abort();
     return;
   }
   if(CmpRes.IntVal.getBoolValue()){
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
     Result.AggregateVal[1].IntVal = 1;
-#endif
     SetValue(&I, Result, SF);
     if(DryRun){
       DryRunMem.emplace_back(std::move(sd));
@@ -1239,10 +1213,8 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I){
     StoreValueToMemory(NewVal,Ptr,Ty);
     CheckAwaitWakeup(NewVal, Ptr, *Ptr_sas);
   }else{
-#if defined(LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING)
     Result.AggregateVal[1].IntVal = 0;
-#endif
-    SetValue(&I,Result,SF);
+    SetValue(&I, Result, SF);
   }
 }
 
@@ -3023,12 +2995,7 @@ void Interpreter::callLoadAwait(Function *F,
   AwaitCond::Op op(static_cast<AwaitCond::Op>(op_int));
    /* Should be arg2 type, but if well-formed is same as return type */
   Type *Ty = F->getReturnType();
-  SymData::block_type operand = SymData::alloc_block
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-    (getDataLayout()->getTypeStoreSize(Ty));
-#else
-    (getDataLayout().getTypeStoreSize(Ty));
-#endif
+  SymData::block_type operand = SymData::alloc_block(getDataLayout().getTypeStoreSize(Ty));
   StoreValueToMemory(ArgVals[2],
                      static_cast<GenericValue*>((void*)operand.get()),Ty);
 
@@ -3054,12 +3021,7 @@ void Interpreter::callLoadAwait(Function *F,
   AwaitCond::Op op(static_cast<AwaitCond::Op>(op_int));
    /* Should be arg2 type, but if well-formed is same as return type */
   Type *Ty = F->getReturnType();
-  std::size_t Ty_size =
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-    getDataLayout()->getTypeStoreSize(Ty);
-#else
-    getDataLayout().getTypeStoreSize(Ty);
-#endif
+  std::size_t Ty_size = getDataLayout().getTypeStoreSize(Ty);
   SymData::block_type operand = SymData::alloc_block(Ty_size);
   StoreValueToMemory(ArgVals[3],
                      static_cast<GenericValue*>((void*)operand.get()),Ty);
@@ -3360,12 +3322,7 @@ bool Interpreter::isAnyAwait(Instruction &I, GenericValue **ptr, AwaitCond *cond
   AwaitCond::Op op(static_cast<AwaitCond::Op>(op_int));
 
   Type *Ty = args[nargs+2]->getType();
-  SymData::block_type operand = SymData::alloc_block
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-    (getDataLayout()->getTypeStoreSize(Ty));
-#else
-    (getDataLayout().getTypeStoreSize(Ty));
-#endif
+  SymData::block_type operand = SymData::alloc_block(getDataLayout().getTypeStoreSize(Ty));
   StoreValueToMemory(getOperandValue(args[nargs+2],ECStack()->back()),
                      static_cast<GenericValue*>((void*)operand.get()),Ty);
 

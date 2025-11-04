@@ -51,18 +51,6 @@ bool PSOInterpreter::PSOThread::readable(const SymAddrSize &ml) const {
 std::unique_ptr<PSOInterpreter> PSOInterpreter::
 create(llvm::Module *M, PSOTraceBuilder &TB, const Configuration &conf,
        std::string *ErrorStr){
-#ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
-  if(std::error_code EC = M->materializeAllPermanently()){
-    // We got an error, just return 0
-    if(ErrorStr) *ErrorStr = EC.message();
-    return 0;
-  }
-#elif defined LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_BOOL_STRPTR
-  if (M->MaterializeAllPermanently(ErrorStr)){
-    // We got an error, just return 0
-    return 0;
-  }
-#elif defined LLVM_MODULE_MATERIALIZE_LLVM_ALL_ERROR
   if (llvm::Error Err = M->materializeAll()) {
     std::string Msg;
     handleAllErrors(std::move(Err), [&](llvm::ErrorInfoBase &EIB) {
@@ -73,13 +61,6 @@ create(llvm::Module *M, PSOTraceBuilder &TB, const Configuration &conf,
     // We got an error, just return 0
     return nullptr;
   }
-#else
-  if(std::error_code EC = M->materializeAll()){
-    // We got an error, just return 0
-    if(ErrorStr) *ErrorStr = EC.message();
-    return 0;
-  }
-#endif
 
   return std::unique_ptr<PSOInterpreter>(new PSOInterpreter(M,TB,conf));
 }
@@ -172,22 +153,18 @@ bool PSOInterpreter::isFence(llvm::Instruction &I){
       if(isInlineAsm(CS,&asmstr) && asmstr == "mfence") return true;
     }
   }else if(llvm::isa<llvm::StoreInst>(I)){
-    return static_cast<llvm::StoreInst&>(I).getOrdering() == LLVM_ATOMIC_ORDERING_SCOPE::SequentiallyConsistent;
+    return static_cast<llvm::StoreInst&>(I).getOrdering() == llvm::AtomicOrdering::SequentiallyConsistent;
   }else if(llvm::isa<llvm::FenceInst>(I)){
-    return static_cast<llvm::FenceInst&>(I).getOrdering() == LLVM_ATOMIC_ORDERING_SCOPE::SequentiallyConsistent;
+    return static_cast<llvm::FenceInst&>(I).getOrdering() == llvm::AtomicOrdering::SequentiallyConsistent;
   }else if(llvm::isa<llvm::AtomicCmpXchgInst>(I)){
-#ifdef LLVM_CMPXCHG_SEPARATE_SUCCESS_FAILURE_ORDERING
     llvm::AtomicOrdering succ = static_cast<llvm::AtomicCmpXchgInst&>(I).getSuccessOrdering();
     llvm::AtomicOrdering fail = static_cast<llvm::AtomicCmpXchgInst&>(I).getFailureOrdering();
-    if(succ != LLVM_ATOMIC_ORDERING_SCOPE::SequentiallyConsistent || fail != LLVM_ATOMIC_ORDERING_SCOPE::SequentiallyConsistent){
-#else
-    if(static_cast<llvm::AtomicCmpXchgInst&>(I).getOrdering() != LLVM_ATOMIC_ORDERING_SCOPE::SequentiallyConsistent){
-#endif
+    if(succ != llvm::AtomicOrdering::SequentiallyConsistent || fail != llvm::AtomicOrdering::SequentiallyConsistent){
       Debug::warn("PSOInterpreter::isFence::cmpxchg") << "WARNING: Non-sequentially consistent CMPXCHG instruction interpreted as sequentially consistent.\n";
     }
     return true;
   }else if(llvm::isa<llvm::AtomicRMWInst>(I)){
-    if(static_cast<llvm::AtomicRMWInst&>(I).getOrdering() != LLVM_ATOMIC_ORDERING_SCOPE::SequentiallyConsistent){
+    if(static_cast<llvm::AtomicRMWInst&>(I).getOrdering() != llvm::AtomicOrdering::SequentiallyConsistent){
       Debug::warn("PSOInterpreter::isFence::rmw") << "WARNING: Non-sequentially consistent RMW instruction interpreted as sequentially consistent.\n";
     }
     return true;
@@ -303,7 +280,7 @@ void PSOInterpreter::visitStoreInst(llvm::StoreInst &I){
 
   PSOThread &thr = pso_threads[CurrentThread];
 
-  if(I.getOrdering() == LLVM_ATOMIC_ORDERING_SCOPE::SequentiallyConsistent ||
+  if(I.getOrdering() == llvm::AtomicOrdering::SequentiallyConsistent ||
      0 <= AtomicFunctionCall){
     /* Atomic store */
     assert(thr.all_buffers_empty());
@@ -341,7 +318,7 @@ void PSOInterpreter::visitStoreInst(llvm::StoreInst &I){
 }
 
 void PSOInterpreter::visitFenceInst(llvm::FenceInst &I){
-  if(I.getOrdering() == LLVM_ATOMIC_ORDERING_SCOPE::SequentiallyConsistent){
+  if(I.getOrdering() == llvm::AtomicOrdering::SequentiallyConsistent){
     if(!TB.fence()){
       abort();
       return;

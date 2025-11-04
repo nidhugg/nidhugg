@@ -41,21 +41,9 @@
 #include <string>
 #include <vector>
 
-#ifdef LLVM_HAS_ATTRIBUTELIST
-typedef llvm::AttributeList AttributeList;
-#else
-typedef llvm::AttributeSet AttributeList;
-#endif
-
-#ifdef LLVM_HAS_TERMINATORINST
-typedef llvm::TerminatorInst TerminatorInst;
-#else
-typedef llvm::Instruction TerminatorInst;
-#endif
-
-void AssumeAwaitPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
+void AssumeAwaitPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const {
   AU.setPreservesCFG();
-  AU.addRequired<llvm::LLVM_DOMINATOR_TREE_PASS>();
+  AU.addRequired<llvm::DominatorTreeWrapperPass>();
 }
 
 unsigned AssumeAwaitPass::sizes[AssumeAwaitPass::no_sizes] = {8,16,32,64};
@@ -65,7 +53,7 @@ namespace {
   llvm::cl::opt<int> cl_asaw_dbgp("asaw-debug");
 
   llvm::Value* getOrInsertFunction(llvm::Module &M, llvm::StringRef Name,
-                                   llvm::FunctionType *T, AttributeList AttributeList) {
+                                   llvm::FunctionType *T, llvm::AttributeList AttributeList) {
     auto ret = M.getOrInsertFunction(std::move(Name),T,std::move(AttributeList));
 #if LLVM_VERSION_MAJOR >= 9
       /* XXX: I will not work with some development versions of 9, I
@@ -296,8 +284,8 @@ bool AssumeAwaitPass::doInitialization(llvm::Module &M){
     F_load_await[i] = {M.getFunction(lname), loadAwaitTy};
     F_xchg_await[i] = {M.getFunction(xname), xchgAwaitTy};
     if(!std::get<0>(F_load_await[i]) || !std::get<0>(F_xchg_await[i])){
-      AttributeList assumeAttrs =
-        AttributeList::get(M.getContext(),AttributeList::FunctionIndex,
+      llvm::AttributeList assumeAttrs =
+        llvm::AttributeList::get(M.getContext(), llvm::AttributeList::FunctionIndex,
                            std::vector<llvm::Attribute::AttrKind>({llvm::Attribute::NoUnwind}));
       F_load_await[i] = {getOrInsertFunction(M,lname,loadAwaitTy,assumeAttrs), loadAwaitTy};
       F_xchg_await[i] = {getOrInsertFunction(M,xname,xchgAwaitTy,assumeAttrs), xchgAwaitTy};
@@ -345,7 +333,7 @@ bool AssumeAwaitPass::tryRewriteAssume(llvm::Function *F, llvm::BasicBlock *BB, 
     llvm::CmpInst::Predicate pred = Cond->getPredicate();
     if (load_index == 1) pred = llvm::CmpInst::getSwappedPredicate(pred);
     if (negate) pred = llvm::CmpInst::getInversePredicate(pred);
-    llvm::DominatorTree &DT = getAnalysis<llvm::LLVM_DOMINATOR_TREE_PASS>().getDomTree();
+    llvm::DominatorTree &DT = getAnalysis<llvm::DominatorTreeWrapperPass>().getDomTree();
     if (!is_permissible_arg(DT, ArgVal, Load)) continue;
     if (!is_permissible_monitor(DT, Load, Monitor)) continue;
     if (!is_safe_to_rewrite(Load, Call)) continue;

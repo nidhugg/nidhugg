@@ -40,7 +40,7 @@ namespace llvm {
  * This pass is a prerequisite for SpinAssumePass.
  */
 class DeclareAssumePass : public llvm::ModulePass {
-public:
+ public:
   static char ID;
   DeclareAssumePass() : llvm::ModulePass(ID) {}
   virtual bool runOnModule(llvm::Module &M);
@@ -66,17 +66,14 @@ public:
  * __VERIFIER_assume(!(x < 2));
  */
 class SpinAssumePass : public llvm::LoopPass{
-public:
+ public:
   static char ID;
   SpinAssumePass() : llvm::LoopPass(ID) {}
   virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
   virtual bool runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM);
-#ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
   virtual llvm::StringRef getPassName() const { return "SpinAssumePass"; }
-#else
-  virtual const char *getPassName() const { return "SpinAssumePass"; }
-#endif
-protected:
+
+ protected:
   bool is_spin(const llvm::Loop *l) const;
   bool is_assume(llvm::Instruction &I) const;
   bool assumify_loop(llvm::Loop *l, llvm::LPPassManager &LPM);

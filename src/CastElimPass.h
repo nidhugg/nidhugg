@@ -28,17 +28,14 @@
 /* The CastElim pass eliminates some unnecessary casts that can
  * complicate later analyses. */
 class CastElimPass final : public llvm::FunctionPass{
-public:
+ public:
   static char ID;
   CastElimPass() : llvm::FunctionPass(ID) {}
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
   bool runOnFunction(llvm::Function &F) override;
-#ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
   llvm::StringRef getPassName() const override { return "CastElimPass"; }
-#else
-  const char *getPassName() const override { return "CastElimPass"; }
-#endif
-private:
+
+ private:
 };
 
 #endif
