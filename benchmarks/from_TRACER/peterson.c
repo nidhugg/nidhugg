@@ -13,7 +13,7 @@
 #include <stdatomic.h>
 #include <pthread.h>
 
-#define LOOP 3
+#define LOOP 2
 
 atomic_int flag0;
 atomic_int flag1;

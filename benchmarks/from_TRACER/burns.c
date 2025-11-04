@@ -15,7 +15,7 @@
 #include <pthread.h>
 
 #define LOOP 10
-#define N 3
+#define N 2
 
 // shared variables
 atomic_int flags[N];
