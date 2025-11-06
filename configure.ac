@@ -29,7 +29,16 @@ AX_BOOST_UNIT_TEST_FRAMEWORK
 AX_BOOST_SYSTEM
 AX_LLVM(,[AC_MSG_FAILURE(LLVM is required.)])
 AC_SUBST(LLVMVERSION)
-CXXFLAGS="`echo " $CXXFLAGS " | sed 's/ -fno-rtti / /' | sed 's/ -fno-exceptions / /'` --std=c++14 $BOOST_CPPFLAGS"
+
+if test "$(printf '%s\n' '16' $(echo $LLVMVERSION | cut -c 1,2) | sort -V | head -n 1)" = '16'; then
+  # Checks for C++17 for LLVM 16 or later
+  AX_CXX_COMPILE_STDCXX(17, [noext])
+  CXXSTD="--std=c++17"
+else
+  CXXSTD="--std=c++14"
+fi
+
+CXXFLAGS="`echo " $CXXFLAGS " | sed 's/ -fno-rtti / /' | sed 's/ -fno-exceptions / /'` $CXXSTD $BOOST_CPPFLAGS"
 LDFLAGS="$LDFLAGS $BOOST_LDFLAGS"
 AC_SEARCH_LIBS([dlopen], [dl],[],[AC_MSG_FAILURE([Could not find library libdl.])])
 ifdef([PKG_CHECK_MODULES],[

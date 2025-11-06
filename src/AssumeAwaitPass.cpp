@@ -369,7 +369,6 @@ bool AssumeAwaitPass::tryRewriteAssume(llvm::Function *F, llvm::BasicBlock *BB, 
     llvm::ConstantInt *COp = llvm::ConstantInt::get(i8Ty, op);
     llvm::ConstantInt *CMode = llvm::ConstantInt::get(i8Ty, get_mode(Load));
     llvm::Value *Address = Load->getOperand(0);
-    llvm::BasicBlock::iterator LI(Load);
     llvm::SmallVector<llvm::Value*, 5> args;
     if (llvm::isa<llvm::LoadInst>(Load)) {
       args = {Address, COp, ArgVal, CMode};
@@ -384,7 +383,7 @@ bool AssumeAwaitPass::tryRewriteAssume(llvm::Function *F, llvm::BasicBlock *BB, 
         BB->printAsOperand(llvm::dbgs() << " in ", false);
         llvm::dbgs()<< " with load-await\n";
       }
-      llvm::ReplaceInstWithInst(Load->getParent()->getInstList(), LI, Await);
+      llvm::ReplaceInstWithInst(Load, Await);
     } else {
       Await->insertBefore(AwaitBB->getTerminator());
       Phi->addIncoming(Await, AwaitBB);
