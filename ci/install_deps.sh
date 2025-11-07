@@ -9,14 +9,20 @@ if [ -n "$LLVM_VERSION" ]; then
     LLVM_REL_EXT=tar.xz
 
     case $LLVM_VERSION in
-        3.[89]*|[4-6].*)
-            LLVM_UBUNTU_VER=16.04
+        [3-7].*)
+            # LLVM_UBUNTU_VER=16.04
+            echo "Error: LLVM versions 3.* to 7.* are no longer supported by Nidhugg"
+            exit 1
             ;;
-        [7-9].*|10.*|14.0.0)
+        [8-9].*|10.*|14.0.0|15.0.[56])
             LLVM_UBUNTU_VER=18.04
             ;;
-        ?*)
+        11.*|12.*|13.*)
             LLVM_UBUNTU_VER=20.04
+            ;;
+        ?*)
+            echo "Error: LLVM versions 16.* and higher are not yet supported by Nidhugg"
+            exit 1
             ;;
     esac
     case $LLVM_VERSION in
@@ -56,14 +62,7 @@ if [ -n "$LLVM_VERSION" ]; then
 	    rm $LLVM_DEP || true
 	    exit 1
         fi
-        case $LLVM_VERSION in
-            3.5.*)
-                mv /opt/clang+llvm-$LLVM_VERSION-$LLVM_TRIPLE /opt/clang+llvm-$LLVM_VERSION
-	        ;;
-            ?*)
-                mv /opt/clang+llvm-$LLVM_VERSION-$LLVM_TRIPLE-$LLVM_OS-$LLVM_UBUNTU_VER /opt/clang+llvm-$LLVM_VERSION
-	        ;;
-        esac
+        mv /opt/clang+llvm-$LLVM_VERSION-$LLVM_TRIPLE-$LLVM_OS-$LLVM_UBUNTU_VER /opt/clang+llvm-$LLVM_VERSION
     else
         echo "Found Cached Installation"
     fi
