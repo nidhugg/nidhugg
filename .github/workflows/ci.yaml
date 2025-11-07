@@ -49,6 +49,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+      # Required for docker layer caching
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       - name: Build Nidhugg
         id: build
         uses: docker/build-push-action@v6
@@ -57,8 +60,15 @@ jobs:
           push: false
           file: ci/Dockerfile.debug_test${{ matrix.ubuntu }}
           build-args: LLVM_VERSION=${{ matrix.llvm }}
+          tags: nidhugg-debug-ci-llvm${{ matrix.llvm }}
+          load: true
+          # This build in particular is slow, so enable caching for this one.
+          # We can't fit layer caches from all builds, so we only do the slow
+          # ones.
+          cache-from: type=gha,scope=debugllvm${{ matrix.llvm }}
+          cache-to: type=gha,mode=max,scope=debugllvm${{ matrix.llvm }}
       - name: Run tests
-        run: docker run --rm -t ${{ steps.build.outputs.digest }}
+        run: docker run --rm -t nidhugg-debug-ci-llvm${{ matrix.llvm }}
   docker_image:
     name: Test the standard docker file
     runs-on: ubuntu-latest
@@ -80,12 +90,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-      # This build in particular is slow, so enable caching for this one. All
-      # our temp layers do not fit in github CI cache, so we have to be
-      # selective.
-      - name: Pull cached docker layers
-        uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
+      # Required for docker layer caching
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       - name: Build Docker Image
         id: build
         uses: docker/build-push-action@v6
@@ -94,6 +101,12 @@ jobs:
           push: false
           file: Dockerfile.debug
           tags: nidhugg-debug
+          load: true
+          # This build in particular is slow, so enable caching for this one.
+          # We can't fit layer caches from all builds, so we only do the slow
+          # ones.
+          cache-from: type=gha,scope=debugdockerfile
+          cache-to: type=gha,mode=max,scope=debugdockerfile
       - name: Run a smoke test
         run: docker run --rm -t -v `pwd`:`pwd` -w `pwd` nidhugg-debug nidhuggc -sc tests/smoke/C-tests/mutex_hard.c
       - name: Run the unit tests
