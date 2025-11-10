@@ -1,5 +1,5 @@
 FROM ubuntu:22.04 AS build
-ARG LLVM_VERSION=15.0.3
+ARG LLVM_VERSION=16.0.4
 
 # COPY ci/install_deps.sh /ci/
 RUN \
@@ -16,8 +16,10 @@ RUN \
       autoconf \
       automake \
       python3 \
+      pkg-config \
       libffi-dev \
       libz-dev \
+      libzstd-dev \
       libtinfo-dev \
       libxml2-dev \
       wget ca-certificates \
@@ -40,6 +42,7 @@ RUN \
            -DLLVM_OPTIMIZED_TABLEGEN=ON             \
            -DLLVM_ENABLE_ASSERTIONS=ON              \
            -DLLVM_ENABLE_PROJECTS="clang"           \
+           -DLLVM_DEFAULT_TARGET_TRIPLE=x86_64-pc-linux-gnu \
            /llvm-project-$LLVM_VERSION.src/llvm/ && \
      make -j`nproc` &&                              \
      cmake -DCMAKE_INSTALL_PREFIX=/usr/local -P cmake_install.cmake && \
