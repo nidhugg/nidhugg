@@ -74,13 +74,11 @@ namespace Transform {
     llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
     llvm::initializeCore(Registry);
     llvm::initializeScalarOpts(Registry);
-    llvm::initializeObjCARCOpts(Registry);
     llvm::initializeVectorization(Registry);
     llvm::initializeIPO(Registry);
     llvm::initializeAnalysis(Registry);
     llvm::initializeTransformUtils(Registry);
     llvm::initializeInstCombine(Registry);
-    llvm::initializeInstrumentation(Registry);
     llvm::initializeTarget(Registry);
 
     using PassManager = llvm::legacy::PassManager;
