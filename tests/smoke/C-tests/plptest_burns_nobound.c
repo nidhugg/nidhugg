@@ -1,6 +1,6 @@
 // nidhuggc: -sc -optimal -unroll=3
 /* Copyright (C) 2018
- * This benchmark is part of SWSC
+ * This test program is part of Nidhugg.
  */
 
 /* Adapted from: 

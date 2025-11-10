@@ -1,17 +1,16 @@
 /* Copyright (C) 2018 Magnus Lång and Tuan Phong Ngo
- * This benchmark is part of SWSC
+ * This test program is part of Nidhugg.
  */
 
 #include <assert.h>
 #include <stdint.h>
 #include <pthread.h>
 
-
 #define N 1
 
 // shared variables
 volatile int x;
-volatile args[N+1];
+volatile int args[N+1];
 
 void *thread_writer(void *unused)
 {

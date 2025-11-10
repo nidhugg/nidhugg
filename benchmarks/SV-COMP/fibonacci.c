@@ -1,5 +1,5 @@
 /* Copyright (C) 2018
- * This benchmark is part of SWSC
+ * This benchmark is part of Nidhugg.
  */
 
 /* Adapted from: https://svn.sosy-lab.org/software/sv-benchmarks/trunk/c/pthread/fib_bench_false-unreach-call.c */

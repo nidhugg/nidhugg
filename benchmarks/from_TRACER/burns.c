@@ -1,5 +1,5 @@
 /* Copyright (C) 2018
- * This benchmark is part of SWSC
+ * This benchmark is part of Nidhugg.
  */
 
 /* Adapted from: 
