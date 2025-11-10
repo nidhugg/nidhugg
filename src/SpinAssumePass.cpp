@@ -147,7 +147,11 @@ bool SpinAssumePass::assumify_loop(llvm::Loop *l,llvm::LPPassManager &LPM){
   }
   llvm::Value *cond = BI->getCondition();
   llvm::MDNode *MD = BI->getMetadata("dbg");
+#if LLVM_VERSION_MAJOR >= 16
+  EB->erase(std::prev(EB->end()),EB->end());
+#else
   EB->getInstList().pop_back();
+#endif
   if(!exit_on_val){
     // Negate the branch condition
     llvm::BinaryOperator *binop = llvm::BinaryOperator::CreateNot(cond,"notcond",EB);

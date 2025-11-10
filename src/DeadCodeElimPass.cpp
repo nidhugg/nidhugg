@@ -17,13 +17,13 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#include <config.h>
+#include "DeadCodeElimPass.h"
 
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/Analysis/ValueTracking.h>
 #include <llvm/IR/BasicBlock.h>
 
-#include "DeadCodeElimPass.h"
+#include <iterator>
 
 void DeadCodeElimPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const{
   AU.setPreservesCFG();
@@ -43,8 +43,9 @@ namespace {
     size_t old_size;
     do {
       old_size = use.size();
-      auto &BBL = F.getBasicBlockList();
-      for (auto BBI = BBL.rbegin(); BBI != BBL.rend(); ++BBI) {
+      for (auto BBI = std::make_reverse_iterator(F.end()),
+                end = std::make_reverse_iterator(F.begin());
+           BBI != end; ++BBI) {
         assert(BBI->rbegin()->isTerminator());
         assert(unsafeToDelete(*BBI->rbegin()));
         for (auto it = BBI->rbegin(); it != BBI->rend(); ++it) {
@@ -63,8 +64,9 @@ bool DeadCodeElimPass::runOnFunction(llvm::Function &F) {
   size_t deleted = 0;
   UseSet use = computeUseSets(F);
 
-  auto &BBL = F.getBasicBlockList();
-  for (auto BBI = BBL.rbegin(); BBI != BBL.rend(); ++BBI) {
+  for (auto BBI = std::make_reverse_iterator(F.end()),
+            end = std::make_reverse_iterator(F.begin());
+       BBI != end; ++BBI) {
     for (auto it = BBI->end(); it != BBI->begin();) {
       llvm::Instruction &I = *--it;
       if (!(unsafeToDelete(I) || use.count(&I))) {
