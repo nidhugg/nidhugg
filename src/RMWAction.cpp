@@ -19,9 +19,13 @@
 
 #include "RMWAction.h"
 
+#include <llvm/Config/llvm-config.h>
 /* One of these contains llvm::sys::IsBigEndianHost */
-#include <llvm/Support/Host.h>          /* On llvm < 11 */
-#include <llvm/Support/SwapByteOrder.h> /* On llvm >= 11 */
+#if LLVM_VERSION_MAJOR < 11
+#include <llvm/Support/Host.h>
+#else
+#include <llvm/Support/SwapByteOrder.h>
+#endif
 
 #include <climits>
 #include <cstring>
@@ -33,7 +37,7 @@ namespace {
     } else {
       const uint8_t *lhs = static_cast<const uint8_t*>(lhsv);
       const uint8_t *rhs = static_cast<const uint8_t*>(rhsv);
-      while(count--) {
+      while (count--) {
         if (lhs[count] > rhs[count]) return 1;
         else if (lhs[count] < rhs[count]) return -1;
       }
@@ -97,7 +101,7 @@ void RmwAction::apply_to(void *dst, std::size_t size, void *data) {
       uint8_t res, lhs, rhs;
       lhs = inp[i];
       rhs = argp[i];
-      switch(kind) {
+      switch (kind) {
       case AND:  res = lhs & rhs; break;
       case NAND: res = ~(lhs & rhs); break;
       case OR:   res = lhs | rhs; break;
