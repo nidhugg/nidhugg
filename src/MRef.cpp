@@ -19,7 +19,6 @@
 
 #include "MRef.h"
 
-#include <cstdint>
 #include <cstdlib>
 
 MBlock::MBlock(const MRef &r, int alloc_size) : ref(r) {

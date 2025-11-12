@@ -23,6 +23,7 @@
 #define __MREF_H__
 
 #include <cassert>
+#include <cstdint>
 #include <iterator>
 
 class ConstMRef;
@@ -57,7 +58,7 @@ public:
   bool operator>(const MRef &ml) const { return ref > ml.ref || (ref == ml.ref && size > ml.size); }
   bool operator>=(const MRef &ml) const { return ref >=ml.ref && (ref != ml.ref || size >= ml.size); }
 
-  class const_iterator{
+  class const_iterator {
   public:
     typedef std::bidirectional_iterator_tag iterator_category;
     typedef void const * value_type;
@@ -89,7 +90,7 @@ public:
       --ptr;
       return *this;
     }
-    void const *operator*() const{ return ptr; }
+    void const *operator*() const { return ptr; }
 
   private:
     const_iterator(void const *ref, int sz, int i) {
@@ -103,8 +104,8 @@ public:
     uint8_t const *ptr;
   };
 
-  const_iterator begin() const { return const_iterator(ref,size,0); }
-  const_iterator end() const { return const_iterator(ref,size,size); }
+  const_iterator begin() const { return const_iterator(ref, size, 0); }
+  const_iterator end() const { return const_iterator(ref, size, size); }
 };
 
 /* A ConstMRef object is as an MRef object, but refers to const
