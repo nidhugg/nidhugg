@@ -19,9 +19,13 @@
 
 #include "AwaitCond.h"
 
+#include <llvm/Config/llvm-config.h>
 /* One of these contains llvm::sys::IsBigEndianHost */
-#include <llvm/Support/Host.h>          /* On llvm < 11 */
-#include <llvm/Support/SwapByteOrder.h> /* On llvm >= 11 */
+#if LLVM_VERSION_MAJOR < 11
+#include <llvm/Support/Host.h>
+#else
+#include <llvm/Support/SwapByteOrder.h>
+#endif
 
 #include <climits>
 #include <cstring>
