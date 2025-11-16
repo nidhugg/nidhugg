@@ -31,13 +31,13 @@
 
 BOOST_AUTO_TEST_SUITE(Interpreter_test)
 
-enum MM {
-  SC,
-  TSO,
-  PSO,
-  RFSC,
-  POWER,
-};
+#if LLVM_VERSION_MAJOR >= 16
+#define MM_COMMA_LST SC, TSO, PSO, RFSC
+#else
+#define MM_COMMA_LST SC, TSO, PSO, RFSC, POWER
+#endif
+
+enum MM { MM_COMMA_LST };
 
 Configuration get_conf(MM mm) {
   switch(mm) {
@@ -49,7 +49,9 @@ Configuration get_conf(MM mm) {
     c.dpor_algorithm = Configuration::READS_FROM;
     return c;
   }
+#if LLVM_VERSION_MAJOR < 16
   case POWER: return DPORDriver_test::get_power_conf();
+#endif
   default: abort();
   }
 }
@@ -150,7 +152,7 @@ TEST_ERROR2(Atexit_fptr_nullptr,
 //             R"(declare i32 @atexit(void()*))")
 
 BOOST_AUTO_TEST_CASE(Global_ctor_test){
-  for (MM mm : { SC, TSO, PSO, RFSC, POWER }) {
+  for (MM mm : { MM_COMMA_LST }) {
     BOOST_TEST_CHECKPOINT( "mm=" << mm );
     Configuration conf = get_conf(mm);
     std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(StrModule::portasm(R"(
@@ -179,7 +181,7 @@ declare void @__assert_fail()
 }
 
 BOOST_AUTO_TEST_CASE(Global_dtor_test){
-  for (MM mm : { SC, TSO, PSO, RFSC, POWER }) {
+  for (MM mm : { MM_COMMA_LST }) {
     BOOST_TEST_CHECKPOINT( "mm=" << mm );
     Configuration conf = get_conf(mm);
     std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(StrModule::portasm(R"(
@@ -208,7 +210,7 @@ declare void @__assert_fail()
 }
 
 BOOST_AUTO_TEST_CASE(Global_ctor_block_no_main_dtor){
-  for (MM mm : { SC, TSO, PSO, RFSC, POWER }) {
+  for (MM mm : { MM_COMMA_LST }) {
     BOOST_TEST_CHECKPOINT( "mm=" << mm );
     Configuration conf = get_conf(mm);
     std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(StrModule::portasm(R"(
@@ -245,7 +247,7 @@ declare void @__assert_fail()
 }
 
 BOOST_AUTO_TEST_CASE(Main_block_no_global_dtor){
-  for (MM mm : { SC, TSO, PSO, RFSC, POWER }) {
+  for (MM mm : { MM_COMMA_LST }) {
     BOOST_TEST_CHECKPOINT( "mm=" << mm );
     Configuration conf = get_conf(mm);
     std::unique_ptr<DPORDriver> driver(DPORDriver::parseIR(StrModule::portasm(R"(
