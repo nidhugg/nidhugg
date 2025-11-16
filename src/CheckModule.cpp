@@ -96,7 +96,7 @@ llvm::Type *CheckModule::check_pthread_create(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
     auto *ty0 = static_cast<llvm::PointerType*>(pthread_create->arg_begin()->getType());
-    llvm::Type *PthreadTTy = LLVMUtils::getPthreadTType(ty0);
+    llvm::Type *PthreadTTy = LLVMUtils::getPthreadTType(M, ty0);
     if(!check_pthread_t(PthreadTTy)){
       err << "First argument of pthread_create is pointer to invalid pthread_t type: "
           << *PthreadTTy;
