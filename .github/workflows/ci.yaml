@@ -8,6 +8,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - llvm: "16.0.4"
+            ubuntu: 22
           - llvm: "15.0.6"
             ubuntu: 18
           - llvm: "14.0.0"
