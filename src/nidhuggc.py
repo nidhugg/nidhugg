@@ -233,7 +233,7 @@ def get_IR(nidhuggcargs,compilerargs):
     else:
         assert(lang == 'C++')
         cmd = [CLANGXX,'-o',outputfname,'-S','-emit-llvm','-g']
-    if (int(LLVMVERSION.split(".")[0]) > 14):
+    if (int(LLVMVERSION.split(".")[0]) == 15):
         # POWER and ARM backends can't handle opaque pointers
         cmd.extend(['-Xclang','-no-opaque-pointers'])
     cmd.extend(compilerargs)
