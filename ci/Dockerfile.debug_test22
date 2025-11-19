@@ -1,5 +1,5 @@
 FROM ubuntu:22.04 AS build
-ARG LLVM_VERSION=16.0.4
+ARG LLVM_VERSION=17.0.6
 
 # COPY ci/install_deps.sh /ci/
 RUN \
