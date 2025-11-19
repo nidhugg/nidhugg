@@ -43,7 +43,6 @@ namespace LLVMUtils {
   llvm::Type* getPthreadTType(const llvm::Module *M,
                               llvm::PointerType *PthreadTPtr) {
 #if LLVM_VERSION_MAJOR >= 16  // only opaque pointers exist
-    assert(PthreadTPtr->isOpaque());  // just for sanity...
     if (llvm::Type *t = tryFindPthreadTType(M)) return t;
     return getLLVMType<pthread_t>()(PthreadTPtr->getContext());
 #else
