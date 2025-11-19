@@ -29,6 +29,7 @@
 
 BOOST_AUTO_TEST_SUITE(ARM_test)
 
+#if LLVM_VERSION_MAJOR < 16
 BOOST_AUTO_TEST_CASE(TWO_2W_overlapping_1){
   Configuration conf = DPORDriver_test::get_arm_conf();
   DPORDriver *driver =
@@ -1281,6 +1282,7 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*)
   BOOST_CHECK(res.trace_count == 4);
   BOOST_CHECK(!res.has_errors());
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()
 

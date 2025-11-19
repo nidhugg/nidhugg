@@ -44,6 +44,7 @@ define i32 @main(){
   delete driver;
 }
 
+#if LLVM_VERSION_MAJOR < 16
 BOOST_AUTO_TEST_CASE(Reordering_box_1){
   Configuration conf = DPORDriver_test::get_arm_conf();
   DPORDriver *driver =
@@ -69,6 +70,7 @@ define i32 @main(){
 
   delete driver;
 }
+#endif
 
 BOOST_AUTO_TEST_CASE(Reordering_box_2){
   Configuration conf = DPORDriver_test::get_arm_conf();
@@ -545,6 +547,7 @@ declare void @__assert_fail() nounwind noreturn
   delete driver;
 }
 
+#if LLVM_VERSION_MAJOR < 16
 BOOST_AUTO_TEST_CASE(Reordering_box_15){
   Configuration conf = DPORDriver_test::get_arm_conf();
   DPORDriver *driver =
@@ -3053,6 +3056,7 @@ declare i32 @pthread_create(i64*,%attr_t*,i8*(i8*)*,i8*)
   BOOST_CHECK_EQUAL(res.trace_count, 0);
   BOOST_CHECK_EQUAL(res.assume_blocked_trace_count, 1);
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()
 

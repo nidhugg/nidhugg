@@ -2394,7 +2394,7 @@ void Interpreter::callPthreadCreate(Function *F,
     GenericValue *Ptr = (GenericValue*)GVTOP(ArgVals[0]);
     if(Ptr){
       Type *ity = LLVMUtils::getPthreadTType
-        (static_cast<PointerType*>(F->arg_begin()->getType()));
+        (F->getParent(), static_cast<PointerType*>(F->arg_begin()->getType()));
       if (!GetSymAddrSize(Ptr,ity)) return;
       GenericValue TIDVal = tid_to_pthread_t(ity, new_tid);
       /* XXX: No race detection on this access! */

@@ -289,10 +289,10 @@ void Configuration::check_commandline(){
     if(cl_memory_model == Configuration::POWER) mm = "POWER";
     if(cl_memory_model == Configuration::ARM) mm = "ARM";
     if(cl_memory_model == Configuration::ARM || cl_memory_model == Configuration::POWER){
-      if (LLVM_VERSION_MAJOR > 14 && !cl_transform.getNumOccurrences()) {
+      if (LLVM_VERSION_MAJOR >= 15 && !cl_transform.getNumOccurrences()) {
         Debug::warn("Configuration::check_commandline:mm:power-arm-no-opaque-ptrs")
           << "WARNING: Memory model " << mm << " does not support \"Opaque Pointers\","
-          " which are enabled by default in Clang 15. Nidhugg might crash.\n";
+          " which are enabled by default in Clang >= 15. Nidhugg might crash.\n";
       }
       if(cl_extfun_no_race.getNumOccurrences()){
         Debug::warn("Configuration::check_commandline:mm:extfun-no-race")

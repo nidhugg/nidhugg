@@ -433,7 +433,6 @@ nonzero:
 
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-declare void @__assert_fail()
 declare i8* @memcpy(i8*, i8*, i64)
 )");
 
@@ -534,9 +533,8 @@ define i32 @main(){
 }
 
 %attr_t = type {i64, [48 x i8]}
-declare i32 @pthread_create(i8**,%attr_t*,i8*(i8*)*,i8*)
-declare i32 @pthread_join(i8*,i8**)
-declare void @__assert_fail()
+declare i32 @pthread_create(i8**, %attr_t*, i8*(i8*)*, i8*)
+declare i32 @pthread_join(i8*, i8**)
 )"),conf);
 
   DPORDriver::Result res = driver->run();
@@ -567,9 +565,8 @@ define i32 @main(){
 
 %attr_t = type {i64, [48 x i8]}
 declare i32 @pthread_create(i8**,%attr_t*,i8*(i8*)*,i8*)
-declare i32 @pthread_join(i8*,i8**)
+declare i32 @pthread_join(i8*, i8**)
 declare i8* @pthread_self()
-declare void @__assert_fail()
 )"),conf);
 
   DPORDriver::Result res = driver->run();
@@ -615,8 +612,8 @@ catch:
 }
 
 %attr_t = type {i64, [48 x i8]}
-declare i32 @pthread_create(i8**,%attr_t*,i8*(i8*)*,i8*)
-declare i32 @pthread_join(i8*,i8**)
+declare i32 @pthread_create(i8**, %attr_t*, i8*(i8*)*, i8*)
+declare i32 @pthread_join(i8*, i8**)
 declare void @__assert_fail()
 )"),conf);
 
@@ -629,9 +626,9 @@ declare void @__assert_fail()
 
 BOOST_AUTO_TEST_CASE(Nondeterminism_without_branch){
   /* Mechanism is the same as in Nonteterminsim_detection (cf for
-   * detailed description of the test)
+   * detailed description of the test).
    * Here, instead having a branch that changes direction, we have a
-   * load that changes address
+   * load that changes address.
    */
   Configuration conf = DPORDriver_test::get_sc_conf();
   char changing = 0;
@@ -663,7 +660,6 @@ define i32 @main(){
 
 %attr_t = type { i64, [48 x i8] }
 declare i32 @pthread_create(i64*, %attr_t*, i8*(i8*)*, i8*) nounwind
-declare void @__assert_fail()
 declare i8* @memcpy(i8*, i8*, i64)
 )");
 

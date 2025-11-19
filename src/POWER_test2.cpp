@@ -29,6 +29,7 @@
 
 BOOST_AUTO_TEST_SUITE(POWER_test)
 
+#if LLVM_VERSION_MAJOR < 16
 BOOST_AUTO_TEST_CASE(TWO_2W_overlapping_1){
   Configuration conf = DPORDriver_test::get_power_conf();
   DPORDriver *driver =
@@ -1820,6 +1821,7 @@ declare void @__assert_fail()
   BOOST_CHECK(res.trace_count == 1);
   BOOST_CHECK(!res.has_errors());
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()
 

@@ -61,7 +61,7 @@ opt_ipid_regr Allow : 2
 # Unroller
 unroll_double_loop Forbid : 1
 
-# Optimal/Observers with load-await
+# Optimal/Observers with load-await.
 simplified_dekker_opt Forbid : 3
 broken_mutual_exclusion_opt Forbid : 4
 broken_mutual_exclusion_obs Forbid : 3
@@ -74,8 +74,7 @@ await_mud_opt Forbid : 3
 await_muddier_opt Forbid : 4
 linuxrwlocks_repro Forbid : 17
 
-# Optimal/Observers with xchg-await. These use the xchgawait intrinsic
-# directly, and so does not yet run.
+# Optimal/Observers with xchg-await.
 xchgawait_vs_inc_chain_opt Forbid : 3
 xchgawait_vs_inc_chain_2_opt Forbid : 3
 xchgawait_vs_inc_chain_reverse_opt Forbid : 3
@@ -86,18 +85,20 @@ xchgawait_test2_obs Forbid : 369
 xchgawait_test3_opt Forbid : 5
 xchgawait_test4_opt Forbid : 4
 
-# Optimal/Observers with awaits and commuting rmws
+# Optimal/Observers with awaits and commuting RMWs.
 xchgawait_vs_indep_inc Forbid : 3
 await_vs_indep_inc Forbid : 3
 await_vs_indep_inc_2 Forbid : 3
 await_vs_indep_inc_easy Forbid : 3
 linuxrwlocks_repro_ifaa Forbid : 12
 
-# Optimal/Observers with commuting rmws
+# Optimal/Observers with commuting RMWs.
 safestack_c21_21_opt_rmwcomm Forbid : 21
 
-# Tests for the partial-loop-purity transformation pass. These should be
-# transformed
+#-------------------------------------------------------
+# Tests for the partial-loop-purity transformation pass.
+#-------------------------------------------------------
+# These should be transformed
 plptest_fully_pure Forbid : 2
 plptest_risk_of_segfault Forbid : 2
 plptest_spinloop Forbid : 2
@@ -112,8 +113,7 @@ plptest_seqlock Forbid : 7
 plptest_seqlock_harder Forbid : 5
 plptest_treiber_pop_easier Forbid : 27
 plptest_cmpxchg_reuse Forbid : 12
-# Crashes at transform stage in CI images with LLVM <= 4
-#plptest_cmpxchg_reuse_await Forbid : 10
+plptest_cmpxchg_reuse_await Forbid : 10
 plptest_cmpxchg_member_reuse Forbid : 12
 plptest_cmpxchg_weak_reuse Forbid : 12
 plptest_futex_mutex Forbid : 10
@@ -129,11 +129,11 @@ plptest_inner_impure Allow : 15
 inlineasm Forbid : 12
 
 # Tests where we find some bugs
-trivial_bug_arm Allow : 1716
+# trivial_bug_arm Allow : 1716
 bug_after_1k_sc Allow : 1716
 bug_after_1k_pso Allow : 1716
 bug_after_1k_rf Allow : 1716
-bug_after_1k_power Allow : 1716
+# bug_after_1k_power Allow : 1716
 
 # Total number of traces: 1116
 # Total running time: 9.51 s

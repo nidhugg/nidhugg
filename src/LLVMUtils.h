@@ -22,10 +22,12 @@
 #ifndef __LLVM_UTILS_H__
 #define __LLVM_UTILS_H__
 
+#include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
 
 namespace LLVMUtils {
-  llvm::Type* getPthreadTType(llvm::PointerType *PthreadTPtr);
+  llvm::Type* getPthreadTType(const llvm::Module *M,
+                              llvm::PointerType *PthreadTPtr);
 };
 
 
