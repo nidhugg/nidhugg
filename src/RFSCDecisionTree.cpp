@@ -17,9 +17,12 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#include "Debug.h"
 #include "RFSCDecisionTree.h"
+
+#include <random>
 #include <numeric>
+
+#include "Debug.h"
 
 std::shared_ptr<DecisionNode> RFSCDecisionTree::new_decision_node
 (std::shared_ptr<DecisionNode> parent,
@@ -98,6 +101,9 @@ std::shared_ptr<DecisionNode> WorkstealingPQScheduler::dequeue() {
       return work_queue[thread_id].pop();
   }
 
+  std::random_device rd;
+  std::mt19937 rng(rd());
+
   /* We don't need to hold our own lock, because as long as we hold the
    * big lock, nobody else will access our queue. */
   std::unique_lock<std::mutex> lock(mutex);
@@ -111,9 +117,10 @@ std::shared_ptr<DecisionNode> WorkstealingPQScheduler::dequeue() {
     /* Generate array of other threads in random order */
     std::vector<int> others(work_queue.size()-1);
     std::iota(others.begin(), others.end(), 0);
-    if (std::size_t(thread_id) != others.size()) others[thread_id] = others.size();
-    std::random_shuffle(others.begin(), others.end());
-    for(int other : others) {
+    if (std::size_t(thread_id) != others.size())
+      others[thread_id] = others.size();
+    std::shuffle(others.begin(), others.end(), rng);
+    for (int other : others) {
       std::lock_guard<std::mutex> other_lock(work_queue[other].mutex);
       assert(other != thread_id);
       if (work_queue[thread_id].steal(work_queue[other])) {
