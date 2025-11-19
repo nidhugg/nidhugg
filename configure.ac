@@ -277,7 +277,6 @@ AC_CHECK_HEADERS([ \
   llvm/Support/ErrorHandling.h \
   llvm/Support/ErrorOr.h \
   llvm/Support/FileSystem.h \
-  llvm/Support/Host.h \
   llvm/Support/ManagedStatic.h \
   llvm/Support/MathExtras.h \
   llvm/Support/MemoryBuffer.h \
