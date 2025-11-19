@@ -916,7 +916,11 @@ namespace {
              *End = To->getFirstNonPHI(); I != End; I = I->getNextNode()) {
         const llvm::PHINode *Phi = llvm::cast<llvm::PHINode>(I);
         /* XXX: DANGER ZONE */
+#if LLVM_VERSION_MAJOR >= 17
+        if (Phi->getName().starts_with("plp_inner_mon")) continue;
+#else
         if (Phi->getName().startswith("plp_inner_mon")) continue;
+#endif
         llvm::Value *FromOutside = nullptr;
         for (llvm::BasicBlock *Entering : llvm::predecessors(L->getHeader())) {
           if (L->contains(Entering)) continue;
