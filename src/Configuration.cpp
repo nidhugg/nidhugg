@@ -289,11 +289,16 @@ void Configuration::check_commandline(){
     if(cl_memory_model == Configuration::POWER) mm = "POWER";
     if(cl_memory_model == Configuration::ARM) mm = "ARM";
     if(cl_memory_model == Configuration::ARM || cl_memory_model == Configuration::POWER){
-      if (LLVM_VERSION_MAJOR >= 15 && !cl_transform.getNumOccurrences()) {
+#if LLVM_VERSION_MAJOR >= 16
+      throw std::logic_error("Memory model "+mm+" is not supported for LLVM >= 16; "
+                             "consider configuring Nidhugg with an earlier LLVM");
+#else
+      if (LLVM_VERSION_MAJOR == 15 && !cl_transform.getNumOccurrences()) {
         Debug::warn("Configuration::check_commandline:mm:power-arm-no-opaque-ptrs")
           << "WARNING: Memory model " << mm << " does not support \"Opaque Pointers\","
           " which are enabled by default in Clang >= 15. Nidhugg might crash.\n";
       }
+#endif
       if(cl_extfun_no_race.getNumOccurrences()){
         Debug::warn("Configuration::check_commandline:mm:extfun-no-race")
           << "WARNING: --extfun-no-race ignored under memory model " << mm << ".\n";
