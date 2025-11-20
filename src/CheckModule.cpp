@@ -63,7 +63,11 @@ void CheckModule::check_functions(const llvm::Module *M){
      "pthread_cond_wait",
      "pthread_cond_destroy"};
   for(auto it = M->getFunctionList().begin(); it != M->getFunctionList().end(); ++it){
+#if LLVM_VERSION_MAJOR >= 17
+    if(it->getName().starts_with("pthread_") &&
+#else
     if(it->getName().startswith("pthread_") &&
+#endif
        supported.count(it->getName()) == 0){
       Debug::warn("CheckModule:"+it->getName().str())
         << "WARNING: Unsupported pthread function: " << it->getName() << "\n";

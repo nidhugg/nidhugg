@@ -21,7 +21,11 @@
 
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Support/DynamicLibrary.h>
+#if LLVM_VERSION_MAJOR <= 15
 #include <llvm/Support/Host.h>
+#else
+#include <llvm/TargetParser/Host.h>
+#endif
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/SourceMgr.h>
 

@@ -2604,12 +2604,17 @@ void POWERInterpreter::registerOperand(int proc, FetchedInstruction &FI, int idx
       }
     }else{
       void *addr = (void*)llvm::GVTOP(FI.Operands[idx].Value);
-      llvm::Type *ty =
-        FI.I.getOperand(idx)->getType();
+      llvm::Type *ty = FI.I.getOperand(idx)->getType();
       assert(ty->isPointerTy());
+#if LLVM_VERSION_MAJOR >= 16
+      // Will not be executed because POWER&ARM are not supported in this configuration.
+      // Appears here just to allow checking that the rest of the file can be compiled.
+      throw std::logic_error("getPointerElement() is not available in this LLVM version");
+#else
       ty = llvm::cast<llvm::PointerType>(ty)->getPointerElementType();
       TB.register_addr({proc,FI.EventIndex},FI.Operands[idx].IsAddrOf,
                        GetMRef(addr,ty));
+#endif
     }
   }else if(FI.Operands[idx].isData()){
     TB.register_data({proc,FI.EventIndex},FI.Operands[idx].IsDataOf,
