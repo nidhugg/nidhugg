@@ -2423,7 +2423,11 @@ void Interpreter::callPthreadCreate(Function *F,
   // XXX: No validation on argument value!
   std::vector<GenericValue> ArgVals_inner;
   if(F_inner->arg_size() == 1 &&
+#if LLVM_VERSION_MAJOR >= 18
+     F_inner->arg_begin()->getType() == PointerType::get(F->getContext(), 0)){
+#else
      F_inner->arg_begin()->getType() == Type::getInt8PtrTy(F->getContext())){
+#endif
     ArgVals_inner.push_back(ArgVals[3]);
   }else if(F_inner->arg_size()){
     std::string _err;
@@ -2462,7 +2466,11 @@ void Interpreter::callPthreadJoin(Function *F,
   // Forward return value
   GenericValue *rvPtr = (GenericValue*)GVTOP(ArgVals[1]);
   if(rvPtr){
+#if LLVM_VERSION_MAJOR >= 18
+    Type *ty = PointerType::get(F->getContext(), 0)->getPointerTo();
+#else
     Type *ty = Type::getInt8PtrTy(F->getContext())->getPointerTo();
+#endif
     if (!GetSymAddrSize(rvPtr,ty)) return;
     /* XXX: No race detection on this access*/
     StoreValueToMemory(Threads[tid].RetVal,rvPtr,ty);
@@ -2488,7 +2496,11 @@ void Interpreter::callPthreadExit(Function *F,
     return;
   }
   while(ECStack()->size() > 1) ECStack()->pop_back();
+#if LLVM_VERSION_MAJOR >= 18
+  popStackAndReturnValueToCaller(PointerType::get(F->getContext(),0),ArgVals[0]);
+#else
   popStackAndReturnValueToCaller(Type::getInt8PtrTy(F->getContext()),ArgVals[0]);
+#endif
 }
 
 void Interpreter::callPthreadMutexInit(Function *F,
@@ -3421,7 +3433,11 @@ bool Interpreter::checkRefuse(Instruction &I){
 
 void Interpreter::terminate(Type *RetTy, GenericValue Result){
   if(CurrentThread != 0){
+#if LLVM_VERSION_MAJOR >= 18
+    assert(RetTy == PointerType::get(RetTy->getContext(), 0));
+#else
     assert(RetTy == Type::getInt8PtrTy(RetTy->getContext()));
+#endif
     Threads[CurrentThread].RetVal = Result;
   }
   for(int p : Threads[CurrentThread].AwaitingJoin){

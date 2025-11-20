@@ -106,7 +106,11 @@ llvm::Type *CheckModule::check_pthread_create(const llvm::Module *M){
           << *PthreadTTy;
       throw CheckModuleError(err.str());
     }
+#if LLVM_VERSION_MAJOR >= 18
+    llvm::Type *vpty = llvm::PointerType::get(M->getContext(), 0);
+#else
     llvm::Type *vpty = llvm::Type::getInt8PtrTy(M->getContext());
+#endif
     llvm::Type *fty = llvm::FunctionType::get(vpty,{vpty},false)->getPointerTo();
     llvm::Type *arg2_ty, *arg3_ty;
     {
@@ -162,7 +166,11 @@ void CheckModule::check_pthread_join(const llvm::Module *M,
       throw CheckModuleError(err.str());
     }
     llvm::Type *arg1_ty_expected =
+#if LLVM_VERSION_MAJOR >= 18
+      llvm::PointerType::get(M->getContext(), 0)->getPointerTo();
+#else
       llvm::Type::getInt8PtrTy(M->getContext())->getPointerTo();
+#endif
     if(arg1_ty != arg1_ty_expected){
       err << "Second argument of pthread_join has wrong type: "
           << *arg1_ty << ", should be " << *arg1_ty_expected;
@@ -195,7 +203,6 @@ void CheckModule::check_pthread_self(const llvm::Module *M,
   }
 }
 
-
 void CheckModule::check_pthread_exit(const llvm::Module *M){
   std::string _err;
   llvm::raw_string_ostream err(_err);
@@ -212,7 +219,11 @@ void CheckModule::check_pthread_exit(const llvm::Module *M){
       throw CheckModuleError(err.str());
     }
     llvm::Type *ty = pthread_exit->arg_begin()->getType(),
+#if LLVM_VERSION_MAJOR >= 18
+      *ty_expected = llvm::PointerType::get(M->getContext(), 0);
+#else
       *ty_expected = llvm::Type::getInt8PtrTy(M->getContext());
+#endif
     if(ty != ty_expected){
       err << "Argument of pthread_exit has wrong type: "
           << *ty << ", should be " << *ty_expected;

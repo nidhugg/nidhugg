@@ -2372,7 +2372,11 @@ void POWERInterpreter::callPthreadCreate(llvm::Function *F){
   // Build stack frame for the call
   llvm::Function *F_inner = (llvm::Function*)GVTOP(getOperandValue(2));
   std::vector<llvm::Value*> ArgVals_inner;
+#if LLVM_VERSION_MAJOR >= 18
+  llvm::Type *i8ptr = llvm::PointerType::get(F->getContext(), 0);
+#else
   llvm::Type *i8ptr = llvm::Type::getInt8PtrTy(F->getContext());
+#endif
   if(F_inner->arg_size() == 1 &&
      F_inner->arg_begin()->getType() == i8ptr){
     void *opval = llvm::GVTOP(getOperandValue(3));

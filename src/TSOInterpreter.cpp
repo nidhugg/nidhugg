@@ -133,7 +133,11 @@ bool TSOInterpreter::isFence(llvm::Instruction &I){
 
 void TSOInterpreter::terminate(llvm::Type *RetTy, llvm::GenericValue Result){
   if(CurrentThread != 0){
+#if LLVM_VERSION_MAJOR >= 18
+    assert(RetTy == llvm::PointerType::get(RetTy->getContext(), 0));
+#else
     assert(RetTy == llvm::Type::getInt8PtrTy(RetTy->getContext()));
+#endif
     Threads[CurrentThread].RetVal = Result;
   }
   if(tso_threads[CurrentThread].store_buffer.empty()){
