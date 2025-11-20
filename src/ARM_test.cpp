@@ -28,6 +28,7 @@
 
 BOOST_AUTO_TEST_SUITE(ARM_test)
 
+#if LLVM_VERSION_MAJOR < 18
 BOOST_AUTO_TEST_CASE(Minimal_computation){
   Configuration conf = DPORDriver_test::get_arm_conf();
   DPORDriver *driver =
@@ -43,6 +44,7 @@ define i32 @main(){
 
   delete driver;
 }
+#endif
 
 #if LLVM_VERSION_MAJOR < 16
 BOOST_AUTO_TEST_CASE(Reordering_box_1){
@@ -72,6 +74,7 @@ define i32 @main(){
 }
 #endif
 
+#if LLVM_VERSION_MAJOR < 18
 BOOST_AUTO_TEST_CASE(Reordering_box_2){
   Configuration conf = DPORDriver_test::get_arm_conf();
   DPORDriver *driver =
@@ -546,6 +549,7 @@ declare void @__assert_fail() nounwind noreturn
 
   delete driver;
 }
+#endif
 
 #if LLVM_VERSION_MAJOR < 16
 BOOST_AUTO_TEST_CASE(Reordering_box_15){

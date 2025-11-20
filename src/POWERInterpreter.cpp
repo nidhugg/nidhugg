@@ -78,6 +78,10 @@ POWERInterpreter::POWERInterpreter(llvm::Module *M, POWERARMTraceBuilder &TB, co
 
   IL = new llvm::IntrinsicLowering(TD);
 
+#if LLVM_VERSION_MAJOR >= 18
+  throw std::logic_error("POWER interpreter is not available for LLVM >= 18; "
+                         "consider configuring Nidhugg with an earlier LLVM");
+#else
   llvm::Value *V0 = llvm::ConstantInt::get(llvm::Type::getInt32Ty(M->getContext()),0);
   llvm::Value *P0_32 = llvm::ConstantPointerNull::get(llvm::Type::getInt32PtrTy(M->getContext()));
   dummy_store = new llvm::StoreInst(V0,P0_32,/*IsVolatile=*/false,/*Align=*/{},
@@ -86,6 +90,7 @@ POWERInterpreter::POWERInterpreter(llvm::Module *M, POWERARMTraceBuilder &TB, co
   llvm::Type *I8 = llvm::Type::getInt8Ty(M->getContext());
   dummy_load8 = new llvm::LoadInst(I8, P0_8,"",/*IsVolatile=*/false,/*Align=*/{},
                                    /*InsertBefore=*/(llvm::Instruction*)nullptr);
+#endif
 }
 
 POWERInterpreter::~POWERInterpreter() {
