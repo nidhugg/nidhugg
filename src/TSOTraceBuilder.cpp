@@ -2374,7 +2374,7 @@ void TSOTraceBuilder::compute_vclocks(){
 
     /* Now delete the subsumed races. We delayed doing this to avoid
      * iterator invalidation. */
-    races.resize(fill - races.begin(), races[0]);
+    races.erase(fill, races.end());
   }
 
   has_vclocks = true;
