@@ -2265,8 +2265,8 @@ void Interpreter::visitInsertValueInst(InsertValueInst &I) {
   SetValue(&I, Dest, SF);
 }
 
-GenericValue Interpreter::getConstantExprValue (ConstantExpr *CE,
-                                                ExecutionContext &SF) {
+GenericValue Interpreter::getConstantExprValue(ConstantExpr *CE,
+                                               ExecutionContext &SF) {
   switch (CE->getOpcode()) {
   case Instruction::Trunc:
       return executeTruncInst(CE->getOperand(0), CE->getType(), SF);
@@ -2297,7 +2297,7 @@ GenericValue Interpreter::getConstantExprValue (ConstantExpr *CE,
                                gep_type_end(CE), SF);
   case Instruction::FCmp:
   case Instruction::ICmp:
-    return executeCmpInst(CE->getPredicate(),
+    return executeCmpInst(llvm::dyn_cast<llvm::CmpInst>(CE)->getPredicate(),
                           getOperandValue(CE->getOperand(0), SF),
                           getOperandValue(CE->getOperand(1), SF),
                           CE->getOperand(0)->getType());
