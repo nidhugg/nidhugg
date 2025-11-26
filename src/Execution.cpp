@@ -2297,7 +2297,7 @@ GenericValue Interpreter::getConstantExprValue(ConstantExpr *CE,
                                gep_type_end(CE), SF);
   case Instruction::FCmp:
   case Instruction::ICmp:
-    return executeCmpInst(llvm::dyn_cast<llvm::CmpInst>(CE)->getPredicate(),
+    return executeCmpInst(llvm::cast<llvm::CmpInst>(CE)->getPredicate(),
                           getOperandValue(CE->getOperand(0), SF),
                           getOperandValue(CE->getOperand(1), SF),
                           CE->getOperand(0)->getType());
