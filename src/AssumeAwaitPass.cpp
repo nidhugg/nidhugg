@@ -99,7 +99,11 @@ namespace {
       }
       return ret;
     }
+#if LLVM_VERSION_MAJOR < 18
     if (auto *op = llvm::dyn_cast<llvm::ZExtOperator>(v))
+      return simplify_condition(op->getOperand(0), negate);
+#endif
+    if (auto *op = llvm::dyn_cast<llvm::ZExtInst>(v))
       return simplify_condition(op->getOperand(0), negate);
     if (auto *op = llvm::dyn_cast<llvm::Instruction>(v)) {
       if (op->getOpcode() == llvm::Instruction::ZExt
@@ -136,7 +140,11 @@ namespace {
       }
       return ret;
     }
+#if LLVM_VERSION_MAJOR < 18
     if (auto *op = llvm::dyn_cast<llvm::ZExtOperator>(v))
+      return get_condition(op->getOperand(0), negate, monitor);
+#endif
+    if (auto *op = llvm::dyn_cast<llvm::ZExtInst>(v))
       return get_condition(op->getOperand(0), negate, monitor);
     if (auto *op = llvm::dyn_cast<llvm::Instruction>(v)) {
       if (op->getOpcode() == llvm::Instruction::ZExt
