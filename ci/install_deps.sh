@@ -24,7 +24,7 @@ if [ -n "$LLVM_VERSION" ]; then
             LLVM_UBUNTU_VER=22.04
             ;;
         ?*)
-            echo "Error: LLVM versions 19.* and higher are not yet supported by Nidhugg"
+            echo "Error: LLVM versions 20.* and higher are not yet supported by Nidhugg"
             exit 1
             ;;
     esac
