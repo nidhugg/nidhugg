@@ -2200,7 +2200,7 @@ llvm::GenericValue POWERInterpreter::getConstantExprValue (llvm::ConstantExpr *C
     }
   case llvm::Instruction::FCmp:
   case llvm::Instruction::ICmp:
-    return executeCmpInst(CE->getPredicate(),
+    return executeCmpInst(llvm::cast<llvm::CmpInst>(CE)->getPredicate(),
                           getConstantOperandValue(CE->getOperand(0)),
                           getConstantOperandValue(CE->getOperand(1)),
                           CE->getOperand(0)->getType());
