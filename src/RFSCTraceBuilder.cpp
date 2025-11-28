@@ -1259,7 +1259,6 @@ void RFSCTraceBuilder::compute_prefixes() {
         compute_above_clock(j);
 
         if (can_swap_by_vclocks(i, j)) {
-
           if (conf.debug_print_on_reset)
             llvm::dbgs() << "Trying replace " << pretty_index(i)
                          << " with deadlocked " << pretty_index(j)
@@ -1571,7 +1570,6 @@ RFSCTraceBuilder::try_sat
       return Leaf();
     }
     if (conf.debug_print_on_reset) llvm::dbgs() << ": SAT\n";
-
   }
   std::vector<unsigned> model = sat->get_model();
 
