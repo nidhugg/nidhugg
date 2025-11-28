@@ -28,6 +28,7 @@
 #include <map>
 #include <set>
 #include <utility>
+#include <vector>
 
 static Timing::Context heuristic_context("heuristic");
 

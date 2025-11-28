@@ -26,6 +26,8 @@
 #include <cstddef>
 #include <iomanip>
 #include <string>
+#include <vector>
+
 #include <boost/variant.hpp>
 
 #include "SExpr.h"

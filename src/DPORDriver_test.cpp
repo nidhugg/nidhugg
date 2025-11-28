@@ -26,7 +26,11 @@
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <list>
 #include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <boost/test/unit_test.hpp>
 

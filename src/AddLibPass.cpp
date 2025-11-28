@@ -27,6 +27,8 @@
 
 #include <memory>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 #include "Debug.h"
 #include "StrModule.h"

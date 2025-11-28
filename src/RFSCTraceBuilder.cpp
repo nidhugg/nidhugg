@@ -25,8 +25,13 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <map>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
 
 #define ANSIRed "\x1b[91m"
 #define ANSIRst "\x1b[m"

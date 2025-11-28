@@ -32,6 +32,7 @@
 
 #include <memory>
 #include <stdexcept>
+#include <string>
 
 #include "GlobalContext.h"
 #include "nregex.h"

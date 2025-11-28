@@ -59,6 +59,11 @@
 #include <algorithm>
 #include <cstdint>
 #include <cmath>
+#include <map>
+#include <limits>
+#include <string>
+#include <utility>
+#include <vector>
 
 using namespace llvm;  // NOLINT(build/namespaces)
 

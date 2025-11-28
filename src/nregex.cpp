@@ -24,6 +24,7 @@
 // C++ headers
 #include <sstream>
 #include <stdexcept>
+#include <string>
 
 namespace nregex{
 

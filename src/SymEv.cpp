@@ -21,6 +21,7 @@
 #include "Debug.h"
 
 #include <sstream>
+#include <string>
 
 bool SymEv::is_compatible_with(SymEv other) const {
   if (kind != other.kind

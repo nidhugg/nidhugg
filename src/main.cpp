@@ -28,9 +28,11 @@
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/ManagedStatic.h>
 
+#include <functional>
 #include <iostream>
 #include <set>
 #include <stdexcept>
+#include <string>
 
 extern llvm::cl::opt<std::string> cl_transform;
 

@@ -22,6 +22,10 @@
 
 #include <llvm/IR/LLVMContext.h>
 
+#include <memory>
+#include <string>
+#include <utility>
+
 static void SetValue(llvm::Value *V, llvm::GenericValue Val, llvm::ExecutionContext &SF) {
   SF.Values[V] = Val;
 }

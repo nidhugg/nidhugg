@@ -24,7 +24,9 @@
 #include <cstdint>
 #include <iomanip>
 #include <sstream>
+#include <string>
 #include <utility>
+#include <vector>
 
 template class PATB_impl::TB<PATB_impl::ARM,PATB_impl::CB_ARM,PATB_impl::ARMEvent>;
 template class PATB_impl::TB<PATB_impl::POWER,PATB_impl::CB_POWER,PATB_impl::POWEREvent>;

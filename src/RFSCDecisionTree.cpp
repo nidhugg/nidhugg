@@ -20,7 +20,10 @@
 #include "RFSCDecisionTree.h"
 
 #include <random>
+#include <memory>
 #include <numeric>
+#include <utility>
+#include <vector>
 
 #include "Debug.h"
 
