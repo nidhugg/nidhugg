@@ -28,13 +28,13 @@
 #include "DPORInterpreter.h"
 #include "GlobalContext.h"
 
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
-
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
 
 namespace llvm{
   class ExecutionEngine;

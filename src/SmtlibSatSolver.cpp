@@ -21,13 +21,14 @@
 
 #ifndef NO_SMTLIB_SOLVER
 
-#include "SExpr.h"
-
 #include <llvm/Support/CommandLine.h>
+
 #include <cstddef>
-#include <boost/variant.hpp>
 #include <iomanip>
 #include <string>
+#include <boost/variant.hpp>
+
+#include "SExpr.h"
 
 static llvm::cl::opt<bool>
 cl_bv("smtlib-bv",llvm::cl::NotHidden,
