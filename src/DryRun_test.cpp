@@ -23,6 +23,8 @@
 #include <llvm/Support/Debug.h>
 
 #include <sstream>
+#include <string>
+#include <vector>
 
 #include <boost/test/unit_test.hpp>
 

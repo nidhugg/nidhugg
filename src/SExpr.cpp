@@ -21,7 +21,9 @@
 
 #include <cassert>
 #include <cstdint>
-
+#include <string>
+#include <utility>
+#include <vector>
 
 typedef std::logic_error parse_error;
 

@@ -18,7 +18,9 @@
  */
 
 #include <config.h>
+
 #ifdef HAVE_BOOST_UNIT_TEST_FRAMEWORK
+#include <string>
 
 #ifdef HAVE_VALGRIND_VALGRIND_H
 #include <valgrind/valgrind.h>

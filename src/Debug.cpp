@@ -19,6 +19,8 @@
 
 #include "Debug.h"
 
+#include <string>
+
 #include "vecset.h"
 
 llvm::raw_ostream &Debug::warn(){

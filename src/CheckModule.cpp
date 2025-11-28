@@ -27,6 +27,7 @@
 #include <llvm/Support/raw_ostream.h>
 
 #include <set>
+#include <string>
 
 void CheckModule::check_functions(const llvm::Module *M){
   llvm::Type *PthreadTType = check_pthread_create(M);

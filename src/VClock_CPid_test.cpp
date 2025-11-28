@@ -20,6 +20,8 @@
 #include <config.h>
 
 #ifdef HAVE_BOOST_UNIT_TEST_FRAMEWORK
+#include <map>
+
 #include <boost/test/unit_test.hpp>
 
 #include "VClock.h"

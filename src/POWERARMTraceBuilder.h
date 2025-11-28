@@ -22,6 +22,8 @@
 #ifndef __POWER_TRACE_BUILDER_H__
 #define __POWER_TRACE_BUILDER_H__
 
+#include <llvm/IR/Metadata.h>
+
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -30,8 +32,6 @@
 #include "FBVClock.h"
 #include "TraceBuilder.h"
 #include "MRef.h"
-
-#include <llvm/IR/Metadata.h>
 
 /* A POWERARMTraceBuilder is a TraceBuilder for the POWER or ARM
  * memory models. POWERARMTraceBuilder is an abstract class, inherited

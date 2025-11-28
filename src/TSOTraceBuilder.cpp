@@ -26,6 +26,9 @@
 #include <limits>
 #include <sstream>
 #include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
 
 #define ANSIRed "\x1b[91m"
 #define ANSIRst "\x1b[m"
@@ -1809,8 +1812,7 @@ static bool symev_does_load(const SymEv &e) {
 
 TSOTraceBuilder::obs_wake_res
 TSOTraceBuilder::obs_sleep_wake(struct obs_sleep &sleep,
-                                IPid p, const sym_ty &sym) const{
-
+                                IPid p, const sym_ty &sym) const {
   if (conf.dpor_algorithm == Configuration::OBSERVERS) {
     for (const SymEv &e : sym) {
       /* Now check for readers */

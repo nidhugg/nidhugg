@@ -28,6 +28,7 @@
 #include <fstream>
 #include <locale>
 #include <set>
+#include <string>
 #include <utility>
 #include <vector>
 

@@ -19,6 +19,8 @@
 
 #include <config.h>
 
+#include <string>
+
 #include "GlobalContext.h"
 
 #ifdef HAVE_BOOST_UNIT_TEST_FRAMEWORK

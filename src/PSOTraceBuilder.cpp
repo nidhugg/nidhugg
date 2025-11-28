@@ -24,6 +24,8 @@
 #include <algorithm>
 #include <sstream>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 PSOTraceBuilder::PSOTraceBuilder(const Configuration &conf) : TSOPSOTraceBuilder(conf) {
   threads.push_back(Thread(0,CPid(),{},-1));

@@ -22,6 +22,11 @@
 #ifndef __TSO_PSO_TRACE_BUILDER_H__
 #define __TSO_PSO_TRACE_BUILDER_H__
 
+#include <llvm/IR/Metadata.h>
+
+#include <string>
+#include <vector>
+
 #include "Configuration.h"
 #include "SymAddr.h"
 #include "RMWAction.h"
@@ -29,11 +34,6 @@
 #include "Trace.h"
 #include "DetCheckTraceBuilder.h"
 #include "CompilerHelp.h"
-
-#include <string>
-#include <vector>
-
-#include <llvm/IR/Metadata.h>
 
 /*  === Thread Identification ===
  *

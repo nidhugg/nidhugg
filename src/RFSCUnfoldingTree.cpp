@@ -21,6 +21,9 @@
 #include "Debug.h"
 #include "RFSCUnfoldingTree.h"
 
+#include <memory>
+#include <utility>
+
 SeqnoRoot RFSCUnfoldingTree::unf_ctr_root{};
 thread_local Seqno RFSCUnfoldingTree::unf_ctr{unf_ctr_root};
 

@@ -39,6 +39,7 @@
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
 #include <string>
+#include <utility>
 #include <vector>
 
 void AssumeAwaitPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const {

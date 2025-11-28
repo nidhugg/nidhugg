@@ -42,6 +42,10 @@
 #include <llvm/IR/LLVMContext.h>
 
 #include <cstring>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 /// Create a new interpreter object.
 ///

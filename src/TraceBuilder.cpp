@@ -19,6 +19,8 @@
 
 #include "TraceBuilder.h"
 
+#include <string>
+
 TraceBuilder::TraceBuilder(const Configuration &C) : conf(C) {
 }
 

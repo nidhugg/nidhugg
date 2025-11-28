@@ -48,11 +48,15 @@
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/ManagedStatic.h>
 #include <llvm/Support/Mutex.h>
+
 #include <cmath>
 #include <csignal>
 #include <cstdio>
 #include <cstring>
 #include <map>
+#include <string>
+#include <utility>
+#include <vector>
 
 #ifdef HAVE_LIBFFI
 #ifdef HAVE_FFI_H

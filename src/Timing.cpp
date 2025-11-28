@@ -27,6 +27,7 @@
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
+#include <string>
 #include <vector>
 
 namespace Timing {

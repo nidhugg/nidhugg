@@ -22,6 +22,7 @@
 #include "FBVClock.h"
 
 #include <algorithm>
+#include <string>
 
 BVClock BVClock::operator+(const BVClock &vc) const{
   Debug::warn("BVClock")

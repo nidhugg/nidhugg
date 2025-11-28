@@ -32,9 +32,13 @@
 #include <cfloat>
 #include <fstream>
 #include <iomanip>
+#include <memory>
 #include <queue>
 #include <stdexcept>
+#include <string>
 #include <thread>
+#include <utility>
+#include <vector>
 
 #include "CheckModule.h"
 #include "Debug.h"

@@ -23,7 +23,9 @@
 #include <map>
 #include <set>
 #include <sstream>
+#include <string>
 #include <utility>
+#include <vector>
 
 Trace::Trace(const std::vector<Error*> &errors, bool blk)
   : errors(errors), blocked(blk) {

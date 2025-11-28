@@ -18,7 +18,10 @@
  */
 
 #include <config.h>
+
 #ifdef HAVE_BOOST_UNIT_TEST_FRAMEWORK
+#include <memory>
+#include <string>
 
 #include "DPORDriver.h"
 #include "DPORDriver_test.h"
