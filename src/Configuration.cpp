@@ -20,6 +20,11 @@
 #include "Configuration.h"
 
 #include <llvm/Support/CommandLine.h>
+
+#include <memory>
+#include <set>
+#include <string>
+
 #include "Debug.h"
 #include "SmtlibSatSolver.h"
 

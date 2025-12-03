@@ -51,6 +51,10 @@
 #include <llvm/IR/Module.h>
 
 #include <cstring>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 using llvm::Interpreter;
 using llvm::GenericValue;

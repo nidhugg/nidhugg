@@ -17,16 +17,17 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#include "CheckModule.h"
 #include "LoopBoundPass.h"
-#include "SpinAssumePass.h"
-
-#include <sstream>
 
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Transforms/Utils/Cloning.h>
+
+#include <sstream>
+
+#include "CheckModule.h"
+#include "SpinAssumePass.h"
 
 namespace {
   llvm::CallInst *insertAssume(llvm::Value *cond, llvm::Instruction *before) {

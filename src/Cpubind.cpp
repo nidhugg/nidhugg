@@ -22,8 +22,10 @@
 #ifdef HAVE_HWLOC
 
 #include <llvm/Support/CommandLine.h>
+
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace {
 static llvm::cl::opt<bool>

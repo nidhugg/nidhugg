@@ -26,7 +26,9 @@
 #include <llvm/IR/Verifier.h>
 #include <llvm/Transforms/Utils.h>
 
+#include <algorithm>
 #include <stdexcept>
+#include <string>
 
 #include "AddLibPass.h"
 #include "AssumeAwaitPass.h"

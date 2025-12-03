@@ -20,7 +20,11 @@
 #include "SaturatedGraph.h"
 
 #include "Timing.h"
+
 #include <iostream>
+#include <string>
+#include <utility>
+#include <vector>
 
 #ifdef TRACE
 #  define IFTRACE(X) X

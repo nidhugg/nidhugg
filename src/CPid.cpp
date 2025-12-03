@@ -21,6 +21,8 @@
 
 #include <cassert>
 #include <sstream>
+#include <string>
+#include <vector>
 
 CPid::CPid() : aux_idx(-1) {}
 

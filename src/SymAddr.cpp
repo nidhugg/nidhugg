@@ -19,6 +19,9 @@
 
 #include "SymAddr.h"
 
+#include <string>
+#include <utility>
+
 std::string SymMBlock::to_string(std::function<std::string(int)> pid_str) const {
   std::string ret;
   if (is_null()) return "Null()";

@@ -20,6 +20,9 @@
 #include "FBVClock.h"
 
 #include <cassert>
+#include <string>
+#include <utility>
+#include <vector>
 
 std::vector<FBVClock::ClockSystem> FBVClock::sys;
 
