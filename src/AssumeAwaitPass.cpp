@@ -21,6 +21,7 @@
 
 #include "AwaitCond.h"
 #include "Debug.h"
+#include "LLVMUtils.h"
 #include "SpinAssumePass.h"
 
 #include <llvm/Config/llvm-config.h>
@@ -367,7 +368,7 @@ bool AssumeAwaitPass::tryRewriteAssume(llvm::Function *F, llvm::BasicBlock *BB, 
       llvm::BranchInst::Create(Last, AwaitBB);
       Phi = llvm::PHINode::Create(Load->getType(), 2,
                                   concat_if(Load->getName(), ".merge"),
-                                  &*Last->getFirstInsertionPt());
+                                  LLVMUtils::getPhiInsertionPosition(Last));
       Load->replaceAllUsesWith(Phi);
       Phi->addIncoming(Load, NoAwaitBB);
       llvm::BranchInst *BadBr = llvm::cast<llvm::BranchInst>(First->getTerminator());
