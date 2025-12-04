@@ -28,6 +28,8 @@
 #include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 
+#include "LLVMUtils.h"
+
 namespace {
   llvm::CallInst *insertAssume(llvm::Value *cond, llvm::Instruction *before) {
     llvm::Function *F_assume = before->getParent()->getParent()->getParent()
@@ -53,7 +55,7 @@ bool LoopBoundPass::runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM){
   auto preds = llvm::predecessors(header);
   llvm::PHINode *ctr = llvm::PHINode::Create
     (i32, std::distance(preds.begin(), preds.end()), "loop.bound.ctr",
-     &*header->begin());
+     LLVMUtils::getPhiInsertionPosition(header));
   llvm::Instruction *I = &*header->getFirstInsertionPt();
   llvm::BinaryOperator *ctr_plus_one = llvm::BinaryOperator::Create
     (llvm::BinaryOperator::BinaryOps::Sub, ctr, llvm::ConstantInt::get(i32, 1),

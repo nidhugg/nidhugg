@@ -54,6 +54,7 @@
 
 #include "CheckModule.h"
 #include "Debug.h"
+#include "LLVMUtils.h"
 #include "Option.h"
 #include "SpinAssumePass.h"
 #include "vecset.h"
@@ -1451,7 +1452,7 @@ namespace {
     }
     llvm::PHINode *PHI = llvm::PHINode::Create
       (V->getType(), prev.size(), V->getName() + ".in." + BB->getName(),
-       &*BB->getFirstInsertionPt());
+       LLVMUtils::getPhiInsertionPosition(BB));
     for (const auto &pair : prev) PHI->addIncoming(pair.second, pair.first);
     return PHI;
   }
@@ -1478,7 +1479,7 @@ namespace {
     }
     llvm::PHINode *PHI = llvm::PHINode::Create
       (True->getType(), prev.size(), "plp_inner_mon." + BB->getName(),
-       &*BB->getFirstInsertionPt());
+       LLVMUtils::getPhiInsertionPosition(BB));
     // PHI->setMetadata("plp", llvm::MDString::get(BB->getContext(), "pure"));
     for (const auto &pair : prev) PHI->addIncoming(pair.second, pair.first);
     return PHI;
