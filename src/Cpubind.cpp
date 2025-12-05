@@ -47,15 +47,6 @@ cl_pack("cpubind-pack", llvm::cl::NotHidden, llvm::cl::init(HWLOC_OBJ_CORE),
                         ,clEnumValN(HWLOC_OBJ_PACKAGE,"package","Package")
                         ,clEnumValN(HWLOC_OBJ_MACHINE,"machine","Machine (maximum spread)")));
 
-  std::string bitmap_to_string(hwloc_bitmap_t bitmap) {
-    std::string str;
-    int length = hwloc_bitmap_list_snprintf(NULL, 0, bitmap);
-    str.resize(length+1);
-    hwloc_bitmap_list_snprintf(&str[0], length+1, bitmap);
-    str.resize(length);
-    return str;
-  }
-
   int count_children(hwloc_obj_t obj) {
     if (obj->type == HWLOC_OBJ_PU) return 1;
     int sum = 0;
