@@ -23,8 +23,8 @@ Nidhugg can be compiled and installed on UNIX-like systems.
 Requirements
 ============
 
-   1. A C++ compiler supporting C++14. For example g++ version 6 or
-      higher, or clang++ version 3.8 or higher. (For compiling the
+   1. A C++ compiler supporting C++17. For example g++ version 8 or
+      higher, or clang++ version 8 or higher. (For compiling the
       tool Nidhugg.)
 
    2. The C compiler clang. (For use by Nidhugg as a frontend for C
@@ -36,10 +36,10 @@ Requirements
 
    5. Python version 3.0 or higher.
 
-   6. The LLVM library and headers, version 3.8 or higher. The ARM and
-      POWER memory models are not supported when using LLVM version 15
-      and higher. If you are compiling the LLVM library from sources,
-      see Compiling LLVM below.
+   6. The LLVM library and headers; supported versions are 8 to 19.
+      The ARM and POWER memory models are not supported when using
+      LLVM version 15 and higher. If you are compiling the LLVM
+      library from sources, see Compiling LLVM below.
 
    7. Foreign Function Interface (libffi) library and headers.
 
@@ -61,12 +61,12 @@ For Users of Debian-like Systems
    the requirements by installing the following packages:
 
    Mandatory:
-   clang, libc6, libc6-dev, libstdc++6, autoconf, automake, python3,
-   llvm, llvm-dev, libffi-dev, libboost-test-dev, libboost-system-dev,
-   pkg-config
+   autoconf, automake, clang, libc6, libc6-dev, libstdc++6, python3,
+   llvm, llvm-dev, libboost-dev, libboost-system-dev, libboost-test-dev,
+   libffi-dev, pkg-config
 
    Optional:
-   valgrind, texlive-latex-base, texlive-base
+   pkg-config, texlive-base, texlive-latex-base, valgrind
 
 Getting Nidhugg
 ===============
@@ -131,12 +131,12 @@ Specifying Compiler
    When the configure script is invoked, it will by GNU autotools
    magic determine which C++ compiler will be used during
    compilation. In case e.g. your default compiler does not support
-   C++14, but you have the compiler g++-6 installed at a
+   C++17, but you have the compiler g++-12 installed at a
    non-standard location you may want to override this. In order to do
-   so, specify the path to g++-6 in CXX when invoking the
+   so, specify the path to g++-12 in CXX when invoking the
    './configure' command:
 
-   $ ./configure CXX='/path/to/g++-6'
+   $ ./configure CXX='/path/to/g++-12'
 
 Specifying LLVM Installation
 ----------------------------

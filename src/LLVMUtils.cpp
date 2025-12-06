@@ -58,4 +58,12 @@ namespace LLVMUtils {
 #endif
 #endif
   }
+
+  PhiInsertPosition getPhiInsertionPosition(llvm::BasicBlock *BB) {
+#if LLVM_VERSION_MAJOR >= 19
+    return BB->getFirstNonPHIIt();
+#else
+    return &*BB->getFirstInsertionPt();
+#endif
+  }
 }  // namespace LLVMUtils

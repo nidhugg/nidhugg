@@ -24,11 +24,20 @@
 
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
+#include <llvm/IR/Instruction.h>
 
 namespace LLVMUtils {
   llvm::Type* getPthreadTType(const llvm::Module *M,
                               llvm::PointerType *PthreadTPtr);
-};
 
+  using PhiInsertPosition =
+#if LLVM_VERSION_MAJOR >= 19
+    llvm::InsertPosition;
+#else
+    llvm::Instruction*;
+#endif
+
+  PhiInsertPosition getPhiInsertionPosition(llvm::BasicBlock *BB);
+};  // namespace LLVMUtils
 
 #endif /* !defined(__LLVM_UTILS_H__) */
