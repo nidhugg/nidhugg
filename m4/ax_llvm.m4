@@ -62,9 +62,18 @@ AC_DEFUN([AX_LLVM],
       fi
     fi
 
-    CPPFLAGS="$CPPFLAGS `$LLVMCONFIG --cppflags`"
-    CFLAGS="$CFLAGS `$LLVMCONFIG --cflags`"
-    CXXFLAGS="$CXXFLAGS `$LLVMCONFIG --cxxflags`"
+    LLVM_CPPFLAGS=`$LLVMCONFIG --cppflags | sed 's/-I\//-isystem \//g'`
+    LLVM_CFLAGS=`$LLVMCONFIG --cflags | sed 's/-I\//-isystem \//g'`
+    LLVM_CXXFLAGS=`$LLVMCONFIG --cxxflags | sed 's/-I\//-isystem \//g'`
+    GCC_MAJOR=`$CXX -dumpversion 2>/dev/null | cut -d. -f1`
+    if test -n "$GCC_MAJOR" && test -d "/usr/include/c++/$GCC_MAJOR"; then
+      STDCXX_ISYSTEM="-isystem /usr/include/c++/$GCC_MAJOR -isystem /usr/include/x86_64-linux-gnu/c++/$GCC_MAJOR"
+    else
+      STDCXX_ISYSTEM=""
+    fi
+    CPPFLAGS="$CPPFLAGS $STDCXX_ISYSTEM $LLVM_CPPFLAGS"
+    CFLAGS="$CFLAGS $STDCXX_ISYSTEM $LLVM_CFLAGS"
+    CXXFLAGS="$CXXFLAGS $STDCXX_ISYSTEM $LLVM_CXXFLAGS"
     LLVMLDFLAGS=`$LLVMCONFIG --ldflags`
     LLVMLIBS=`$LLVMCONFIG --libs`
     SYSLIBS=`$LLVMCONFIG --system-libs 2>/dev/null`
