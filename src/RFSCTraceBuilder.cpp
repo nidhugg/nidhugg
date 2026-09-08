@@ -382,7 +382,7 @@ void RFSCTraceBuilder::debug_print() const {
 
 bool RFSCTraceBuilder::spawn(){
   curev().may_conflict = true;
-  if (!record_symbolic(SymEv::Spawn(threads.size() - 1))) return false;
+  if (!record_symbolic(SymEv::Spawn(threads.size()))) return false;
   IPid parent_ipid = curev().iid.get_pid();
   CPid child_cpid = CPS.spawn(threads[parent_ipid].cpid);
   threads.push_back(Thread(child_cpid,prefix_idx));
@@ -885,6 +885,16 @@ void RFSCTraceBuilder::compute_unfolding() {
     const RFSCUnfoldingTree::NodePtr *read_from = &null_ptr;
     if (prefix[i].read_from && *prefix[i].read_from != -1) {
       read_from = &prefix[*prefix[i].read_from].event;
+    }
+
+    if (prefix[i].sym.kind == SymEv::kind::JOIN) {
+      /* We encode a thread join using the read_from pointer in the
+       * unfolding tree */
+      assert(read_from == &null_ptr);
+      IPid thread = prefix[i].sym.num();
+      assert(!threads[thread].event_indices.empty());
+      unsigned last_index = threads[thread].event_indices.back();
+      read_from = &prefix[last_index].event;
     }
 
     prefix[i].event = unfolding_tree.find_unfolding_node
