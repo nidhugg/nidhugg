@@ -1,6 +1,6 @@
 # Results of run nidhugg "count-weak-trace" on all C tests.
 # Nidhugg 0.2 (e27cc312, Release, with LLVM-5.0.2:Release)
-# nidhuggc --sc TEST.c 
+# nidhuggc --sc TEST.c
 # The tests where executed using test-nidhugg.py.
 # Date: 180723-17:16
 
