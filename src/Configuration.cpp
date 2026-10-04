@@ -323,8 +323,7 @@ void Configuration::check_commandline(){
     }
     if ((cl_dpor_algorithm == Configuration::OPTIMAL
          || cl_dpor_algorithm == Configuration::OBSERVERS)
-        && cl_memory_model != Configuration::SC
-        && cl_memory_model != Configuration::TSO) {
+        && cl_memory_model != Configuration::SC) {
       Debug::warn("Configuration::check_commandline:dpor:mm")
         << "WARNING: Optimal-DPOR not implemented for memory model " << mm << ".\n";
     }
