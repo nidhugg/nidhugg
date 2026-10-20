@@ -35,7 +35,7 @@ RUN \
     apt-get --no-install-recommends -y install \
       clang \
       libboost-system1.83.0 \
-      libllvm14 \
+      libllvm18 \
       python3 \
       vim-tiny && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
