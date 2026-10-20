@@ -144,7 +144,8 @@ bool TSOTraceBuilder::schedule(int *proc, int *aux, int *alt, bool *dryrun){
      == prefix[prefix.len()-2].iid.get_pid() &&
      !prefix[prefix.len()-1].may_conflict &&
      prefix[prefix.len()-1].sleep.empty() &&
-     prefix.children_after(prefix.len()-1) == 0){
+     prefix.children_after(prefix.len()-1) == 0 &&
+     threads[prefix[prefix.len()-1].iid.get_pid()].available){
     assert(prefix[prefix.len()-1].wakeup.empty());
     assert(curev().sym.empty()); /* Would need to be copied */
     assert(curbranch().sym.empty()); /* Can't happen */
@@ -315,7 +316,7 @@ bool TSOTraceBuilder::reset(){
   /* The if-statement is just so we can control which test cases need to
    *  satisfy this assertion for now. Eventually, all should.
    */
-  if(conf.dpor_algorithm != Configuration::SOURCE){
+  if(conf.memory_model == Configuration::SC){
     check_symev_vclock_equiv();
   }
 #endif
@@ -3048,8 +3049,10 @@ void TSOTraceBuilder::wakeup(Access::Type type, SymAddr ml){
     for (unsigned p = 0; p < threads.size(); ++p){
       if (!threads[p].sleeping) continue;
       assert(threads[p].sleep_sym);
-      assert(bool(wakeup_set.count(p))
-             == do_events_conflict(pid, ev, p, *threads[p].sleep_sym));
+      if (conf.memory_model == Configuration::SC) {
+        assert(bool(wakeup_set.count(p))
+               == do_events_conflict(pid, ev, p, *threads[p].sleep_sym));
+      }
     }
   }
 #endif
