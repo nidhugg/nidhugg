@@ -12,6 +12,7 @@ n_writes_a_read_two_threads_1 Forbid : 3
 n_writes_a_read_two_threads_2 Forbid : 5
 n_writes_a_read_two_threads_3 Forbid : 7
 n_writes_a_read_two_threads_4 Forbid : 9
+n_writes_a_read_two_threads_flat Forbid : 3
 readers_1 Forbid : 2
 readers_2 Forbid : 4
 readers_3 Forbid : 8
