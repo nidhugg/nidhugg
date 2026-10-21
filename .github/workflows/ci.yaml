@@ -53,7 +53,7 @@ jobs:
       matrix:
         include:
           - llvm: "19.1.7"
-            ubuntu: 22
+            ubuntu: 24
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
