@@ -1,4 +1,4 @@
-FROM ubuntu:22.04 AS build
+FROM ubuntu:24.04 AS build
 
 RUN \
     apt-get update && \
@@ -29,13 +29,13 @@ RUN \
     make -j6 && \
     make install"
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 RUN \
     apt-get update && \
     apt-get --no-install-recommends -y install \
       clang \
-      libboost-system1.74.0 \
-      libllvm14 \
+      libboost-system1.83.0 \
+      libllvm18 \
       python3 \
       vim-tiny && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
