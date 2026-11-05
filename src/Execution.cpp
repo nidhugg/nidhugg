@@ -1340,6 +1340,12 @@ void Interpreter::visitAnyCallInst(AnyCallInst CI) {
     case Intrinsic::vacopy:   // va_copy: dest = src
       SetValue(&CI, getOperandValue(*CI.arg_begin(), SF), SF);
       return;
+#if LLVM_VERSION_MAJOR >= 16
+    case Intrinsic::threadlocal_address:
+      // getOperandValue resolves thread-local globals for the current thread.
+      SetValue(&CI, getOperandValue(*CI.arg_begin(), SF), SF);
+      return;
+#endif
     default:
       {
         if(F->getName().str() == "llvm.dbg.value"){
@@ -3280,6 +3286,9 @@ bool Interpreter::isUnknownIntrinsic(Instruction &I){
     Function *F = CI->getCalledFunction();
     if(F && F->isDeclaration() &&
        F->getIntrinsicID() != Intrinsic::not_intrinsic &&
+#if LLVM_VERSION_MAJOR >= 16
+       F->getIntrinsicID() != Intrinsic::threadlocal_address &&
+#endif
        F->getIntrinsicID() != Intrinsic::vastart &&
        F->getIntrinsicID() != Intrinsic::vaend &&
        F->getIntrinsicID() != Intrinsic::vacopy){
