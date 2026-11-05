@@ -1535,6 +1535,60 @@ declare i8* @memcpy(i8*, i8*, i64)
   // BOOST_CHECK(opt_res.has_errors());
 }
 
+BOOST_AUTO_TEST_CASE(n_writes_a_read_two_threads_flat){
+  Configuration conf = DPORDriver_test::get_tso_conf();
+  std::string module = StrModule::portasm(R"(
+@x = global i32 0, align 4
+
+define i8* @thr1(i8* %arg){
+  store volatile i32 1, i32* @x, align 4
+  call void @pthread_exit(i8* null)
+  unreachable
+}
+
+define i8* @thr2(i8* %arg){
+  store volatile i32 2, i32* @x, align 4
+  %1 = load volatile i32, i32* @x, align 4
+  call void @pthread_exit(i8* null)
+  unreachable
+}
+
+define i32 @main(){
+  %1 = alloca i64, align 8
+  %2 = alloca i64, align 8
+  %3 = bitcast i64* %1 to i8*
+  %4 = bitcast i64* %2 to i8*
+  %5 = call i32 @pthread_create(i64* %1, %union.pthread_attr_t* null, i8*(i8*)* @thr1, i8* null)
+  %6 = call i32 @pthread_create(i64* %2, %union.pthread_attr_t* null, i8*(i8*)* @thr2, i8* null)
+  %7 = load i64, i64* %1, align 8
+  %8 = call i32 @pthread_join(i64 %7, i8** null)
+  %9 = load i64, i64* %2, align 8
+  %10 = call i32 @pthread_join(i64 %9, i8** null)
+  ret i32 0
+}
+
+%union.pthread_attr_t = type { i64, [48 x i8] }
+declare void @pthread_exit(i8*) noreturn nounwind
+declare i32 @pthread_create(i64*, %union.pthread_attr_t*, i8*(i8*)*, i8*) nounwind
+declare i32 @pthread_join(i64, i8**) nounwind
+)");
+  DPORDriver *driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result res = driver->run();
+
+  BOOST_CHECK(res.all_traces.size() == 4);
+
+  delete driver;
+
+  conf.dpor_algorithm = Configuration::OPTIMAL;
+  driver = DPORDriver::parseIR(module,conf);
+  DPORDriver::Result opt_res = driver->run();
+
+  BOOST_CHECK(opt_res.all_traces.size() == 3);
+
+  delete driver;
+  BOOST_CHECK(DPORDriver_test::check_optimal_equiv(res, opt_res, conf));
+}
+
 
 BOOST_AUTO_TEST_SUITE_END()
 
