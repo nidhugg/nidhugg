@@ -1,4 +1,4 @@
-FROM ubuntu:22.04 AS build
+FROM ubuntu:24.04 AS build
 
 RUN \
     apt-get update && \
@@ -13,61 +13,66 @@ RUN \
       autoconf \
       automake \
       python3 \
+      pkg-config \
       libffi-dev \
       libz-dev \
       xz-utils \
+      git \
       cmake \
       make \
       ninja-build
 
-ADD https://github.com/llvm/llvm-project/releases/download/llvmorg-14.0.6/llvm-14.0.6.src.tar.xz /
+ADD https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.3/llvm-18.1.3.src.tar.xz /
+ADD https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.3/cmake-18.1.3.src.tar.xz /
+ADD https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.3/third-party-18.1.3.src.tar.xz /
 
-# We have to add -DLLVM_INCLUDE_BENCHMARKS=OFF to workaround an issue in
-# llvm14. Hopefully, we can get rid of that when bumping llvm again.
 RUN \
     /bin/bash -c \
     "cd / && \
-     tar xf llvm-14.0.6.src.tar.xz && \
+     tar xf llvm-18.1.3.src.tar.xz && \
+     tar xf cmake-18.1.3.src.tar.xz && \
+     mv /cmake-18.1.3.src /cmake && \
+     tar xf third-party-18.1.3.src.tar.xz && \
+     mv /third-party-18.1.3.src /third-party && \
      cmake -DCMAKE_INSTALL_PREFIX=/usr/local/ \
            -DCMAKE_BUILD_TYPE=MinSizeRel      \
            -DLLVM_TARGETS_TO_BUILD=""         \
-           -DLLVM_INCLUDE_BENCHMARKS=OFF      \
            -DLLVM_LINK_LLVM_DYLIB=ON          \
            -DLLVM_ENABLE_ASSERTIONS=ON        \
-           -DCMAKE_INSTALL_PREFIX=/usr/local  \
+           -DLLVM_ABI_BREAKING_CHECKS=FORCE_OFF \
            -GNinja                            \
-           -S /llvm-14.0.6.src                \
+           -S /llvm-18.1.3.src                \
            -B /build                       && \
      cmake --build /build && \
      cmake --install /build && \
-     rm -r /build/ /llvm-14.0.6.src/ && \
-     strip /usr/local/lib/libLLVM-14.0.6.so /usr/local/bin/llvm-link"
+     rm -r /build/ /llvm-18.1.3.src/ /cmake/ /third-party/ && \
+     strip /usr/local/lib/libLLVM-18.so /usr/local/bin/llvm-link"
 
 COPY . /nidhugg
 
 RUN \
     /bin/bash -c \
     "cd /nidhugg && \
-    autoreconf --install && \
-    ./configure --prefix=/usr/local/ --enable-asserts CXXFLAGS='-Og -g' \
+     autoreconf --install && \
+     ./configure --prefix=/usr/local/ --enable-asserts CXXFLAGS='-Og -g' \
                 LDFLAGS='-g -Wl,-rpath=/usr/local/lib/' && \
-    make -Csrc -j$(nproc) nidhugg unittest && \
-    make install && \
-    install src/unittest /usr/local/bin/nidhugg-unittest && \
-    strip /usr/local/bin/nidhugg-unittest"
+     make -Csrc -j$(nproc) nidhugg unittest && \
+     make install && \
+     install src/unittest /usr/local/bin/nidhugg-unittest && \
+     strip /usr/local/bin/nidhugg-unittest"
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 RUN \
     apt-get update && \
     apt-get --no-install-recommends -y install \
       clang \
-      libboost-system1.74.0 \
-      libboost-test1.74.0 \
+      libboost-system1.83.0 \
+      libboost-test1.83.0 \
       python3 \
       vim-tiny && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-COPY --from=build /usr/local/lib/libLLVM-14*.so /usr/local/lib/
+COPY --from=build /usr/local/lib/libLLVM-18*.so /usr/local/lib/
 COPY --from=build /usr/local/bin/llvm-link /usr/local/bin/
 COPY --from=build /usr/local/bin/nidhugg* /usr/local/bin/
 WORKDIR /root

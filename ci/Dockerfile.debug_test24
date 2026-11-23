@@ -1,4 +1,4 @@
-FROM ubuntu:22.04 AS build
+FROM ubuntu:24.04 AS build
 ARG LLVM_VERSION=19.1.7
 
 # COPY ci/install_deps.sh /ci/
